@@ -1,0 +1,106 @@
+import { useEffect, useRef } from "react";
+import type { ReactElement } from "react";
+import type { WidgetIcon } from "@agent-sdk";
+import styles from "./SidebarHeader.module.scss";
+import { AIControlBar } from "./AIControlBar";
+import { SidebarSide } from "../../hooks/useSidebarState";
+
+// ── Icon renderer (framework-agnostic: emoji string | URL | DOM/SVG node) ─────
+
+function isUrl(s: string): boolean {
+  return (
+    /^https?:\/\//i.test(s) ||
+    /^data:image\//i.test(s) ||
+    /\.(?:png|jpe?g|gif|webp|svg|avif|ico)$/i.test(s)
+  );
+}
+
+function DomIconNode({
+  node,
+}: {
+  node: HTMLElement | SVGElement;
+}): ReactElement {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.innerHTML = "";
+    el.appendChild(node.cloneNode(true));
+  }, [node]);
+  return <span className={styles["icon-node"]} ref={ref} />;
+}
+
+function IconNode({ icon }: { icon: WidgetIcon }): ReactElement {
+  if (typeof icon === "string" && isUrl(icon)) {
+    return (
+      <img
+        className={styles["icon-img"]}
+        src={icon}
+        alt=""
+        aria-hidden="true"
+      />
+    );
+  }
+  if (typeof icon === "string") {
+    return (
+      <span className={styles["icon-emoji"]} aria-hidden="true">
+        {icon}
+      </span>
+    );
+  }
+  return <DomIconNode node={icon} />;
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+interface SidebarHeaderProps {
+  icon?: WidgetIcon;
+  side: SidebarSide;
+  onToggleSide: () => void;
+  onToggleOpen: () => void;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function SidebarHeader({
+  icon,
+  side,
+  onToggleSide,
+  onToggleOpen,
+}: SidebarHeaderProps): ReactElement {
+  const collapseTitle = side === "right" ? "Collapse right" : "Collapse left";
+  const collapseIcon = side === "right" ? "›" : "‹";
+  const switchTitle =
+    side === "right" ? "Move to left side" : "Move to right side";
+  const switchIcon = side === "right" ? "⇤" : "⇥";
+
+  return (
+    <div className={styles["header"]}>
+      <div className={styles["identity"]}>
+        {icon && <IconNode icon={icon} />}
+        <span className={styles["title"]}>Agent</span>
+        <AIControlBar />
+      </div>
+      <div className={styles["controls"]}>
+        <button
+          type="button"
+          className={styles["ctrl-btn"]}
+          onClick={onToggleSide}
+          title={switchTitle}
+          aria-label={switchTitle}
+        >
+          {switchIcon}
+        </button>
+        <button
+          type="button"
+          className={styles["ctrl-btn"]}
+          onClick={onToggleOpen}
+          title={collapseTitle}
+          aria-label={collapseTitle}
+        >
+          {collapseIcon}
+        </button>
+      </div>
+    </div>
+  );
+}

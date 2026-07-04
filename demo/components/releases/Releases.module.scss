@@ -1,0 +1,407 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+// ── Definitions panel ─────────────────────────────────────────────────────────
+
+.defsPanel {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.defsPanelHeader {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.defSearch {
+  width: 100%;
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  transition: border-color 0.15s;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+
+  &:focus {
+    border-color: var(--blue);
+  }
+}
+
+.defList {
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+
+.defItem {
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
+  }
+}
+
+.defItemActive {
+  background: var(--blue-subtle);
+  border-left: 2px solid var(--blue);
+}
+
+.defName {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.defMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.defPath {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.defModBy {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+// ── Releases panel ────────────────────────────────────────────────────────────
+
+.releasesPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.releasesHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.releasesTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  h2 {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.releasesPath {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.releasesActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.statusFilter {
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  cursor: pointer;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  option {
+    background: var(--bg-elevated);
+  }
+}
+
+.createBtn {
+  padding: 6px var(--sp-4);
+  background: var(--green);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: #35a743;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.releasesList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+// ── Release card ──────────────────────────────────────────────────────────────
+
+.releaseCard {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--border);
+  }
+}
+
+.releaseCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  gap: var(--sp-3);
+}
+
+.releaseCardLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.chevron {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.releaseName {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.releaseBadge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.statusActive {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+}
+
+.statusAbandoned {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+}
+
+.statusDraft {
+  background: var(--yellow-subtle);
+  color: var(--yellow-light);
+}
+
+.statusDefault {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.releaseCardRight {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.releaseBy,
+.releaseDate {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.releaseLink {
+  font-size: var(--font-sm);
+  color: var(--blue-light);
+  text-decoration: none;
+  padding: 2px 4px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ── Environment pipeline ──────────────────────────────────────────────────────
+
+.envPipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 var(--sp-4) var(--sp-3);
+  overflow-x: auto;
+  flex-wrap: wrap;
+  gap: 2px;
+
+  &::-webkit-scrollbar {
+    height: 0;
+  }
+}
+
+.envStage {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.envName {
+  font-weight: 500;
+}
+
+.envStatus {
+  font-size: 11px;
+}
+
+.envSucceeded {
+  background: var(--green-subtle);
+  color: var(--green-light);
+  border-color: rgba(86, 211, 100, 0.2);
+}
+
+.envInProgress {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-color: rgba(88, 166, 255, 0.2);
+}
+
+.envFailed {
+  background: var(--red-subtle);
+  color: var(--red-light);
+  border-color: rgba(255, 123, 114, 0.2);
+}
+
+.envPartial {
+  background: var(--yellow-subtle);
+  color: var(--yellow-light);
+  border-color: rgba(227, 179, 65, 0.2);
+}
+
+.envNotStarted {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+// ── Expanded detail ───────────────────────────────────────────────────────────
+
+.releaseDetail {
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.releaseDesc {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.artifactsSection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.artifactsLabel {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.artifactChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+}
+
+.artifactDetail {
+  color: var(--text-muted);
+}

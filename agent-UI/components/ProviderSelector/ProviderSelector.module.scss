@@ -1,0 +1,673 @@
+// ── Provider / model selector ─────────────────────────────────────────────────
+
+.providerBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--bg-hover);
+    border-color: var(--blue-light);
+  }
+}
+
+.providerLabel {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.providerChevron {
+  font-size: 8px;
+  color: var(--text-muted);
+}
+
+.providerMenu {
+  width: 280px;
+}
+
+// Tab bar
+.providerTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.providerTab {
+  flex: 1;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs, 11px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px;
+
+  &:hover { color: var(--text-primary); }
+}
+
+.providerTabActive {
+  color: var(--blue-light);
+  border-bottom-color: var(--blue-light);
+}
+
+// Search box
+.providerSearch {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.providerSearchInput {
+  flex: 1;
+  height: 24px;
+  padding: 0 6px;
+  background: var(--bg-input, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-size: var(--font-xs, 11px);
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #58a6ff);
+  }
+  &::placeholder { color: var(--text-muted); }
+}
+
+.providerSearchClear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  &:hover { color: var(--text-normal); background: var(--bg-hover); }
+}
+
+// Scrollable model list
+.providerList {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+}
+
+.providerEmpty {
+  padding: 16px;
+  text-align: center;
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+}
+
+.providerGroup {
+  & + & {
+    border-top: 1px solid var(--border-subtle, var(--border));
+  }
+}
+
+.providerGroupLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--font-xs, 11px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  cursor: pointer;
+  user-select: none;
+  &:hover { color: var(--text-primary); }
+}
+
+.providerGroupChevron {
+  font-size: 10px;
+  display: inline-block;
+  transition: transform 0.15s;
+  transform: rotate(0deg);
+}
+
+.providerGroupChevronCollapsed {
+  transform: rotate(-90deg);
+}
+
+.providerRefreshBtn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+  &:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+  &:disabled { opacity: 0.4; cursor: default; }
+}
+
+.providerRefreshBtnLoading { color: var(--text-muted); }
+.providerRefreshBtnErr     { color: var(--color-error, #e74c3c); }
+
+.providerDynamicBadge {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--color-accent, #3b82f6);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 16px;
+}
+
+.providerItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px var(--sp-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+
+  &:hover { background: var(--bg-hover); }
+}
+
+.providerItemActive {
+  background: var(--blue-subtle);
+  .providerItemName { color: var(--blue-light); }
+  &:hover { background: var(--bg-active); }
+}
+
+.providerItemName {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.providerItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.providerItemOwner {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle, rgba(128,128,128,0.2));
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+
+.providerItemCtx {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-accent, #3b82f6);
+  letter-spacing: 0.02em;
+}
+
+.providerItemDate {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+// ── API Keys tab ──────────────────────────────────────────────────────────────
+
+.keysList {
+  padding: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.keysNote {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  padding: 6px 12px 4px;
+  margin: 0;
+}
+
+.keyRow {
+  padding: 8px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+
+  &:last-child { border-bottom: none; }
+}
+
+.keyRowHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keyRowIcon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.keyRowLabel {
+  font-size: var(--font-xs, 11px);
+  font-weight: 600;
+  color: var(--text-normal);
+  flex: 1;
+}
+
+.keySet {
+  color: var(--green-light);
+  font-family: monospace;
+  font-size: var(--font-xs, 11px);
+}
+
+.keyUnset {
+  color: var(--text-muted);
+  font-size: var(--font-xs, 11px);
+}
+
+.keyRowInput {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.keyInput {
+  flex: 1;
+  height: 24px;
+  padding: 0 6px;
+  background: var(--bg-input, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-size: var(--font-xs, 11px);
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #58a6ff);
+  }
+  &::placeholder { color: var(--text-muted); }
+}
+
+.keySaveBtn {
+  height: 24px;
+  padding: 0 8px;
+  background: var(--accent, #1f6feb);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: var(--font-xs, 11px);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) { background: var(--accent-emphasis, #388bfd); }
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+
+.keySaveBtnOk  { background: var(--green-light); }
+.keySaveBtnErr { background: var(--red-light); }
+
+.keyClearBtn {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover { background: var(--red-subtle); color: var(--red-light); border-color: var(--red-light); }
+}
+
+// ── Edit Config tab ──────────────────────────────────────────────────────────
+
+.editConfigPane {
+  padding: 8px 12px;
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.editConfigToolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.editConfigBadge {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.editConfigBtn {
+  padding: 6px 12px;
+  background: var(--accent, #1f6feb);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: var(--font-xs, 11px);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { background: var(--accent-emphasis, #388bfd); }
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+
+.editConfigBtnSecondary {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: var(--font-xs, 11px);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { background: var(--bg-hover); }
+}
+
+// ── Custom provider chips ─────────────────────────────────────────────────────
+
+.customProviderList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.customProviderListLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+.customProviderChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-primary);
+}
+
+.customProviderChipRemove {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 0;
+  line-height: 1;
+
+  &:hover { color: var(--red-light); }
+}
+
+// ── Add provider form ─────────────────────────────────────────────────────────
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.addFormField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+}
+
+.addFormInput {
+  height: 24px;
+  padding: 0 6px;
+  background: var(--bg-input, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-size: var(--font-xs, 11px);
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #58a6ff);
+  }
+  &::placeholder { color: var(--text-muted); }
+}
+
+.addFormSelect {
+  height: 24px;
+  padding: 0 6px;
+  background: var(--bg-input, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-size: var(--font-xs, 11px);
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #58a6ff);
+  }
+}
+
+.addFormSmallInput {
+  width: 60px;
+  height: 20px;
+  padding: 0 4px;
+  background: var(--bg-input, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-normal);
+  font-size: 10px;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #58a6ff);
+  }
+}
+
+.addFormModelsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.addFormAddModelBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+
+  &:hover { background: var(--bg-hover); }
+}
+
+.addModelRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.addModelRowFields {
+  display: flex;
+  gap: 4px;
+}
+
+.addModelRowChecks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.addModelCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    margin: 0;
+  }
+}
+
+.addModelRemoveBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+
+  &:hover { color: var(--red-light); }
+}
+
+.addFormActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.addFormError {
+  font-size: 10px;
+  color: var(--red-light);
+  flex: 1;
+}
+
+.addFormSuccess {
+  font-size: 10px;
+  color: var(--green-light);
+  flex: 1;
+}
+
+// ── JSON Editor ───────────────────────────────────────────────────────────────
+
+.jsonEditorSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+.jsonEditorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.jsonEditorActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jsonEditorOk {
+  font-size: 10px;
+  color: var(--green-light);
+}
+
+.jsonEditorErr {
+  font-size: 10px;
+  color: var(--red-light);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jsonEditorTextarea {
+  width: 100%;
+  min-height: 140px;
+  padding: 6px 8px;
+  background: var(--bg-input, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  resize: vertical;
+  tab-size: 2;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent, #58a6ff);
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "id": "plugin-manager",
+  "name": "Plugin Manager",
+  "version": "0.1.0",
+  "description": "Plugin installation and lifecycle management (backend not yet implemented)",
+  "privileged": true
+}

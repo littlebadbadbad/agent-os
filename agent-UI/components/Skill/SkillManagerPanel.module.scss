@@ -1,0 +1,347 @@
+// ── Panel shell ───────────────────────────────────────────────────────────────
+
+.panel {
+  width: 360px;
+  max-height: 500px;
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.panelTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panelHeaderActions {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.syncBtn, .closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-md);
+  transition: background 0.1s, color 0.1s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+// ── Skill list ────────────────────────────────────────────────────────────────
+
+.skillList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-1) 0;
+  min-height: 0;
+}
+
+.empty {
+  padding: var(--sp-4);
+  text-align: center;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.skillRow {
+  border-bottom: 1px solid var(--border-subtle);
+  &:last-child { border-bottom: none; }
+}
+
+.skillMain {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--bg-hover); }
+}
+
+.skillInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.skillName {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skillMeta {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.skillChevron {
+  font-size: 8px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.skillError {
+  padding: 2px var(--sp-3) 4px;
+  font-size: var(--font-xs, 11px);
+  color: var(--red-light);
+}
+
+.skillDetail {
+  padding: 0 var(--sp-3) var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.promptPreview {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 5px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow: hidden;
+}
+
+.skillUpdatedAt {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+// ── Script chips ──────────────────────────────────────────────────────────────
+
+.scriptList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.scriptChip {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: monospace;
+  cursor: default;
+}
+
+// ── Row action buttons ────────────────────────────────────────────────────────
+
+.skillActions {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs, 11px);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  &:not(:disabled):hover { background: var(--bg-hover); color: var(--text-primary); }
+}
+
+.actionBtnDanger {
+  &:not(:disabled):hover {
+    background: var(--red-subtle);
+    color: var(--red-light);
+    border-color: rgba(248, 81, 73, 0.3);
+  }
+}
+
+.actionBtnDangerConfirm {
+  background: var(--red-subtle);
+  color: var(--red-light);
+  border-color: rgba(248, 81, 73, 0.5);
+}
+
+// ── Add skill button ──────────────────────────────────────────────────────────
+
+.addBtn {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--blue-light);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  flex-shrink: 0;
+
+  &:hover { background: var(--bg-hover); }
+}
+
+// ── Add skill form ────────────────────────────────────────────────────────────
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 350px;
+}
+
+.addTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.modeRow {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs, 11px);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  &:disabled { opacity: 0.45; }
+}
+
+.modeBtnActive {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
+.addLabel {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  margin-bottom: -6px;
+}
+
+.addInput {
+  width: 100%;
+  padding: 5px var(--sp-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+
+  &:focus { outline: none; border-color: var(--blue-light); }
+  &:disabled { opacity: 0.5; }
+  &::placeholder { color: var(--text-muted); }
+}
+
+.addTextarea {
+  width: 100%;
+  padding: 5px var(--sp-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-xs, 11px);
+  font-family: monospace;
+  box-sizing: border-box;
+  resize: vertical;
+  transition: border-color 0.15s;
+
+  &:focus { outline: none; border-color: var(--blue-light); }
+  &:disabled { opacity: 0.5; }
+  &::placeholder { color: var(--text-muted); }
+}
+
+.addHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+
+.addError {
+  font-size: var(--font-xs, 11px);
+  color: var(--red-light);
+  background: var(--red-subtle);
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+}
+
+.addActions {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.cancelBtn {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--bg-hover); }
+  &:disabled { opacity: 0.45; }
+}
+
+.submitBtn {
+  padding: 4px 14px;
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover:not(:disabled) { background: var(--bg-active); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}

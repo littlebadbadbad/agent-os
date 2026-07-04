@@ -1,0 +1,308 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.modeToggle {
+  display: flex;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modeBtn {
+  padding: 4px var(--sp-3);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.modeBtnActive {
+  background: var(--blue-subtle);
+  border-color: var(--blue);
+  color: var(--blue-light);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+// ── Shared panel styles ───────────────────────────────────────────────────────
+
+.panelHeader {
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.placeholder {
+  padding: var(--sp-4);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+// ── Plans panel ───────────────────────────────────────────────────────────────
+
+.plansPanel {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.planList {
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+
+.planItem {
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
+  }
+}
+
+.planItemActive {
+  background: var(--blue-subtle);
+  border-left: 2px solid var(--blue);
+}
+
+.planName {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planMeta {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: 4px;
+}
+
+.planState {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.planOwner {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── Runs panel ────────────────────────────────────────────────────────────────
+
+.runsPanel {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.runList {
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+
+.runItem {
+  padding: var(--sp-3);
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
+  }
+}
+
+.runItemActive {
+  background: var(--blue-subtle);
+  border-left: 2px solid var(--blue);
+}
+
+.runName {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.runStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: 4px;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.passed {
+  color: var(--green-light);
+}
+
+.failed {
+  color: var(--red-light);
+}
+
+.passRateGood {
+  color: var(--green-light);
+  font-weight: 600;
+}
+
+.passRateBad {
+  color: var(--red-light);
+  font-weight: 600;
+}
+
+.runDate {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+// ── Results panel ─────────────────────────────────────────────────────────────
+
+.resultsPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.resultsPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.select {
+  padding: 4px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  outline: none;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  option {
+    background: var(--bg-elevated);
+  }
+}
+
+.resultsTable {
+  flex: 1;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-secondary);
+    z-index: 1;
+    text-align: left;
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+}
+
+.resultRow:hover {
+  background: var(--bg-hover);
+}
+
+.resultTitle {
+  color: var(--text-primary);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultDuration,
+.resultRunner,
+.resultSuite {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

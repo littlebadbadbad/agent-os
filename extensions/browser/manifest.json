@@ -1,0 +1,11 @@
+{
+  "id": "browser",
+  "name": "Browser",
+  "version": "0.1.0",
+  "description": "Playwright browser automation",
+  "agentEntry": "activate.js",
+  "backendEntry": "backend.cjs",
+  "uiEntry": "ui/index.html",
+  "privileged": true,
+  "tools": ["browser"]
+}

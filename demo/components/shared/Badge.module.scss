@@ -1,0 +1,98 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+// ── Variants ──────────────────────────────────────────────────────────────────
+
+.default {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+
+  .dot {
+    background: var(--text-muted);
+  }
+}
+
+.blue {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+
+  .dot {
+    background: var(--blue-light);
+  }
+}
+
+.green {
+  background: var(--green-subtle);
+  color: var(--green-light);
+  border: 1px solid rgba(86, 211, 100, 0.2);
+
+  .dot {
+    background: var(--green-light);
+  }
+}
+
+.red {
+  background: var(--red-subtle);
+  color: var(--red-light);
+  border: 1px solid rgba(255, 123, 114, 0.2);
+
+  .dot {
+    background: var(--red-light);
+  }
+}
+
+.yellow {
+  background: var(--yellow-subtle);
+  color: var(--yellow-light);
+  border: 1px solid rgba(227, 179, 65, 0.2);
+
+  .dot {
+    background: var(--yellow-light);
+  }
+}
+
+.orange {
+  background: rgba(219, 109, 40, 0.12);
+  color: var(--orange);
+  border: 1px solid rgba(219, 109, 40, 0.2);
+
+  .dot {
+    background: var(--orange);
+  }
+}
+
+.purple {
+  background: var(--purple-subtle);
+  color: var(--purple);
+  border: 1px solid rgba(188, 140, 255, 0.2);
+
+  .dot {
+    background: var(--purple);
+  }
+}
+
+.muted {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+
+  .dot {
+    background: var(--text-muted);
+  }
+}

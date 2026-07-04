@@ -1,0 +1,14 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border, rgba(128, 128, 128, 0.2));
+  overflow-x: auto;
+  flex-wrap: nowrap;
+
+  &::-webkit-scrollbar {
+    height: 0;
+  }
+}

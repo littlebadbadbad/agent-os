@@ -1,0 +1,802 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.toolbarLabel {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.repoSelector {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.select {
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  option {
+    background: var(--bg-elevated);
+  }
+}
+
+.defaultBranch {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 3px 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+}
+
+.repoLink {
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  padding: 5px var(--sp-3);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.tabActive {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+// ── PRs ───────────────────────────────────────────────────────────────────────
+
+.prsPane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.prsToolbar {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.prList {
+  list-style: none;
+  padding: var(--sp-2) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.prItem {
+  padding: var(--sp-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--border);
+  }
+}
+
+.prTop {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.prId {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.draftBadge {
+  padding: 2px 7px;
+  background: var(--yellow-subtle);
+  color: var(--yellow-light);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+}
+
+.prTitle {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--sp-2);
+}
+
+.prMeta {
+  display: flex;
+  gap: var(--sp-4);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.reviewers {
+  display: flex;
+  gap: 4px;
+  margin-top: var(--sp-2);
+}
+
+.reviewer {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+// ── Commits ───────────────────────────────────────────────────────────────────
+
+.commitList {
+  list-style: none;
+  padding: var(--sp-2) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.commitItem {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.commitTop {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.commitHash {
+  font-family: monospace;
+  font-size: var(--font-xs);
+  color: var(--orange);
+  background: rgba(219, 109, 40, 0.1);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.changeCounts {
+  display: flex;
+  gap: var(--sp-2);
+  font-size: var(--font-xs);
+}
+
+.adds {
+  color: var(--green-light);
+}
+
+.edits {
+  color: var(--blue-light);
+}
+
+.dels {
+  color: var(--red-light);
+}
+
+.commitMsg {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commitMeta {
+  display: flex;
+  gap: var(--sp-4);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+// ── Branches ─────────────────────────────────────────────────────────────────
+
+.branchList {
+  list-style: none;
+  padding: var(--sp-2) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.branchItem {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
+}
+
+.branchName {
+  flex: 1;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.defaultTag {
+  padding: 2px 7px;
+  background: var(--green-subtle);
+  color: var(--green-light);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  flex-shrink: 0;
+}
+
+.branchHash {
+  font-family: monospace;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+// ── PR Threads ────────────────────────────────────────────────────────────────
+
+.threadToggle {
+  margin-left: auto;
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+}
+
+.threadsPanel {
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.threadList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.threadItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.threadComment {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.threadAuthor {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.threadDate {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.threadContent {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+.threadEmpty {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin: 0 0 var(--sp-2);
+}
+
+.threadInput {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+}
+
+.threadTextarea {
+  flex: 1;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  resize: vertical;
+  outline: none;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+.threadSubmit {
+  padding: 6px var(--sp-4);
+  background: var(--blue);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--blue-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ── GitHub-style split layout ─────────────────────────────────────────────────
+
+.ghLayout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+// Left: tree sidebar
+.ghTree {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ghTreeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ghTreeTitle {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.ghRefreshBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.ghTreeScroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sp-1) 0;
+}
+
+.ghTreeEmpty {
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+// Right: content area
+.ghContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ghContentTabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+  padding: 0 var(--sp-2);
+}
+
+.ghContentTab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.ghContentTabActive {
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--blue);
+  font-weight: 500;
+}
+
+.ghCommitCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--bg-hover);
+  border-radius: 9px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ghContentBody {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+// File content
+.ghFileLoading {
+  padding: var(--sp-4);
+}
+
+.ghFileError {
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--red-light);
+  font-size: var(--font-sm);
+}
+
+.ghFileContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ghFilePath {
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-xs);
+  font-family: monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ghFileCode {
+  flex: 1;
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+
+// Commits list in right panel
+.ghCommitList {
+  padding: var(--sp-2) 0;
+}
+
+.ghCommitItem {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.ghCommitTop {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.ghCommitHash {
+  font-family: monospace;
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+.ghChangeCounts {
+  display: flex;
+  gap: 4px;
+  font-size: var(--font-xs);
+}
+
+.ghAdds  { color: var(--green-light); }
+.ghEdits { color: var(--yellow-light, #e6b400); }
+.ghDels  { color: var(--red-light); }
+
+.ghCommitMsg {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ghCommitMeta {
+  display: flex;
+  gap: var(--sp-2);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+// ── Tree row selected state ───────────────────────────────────────────────────
+
+.treeRowSelected {
+  background: color-mix(in srgb, var(--blue) 15%, transparent) !important;
+  color: var(--blue-light) !important;
+}
+
+
+.treeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.treeItem {
+  // noop, layout comes from treeRow
+}
+
+.treeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px var(--sp-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.treeRowDir {
+  color: var(--blue-light);
+  font-weight: 500;
+}
+
+.treeRowFile {
+  color: var(--text-primary);
+}
+
+.treeIcon {
+  font-size: 11px;
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.treeName {
+  font-size: var(--font-sm);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeLoading {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.treeEmpty {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.branchNameClickable {
+  cursor: pointer;
+
+  &:hover {
+    color: var(--blue-light);
+    text-decoration: underline;
+  }
+}
+
+// ── File content panel (legacy, keep for reference) ──────────────────────────
+
+.fileContentLoading {
+  padding: var(--sp-3) var(--sp-4);
+}
+
+// ── Branch selector (toolbar) ─────────────────────────────────────────────────
+
+.branchSelectorWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.branchSearch {
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  width: 200px;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+// ── Files tab: two-column layout ──────────────────────────────────────────────
+
+.filesTab {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.filesBrowseCol {
+  flex: 1 1 60%;
+  min-width: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+
+.filesCommitsCol {
+  flex: 0 0 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.commitsSectionHead {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.commitsScroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+
+

@@ -1,0 +1,1356 @@
+// ── Page layout ───────────────────────────────────────────────────────────────
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--red-subtle);
+  border-bottom: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--red-light);
+  font-size: var(--font-sm);
+}
+
+.cappedBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: color-mix(in srgb, var(--yellow, #e6b400) 8%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--yellow, #e6b400) 25%, transparent);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cappedBtn {
+  padding: 3px var(--sp-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    border-color: var(--blue);
+    color: var(--blue-light);
+  }
+}
+
+// ── Filter bar ────────────────────────────────────────────────────────────────
+
+.filterBar {
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.typeTabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-4) 0;
+  overflow-x: auto;
+
+  &::-webkit-scrollbar {
+    height: 0;
+  }
+}
+
+.typeTab {
+  padding: 6px var(--sp-3);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+}
+
+.typeTabActive {
+  color: var(--blue-light);
+  border-bottom-color: var(--blue);
+  font-weight: 500;
+}
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 160px;
+  max-width: 260px;
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  transition: border-color 0.15s;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+
+  &:focus {
+    border-color: var(--blue);
+  }
+}
+
+.select {
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  max-width: 160px;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  option {
+    background: var(--bg-elevated);
+  }
+}
+
+// ComboSelect variant sized for the filter bar
+.filterCombo {
+  max-width: 160px;
+  flex-shrink: 0;
+
+  // Tighten the inner input to match the old <select> height
+  :global(.combo-input),
+  input {
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+}
+
+.countBadge {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  min-width: 30px;
+  text-align: right;
+  margin-left: auto;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-lg);
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+
+.tableWrapper {
+  flex: 1;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.table thead tr {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-secondary);
+}
+
+.table th {
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.thId {
+  width: 72px;
+}
+.thType {
+  width: 120px;
+}
+.thTitle {
+  min-width: 240px;
+}
+.thState {
+  width: 110px;
+}
+.thAssignee {
+  width: 140px;
+}
+.thPriority {
+  width: 90px;
+}
+.thIter {
+  width: 140px;
+}
+
+.row {
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
+  }
+}
+
+.rowSelected {
+  background: var(--blue-subtle) !important;
+  border-left: 2px solid var(--blue);
+}
+
+.table td {
+  padding: var(--sp-2) var(--sp-3);
+  vertical-align: middle;
+}
+
+.tdId {
+  white-space: nowrap;
+}
+
+.idLink {
+  color: var(--blue-light);
+  font-size: var(--font-xs);
+  font-weight: 500;
+}
+
+.tdType {
+  white-space: nowrap;
+}
+
+.typeChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tdTitle {
+  max-width: 400px;
+}
+
+.titleText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.tag {
+  padding: 1px 5px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.tdState,
+.tdAssignee,
+.tdPriority,
+.tdIter {
+  white-space: nowrap;
+}
+
+.assignee,
+.priority,
+.iterPath {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.unassigned {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+// ── Multi-dialog container (CSS Grid tiling) ───────────────────────────────
+
+.multiDialogContainer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  align-content: start;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 299;
+  overflow-y: auto;
+}
+
+// ── Batch action bar ──────────────────────────────────────────────────────────
+
+.batchBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.batchCount {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.batchActions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.batchBtn {
+  padding: 4px var(--sp-3);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--blue);
+  }
+}
+
+// ── Dialog ────────────────────────────────────────────────────────────────────
+
+.dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: dialogFadeIn 0.15s ease;
+  max-height: calc(100vh - 200px);
+  min-width: 0;
+
+  // Single dialog: narrower and centered
+  &:only-child {
+    max-width: 680px;
+    justify-self: center;
+    align-self: center;
+    width: 100%;
+  }
+}
+
+@keyframes dialogFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dialogMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.dialogTypeChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.dialogItemId {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.dialogActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.dialogActionBtn {
+  padding: 4px var(--sp-3);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.deleteBtn {
+  &:hover {
+    border-color: rgba(248, 81, 73, 0.4);
+    background: var(--red-subtle);
+    color: var(--red-light);
+  }
+}
+
+.deleteConfirm {
+  border-color: var(--red);
+  background: var(--red-subtle);
+  color: var(--red-light);
+  animation: pulse 0.5s ease;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.dialogCloseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.dialogTitle {
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.dialogTabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dialogTab {
+  padding: 7px var(--sp-3);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.dialogTabActive {
+  color: var(--blue-light);
+  border-bottom-color: var(--blue);
+  font-weight: 500;
+}
+
+.dialogContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+}
+
+// ── Detail pane ───────────────────────────────────────────────────────────────
+
+.detailPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: var(--sp-2) var(--sp-4);
+  font-size: var(--font-sm);
+}
+
+.fieldLabel {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  padding-top: 2px;
+}
+
+.fieldValue {
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.descSection {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--sp-4);
+}
+
+.descHeading {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+// ── Edit form ─────────────────────────────────────────────────────────────────
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.editRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.editLabel {
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.editInput,
+.editSelect,
+.editTextarea {
+  padding: 7px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+
+  &:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.15);
+  }
+
+  option {
+    background: var(--bg-elevated);
+  }
+}
+
+.editTextarea {
+  resize: vertical;
+  font-family: monospace;
+  font-size: var(--font-xs);
+}
+
+// ── WorkItemFieldInput: combobox / autocomplete wrappers ──────────────────────
+
+.fieldInputWrapper {
+  position: relative;
+  width: 100%;
+
+  .editInput {
+    width: 100%;
+    padding-right: var(--sp-6);
+  }
+}
+
+.fieldInputLoading {
+  position: absolute;
+  right: var(--sp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: fieldSpinnerSpin 0.7s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes fieldSpinnerSpin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.fieldInputReadonly {
+  padding: 7px var(--sp-3);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  width: 100%;
+}
+
+.fieldCheckbox {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px 0;
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--blue);
+  }
+}
+
+.editActions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cancelBtn {
+  padding: 7px var(--sp-4);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.saveBtn {
+  padding: 7px var(--sp-5);
+  border: none;
+  background: var(--blue);
+  color: white;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--blue-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ── Comments pane ─────────────────────────────────────────────────────────────
+
+.commentsPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.commentInput {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.commentTextarea {
+  width: 100%;
+  padding: var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+.commentSubmit {
+  align-self: flex-end;
+  padding: 6px var(--sp-4);
+  background: var(--blue);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--blue-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.commentList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.commentItem {
+  padding: var(--sp-3);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.commentMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.commentAuthor {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.commentDate {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.commentText {
+  font-size: var(--font-sm);
+}
+
+.emptyText {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-6) 0;
+}
+
+// ── History pane ──────────────────────────────────────────────────────────────
+
+.historyPane {
+  display: flex;
+  flex-direction: column;
+}
+
+.historyList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.historyItem {
+  border-left: 2px solid var(--border);
+  padding-left: var(--sp-3);
+}
+
+.historyMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.historyAuthor {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.historyDate {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.historyRev {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.historyFields {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.historyField {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--font-xs);
+}
+
+.historyFieldName {
+  color: var(--text-muted);
+  min-width: 70px;
+}
+
+.historyOld {
+  color: var(--red-light);
+  text-decoration: line-through;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyArrow {
+  color: var(--text-muted);
+}
+
+.historyNew {
+  color: var(--green-light);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── Attachments tab ───────────────────────────────────────────────────────────
+
+.attachmentsPane {
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.attachHint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.attachLabel {
+  display: inline-block;
+  cursor: pointer;
+}
+
+.attachInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px var(--sp-4);
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  transition: all 0.15s;
+
+  .attachLabel:hover & {
+    background: var(--bg-hover);
+    border-color: var(--blue);
+    color: var(--blue-light);
+  }
+}
+
+.attachError {
+  font-size: var(--font-sm);
+  color: var(--red-light);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--red-subtle);
+  border-radius: var(--radius-md);
+}
+
+.attachSuccess {
+  font-size: var(--font-sm);
+  color: var(--green-light);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--green-subtle);
+  border-radius: var(--radius-md);
+
+  a {
+    color: var(--green-light);
+    text-decoration: underline;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+}
+
+// ── Create button ─────────────────────────────────────────────────────────────
+
+.createBtn {
+  padding: 6px var(--sp-4);
+  background: var(--blue);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--blue-hover, #0062a3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ── Multi-dialog support ─────────────────────────────────────────────────────
+
+.dialogIdBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-family: monospace;
+  letter-spacing: -0.02em;
+  margin-left: var(--sp-2);
+}
+
+// ── Parent work item picker ───────────────────────────────────────────────────
+
+.parentPicker {
+  position: relative;
+}
+
+.parentInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.parentSpinner {
+  position: absolute;
+  right: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  pointer-events: none;
+}
+
+.parentSelected {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  min-height: 36px;
+}
+
+.parentSelectedId {
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.parentSelectedType {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.parentSelectedTitle {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.parentClearBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--red-light);
+  }
+}
+
+.parentDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 500;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.parentDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.parentDropdownId {
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.parentDropdownType {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 1px 5px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.parentDropdownTitle {
+  flex: 1;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.parentDropdownEmpty {
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+// ── Custom fields section ─────────────────────────────────────────────────────
+
+.customFieldsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.customFieldsHeading {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+// ── Children list (detail pane) ───────────────────────────────────────────────
+
+.childrenList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--sp-2);
+}
+
+.childrenItem {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 5px var(--sp-3);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+// ── Children editor (edit form) ───────────────────────────────────────────────
+
+.childRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 5px var(--sp-3);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.childRowNew {
+  border-color: color-mix(in srgb, var(--blue) 30%, transparent);
+  background: color-mix(in srgb, var(--blue) 5%, transparent);
+}
+
+.childId {
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 36px;
+}
+
+.childType {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 1px 5px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.childTitle {
+  flex: 1;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.childState {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.childNewBadge {
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.childRemoveBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--red-light);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.childPickerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+
+.childPickerLabel {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.childPickerInput {
+  flex: 1;
+}
+

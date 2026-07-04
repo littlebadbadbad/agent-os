@@ -1,0 +1,92 @@
+@use '../../styles/theme' as t;
+
+// ── Header bar ────────────────────────────────────────────────────────────────
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 12px;
+  height: t.$sidebar-header-height;
+  flex-shrink: 0;
+  background: #{t.$color-surface};
+  border-bottom: 1px solid #{t.$color-border};
+  user-select: none;
+}
+
+// ── Left: icon + title ────────────────────────────────────────────────────────
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #{t.$color-text};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-emoji {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.icon-img {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.icon-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+// ── Right: control buttons ────────────────────────────────────────────────────
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ctrl-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: #{t.$color-text-muted};
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: #{t.$color-text};
+    background: #{t.$color-surface-2};
+  }
+
+  &:active {
+    background: #{t.$color-surface-3};
+  }
+}

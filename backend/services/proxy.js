@@ -1,0 +1,38 @@
+/**
+ * backend/services/proxy.js — Proxy configuration business logic
+ *
+ * ALL business logic lives here.
+ * Transport layers (IPC, Network) delegate to these functions exclusively.
+ */
+
+import { getProxyConfig, setProxyConfig, testProxy, validateProxyUpdate, validateTestTarget } from '../lib/proxy.js';
+
+/**
+ * Get the current proxy configuration.
+ * @returns {import('../../agent-type/plugin.ts').ProxyConfig}
+ */
+export function getConfig() {
+  return getProxyConfig();
+}
+
+/**
+ * Validate and update the proxy configuration.
+ * @param {import('../../agent-type/plugin.ts').ProxyConfig} partial - Partial proxy config fields
+ * @returns {{ config: import('../../agent-type/plugin.ts').ProxyConfig }}
+ */
+export function updateConfig(partial) {
+  const valid = validateProxyUpdate(partial);
+  const config = setProxyConfig(valid);
+  return { config };
+}
+
+/**
+ * Test connectivity through the proxy (or a set of overrides).
+ * @param {string} target  - URL to test against
+ * @param {object} [overrides] - Optional proxy config overrides
+ * @returns {Promise<{ ok: boolean; ms: number; error?: string }>}
+ */
+export async function testProxyTarget(target, overrides) {
+  validateTestTarget(target);
+  return testProxy(target, overrides);
+}

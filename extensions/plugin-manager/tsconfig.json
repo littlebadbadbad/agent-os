@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "declaration": true,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "paths": {
+      "@agent-type": ["../../agent-type/index.ts"],
+      "@agent-type/*": ["../../agent-type/*"],
+      "@agent-sdk": ["../../src/index.ts"],
+      "@agent-sdk/*": ["../../src/*"]
+    }
+  },
+  "include": ["backend", "ui"],
+  "exclude": ["node_modules", "dist"]
+}

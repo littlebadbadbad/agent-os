@@ -1,0 +1,209 @@
+/* Azure DevOps – global CSS custom properties & base reset */
+
+:root {
+  /* ── Background ── */
+  --bg-primary: #1f2228;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #0d1017;
+  --bg-elevated: #262c36;
+  --bg-hover: #2d3340;
+  --bg-active: #1f4068;
+
+  /* ── Border ── */
+  --border: #30363d;
+  --border-subtle: #21262d;
+
+  /* ── Text ── */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --text-inverse: #ffffff;
+
+  /* ── Accent ── */
+  --blue: #0078d4;
+  --blue-hover: #106ebe;
+  --blue-light: #58a6ff;
+  --blue-subtle: #182535;
+
+  --green: #3fb950;
+  --green-subtle: #12261e;
+  --green-light: #56d364;
+
+  --red: #f85149;
+  --red-subtle: #2d1117;
+  --red-light: #ff7b72;
+
+  --yellow: #d29922;
+  --yellow-subtle: #272115;
+  --yellow-light: #e3b341;
+
+  --orange: #db6d28;
+  --purple: #bc8cff;
+  --purple-subtle: #1e1637;
+
+  /* ── Spacing ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  /* ── Typography ── */
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-base: 13px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 20px;
+  --font-2xl: 24px;
+
+  /* ── Layout ── */
+  --sidebar-width: 236px;
+  --header-height: 48px;
+
+  /* ── Shadow ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial,
+    sans-serif;
+  font-size: var(--font-base);
+  line-height: 1.5;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: var(--blue-light);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-full);
+
+  &:hover {
+    background: var(--text-muted);
+  }
+}
+
+/* ── Utility ── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── ADO HTML content (descriptions) ── */
+.ado-html-content {
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-size: var(--font-md);
+
+  p {
+    margin-bottom: var(--sp-3);
+  }
+  ul,
+  ol {
+    margin-left: var(--sp-5);
+    margin-bottom: var(--sp-3);
+  }
+  h1,
+  h2,
+  h3 {
+    margin-bottom: var(--sp-2);
+    color: var(--text-primary);
+  }
+  a {
+    color: var(--blue-light);
+  }
+  code {
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: monospace;
+    font-size: var(--font-sm);
+  }
+  pre {
+    background: var(--bg-elevated);
+    padding: var(--sp-3);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin-bottom: var(--sp-3);
+
+    code {
+      background: none;
+      padding: 0;
+    }
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: var(--sp-3);
+
+    th,
+    td {
+      border: 1px solid var(--border);
+      padding: var(--sp-2) var(--sp-3);
+    }
+    th {
+      background: var(--bg-elevated);
+    }
+  }
+}

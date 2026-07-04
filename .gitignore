@@ -1,0 +1,54 @@
+# nodeenv virtual environment
+.nodeenv/
+
+# Dependencies
+node_modules/
+
+workspace/
+
+# Build output
+dist/
+dist-demo/
+dist-backend/
+dist-launcher/
+dist-*/
+release/
+
+# Vite cache
+.vite/
+.agent
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Backend runtime data
+data/
+plugins/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Electron native-binary cache (rebuilt per Electron version, not committed)
+.electron-cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+coverage

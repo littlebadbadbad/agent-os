@@ -1,0 +1,118 @@
+@use '../../styles/theme' as t;
+
+// ── Root container ─────────────────────────────────────────────────────────────
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: #{t.$color-surface};
+  z-index: t.$z-widget;
+  font-family: t.$font-stack;
+
+  // ── Inject dark-theme CSS custom properties ──────────────────────────────────
+  // These cascade to all child components so they render on a dark surface.
+  // User-supplied WidgetTheme overrides only the accent vars (--asdk-primary*).
+  --asdk-bg:            #{t.$color-bg};
+  --asdk-surface:       #{t.$color-surface};
+  --asdk-surface-2:     #{t.$color-surface-2};
+  --asdk-surface-3:     #{t.$color-surface-3};
+  --asdk-border:        #{t.$color-border};
+  --asdk-text:          #{t.$color-text};
+  --asdk-text-muted:    #{t.$color-text-muted};
+  --asdk-text-bright:   #{t.$color-text-bright};
+
+  // Default accent (overrideable by user WidgetTheme)
+  --asdk-primary:       #{t.$color-accent};
+  --asdk-primary-dark:  #{t.$color-accent-dark};
+  --asdk-primary-deep:  #{t.$color-accent-deep};
+  --asdk-gradient:      #{t.$gradient-primary};
+
+  // Legacy compat vars consumed by inner component stylesheets
+  --asdk-content-bg:    #{t.$color-bg};
+  --asdk-content-text:  #{t.$color-text};
+  --asdk-primary-pale:  #{t.$zima-blue-pale};
+
+  // ── Side ────────────────────────────────────────────────────────────────────
+
+  &--right {
+    right: 0;
+    border-left: 1px solid #{t.$color-border};
+  }
+
+  &--left {
+    left: 0;
+    border-right: 1px solid #{t.$color-border};
+  }
+
+  // ── Open / closed ───────────────────────────────────────────────────────────
+
+  &--open {
+    transition: width 0.18s ease;
+  }
+
+  &--closed {
+    width: t.$sidebar-strip-width;
+    cursor: pointer;
+  }
+}
+
+// ── Inner-edge resize handle ──────────────────────────────────────────────────
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 1;
+  cursor: ew-resize;
+  transition: background 0.15s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--asdk-primary) 50%, transparent);
+  }
+
+  &--right { left: 0; }
+  &--left  { right: 0; }
+}
+
+// ── Main content area ─────────────────────────────────────────────────────────
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #{t.$color-bg};
+}
+
+// ── Collapsed strip ───────────────────────────────────────────────────────────
+
+.strip-toggle {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #{t.$color-text-muted};
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: var(--asdk-primary);
+    background: color-mix(in srgb, var(--asdk-primary) 10%, transparent);
+  }
+}
+
+.strip-icon {
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

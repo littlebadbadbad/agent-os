@@ -1,0 +1,71 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+// ── Editor area ───────────────────────────────────────────────────────────────
+
+.editorArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.editorPane {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+// ── Loading / welcome ─────────────────────────────────────────────────────────
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--sp-4);
+  color: var(--text-muted);
+}
+
+.welcomeIcon {
+  font-size: 48px;
+  line-height: 1;
+  opacity: 0.4;
+}
+
+.welcomeText {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+}

@@ -1,0 +1,128 @@
+// ── Side-effect: register module augmentation fields ─────────────────────────
+import './types';
+
+import { toolSetContextKey } from '@agent-sdk/tools/toolSet';
+import type { ToolSet, ToolSetContext } from '@agent-type';
+import type { Tool } from '@agent-type';
+import type { SessionEntryData } from '@agent-type';
+import { planStore } from './store';
+import { createPlanTools } from './tools';
+import { PLAN_GUIDANCE, PLAN_SECTION_ID } from './prompt';
+
+/**
+ * Tools the agent may use while in plan mode.
+ *
+ * Plan mode is read-and-plan only: no writes, no execution.  The agent can
+ * read the codebase for context, write/refine the plan, ask the user questions,
+ * and exit plan mode when ready.  `tool_search` is included so the agent can
+ * discover additional read-only tools if needed.
+ */
+const PLAN_MODE_ALLOWED = new Set([
+  'plan_write',
+  'plan_exit',
+  'read_file',
+  'list_dir',
+  'search_files',
+  'get_workspace_root',
+  'ask_user',
+  'tool_search',
+]);
+
+// ── Factory ───────────────────────────────────────────────────────────────────
+
+/**
+ * Create the plan ToolSet.
+ *
+ * Provides five tools — `plan_write`, `plan_checkpoint`, `plan_enter`,
+ * `plan_exit`, and `plan_verify` — that let the agent maintain a live markdown
+ * plan document per session, gate execution on human approval, and optionally
+ * enter a restricted plan mode where only read and planning tools are visible.
+ *
+ * Requires `createUserInputToolSet` to be registered on the same agent so that
+ * `context.requestUserInput` is available to `plan_checkpoint` and `plan_exit`.
+ *
+ * @example
+ * ```ts
+ * const agent = createAgentClient({
+ *   handler,
+ *   toolSets: [createUserInputToolSet(), createPlanToolSet()],
+ * });
+ * ```
+ */
+export function createPlanToolSet(): ToolSet {
+  const tools = createPlanTools(planStore);
+
+  function key(ctx: ToolSetContext): string {
+    return toolSetContextKey(ctx);
+  }
+
+  return {
+    name: 'plan',
+    sectionId: PLAN_SECTION_ID,
+    sectionPriority: 60,
+    tools,
+
+    /**
+     * All plan tools are core — the agent must always be able to see them so
+     * it can initiate planning, checkpoint progress, and verify completion
+     * without first having to discover them via `tool_search`.
+     */
+    coreTools: ['plan_write', 'plan_checkpoint', 'plan_enter', 'plan_exit', 'plan_verify'],
+
+    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
+      if (entryData.plan) {
+        planStore.set(key(ctx), entryData.plan);
+      }
+      if (entryData.planMode) {
+        planStore.setPlanMode(key(ctx), entryData.planMode);
+      }
+    },
+
+    onResetSession(ctx: ToolSetContext): void {
+      planStore.reset(key(ctx));
+    },
+
+    onRemoveSession(ctx: ToolSetContext): void {
+      planStore.remove(key(ctx));
+    },
+
+    onGetState(ctx: ToolSetContext) {
+      return {
+        plan: planStore.get(key(ctx)),
+        planMode: planStore.getPlanMode(key(ctx)),
+      };
+    },
+
+    onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
+      return planStore.subscribe(key(ctx), fn);
+    },
+
+    onBuildSnapshot(ctx: ToolSetContext) {
+      const serialized = planStore.serialize(key(ctx));
+      return serialized ? { plan: serialized.content, planMode: serialized.planMode } : {};
+    },
+
+    /**
+     * In plan mode, restrict the visible tool set to `PLAN_MODE_ALLOWED`.
+     * This enforces the "read and plan only — no execution" contract so the
+     * agent physically cannot make changes to the codebase while planning.
+     */
+    onFilterTools(ctx: ToolSetContext, tools: readonly Tool[]): readonly Tool[] {
+      if (!planStore.getPlanMode(key(ctx))) return tools;
+      return tools.filter((t) => PLAN_MODE_ALLOWED.has(t.name));
+    },
+
+    onGetSystemPrompt(ctx: ToolSetContext): string | undefined {
+      const content = planStore.get(key(ctx));
+      const inPlanMode = planStore.getPlanMode(key(ctx));
+
+      if (inPlanMode) {
+        const planBlock = content ?? 'No plan yet.';
+        return `## Planning\n\n[Current Plan]\n${planBlock}\n\n### ⚠ Plan Mode Active\nYou are in plan mode. Design the approach and write the plan — do NOT execute any steps. Call plan_exit to submit for approval when ready.`;
+      }
+
+      if (!content) return PLAN_GUIDANCE;
+      return `## Planning\n\n[Current Plan]\n${content}\n\nCall \`plan_checkpoint\` before executing steps on an unapproved plan.`;
+    },
+  };
+}

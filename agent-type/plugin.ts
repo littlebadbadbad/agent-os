@@ -1,0 +1,647 @@
+import type { ToolSet } from "./toolset";
+import type { AgentSessionState, Tool } from "./core";
+import { AgentSessionExtension } from "@agent-type";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Plugin manifest & lifecycle types
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * A single configuration property definition.
+ * Simplified version of VS Code's `contributes.configuration` property schema.
+ */
+export interface ConfigProperty {
+  /** JSON Schema type (string, number, boolean, array, object). */
+  readonly type: string;
+  /** Default value if not explicitly set. */
+  readonly default?: unknown;
+  /** Human-readable description of this property. */
+  readonly description?: string;
+  /** Enum of allowed values (for string types). */
+  readonly enum?: readonly string[];
+}
+
+/**
+ * Plugin configuration schema — declares what config the plugin accepts.
+ * Analogous to VS Code's `contributes.configuration`.
+ */
+export interface PluginConfiguration {
+  /** Property definitions keyed by dot-separated path (e.g. "browser.viewport.width"). */
+  readonly properties: Readonly<Record<string, ConfigProperty>>;
+  /** Property keys that are required (must have a value or default). */
+  readonly required?: readonly string[];
+}
+
+/**
+ * Plugin manifest — describes a plugin's identity and entry points.
+ *
+ * Analogous to VS Code's `package.json` contributes section.
+ * Each plugin has a `manifest.json` that conforms to this interface.
+ *
+ * A plugin can expose up to three entry points:
+ * - `agentEntry` — runs inside the agent sandbox, can register ToolSets
+ * - `backendEntry` — runs on the backend (Node.js process), can register
+ *   API endpoints and streams
+ * - `uiEntry` — runs in the frontend (browser), can render custom UI
+ *   components
+ *
+ * @example
+ * ```json
+ * {
+ *   "id": "browser",
+ *   "name": "Browser Automation",
+ *   "version": "0.1.0",
+ *   "configuration": {
+ *     "properties": {
+ *       "browser.viewport.width": { "type": "number", "default": 1280 }
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export interface PluginManifest {
+  /** Unique plugin identifier (kebab-case). Used for routing, file paths, and IPC channels. */
+  readonly id: string;
+  /** Human-readable display name shown in the UI. */
+  readonly name: string;
+  /** SemVer version string. */
+  readonly version: string;
+  /** Human-readable description. */
+  readonly description?: string;
+  /**
+   * Relative path to the agent-side entry point (runs in sandbox).
+   * The module is expected to export an `activate` function.
+   */
+  readonly agentEntry?: string;
+  /**
+   * Relative path to the backend entry point (runs on server).
+   * The module is expected to export an `activate` function.
+   */
+  readonly backendEntry?: string;
+  /**
+   * Relative path to the UI entry point (runs in browser).
+   * The module is expected to export an `activate` function.
+   */
+  readonly uiEntry?: string;
+  /**
+   * Whether this plugin has elevated privileges.
+   * Privileged plugins can access system resources (file system, network).
+   * Default: `false`.
+   */
+  readonly privileged?: boolean;
+  /**
+   * Configuration schema for this plugin.
+   * Declares the configuration properties the plugin accepts,
+   * their types, defaults, and descriptions.
+   */
+  readonly configuration?: PluginConfiguration;
+}
+
+// ── Plugin state ──────────────────────────────────────────────────────────────
+
+/**
+ * Runtime state of a single plugin instance.
+ */
+export type PluginState =
+  | "inactive"
+  | "activating"
+  | "active"
+  | "error"
+  | "disabled";
+
+// ── Plugin method ─────────────────────────────────────────────────────────────
+
+/**
+ * A callable endpoint exposed by a backend plugin.
+ */
+export type PluginMethod = (
+  params: Record<string, unknown>,
+) => Promise<unknown>;
+
+// ── Shared configuration types ──────────────────────────────────────────────
+
+/**
+ * Proxy configuration — shared between backend and plugins.
+ *
+ * Backend creates it via `backend/lib/proxy.js` and exposes it to plugins
+ * through `BackendPluginHost.getBackendConfig('proxy')`.  Plugins must NOT
+ * import backend modules directly.
+ */
+export interface ProxyConfig {
+  /** Whether proxying is enabled. */
+  readonly enabled: boolean;
+  /** Proxy protocol: http, https, socks5, or socks4. */
+  readonly protocol: "http" | "https" | "socks5" | "socks4";
+  /** Proxy hostname or IP. */
+  readonly host: string;
+  /** Proxy port (1–65535). */
+  readonly port: number;
+  /** Optional username for authenticated proxies. */
+  readonly username: string;
+  /** Optional password for authenticated proxies. */
+  readonly password: string;
+  /** Comma-separated exclude list (bypass proxy for these hosts). */
+  readonly noProxy: string;
+  /** Connection timeout in milliseconds. */
+  readonly connectTimeout: number;
+}
+
+// ── Plugin host interfaces ────────────────────────────────────────────────────
+
+/**
+ * Host interface injected into a backend plugin's activation scope.
+ *
+ * Backend plugins use this to register API endpoints and streaming
+ * capabilities that the frontend can consume via `PluginApiClient`.
+ * The host also provides access to a plugin-scoped data directory.
+ */
+export interface BackendPluginHost {
+  /**
+   * Register an API method that the frontend can call via `apiClient.call`.
+   *
+   * @param method  Unique method name (namespaced per plugin).
+   * @param handler Async handler invoked when the frontend calls this method.
+   */
+  defineApi(method: string, handler: PluginMethod): void;
+
+  /**
+   * Register a streaming endpoint that the frontend can connect to
+   * via `apiClient.connectStream`.
+   *
+   * @param name    Unique stream name (namespaced per plugin).
+   * @param handler Factory that creates a `StreamConnection` for each client.
+   */
+  defineStream(name: string, handler: StreamHandler): void;
+
+  /**
+   * Absolute path to a writable directory scoped to this plugin.
+   * The directory is created when the plugin is activated and persists
+   * across restarts.
+   */
+  getPluginDataDir(): string;
+
+  /**
+   * Access a backend system configuration value by key.
+   *
+   * This replaces direct imports of backend modules with a controlled
+   * interface, keeping plugins decoupled from the core.
+   *
+   * Supported keys (varies by backend implementation):
+   *   - `'proxy'` — current proxy configuration (returns {@link ProxyConfig})
+   *
+   * @param key  Configuration key name.
+   * @returns    The configuration value.
+   */
+  getBackendConfig<T = unknown>(key: string): T;
+}
+
+/**
+ * Host interface injected into an agent-side plugin's activation scope.
+ *
+ * Agent plugins can register ToolSets to extend the agent with custom
+ * tools and lifecycle hooks, and interact with the agent runtime.
+ */
+export interface AgentPluginHost {
+  /**
+   * Register a ToolSet on the agent.
+   * Returns an unregister function.
+   */
+  registerToolSet(toolSet: ToolSet): () => void;
+
+  /**
+   * All ToolSets currently registered on the agent.
+   */
+  getRegisteredToolSets(): readonly ToolSet[];
+
+  /**
+   * All master tools (unfiltered) registered on the agent.
+   */
+  getTools(): readonly Tool[];
+
+  /**
+   * The agent's name/identifier.
+   */
+  readonly agentName: string;
+
+  /**
+   * Pre-bound API client for calling this plugin's backend API.
+   * The plugin id is already bound at construction time —
+   * callers do NOT pass pluginId.
+   */
+  readonly apiClient: PluginApiClient;
+
+  /**
+   * Read a configuration value for this plugin.
+   * Supports dot-separated deep access, e.g. `host.getConfig('browser.viewport.width')`.
+   * Returns the property's default value if not explicitly set.
+   */
+  getConfig<T = unknown>(key: string): T;
+
+  /**
+   * Subscribe to configuration changes.
+   * Returns an unsubscribe function.
+   */
+  onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void;
+
+  /**
+   * This plugin's unique identifier (kebab-case).
+   * Matches `manifest.id`.
+   */
+  readonly pluginId: string;
+
+  /**
+   * This plugin's display name (human-readable).
+   * Matches `manifest.name`.
+   */
+  readonly pluginName: string;
+
+  /**
+   * This plugin's version (SemVer).
+   * Matches `manifest.version`.
+   */
+  readonly pluginVersion: string;
+}
+
+export interface UiPluginHost {
+  /**
+   * API client for calling backend plugin methods (Link C).
+   * UI layers should prefer reading capabilities from `sessionState`
+   * (e.g. `sessionState.pluginAdapters.<name>`) over direct API calls.
+   */
+  readonly apiClient: PluginApiClient;
+
+  /**
+   * This plugin's unique identifier (kebab-case).
+   * Matches `manifest.id`.
+   */
+  readonly pluginId: string;
+
+  /**
+   * This plugin's display name (human-readable).
+   * Matches `manifest.name`.
+   */
+  readonly pluginName: string;
+
+  /**
+   * This plugin's version (SemVer).
+   * Matches `manifest.version`.
+   */
+  readonly pluginVersion: string;
+  /**
+   * Current snapshot of the agent session state (R9).
+   * `undefined` when no session is active yet.
+   */
+  readonly sessionState: AgentSessionState | undefined;
+  /**
+   * Send a message from the iframe to the host (Link A).
+   * Used for reporting size changes, triggering custom events, etc.
+   */
+  postMessage(msg: UIRecieveMessage): void;
+
+  /**
+   * Subscribe to messages pushed from the host to the iframe (Link B).
+   * The host sends state updates, config changes, and tool-call info.
+   * Returns an unsubscribe function.
+   */
+  onHostMessage(cb: (msg: PluginRecieveMessage) => void): () => void;
+
+  /**
+   * Read a configuration value for this plugin.
+   * Supports dot-separated deep access.
+   * Returns the property's default value if not explicitly set.
+   */
+  getConfig<T = unknown>(key: string): T;
+
+  /**
+   * Subscribe to configuration changes.
+   * Returns an unsubscribe function.
+   */
+  onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void;
+}
+
+// ── UI plugin message protocol ────────────────────────────────────────────────
+
+/**
+ * Versioned message envelope for iframe ↔ host postMessage communication.
+ *
+ * All messages MUST carry a `version` field (R8). The host rejects
+ * messages with a mismatched or missing version to ensure protocol
+ * compatibility.
+ */
+export type PluginRecieveMessage =
+  | {
+      readonly type: "stateUpdate";
+      readonly payload: AgentSessionState;
+    }
+  | {
+      readonly type: "toolCallInfo";
+      readonly payload: ToolCallInfo;
+    };
+
+export type UIRecieveMessage = {};
+// ── Plugin UI adapter (generic session-state injection) ───────────────────────
+
+/**
+ * Marker interface for plugin adapters injected into session state.
+ *
+ * Plugins that provide UI capabilities inject their adapter into
+ * `AgentSessionState.pluginAdapters` via `onGetState`. The host UI
+ * iterates this map to dynamically render plugin tabs — no plugin
+ * name is hardcoded in the host UI.
+ *
+ * Concrete adapters (e.g. `BrowserAdapter`) extend this interface with
+ * their plugin-specific methods.
+ */
+export interface PluginUiAdapter {
+  /** Whether this plugin has a UI entry to render. */
+  readonly showTab?: () => boolean;
+}
+
+// ── Tool card rendering (dual-mode) ───────────────────────────────────────────
+
+/**
+ * Status of a tool call, used by tool card rendering.
+ */
+export type ToolCallStatus = "running" | "done" | "error";
+
+/**
+ * View-model describing a single tool call for card rendering.
+ *
+ * Moved from `agent-UI` to `@agent-type` so that plugin tool-card
+ * renderers (defined in `agent-type`) can reference it without
+ * depending on host UI internals.
+ */
+export interface ToolCallInfo {
+  readonly toolCallId: string;
+  readonly name: string;
+  readonly arguments: Record<string, unknown>;
+  readonly status: ToolCallStatus;
+  /** Serialised result shown in the bubble after execution completes. */
+  readonly result?: unknown;
+  readonly error?: string;
+  /** Binary/image attachments produced by the tool (e.g. screenshots). */
+  readonly attachments?: readonly import("./core").Attachment[];
+}
+
+/**
+ * Template-mode descriptor: the plugin returns this structured object
+ * and the host renders a standard tool card from it.
+ *
+ * This avoids the plugin needing to render its own DOM — the host
+ * provides a consistent card layout.
+ */
+export interface ToolCardDescriptor {
+  /** Icon/emoji shown in the card header. */
+  readonly icon: string;
+  /** Title shown in the card header. */
+  readonly title: string;
+  /** Execution status badge. */
+  readonly status?: ToolCallStatus;
+  /** Labelled key-value fields rendered in the card body. */
+  readonly fields?: ReadonlyArray<{
+    readonly label: string;
+    readonly value: string;
+  }>;
+  /** Optional image preview (e.g. screenshot). */
+  readonly preview?: {
+    readonly kind: "image";
+    readonly src: string;
+    readonly alt?: string;
+  };
+  /** Plain-text result shown after execution. */
+  readonly resultText?: string;
+  /** Error text shown when status is `'error'`. */
+  readonly errorText?: string;
+}
+
+/**
+ * Context passed to a custom-DOM-mode tool card renderer.
+ * The plugin receives a container element and renders its own UI into it.
+ */
+export interface ToolCardRenderContext {
+  /** DOM element the plugin should render into. */
+  readonly container: HTMLElement;
+  /** The tool call information to render. */
+  readonly toolCallInfo: ToolCallInfo;
+}
+
+/**
+ * Dual-mode tool card renderer.
+ *
+ * - `'template'`: plugin returns a {@link ToolCardDescriptor}; the host
+ *   renders a standard card layout from it.
+ * - `'custom'`: plugin receives a {@link ToolCardRenderContext} and renders
+ *   its own DOM into the provided container. Returns an optional cleanup
+ *   function called when the card is unmounted.
+ */
+export type ToolCardRenderer =
+  | {
+      readonly mode: "template";
+      readonly render: (info: ToolCallInfo) => ToolCardDescriptor;
+    }
+  | {
+      readonly mode: "custom";
+      readonly render: (ctx: ToolCardRenderContext) => (() => void) | void;
+    };
+
+// ── Stream types ──────────────────────────────────────────────────────────────
+
+/**
+ * Factory that creates a `StreamConnection` for each client that connects
+ * to a plugin's streaming endpoint.
+ *
+ * @param params  Optional connect-time parameters sent by the client at
+ *                connection time. For example, the browser plugin passes
+ *                `{ id: 'b1', config: { fps: 24 } }` to identify the
+ *                browser session and initial stream config.
+ */
+export type StreamHandler = (
+  params?: Record<string, unknown>,
+) => StreamConnection;
+
+/**
+ * Callbacks that a plugin's stream implementation receives.
+ * The plugin calls these to push data to the connected client.
+ * The transport layer (IPC/WS/HTTP) provides the actual implementations
+ * that write to the underlying connection.
+ */
+export type StreamCallbacks = {
+  /** Send a data chunk to the client. */
+  onData: (chunk: unknown) => void;
+  /** Signal that the stream has ended successfully. */
+  onEnd: () => void;
+  /** Signal that an error occurred and the stream should be terminated. */
+  onError: (error: Error) => void;
+};
+
+/**
+ * A bidirectional streaming connection between a plugin and a client.
+ *
+ * The plugin receives `callbacks` to push data to the client, and returns
+ * a `StreamSubscription` so the host can manage the connection lifecycle.
+ *
+ * For bidirectional streaming (e.g. browser live view), the plugin can
+ * set `onClientMessage` to receive messages from the connected client
+ * (like mouse/keyboard input events or config updates).
+ *
+ * The `io` field is set by the transport layer before `subscribe()` is
+ * called.  It provides the plugin's subscribe handler with the transport's
+ * StreamIO implementation (writing to WebSocket or IPC channel).
+ */
+export type StreamConnection = {
+  /** Callbacks the plugin uses to communicate with the client. */
+  callbacks: StreamCallbacks;
+  /**
+   * Transport-provided StreamIO context — set by the transport layer
+   * BEFORE `subscribe()` is called.  The plugin's subscribe handler
+   * reads this to create a transport-agnostic I/O bridge.
+   */
+  io?: StreamIO;
+  /**
+   * Optional handler for messages FROM the client TO the plugin.
+   * Set by the plugin's stream implementation when bidirectional
+   * communication is needed (e.g. browser input events, config
+   * updates).  The transport layer calls this when the client sends
+   * a message.
+   */
+  onClientMessage?: (data: unknown) => void;
+  /** Return a subscription for lifecycle management. */
+  subscribe: () => StreamSubscription;
+};
+
+/**
+ * Lifecycle handle for an active streaming connection.
+ * The host calls `unsubscribe` when the client disconnects or the plugin
+ * is deactivated.
+ */
+export type StreamSubscription = {
+  /** Clean up resources when the connection ends. */
+  unsubscribe: () => void;
+};
+
+/**
+ * Transport-agnostic I/O interface for streaming data.
+ *
+ * The transport layer (IPC or WebSocket) creates a StreamIO from its
+ * specific context (Electron WebContents or WS object) and sets it on
+ * the `StreamConnection.io` field before calling `subscribe()`.
+ *
+ * The plugin's subscribe handler reads `connection.io` and passes it
+ * to the streaming engine (e.g. BrowserInstance#startStreamingIO).
+ */
+export type StreamIO = {
+  /** Push a binary data chunk (typically a JPEG frame) to the client. */
+  sendBinary: (buf: Uint8Array | ArrayBuffer) => void;
+  /** Push a JSON-serializable control message to the client. */
+  sendJSON: (obj: unknown) => void;
+  /** Return true while the client connection is alive. */
+  isConnected: () => boolean;
+  /** Register a callback for when the client disconnects. */
+  onClose: (cb: () => void) => void;
+};
+
+// ── API client ────────────────────────────────────────────────────────────────
+
+/**
+ * Options for creating a PluginApiClient.
+ * Enables dependency injection for testing (R4).
+ */
+export interface PluginApiClientOptions {
+  /**
+   * Custom invoke function for request-response calls.
+   * When provided, replaces the default fetch/electronAPI.invoke logic.
+   * Signature: (channel: string, params: unknown) => Promise<unknown>
+   */
+  invoke?: (channel: string, params: unknown) => Promise<unknown>;
+
+  /**
+   * Custom event subscription function for streams.
+   * When provided, replaces the default IPC event listener logic.
+   * Signature: (channel: string, callback: (data: unknown) => void) => () => void
+   * Returns an unsubscribe function.
+   */
+  on?: (channel: string, callback: (data: unknown) => void) => () => void;
+}
+
+/**
+ * Client interface for communicating with a backend plugin.
+ *
+ * Instances are pre-bound to a specific plugin at construction time
+ * (via `createPluginApiClient(pluginId, ...)`), so callers never
+ * need to pass `pluginId`.
+ *
+ * Injected into both `AgentPluginHost.apiClient` and `UiPluginHost.apiClient`.
+ * The implementation routes calls via HTTP or IPC depending on the runtime.
+ */
+export interface PluginApiClient {
+  /**
+   * Call a backend plugin's API method.
+   *
+   * @param method  Method name registered via `BackendPluginHost.defineApi`.
+   * @param params  Parameters to pass to the method handler.
+   * @returns       The value returned by the backend handler.
+   */
+  call<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<T>;
+
+  /**
+   * Connect to a backend plugin's streaming endpoint.
+   *
+   * Establishes a bidirectional streaming connection.  The transport
+   * layer (HTTP/WS or Electron IPC) is fully encapsulated.
+   *
+   * @param streamName  Stream endpoint name registered via
+   *                    `BackendPluginHost.defineStream`.
+   * @param params      Optional connect-time parameters forwarded to the
+   *                    backend plugin's stream handler (e.g. browser session
+   *                    id and initial config).
+   * @returns  A `StreamConnection` for bidirectional communication.
+   *           Use `callbacks.onData` to receive data from the plugin,
+   *           and `onClientMessage` (if set) to send data to the plugin.
+   */
+  connectStream(
+    streamName: string,
+    params?: Record<string, unknown>,
+  ): StreamConnection;
+}
+
+// ── Activated plugin ─────────────────────────────────────────────────────────
+
+/**
+ * State of a fully activated backend plugin.
+ * Contains the plugin's manifest and any exposed methods/streams.
+ */
+export interface ActivatedBackendPlugin {
+  /** The plugin's parsed manifest. */
+  readonly manifest: PluginManifest;
+  /** Registered API methods (keyed by method name). */
+  readonly methods: ReadonlyMap<string, PluginMethod>;
+  /** Registered streaming handlers (keyed by method name). */
+  readonly streams: ReadonlyMap<string, StreamHandler>;
+  /** Absolute path to the plugin's data directory. */
+  readonly dataDir: string;
+}
+
+// ── Activation function signature ─────────────────────────────────────────────
+
+/**
+ * Standard plugin activation function signature.
+ *
+ * Every plugin entry point (`agentEntry`, `backendEntry`, `uiEntry`)
+ * must export an `activate` function conforming to this signature.
+ * The host calls it when the plugin is loaded.
+ *
+ * @example
+ * ```ts
+ * // agent/index.ts
+ * import type { AgentPluginHost } from '@agent-type';
+ * export function activate(host: AgentPluginHost) {
+ *   host.registerToolSet(myToolSet);
+ * }
+ * ```
+ */
+export type PluginActivateFunction<THost> = (
+  host: THost,
+) => void | Promise<void>;

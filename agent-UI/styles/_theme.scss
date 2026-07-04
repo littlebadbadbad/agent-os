@@ -1,0 +1,62 @@
+@use 'sass:color';
+
+// ── Dark VSCode-inspired palette ──────────────────────────────────────────────
+
+// Background layers
+$color-bg:        #1e1e1e;   // editor / outer background
+$color-surface:   #252526;   // sidebar / panel surface
+$color-surface-2: #2d2d30;   // raised cards, hover states
+$color-surface-3: #383838;   // inputs, code blocks
+
+// Borders
+$color-border:   #3e3e42;
+$color-border-2: #4e4e54;    // stronger emphasis border
+
+// Text
+$color-text:        #cccccc;
+$color-text-muted:  #858585;
+$color-text-bright: #ffffff;
+$color-text-dim:    #6a6a6a;
+
+// Accent (default VSCode blue — overrideable via --asdk-primary)
+$color-accent:      #0078d4;
+$color-accent-dark: #005fa3;
+$color-accent-deep: #003a6e;
+
+// Status
+$color-success:    #4ec9a0;
+$color-success-bg: rgba(78, 201, 160, 0.12);
+$color-error:      #f87171;
+$color-error-bg:   rgba(248, 113, 113, 0.12);
+$color-warning:    #fb923c;
+
+// ── Zima Blue aliases (keep for component fallback compatibility) ───────────────
+$zima-blue:       $color-accent;
+$zima-blue-dark:  $color-accent-dark;
+$zima-blue-deep:  $color-accent-deep;
+$zima-blue-light: color.mix($color-accent, #ffffff, 70%);
+$zima-blue-pale:  color.mix($color-accent, $color-surface-2, 12%);
+
+// ── Gradients ─────────────────────────────────────────────────────────────────
+$gradient-primary: linear-gradient(135deg, #{$color-accent} 0%, #{$color-accent-dark} 100%);
+
+// ── Surface aliases (for legacy references) ───────────────────────────────────
+$color-content-bg:   $color-bg;
+$color-text-primary: $color-text-bright;
+
+// ── Elevation ─────────────────────────────────────────────────────────────────
+$shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.5);
+
+// ── Sidebar dimensions ────────────────────────────────────────────────────────
+$sidebar-default-width: 360px;
+$sidebar-min-width:     280px;
+$sidebar-max-width:     700px;
+$sidebar-strip-width:   32px;
+$sidebar-header-height: 40px;
+
+// ── Layer ─────────────────────────────────────────────────────────────────────
+$z-widget: 9999;
+
+// ── Typography ────────────────────────────────────────────────────────────────
+$font-stack: system-ui, -apple-system, sans-serif;
+$font-mono:  'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;

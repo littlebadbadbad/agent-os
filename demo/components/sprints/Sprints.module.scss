@@ -1,0 +1,309 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.toolbarLabel {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.teamSelect {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.select {
+  padding: 6px var(--sp-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: var(--blue);
+  }
+
+  option {
+    background: var(--bg-elevated);
+  }
+}
+
+.filterTabs {
+  display: flex;
+  gap: 2px;
+}
+
+.filterTab {
+  padding: 5px var(--sp-3);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+
+  &:first-child {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  }
+
+  &:last-child {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.filterTabActive {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+// ── Sprint list sidebar ───────────────────────────────────────────────────────
+
+.sprintList {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.sprintCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--sp-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+  }
+
+  &.sprintCardActive {
+    background: var(--blue-subtle);
+    border-color: rgba(88, 166, 255, 0.4);
+  }
+}
+
+.sprintName {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.sprintDates {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.sprintBadge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 500;
+
+  &.tf_current {
+    background: var(--blue-subtle);
+    color: var(--blue-light);
+  }
+
+  &.tf_past {
+    background: var(--bg-primary);
+    color: var(--text-muted);
+  }
+
+  &.tf_future {
+    background: var(--green-subtle);
+    color: var(--green-light);
+  }
+}
+
+// ── Sprint detail ─────────────────────────────────────────────────────────────
+
+.sprintDetail {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+}
+
+.detailHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.detailTitle {
+  font-size: var(--font-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detailDates {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.sectionTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.countBadge {
+  font-size: var(--font-xs);
+  padding: 1px 7px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+// ── Capacity section ──────────────────────────────────────────────────────────
+
+.capacitySection {
+  margin-bottom: var(--sp-6);
+}
+
+.capacityGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.capacityCard {
+  padding: var(--sp-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  min-width: 140px;
+}
+
+.memberName {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.memberCap {
+  font-size: var(--font-xs);
+  color: var(--blue-light);
+}
+
+.memberDaysOff {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+// ── Sprint items table ────────────────────────────────────────────────────────
+
+.sprintItemsSection {
+  margin-top: var(--sp-2);
+}
+
+.sprintTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+
+  th {
+    text-align: left;
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+}
+
+.sprintRow:hover {
+  background: var(--bg-hover);
+}
+
+.sprintTdId {
+  white-space: nowrap;
+  color: var(--blue-light);
+  font-size: var(--font-xs);
+  font-weight: 500;
+}
+
+.sprintTdTitle {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.sprintType {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.sprintTdAssignee,
+.sprintTdRemaining {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
