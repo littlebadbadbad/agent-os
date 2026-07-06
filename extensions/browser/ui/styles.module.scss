@@ -301,3 +301,63 @@ $font-stack: system-ui, -apple-system, sans-serif;
   object-position: top;
   background: #fff;
 }
+
+// ── Compact tool card (single-line, zero chrome) ──────────────────────────────
+
+.compact-tool-card {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  font-family: $font-stack;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--asdk-text-muted, #{$color-text-muted});
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+
+  &:hover {
+    color: var(--asdk-text, #{$color-text});
+
+    .compact-tool-card__label {
+      color: var(--asdk-primary, #{$zima-blue});
+    }
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--asdk-primary, #{$zima-blue});
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.compact-tool-card__label {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--asdk-primary, #{$zima-blue}) 85%, var(--asdk-text, #{$color-text}));
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+
+.compact-tool-card__summary {
+  color: var(--asdk-text-muted, #{$color-text-muted});
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px;
+  }
+}
+
+.compact-tool-card__status {
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.6;
+}

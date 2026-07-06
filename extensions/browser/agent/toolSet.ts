@@ -19,7 +19,25 @@ export function createBrowserToolSet(adapter: BrowserAdapter): ToolSet {
     onGetSystemPrompt: getSystemPrompt,
     onGetSymbolState: (_ctx: ToolSetContext) => ({
       browserAdapter: adapter,
-      showTab: () => true,
+      slots: [
+        {
+          type: "panel",
+          id: "browser.main",
+          label: "Browser",
+          showTab: () => true,
+          order: 50,
+        },
+        {
+          type: "compactToolCard",
+          id: "browser.compactToolCard",
+          toolNames: tools.map((t) => t.name),
+        },
+        {
+          type: "toolCard",
+          id: "browser.toolCard",
+          toolNames: tools.map((t) => t.name),
+        },
+      ],
     }),
   };
 }

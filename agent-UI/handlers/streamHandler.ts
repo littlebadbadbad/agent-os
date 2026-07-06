@@ -8,7 +8,7 @@
  * widget knows how to drain, regardless of whether the underlying transport
  * is HTTP SSE or Electron IPC push events.
  */
-import type { AgentHandler, AgentStreamChunk } from '@agent-sdk';
+import type { AgentHandler } from '@agent-sdk';
 import { providerStore } from '../store/providerStore';
 import { chatTransport } from '../transport/chatTransport';
 
@@ -20,9 +20,9 @@ export const streamHandler: AgentHandler = async (messages, {tools, toolChoice, 
     provider,
     model,
     messages,
-    tools: tools as any,
+    tools,
     toolChoice,
     systemPrompt,
     signal,
-  }) as ReadableStream<AgentStreamChunk>;
+  });
 };

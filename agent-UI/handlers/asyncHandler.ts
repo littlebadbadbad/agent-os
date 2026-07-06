@@ -4,7 +4,7 @@
  * PURE BUSINESS LOGIC — ZERO communication code.
  * Delegates all HTTP/IPC details to the chat transport layer.
  */
-import type { AgentHandler, AgentTurnResponse } from "@agent-sdk";
+import type { AgentHandler } from "@agent-sdk";
 import { providerStore } from "../store/providerStore";
 import { chatTransport } from "../transport/chatTransport";
 
@@ -19,9 +19,9 @@ export const asyncHandler: AgentHandler = async (
     provider,
     model,
     messages,
-    tools: tools as any,
+    tools,
     toolChoice,
     systemPrompt,
     signal,
-  }) as Promise<AgentTurnResponse>;
+  });
 };

@@ -11,7 +11,7 @@ import { McpToolCard } from "./toolCards/McpToolCard";
 import { SkillToolCard } from "./toolCards/SkillToolCard";
 import { SubAgentMetaCard } from "./toolCards/SubAgentMetaCard";
 import { ExperienceToolCard } from "./toolCards/ExperienceToolCard";
-import { PluginSlot } from "../plugin/PluginSlot";
+import { SlotRenderer } from "../../../slots/SlotRenderer";
 import {
   CardShell,
   CardHeader,
@@ -36,6 +36,7 @@ import { pluginSystem } from "../../../agents";
 import { CompactToolCard } from "./CompactToolCard";
 import { ToolCardModal } from "./ToolCardModal";
 import styles from "../AgentWidget.module.scss";
+import { slotRegistry } from "@agent-UI/slots/registry";
 
 export { formatResult };
 
@@ -100,18 +101,17 @@ function renderDetailCard(info: ToolCallInfo): ReactElement {
   if (isSubAgentMetaTool(name)) return <SubAgentMetaCard info={info} />;
   if (isExperienceTool(name)) return <ExperienceToolCard info={info} />;
 
-  // Generic plugin tool-card path: derive plugin name from tool name
-  // convention (`<pluginName>_<action>` → split on first underscore).
-  // If the derived plugin has a UI entry, render via PluginSlot toolCard mode.
+  // Generic plugin tool-card path: match tool name to plugin.
 
-  const uiPlugin = pluginSystem.activePlugins.find((p) =>
-    p.tools.includes(name),
-  );
-  if (uiPlugin) {
+  const slot = slotRegistry
+      .getByType('toolCard')
+      .find((entry) => entry.declaration.toolNames.includes(info.name));
+  if (slot) {
     return (
-      <PluginSlot
-        pluginId={uiPlugin.id}
-        panelType="toolCard"
+      <SlotRenderer
+        pluginId={slot.pluginId}
+        slotType="toolCard"
+        slotId={slot.declaration.id}
         toolCallInfo={info}
       />
     );

@@ -46,8 +46,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   config.subscribeExternalState(() => {
     setState((prev) => {
       const ext = config.getExternalState(prev);
-      console.log('[subscribeExternalState] fired, prev.messages.length =', prev.messages.length, '| ext keys =', Object.keys(ext).join(','));
-      return Object.assign(prev, ext);
+      return Object.assign({}, prev, ext);
     });
   });
 

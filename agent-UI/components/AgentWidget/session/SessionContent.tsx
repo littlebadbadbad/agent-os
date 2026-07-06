@@ -13,10 +13,10 @@ import { ExperiencePanel } from "../panels/ExperiencePanel";
 import { PlanPanel } from "../panels/PlanPanel";
 import { CronPanel } from "../panels/CronPanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
-import { PluginSlot } from "../plugin/PluginSlot";
+import { SlotRenderer } from "../../../slots/SlotRenderer";
 import styles from "../AgentWidget.module.scss";
-import { pick } from "@agent-UI/utils";
 import { pluginSystem } from "@agent-UI/agents";
+import { slotRegistry } from "../../../slots/registry";
 
 // ── Session content (inner chat/tools/todo/terminals) ─────────────────────────
 // Keyed by session ID so React resets local view state when switching sessions.
@@ -53,7 +53,6 @@ export function SessionContent({
     cronPauseJob,
     cronResumeJob,
     cronDeleteJob,
-    ...pluginStates
   } = useSyncExternalStore(
     session.subscribe,
     session.getState,
@@ -97,9 +96,14 @@ export function SessionContent({
   >("chat");
   const hasPlan = !!plan;
   const hasTerminals = terminalAdapter !== undefined;
-  const hasPluginUi = pluginSystem.activePlugins.some((p) =>
-    p.symbols.some((s) => pluginStates[s]?.showTab?.()),
-  ); // any active plugin has a UI state (and thus a UI entry)
+
+  // Refresh slot registry from session state (reads PluginUiAdapter.slots).
+  pluginSystem.refreshSlots(session);
+
+  // Check if any plugin panel slots are visible.
+  const hasPluginUi = slotRegistry
+    .getByType("panel")
+    .some((s) => s.declaration.showTab());
   const hasSubAgents = subAgentRegistries.length > 0;
   const hasCron = (cronJobs?.length ?? 0) > 0;
   const enabledCount = toolStates.filter((t) => t.enabled).length;
@@ -189,7 +193,6 @@ export function SessionContent({
         )}
         {hasPluginUi && (
           <PluginTabBar
-            pluginStates={pluginStates}
             activePluginView={view.startsWith("plugin:") ? view : null}
             onSelect={(v) => setView(v)}
           />
@@ -298,10 +301,10 @@ export function SessionContent({
         />
       )}
       {view.startsWith("plugin:") && (
-        <PluginSlot
+        <SlotRenderer
           pluginId={view.slice("plugin:".length)}
-          panelType="main"
-          sessionId={sessionId}
+          slotType="panel"
+          slotId={`${view.slice("plugin:".length)}.main`}
           session={session}
         />
       )}

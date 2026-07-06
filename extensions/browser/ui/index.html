@@ -10,13 +10,20 @@
     html, body, #root {
       margin: 0;
       padding: 0;
-      height: 100%;
+      min-height: 100%;
       width: 100%;
       background: var(--asdk-surface-2, #2d2d30);
       color: var(--asdk-text, #cccccc);
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 13px;
       overflow: hidden;
+    }
+    /* In compact mode the body should shrink-wrap its content so the
+       iframe can report the actual content height to the host. */
+    body.compact-mode, body.compact-mode #root {
+      height: auto;
+      min-height: 0;
+      overflow: visible;
     }
   </style>
 </head>

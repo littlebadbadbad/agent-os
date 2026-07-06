@@ -24,7 +24,6 @@
 
 import type {
   UiPluginHost,
-  UapPluginMessage,
   AgentSessionState,
 } from "@agent-type";
 
@@ -100,7 +99,7 @@ export function createUiPluginSandbox(
         }
       }
 
-      const msg = event.data as UapPluginMessage;
+      const msg = event.data;
       // R8: version check.
       if (!msg || typeof msg !== "object") {
         console.warn(
@@ -131,9 +130,8 @@ export function createUiPluginSandbox(
     const injectHost = () => {
       if (destroyed || !iframe?.contentWindow) return false;
       try {
-        (
-          iframe.contentWindow as unknown as Record<string, unknown>
-        ).__UAP_PLUGIN_HOST__ = host;
+        const win = iframe.contentWindow as Window & { __UAP_PLUGIN_HOST__?: unknown };
+        win.__UAP_PLUGIN_HOST__ = host;
         return true;
       } catch (err) {
         console.warn("[uiLoader] Failed to inject host into iframe:", err);

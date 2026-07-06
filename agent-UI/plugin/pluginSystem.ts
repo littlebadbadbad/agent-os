@@ -18,11 +18,14 @@ import {
   resolveToolSetTools,
   type AgentPluginHost,
   type PluginManifest,
+  type PluginUiAdapter,
 } from "@agent-type";
 import { createPluginApiClient } from "./apiClient";
 import { createPluginConfigClient } from "./configClient";
 import { loadPluginAgentEntry, type PluginAgentModule } from "./loader";
 import { createAgentPluginHost, type AgentPluginContext } from "./host";
+import { slotRegistry } from "../slots/registry";
+import type { AgentSession } from "@agent-sdk/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,11 +57,6 @@ export interface PluginDescriptor {
    * Example: `/plugins/<id>/ui/index.html`
    */
   readonly uiEntryUrl?: string;
-  /**
-   * Declares the list of tools that this plugin provides. Used by the host to
-   * determine which plugin to route a tool call to.
-   */
-  tools: string[];
   symbols: symbol[];
 }
 
@@ -85,6 +83,15 @@ export interface PluginSystem {
    * @param pluginId The ID of the plugin to retrieve.
    */
   getPlugin(pluginId: string): PluginDescriptor | undefined;
+
+  /**
+   * Refresh the SlotRegistry from session state.
+   *
+   * Reads all active plugins' symbol-keyed state from the session
+   * and registers any slot declarations found in {@link PluginUiAdapter.slots}.
+   * Call this before rendering plugin UI components.
+   */
+  refreshSlots(session: AgentSession): void;
 }
 
 export interface ActivatedPluginInfo extends PluginDescriptor {
@@ -127,7 +134,6 @@ export function createPluginSystem(): PluginSystem {
       );
 
       for (const plugin of agentPlugins) {
-        plugin.tools = plugin.tools ?? [];
         plugin.symbols = plugin.symbols ?? [];
         await activatePlugin(state, plugin, agentContext);
       }
@@ -145,6 +151,21 @@ export function createPluginSystem(): PluginSystem {
     },
     getPlugin(pluginId: string): PluginDescriptor | undefined {
       return state.allPlugins.find((p) => p.id === pluginId);
+    },
+
+    refreshSlots(session: AgentSession): void {
+      const sessionState = session.getState();
+      for (const plugin of state.activePlugins) {
+        slotRegistry.unregister(plugin.id);
+        for (const sym of plugin.symbols) {
+          const adapter = sessionState[sym];
+          if (adapter?.slots) {
+            for (const slot of adapter.slots) {
+              slotRegistry.register(plugin.id, slot);
+            }
+          }
+        }
+      }
     },
   };
 }
@@ -208,7 +229,6 @@ async function activatePlugin(
       configClient,
       agentContext,
       attatchToolSets: (toolSet) => {
-        plugin.tools.push(...resolveToolSetTools(toolSet).map((t) => t.name));
         if (toolSet.symbol && !plugin.symbols.includes(toolSet.symbol)) {
           plugin.symbols.push(toolSet.symbol);
         }
@@ -219,7 +239,7 @@ async function activatePlugin(
 
     state.activePlugins.push({
       host,
-      ...plugin
+      ...plugin,
     });
     console.info(
       `[pluginSystem] Activated plugin: ${plugin.id} ("${plugin.name}") v${plugin.version}`,

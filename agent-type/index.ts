@@ -87,7 +87,7 @@ export type {
   WidgetHandler,
 } from "./widget";
 
-// ── Plugin types (new) ────────────────────────────────────────────────────────
+// ── Plugin types ──────────────────────────────────────────────────────────────
 export type {
   PluginManifest,
   PluginState,
@@ -95,7 +95,7 @@ export type {
   BackendPluginHost,
   AgentPluginHost,
   UiPluginHost,
-  PluginRecieveMessage as UapPluginMessage,
+  UiPluginHostInternal,
   PluginUiAdapter,
   ToolCallStatus,
   ToolCallInfo,
@@ -110,6 +110,31 @@ export type {
   ActivatedBackendPlugin,
   PluginActivateFunction,
 } from "./plugin";
+
+// ── UI Slot types (plugin injection points) ───────────────────────────────────
+export type {
+  SlotType,
+  PanelSlotDeclaration,
+  ToolCardSlotDeclaration,
+  CompactToolCardSlotDeclaration,
+  ToolbarButtonSlotDeclaration,
+  StatusBarSlotDeclaration,
+  PluginSlotDeclaration,
+  SlotContext,
+  PanelHostMessage,
+  ToolCardHostMessage,
+  CompactToolCardHostMessage,
+  ToolbarButtonHostMessage,
+  StatusBarHostMessage,
+  SlotHostMessage,
+  PanelIframeMessage,
+  ToolCardIframeMessage,
+  CompactToolCardIframeMessage,
+  ToolbarButtonIframeMessage,
+  StatusBarIframeMessage,
+  SlotIframeMessage,
+  FilterSlots,
+} from "./ui-slot";
 
 // ── Tool definition helpers (runtime) ────────────────────────────────────────
 export {

@@ -1,19 +1,29 @@
+/**
+ * extensions/browser/ui/main.tsx — Browser plugin UI entry (iframe)
+ *
+ * Slot-driven rendering:
+ *   - Reads `slotContext` from `window.__UAP_PLUGIN_HOST__` to know
+ *     which slot instance it's rendering.
+ *   - Receives host→iframe messages via `host.onSlotMessage()`.
+ *   - Sends iframe→host messages via `host.sendSlotMessage()`.
+ *
+ * Communication contract:
+ *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
+ *   `window.addEventListener("message")` directly. All communication
+ *   with the host flows through the injected {@link UiPluginHost}.
+ */
+
 import { StrictMode, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import type {
   UiPluginHost,
-  UapPluginMessage,
+  SlotHostMessage,
+  SlotIframeMessage,
   ToolCallInfo,
-  PluginStateExtension,
-  AgentSessionExtension,
-  AgentSessionState,
 } from "@agent-type";
-import type { BrowserAdapter } from "../agent/index";
 import { BrowserPanel } from "./BrowserPanel";
 import { BrowserToolCard } from "./BrowserToolCard";
-import { BROWSER_SYMBOL } from "../agent/toolSet";
-
-// ── Host reference ────────────────────────────────────────────────────────────
+import { BrowserCompactToolCard } from "./BrowserCompactToolCard";
 
 declare global {
   interface Window {
@@ -21,20 +31,12 @@ declare global {
   }
 }
 
-// ── Wait for host asynchronously ──────────────────────────────────────────────
-//
-// The parent injects `window.__UAP_PLUGIN_HOST__` on the iframe `load`
-// event.  This script runs before that event fires, so we poll until the
-// reference appears.
-
 function waitForHost(timeout = 10000): Promise<UiPluginHost> {
   return new Promise((resolve, reject) => {
-    // Fast path: already available.
     if (window.__UAP_PLUGIN_HOST__) {
       resolve(window.__UAP_PLUGIN_HOST__);
       return;
     }
-
     const start = Date.now();
     const interval = setInterval(() => {
       if (window.__UAP_PLUGIN_HOST__) {
@@ -48,12 +50,8 @@ function waitForHost(timeout = 10000): Promise<UiPluginHost> {
   });
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
-
 waitForHost()
-  .then((host) => {
-    bootApp(host);
-  })
+  .then((host) => { bootApp(host); })
   .catch((err) => {
     console.error("[browser-ui] Failed to get host reference:", err);
     const rootEl = document.getElementById("root");
@@ -65,48 +63,53 @@ waitForHost()
     }
   });
 
-// ── App bootstrap ─────────────────────────────────────────────────────────────
-
 function bootApp(host: UiPluginHost): void {
-  // ── External store for host messages ──────────────────────────────────────
-  //
-  // We use useSyncExternalStore to subscribe to host messages and trigger
-  // re-renders when state updates arrive. The store holds a monotonically
-  // increasing tick counter; components read host.sessionState directly.
+  const slotCtx = host.getSlotContext();
 
-  let browserState: Partial<PluginStateExtension> = host.sessionState?.[BROWSER_SYMBOL] ?? {};
-  let sessionState: AgentSessionState | undefined = host.sessionState
+  // In compact mode, allow the body to shrink-wrap its content so the
+  // iframe can report the actual content height to the host.
+  if (slotCtx.slotType === "compactToolCard") {
+    document.body.classList.add("compact-mode");
+  }
+
+  // ── Reactive store ────────────────────────────────────────────────────────
+
+  let sessionState = host.getPluginState()?.[0] ?? null;
+  let browserState = host.getPluginState()?.[1] ?? null;
   const listeners = new Set<() => void>();
-  debugger
 
-  const emitChange = (state: AgentSessionState) => {
-    browserState = state[BROWSER_SYMBOL];
-    sessionState = state;
+  const emitChange = () => {
+    const state = host.getPluginState();
+    sessionState = state?.[0] ?? null;
+    browserState = state?.[1] ?? null;
     listeners.forEach((l) => l());
   };
 
   const subscribe = (cb: () => void): (() => void) => {
     listeners.add(cb);
-    return () => listeners.delete(cb);
+    return () => { listeners.delete(cb); };
   };
 
   const getSnapshot = () => browserState;
 
-  // ToolCard mode state — set when a `toolCallInfo` message arrives.
   let toolCallInfo: ToolCallInfo | null = null;
 
-  // Subscribe to host messages (Link B).
-  host.onHostMessage((msg: UapPluginMessage) => {
-    switch (msg.type) {
-      case "stateUpdate":
-        // Session state changed — host.sessionState is already updated
-        // (direct same-realm reference). Just trigger a re-render.
-        emitChange(msg.payload);
-        break;
+  // ── Host→iframe messages ──────────────────────────────────────────────────
+  //
+  // The host pushes SlotHostMessage payloads via `host._pushToIframe()`,
+  // which delivers them to our `onSlotMessage` callback. Messages sent
+  // before we register this subscriber are buffered by the host and
+  // replayed on registration, so we never miss the initial toolCallInfo.
 
-      case "toolCallInfo":
-        // Switch to toolCard mode with the provided tool call info.
-        toolCallInfo = msg.payload ?? null;
+  host.onSlotMessage((msg: SlotHostMessage) => {
+    switch (msg.type) {
+      case "panel":
+        emitChange();
+        break;
+      case "toolCard":
+      case "compactToolCard":
+        toolCallInfo = msg.payload.toolCallInfo ?? null;
+        listeners.forEach((l) => l());
         break;
     }
   });
@@ -114,14 +117,22 @@ function bootApp(host: UiPluginHost): void {
   // ── App component ──────────────────────────────────────────────────────────
 
   function BrowserPluginApp() {
-    const { browserAdapter } = useSyncExternalStore(subscribe, getSnapshot);
+    const state = useSyncExternalStore(subscribe, getSnapshot);
+    const browserAdapter = state?.browserAdapter;
 
-    // ToolCard mode takes priority.
-    if (toolCallInfo) {
-      return <BrowserToolCard info={toolCallInfo} />;
+    if (slotCtx.slotType === "compactToolCard") {
+      if (toolCallInfo) return <BrowserCompactToolCard info={toolCallInfo} host={host} />;
+      return null;
     }
 
-    // Main panel mode — read the adapter from session state.
+    if (slotCtx.slotType === "toolCard") {
+      if (toolCallInfo) return <BrowserToolCard info={toolCallInfo} />;
+      return (
+        <div style={{ padding: 16, color: "#858585", fontFamily: "system-ui" }}>
+          Waiting for tool call info...
+        </div>
+      );
+    }
 
     if (!browserAdapter) {
       return (
@@ -132,7 +143,7 @@ function bootApp(host: UiPluginHost): void {
     }
 
     return (
-      <BrowserPanel adapter={browserAdapter} sessionId={sessionState!.id} />
+      <BrowserPanel adapter={browserAdapter} sessionId={sessionState?.id ?? "unknown"} />
     );
   }
 
@@ -147,21 +158,25 @@ function bootApp(host: UiPluginHost): void {
       </StrictMode>,
     );
 
-    // Report initial size to host (Link A), then observe changes.
     const reportSize = () => {
-      const rect = document.body.getBoundingClientRect();
-      host.postMessage({
+      // In compact mode, measure the root element (which wraps the content)
+      // rather than the body, to get the true content height.
+      const measureEl = slotCtx.slotType === "compactToolCard"
+        ? rootEl
+        : document.body;
+      const msg: SlotIframeMessage = {
         version: 1,
         type: "resize",
-        payload: { width: rect.width, height: rect.height },
-      });
+        payload: {
+          width: measureEl?.clientWidth ?? document.body.clientWidth,
+          height: measureEl?.clientHeight ?? document.body.clientHeight,
+        },
+      };
+      host.sendSlotMessage(msg);
     };
-
-    // Report after initial render.
     requestAnimationFrame(reportSize);
-
-    // Observe subsequent size changes.
-    const resizeObserver = new ResizeObserver(() => reportSize());
-    resizeObserver.observe(document.body);
+    if (rootEl) {
+      new ResizeObserver(() => reportSize()).observe(rootEl);
+    }
   }
 }

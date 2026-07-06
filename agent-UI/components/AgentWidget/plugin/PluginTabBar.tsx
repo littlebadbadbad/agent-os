@@ -1,56 +1,55 @@
 /**
  * agent-UI/components/AgentWidget/plugin/PluginTabBar.tsx
  *
- * Generic dynamic plugin tab system.
+ * Pure slot-driven plugin tab system.
  *
- * Reads `state.pluginAdapters` (a generic map keyed by plugin id) and
- * renders a tab button for each plugin that has `hasUi === true`.
+ * Reads {@link PanelSlotDeclaration} entries from {@link SlotRegistry},
+ * sorts by `order`, and renders a tab for each visible panel.
  *
- * No plugin name is hardcoded — the tab list is fully data-driven.
- * This satisfies R7 (literal zero tolerance for plugin-specific strings
- * in agent-UI).
+ * No plugin name is hardcoded — fully data-driven.
  */
 
-import type { ReactElement } from "react";
-import type { AgentSessionExtension, PluginUiAdapter } from "@agent-type";
+import { type ReactElement } from "react";
+import type { PanelSlotDeclaration } from "@agent-type";
 import styles from "../AgentWidget.module.scss";
-import { pluginSystem } from "@agent-UI/agents";
-
-// ── Props ─────────────────────────────────────────────────────────────────────
+import { slotRegistry, type SlotEntry } from "../../../slots/registry";
 
 export interface PluginTabBarProps {
-  /** Currently active plugin view (format: `plugin:<id>`), or null. */
   readonly activePluginView: string | null;
-  /** Callback when a plugin tab is clicked. */
   readonly onSelect: (view: string) => void;
-  readonly pluginStates: Pick<AgentSessionExtension, symbol>;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
-  const { activePluginView, onSelect, pluginStates } = props;
+  const { activePluginView, onSelect } = props;
+
+  const panelSlots: ReadonlyArray<SlotEntry<PanelSlotDeclaration>> =
+    slotRegistry.getByType("panel");
+
+  if (panelSlots.length === 0) return null;
 
   return (
     <>
-      {pluginSystem.activePlugins.map(({ id: pluginId, symbols }) => {
-        return symbols.map((s) => {
+      {panelSlots
+        .slice()
+        .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100))
+        .map((entry) => {
+          const { pluginId, declaration } = entry;
           const view = `plugin:${pluginId}`;
-          const hasUi = pluginStates[s]?.showTab?.() ?? false;
+          const show = declaration.showTab();
           const isActive = activePluginView === view;
-          if (!hasUi) return null;
+          if (!show) return null;
           return (
             <button
-              key={s.toString() + pluginId}
+              key={`${pluginId}:${declaration.id}`}
               type="button"
               className={`${styles["tab"]}${isActive ? ` ${styles["tab--active"]}` : ""}`}
               onClick={() => onSelect(view)}
             >
-              {pluginSystem.getPlugin(pluginId)?.name ?? pluginId}
+              {declaration.icon && <span>{declaration.icon} </span>}
+              {declaration.label}
             </button>
           );
-        });
-      })}
+        })}
     </>
   );
 }

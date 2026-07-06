@@ -1,5 +1,6 @@
 import type { ToolSet } from "./toolset";
-import type { AgentSessionState, Tool } from "./core";
+import type { AgentSessionState, PluginStateExtension, Tool } from "./core";
+import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, SlotIframeMessage } from "./ui-slot";
 import { AgentSessionExtension } from "@agent-type";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -265,45 +266,57 @@ export interface AgentPluginHost {
 export interface UiPluginHost {
   /**
    * API client for calling backend plugin methods (Link C).
-   * UI layers should prefer reading capabilities from `sessionState`
-   * (e.g. `sessionState.pluginAdapters.<name>`) over direct API calls.
    */
   readonly apiClient: PluginApiClient;
 
-  /**
-   * This plugin's unique identifier (kebab-case).
-   * Matches `manifest.id`.
-   */
+  /** This plugin's unique identifier (kebab-case). */
   readonly pluginId: string;
 
-  /**
-   * This plugin's display name (human-readable).
-   * Matches `manifest.name`.
-   */
+  /** This plugin's display name (human-readable). */
   readonly pluginName: string;
 
-  /**
-   * This plugin's version (SemVer).
-   * Matches `manifest.version`.
-   */
+  /** This plugin's version (SemVer). */
   readonly pluginVersion: string;
-  /**
-   * Current snapshot of the agent session state (R9).
-   * `undefined` when no session is active yet.
-   */
-  readonly sessionState: AgentSessionState | undefined;
-  /**
-   * Send a message from the iframe to the host (Link A).
-   * Used for reporting size changes, triggering custom events, etc.
-   */
-  postMessage(msg: UIRecieveMessage): void;
 
   /**
-   * Subscribe to messages pushed from the host to the iframe (Link B).
-   * The host sends state updates, config changes, and tool-call info.
+   * Read the current session state and any plugin-specific state slices.
+   */
+  getPluginState(): [AgentSessionState, ...(PluginStateExtension & PluginUiAdapter)[]] | undefined;
+
+  /**
+   * Returns the current slot context so the plugin UI knows which
+   * slot it's rendering and can conditionally render the right component.
+   */
+  getSlotContext(): SlotContext;
+
+  /**
+   * Send a message from the iframe to the host (e.g. resize report).
+   *
+   * This is the ONLY way plugin UI code sends messages to the host.
+   * It abstracts away all transport details — the host handles
+   * routing internally via the wired {@link UiPluginHostInternal._onIframeMessage}
+   * callback chain.
+   *
+   * Plugin UI code MUST NOT use `window.parent.postMessage()` directly.
+   */
+  sendSlotMessage(msg: SlotIframeMessage): void;
+
+  /**
+   * Subscribe to messages from the host to the iframe.
+   *
+   * This is the ONLY way plugin UI code receives messages from the host.
+   * It abstracts away `window.addEventListener('message')` — the host
+   * handles version validation and routing internally.
+   *
+   * Messages received before the subscription is registered are buffered
+   * by the host and replayed on first subscription, so the plugin UI
+   * never misses the initial slot data (e.g. `toolCallInfo`).
+   *
+   * Plugin UI code MUST NOT use `window.addEventListener('message')` directly.
+   *
    * Returns an unsubscribe function.
    */
-  onHostMessage(cb: (msg: PluginRecieveMessage) => void): () => void;
+  onSlotMessage(cb: (msg: SlotHostMessage) => void): () => void;
 
   /**
    * Read a configuration value for this plugin.
@@ -319,42 +332,72 @@ export interface UiPluginHost {
   onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void;
 }
 
-// ── UI plugin message protocol ────────────────────────────────────────────────
+/**
+ * Internal extension of {@link UiPluginHost} used by the host-side
+ * slot renderers. These methods are NOT part of the public plugin API —
+ * they exist so the renderer can push messages to the iframe and
+ * receive messages from the iframe without the plugin UI touching
+ * any transport API.
+ *
+ * The host injects a `UiPluginHostInternal` into the iframe, but plugin
+ * UI code only sees the {@link UiPluginHost} surface (the internal
+ * methods are prefixed with `_` to signal "private").
+ */
+export interface UiPluginHostInternal extends UiPluginHost {
+  /**
+   * Push a host→iframe message. Called by the slot renderer when it
+   * has data for the plugin UI (e.g. toolCallInfo, state update).
+   *
+   * If the iframe has not yet registered any `onSlotMessage` subscriber,
+   * the message is buffered and replayed when the first subscriber
+   * registers. This eliminates the race condition where the host
+   * sends data before the iframe's module script has booted.
+   */
+  _pushToIframe(msg: SlotHostMessage): void;
+
+  /**
+   * Register a callback for messages sent from the iframe to the host
+   * via `sendSlotMessage`. Called by the slot renderer to receive
+   * resize reports, openDetail requests, etc.
+   *
+   * Returns an unsubscribe function.
+   */
+  _onIframeMessage(cb: (msg: SlotIframeMessage) => void): () => void;
+}
+
+// ── UI plugin message protocol (legacy, kept only for backward-compat type refs) ─
 
 /**
- * Versioned message envelope for iframe ↔ host postMessage communication.
- *
- * All messages MUST carry a `version` field (R8). The host rejects
- * messages with a mismatched or missing version to ensure protocol
- * compatibility.
+ * Legacy message protocol for iframe ↔ host communication.
+ * No longer used by the slot-based system — kept only because
+ * it's part of the public API surface exported from agent-type/index.ts.
  */
 export type PluginRecieveMessage =
-  | {
-      readonly type: "stateUpdate";
-      readonly payload: AgentSessionState;
-    }
-  | {
-      readonly type: "toolCallInfo";
-      readonly payload: ToolCallInfo;
-    };
-
-export type UIRecieveMessage = {};
+  | { readonly type: "stateUpdate"; readonly payload: AgentSessionState }
+  | { readonly type: "toolCallInfo"; readonly payload: ToolCallInfo };
 // ── Plugin UI adapter (generic session-state injection) ───────────────────────
 
 /**
  * Marker interface for plugin adapters injected into session state.
  *
  * Plugins that provide UI capabilities inject their adapter into
- * `AgentSessionState.pluginAdapters` via `onGetState`. The host UI
- * iterates this map to dynamically render plugin tabs — no plugin
- * name is hardcoded in the host UI.
+ * `AgentSessionState` via `onGetSymbolState`. The host UI iterates
+ * declared slot declarations to dynamically render injection points —
+ * no plugin name is hardcoded in the host UI.
  *
  * Concrete adapters (e.g. `BrowserAdapter`) extend this interface with
  * their plugin-specific methods.
  */
 export interface PluginUiAdapter {
-  /** Whether this plugin has a UI entry to render. */
-  readonly showTab?: () => boolean;
+  /**
+   * UI injection points declared by this plugin's ToolSets.
+   *
+   * Each slot declares a type ("panel", "toolCard", etc.) and an id.
+   * The host reads this array to determine where and how to render
+   * the plugin's UI.  Multiple ToolSets from the same plugin can
+   * contribute different slots — the host merges them.
+   */
+  readonly slots?: readonly PluginSlotDeclaration[];
 }
 
 // ── Tool card rendering (dual-mode) ───────────────────────────────────────────
@@ -436,13 +479,13 @@ export interface ToolCardRenderContext {
  */
 export type ToolCardRenderer =
   | {
-      readonly mode: "template";
-      readonly render: (info: ToolCallInfo) => ToolCardDescriptor;
-    }
+    readonly mode: "template";
+    readonly render: (info: ToolCallInfo) => ToolCardDescriptor;
+  }
   | {
-      readonly mode: "custom";
-      readonly render: (ctx: ToolCardRenderContext) => (() => void) | void;
-    };
+    readonly mode: "custom";
+    readonly render: (ctx: ToolCardRenderContext) => (() => void) | void;
+  };
 
 // ── Stream types ──────────────────────────────────────────────────────────────
 

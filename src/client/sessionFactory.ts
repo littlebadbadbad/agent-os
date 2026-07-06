@@ -168,12 +168,16 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
             )) {
               merged[k] =
                 Array.isArray(v) && Array.isArray(merged[k])
-                  ? [...(merged[k] as unknown[]), ...v]
+                  ? [...merged[k], ...v]
                   : v;
             }
           }
           if (ts.onGetSymbolState && ts.symbol) {
-            const symbolState: Record<string, unknown> = {};
+            const existing = merged[ts.symbol];
+            const symbolState: Record<string, unknown> =
+              existing !== undefined
+                ? { ...existing }
+                : {};
             for (const [k, v] of Object.entries(
               ts.onGetSymbolState(tsCtx, stateCtx),
             )) {

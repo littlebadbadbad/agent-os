@@ -1,6 +1,7 @@
-import type { Tool, TokenUsage, Attachment, ToolResult, ToolExecutionContext, AnyRecord, AgentSessionState, SessionEntryData, SessionEntryExtension } from './core';
+import type { Tool, TokenUsage, Attachment, ToolResult, ToolExecutionContext, AnyRecord, AgentSessionState, SessionEntryData, SessionEntryExtension, PluginStateExtension } from './core';
 import type { AgentMessage } from './message';
 import type { AgentHandler } from './handler';
+import { PluginUiAdapter } from './plugin';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  ToolSet types  (来自 src/tools/toolSet.ts — types only)
@@ -575,7 +576,7 @@ export type ToolSet = {
    * `stateCtx.tools` contains all tools registered for the session at call time.
    */
   onGetState?(ctx: ToolSetContext, stateCtx?: ToolSetStateContext): ToolSetState;
-  onGetSymbolState?(ctx: ToolSetContext, stateCtx?: ToolSetStateContext): ToolSetState;
+  onGetSymbolState?(ctx: ToolSetContext, stateCtx?: ToolSetStateContext): PluginStateExtension & PluginUiAdapter;
   /**
    * Subscribe to this ToolSet's state changes for a session.
    *

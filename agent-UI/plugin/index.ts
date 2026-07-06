@@ -27,6 +27,3 @@ export type { PluginSystem, PluginDescriptor, ActivatedPluginInfo } from './plug
 
 export { createUiPluginHost } from './uiHost';
 export type { UiPluginHostParams } from './uiHost';
-
-export { createUiPluginSandbox } from './uiLoader';
-export type { UiPluginSandbox, CreateSandboxParams } from './uiLoader';
