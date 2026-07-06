@@ -109,7 +109,7 @@ export type ToolSetStateContext = {
 export interface ToolContextPatch {
   (ctx: ToolSetContext, signal: AbortSignal): Partial<ToolExecutionContext> | undefined;
   /** Markdown description of the ToolExecutionContext fields this patch injects. */
-  readonly comment?: string;
+  comment?: string;
 }
 
 // ── System-prompt context ─────────────────────────────────────────────────────

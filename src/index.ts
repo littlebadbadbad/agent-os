@@ -13,8 +13,6 @@ export {
 export type { ToolStateToolSet, ToolStateControl } from './tools/toolStateToolSet';
 export { createAgentSession } from './client/agentSession';
 export type { AgentSession, AgentSessionState, AgentSessionConfig } from './client/agentSession';
-export { createUserInputToolSet } from './tools/userInput';
-export type { UserInputToolSetOptions, PendingUserInput } from './tools/userInput';
 export type {
   SessionManager,
   SessionEntryData,
@@ -227,7 +225,6 @@ export type {
   WidgetIcon,
   WidgetTheme,
 } from '@agent-type';
-export type { UserInputRequest, UserInputAdapter } from './tools/types';
 export {
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -238,10 +235,6 @@ export {
 
 // ── History converter ─────────────────────────────────────────────────────────
 export { agentMessagesToUI } from './client/historyConverter';
-
-// ── Pending input (user interjection during agent loop) ────────────────────────
-export { createPendingInputToolSet } from './tools/pendingInput';
-export type { PendingInputEntry } from './tools/pendingInput';
 
 // ── Variable store ────────────────────────────────────────────────────────────
 export { createVariableToolSet, isVariableHandle, extractHandles } from './tools/variable';

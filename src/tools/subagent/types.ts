@@ -1,5 +1,4 @@
 import type { Tool, ToolCall, ToolResult, ToolChoice, TokenUsage, AgentHandler, AgentMessage } from '@agent-type';
-import type { UserInputRequest } from '@agent-sdk/tools/userInput/types';
 import type { Attachment } from '@agent-type';
 
 /** Outcome returned by `runAgentLoop`. */

@@ -2,7 +2,7 @@
 import './types';
 
 import type { ToolSet, ToolSetContext } from '@agent-type';
-import type { SessionEntryData } from '@agent-sdk/client/sessionManager.types';
+import type { SessionEntryData } from '@agent-type';
 import type { CronManagerAdapter } from './types';
 import { createCronTools } from './tools';
 import { cronStore } from './store';

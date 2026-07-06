@@ -106,7 +106,6 @@ function ConversationPane({ registry, agentName, convId, todos }: ConversationPa
         onSend={handleSend}
         onCancel={handleCancel}
         isLoading={conv.isLoading}
-        disabled={conv.isLoading}
         enableAttachments={true}
       />
     </div>

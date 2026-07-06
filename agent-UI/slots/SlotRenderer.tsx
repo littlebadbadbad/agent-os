@@ -29,6 +29,8 @@ import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
 import { CompactToolCardSlotRenderer } from "./renderers/CompactToolCardSlotRenderer";
 import { ToolbarButtonSlotRenderer } from "./renderers/ToolbarButtonSlotRenderer";
+import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
+import { slotRegistry } from "./registry";
 
 // ── Discriminated props union ─────────────────────────────────────────────────
 
@@ -66,6 +68,13 @@ export type SlotRendererProps =
       readonly pluginId: string;
       readonly slotType: "statusBar";
       readonly slotId: string;
+      readonly className?: string;
+    }
+  | {
+      readonly pluginId: string;
+      readonly slotType: "inlinePrompt";
+      readonly slotId: string;
+      readonly session: AgentSession;
       readonly className?: string;
     };
 
@@ -123,6 +132,24 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       // StatusBar slots: rendered inline, no iframe.
       // For now, return null — implement when needed.
       return null;
+
+    case "inlinePrompt": {
+      const decl = slotRegistry.getSlot(props.pluginId, props.slotId);
+      if (
+        decl?.type === "inlinePrompt" &&
+        !decl.shouldRender()
+      ) {
+        return null;
+      }
+      return (
+        <InlinePromptSlotRenderer
+          pluginId={props.pluginId}
+          slotId={props.slotId}
+          session={props.session}
+          className={props.className}
+        />
+      );
+    }
 
     default: {
       const _exhaustive: never = props;

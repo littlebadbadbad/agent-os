@@ -67,15 +67,13 @@ async function resolveAsk(
   adapter: PermissionsAdapter | undefined,
   execCtx: ToolExecutionContext,
 ): Promise<boolean> {
-  // 1. Interactive prompt via UserInputToolSet
-  if (execCtx.requestUserInput) {
-    const response = await execCtx.requestUserInput({
-      type: 'confirm',
-      message,
-      ephemeral: true,
-    });
-    return response === 'yes';
-  }
+  // 1. Interactive prompt via execCtx.requestUserInput (only when user-input plugin is installed)
+  const response = await execCtx.requestUserInput?.({
+    type: 'confirm',
+    message,
+    ephemeral: true,
+  });
+  if (response === 'yes') return true;
 
   // 2. Adapter fallback (headless / SDK mode)
   if (adapter?.confirm) {

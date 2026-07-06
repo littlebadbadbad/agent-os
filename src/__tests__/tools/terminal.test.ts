@@ -48,8 +48,12 @@ const ctx = {
   agentName:      'main',
   conversationId: SESSION,
   signal:         new AbortController().signal,
-  requestUserInput: () => Promise.resolve(null),
-};
+
+    requestUserInput: () => Promise.resolve(null),
+
+    cancelUserInput: () => {},
+
+  };
 
 // ── terminal_wait ─────────────────────────────────────────────────────────────
 
@@ -83,7 +87,7 @@ describe('terminal_wait', () => {
     });
     const { wait } = getTools(adapter);
 
-    // idleMs=100 → poll every 50 ms; should return idle after ~100 ms.
+    // idleMs=100 �?poll every 50 ms; should return idle after ~100 ms.
     const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx) as any;
 
     expect(result.reason).toBe('idle');
@@ -105,7 +109,7 @@ describe('terminal_wait', () => {
     const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx) as any;
 
     expect(result.reason).toBe('idle');
-    // Must have polled at least 4 times (3 with output + ≥1 silent + final snapshot).
+    // Must have polled at least 4 times (3 with output + �? silent + final snapshot).
     expect(callN).toBeGreaterThanOrEqual(4);
   }, 3000);
 
@@ -116,7 +120,7 @@ describe('terminal_wait', () => {
     const { wait } = getTools(adapter);
 
     // idleMs=10000 ensures idle never fires; timeout fires after 200ms.
-    // pollMs = min(5000, 250) = 250ms → first sleep overshoots deadline.
+    // pollMs = min(5000, 250) = 250ms �?first sleep overshoots deadline.
     const result = await wait.execute({ id: 'term_1', idleMs: 10000, timeoutMs: 200 }, ctx) as any;
 
     expect(result.timedOut).toBe(true);
@@ -145,7 +149,7 @@ describe('terminal_wait', () => {
 
   it('advances the shared read cursor so terminal_read continues from the right offset', async () => {
     // terminal_wait (exited path) makes 2 readOutput calls: poll + full snapshot.
-    // terminal_read then makes a 3rd call — it must pass the cursor advanced by terminal_wait.
+    // terminal_read then makes a 3rd call �?it must pass the cursor advanced by terminal_wait.
     const adapter = makeAdapter({
       readOutput: vi.fn()
         .mockResolvedValueOnce({ output: 'output', offset: 42, running: false, exitCode: 0 })
@@ -165,7 +169,7 @@ describe('terminal_wait', () => {
 
 // ── resizePty (HTTP adapter) ───────────────────────────────────────────────────
 
-describe('createHttpTerminalAdapter — resizePty', () => {
+describe('createHttpTerminalAdapter �?resizePty', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
   });
@@ -247,9 +251,9 @@ describe('terminal_sleep', () => {
   }, 3000);
 });
 
-// ── terminal_wait — user cancel ───────────────────────────────────────────────
+// ── terminal_wait �?user cancel ───────────────────────────────────────────────
 
-describe('terminal_wait — user cancel via requestUserInput', () => {
+describe('terminal_wait �?user cancel via requestUserInput', () => {
   it('returns reason="cancelled" when the user responds to the cancel prompt', async () => {
     const adapter = makeAdapter({
       // Terminal stays running indefinitely.

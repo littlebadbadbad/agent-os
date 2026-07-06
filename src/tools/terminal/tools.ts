@@ -1,8 +1,8 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import type { TerminalManagerAdapter } from './types';
 
-// ── Shell state (shared with toolSet for system-prompt injection) ─────────────
+// ���� Shell state (shared with toolSet for system-prompt injection) ��������������������������
 
 export type TerminalShellState = {
   summary: string;
@@ -13,7 +13,7 @@ export type TerminalShellState = {
 const defaultShellState: TerminalShellState = {
   summary: 'leave blank to use the host default',
   osNote: '',
-  shellFamilies: 'powershell→$var,Get-*,; | cmd→%VAR%,/flag,&& | bash/zsh→$var,POSIX,&&',
+  shellFamilies: 'powershell��$var,Get-*,; | cmd��%VAR%,/flag,&& | bash/zsh��$var,POSIX,&&',
 };
 
 export function buildTerminalSystemPrompt(state: TerminalShellState): string {
@@ -27,14 +27,14 @@ export function buildTerminalSystemPrompt(state: TerminalShellState): string {
 /**
  * Create terminal management tools.
  *
- * Returns `{ tools, getSystemPrompt }` — the toolSet uses `getSystemPrompt` to
+ * Returns `{ tools, getSystemPrompt }` �� the toolSet uses `getSystemPrompt` to
  * inject OS/shell guidance into the system prompt without cluttering tool descriptions.
  */
 export function createTerminalTools(adapter: TerminalManagerAdapter) {
   const state: TerminalShellState = { ...defaultShellState };
 
-  // ── Internal setup ────────────────────────────────────────────────────────
-  // Per-session × per-terminal read cursor.  Key: `${sessionId}:${terminalId}`.
+  // ���� Internal setup ����������������������������������������������������������������������������������������������������������������
+  // Per-session �� per-terminal read cursor.  Key: `${sessionId}:${terminalId}`.
   const readCursors = new Map<string, number>();
 
   // Eagerly fetch shell list for system-prompt enrichment and terminal_create description.
@@ -48,11 +48,11 @@ export function createTerminalTools(adapter: TerminalManagerAdapter) {
       .join(', ');
 
     if (/cmd|powershell|pwsh/.test(defName)) {
-      state.osNote = 'HOST OS: Windows. Prefer pwsh or powershell; fall back to cmd.exe for legacy scripts. Avoid bash/wsl/git-bash — incompatible path separators.';
-      state.shellFamilies = 'powershell/pwsh→$var,Get-*,; | cmd→%VAR%,/flag,&& | bash/zsh→$var,POSIX,&&';
+      state.osNote = 'HOST OS: Windows. Prefer pwsh or powershell; fall back to cmd.exe for legacy scripts. Avoid bash/wsl/git-bash �� incompatible path separators.';
+      state.shellFamilies = 'powershell/pwsh��$var,Get-*,; | cmd��%VAR%,/flag,&& | bash/zsh��$var,POSIX,&&';
     } else if (/bash|zsh|fish|^sh$/.test(defName)) {
       state.osNote = 'HOST OS: Linux/macOS. Prefer bash or zsh (fish if requested). Avoid PowerShell/cmd.exe.';
-      state.shellFamilies = 'bash/zsh→$var,POSIX,&& | fish→$var,fish-builtins,; | powershell→$var,Get-*,;';
+      state.shellFamilies = 'bash/zsh��$var,POSIX,&& | fish��$var,fish-builtins,; | powershell��$var,Get-*,;';
     }
   }).catch(() => {});
 
@@ -130,9 +130,9 @@ export function createTerminalTools(adapter: TerminalManagerAdapter) {
     name:  'terminal_send',
     group: 'Terminal',
     description:
-      'Write text to a terminal’s stdin (newline appended automatically). ' +
+      'Write text to a terminal��s stdin (newline appended automatically). ' +
       'Set raw=true to send bytes exactly as-is without the trailing newline (use for control sequences: \\x03=Ctrl+C, \\x04=Ctrl+D). ' +
-      'Set runInBackground=true to send the command and return immediately — check results later with terminal_wait.',
+      'Set runInBackground=true to send the command and return immediately �� check results later with terminal_wait.',
     parameters: z.object({
       id:   z.string().describe('Terminal id.'),
       text: z.string().describe('Text to send. Newline appended unless raw=true.'),
@@ -160,7 +160,7 @@ export function createTerminalTools(adapter: TerminalManagerAdapter) {
       }
       await adapter.sendInput(id, payload, context.sessionId);
       if (runInBackground) {
-        // Return immediately — caller checks with terminal_wait later.
+        // Return immediately �� caller checks with terminal_wait later.
         return { started: true, terminalId: id };
       }
       return { ok: true };
@@ -187,7 +187,7 @@ export function createTerminalTools(adapter: TerminalManagerAdapter) {
     group: 'Terminal',
     description: 'Pause execution for a fixed duration (ms).',
     parameters: z.object({
-      durationMs: z.number().int().min(100).max(120_000).describe('Duration in ms (100–120 000).'),
+      durationMs: z.number().int().min(100).max(120_000).describe('Duration in ms (100�C120?000).'),
     }),
     execute: async ({ durationMs }, context) => {
       const started = Date.now();
@@ -241,12 +241,12 @@ export function createTerminalTools(adapter: TerminalManagerAdapter) {
       // finishes naturally (idle / exit / timeout) we can call `cancelUserInput`
       // to immediately withdraw the UI card instead of leaving it orphaned.
       const cancelInputId = crypto.randomUUID();
-      const userInputPromise = context.requestUserInput({
+      const userInputPromise = context.requestUserInput?.({
         ephemeral: true,
         type: 'confirm',
         message: `Waiting for terminal "${id}" to finish. Click OK to stop waiting and return current output.`,
       }, cancelInputId).then((v) => {
-        if (v !== null) cancel.triggered = true;
+        if (v !== null && v !== undefined) cancel.triggered = true;
       });
 
       // eslint-disable-next-line no-constant-condition

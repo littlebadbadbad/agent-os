@@ -2,7 +2,7 @@ import './types';
 
 import type { ToolSet, ToolSetContext, CompactionResult } from '@agent-type';
 import type { AgentMessage } from '@agent-type';
-import type { SessionEntryData } from '@agent-sdk/client/sessionManager.types';
+import type { SessionEntryData } from '@agent-type';
 import type { KnowledgeGraph, KnowledgeNode, MemoryGraphToolSetOptions } from './types';
 import { memoryGraphStore, convKey } from './store';
 import { createMemoryGraphTools } from './tools';

@@ -27,7 +27,7 @@ describe('executeToolCall', () => {
       name: 'echo',
       description: 'echo text',
       parameters: z.object({ text: z.string() }),
-      // @ts-expect-error â€“ testing that the execution context gets passed through, even though it's not used here
+      // @ts-expect-error â€?testing that the execution context gets passed through, even though it's not used here
       execute: async ({ text }) => text,
     });
 
@@ -46,7 +46,7 @@ describe('executeToolCall', () => {
       name: 'strict',
       description: 'needs a number',
       parameters: z.object({ n: z.number() }),
-      // @ts-expect-error â€“ testing that the execution context gets passed through, even though it's not used here
+      // @ts-expect-error â€?testing that the execution context gets passed through, even though it's not used here
       execute: async ({ n }) => n,
     });
 
@@ -64,7 +64,7 @@ describe('executeToolCall', () => {
       execute: executeSpy,
     });
 
-    await executeToolCall(registry, makeCall('ctx_tool'), { sessionId: 'session-42', agentName: 'main', conversationId: 'session-42', signal: new AbortController().signal, requestUserInput: () => Promise.resolve(null) });
+    await executeToolCall(registry, makeCall('ctx_tool'), { sessionId: 'session-42', agentName: 'main', conversationId: 'session-42', signal: new AbortController().signal, });
     expect(executeSpy).toHaveBeenCalledWith({}, expect.objectContaining({ sessionId: 'session-42' }));
   });
 
@@ -118,7 +118,7 @@ describe('executeToolCall', () => {
       name: 'lazy_schema',
       description: 'lazy',
       parameters: () => z.object({ v: z.string() }),
-      // @ts-expect-error â€“ testing that factory-function schemas are supported, even though the executeToolCall signature doesn't currently reflect that
+      // @ts-expect-error â€?testing that factory-function schemas are supported, even though the executeToolCall signature doesn't currently reflect that
       execute: async ({ v }) => v,
     });
 

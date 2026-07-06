@@ -36,6 +36,7 @@ export type {
   AgentStreamChunk,
   AgentTurnResponse,
   PluginStateExtension,
+  UserInputRequest,
 } from "./core";
 
 // ── Handler types ─────────────────────────────────────────────────────────────
@@ -119,6 +120,8 @@ export type {
   CompactToolCardSlotDeclaration,
   ToolbarButtonSlotDeclaration,
   StatusBarSlotDeclaration,
+  InlinePromptSlotDeclaration,
+  MessageInterceptorSlotDeclaration,
   PluginSlotDeclaration,
   SlotContext,
   PanelHostMessage,
@@ -126,12 +129,14 @@ export type {
   CompactToolCardHostMessage,
   ToolbarButtonHostMessage,
   StatusBarHostMessage,
+  InlinePromptHostMessage,
   SlotHostMessage,
   PanelIframeMessage,
   ToolCardIframeMessage,
   CompactToolCardIframeMessage,
   ToolbarButtonIframeMessage,
   StatusBarIframeMessage,
+  InlinePromptIframeMessage,
   SlotIframeMessage,
   FilterSlots,
 } from "./ui-slot";

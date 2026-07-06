@@ -54,7 +54,7 @@ describe('createToolCallPipeline', () => {
       handler: vi.fn(),
     });
     await pipeline(makeCall(), new AbortController().signal);
-    // Tool was invoked â€” if we got here without error the pipeline worked
+    // Tool was invoked â€?if we got here without error the pipeline worked
     expect(true).toBe(true);
   });
 

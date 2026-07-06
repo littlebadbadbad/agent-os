@@ -45,8 +45,7 @@ tools (inline JavaScript) at any time using the meta-tools below.
 ### Creating a frontend tool
 1. Call \`create_tool\` with \`runtime: "frontend"\`.
 2. The \`implementation\` field is a function body (no wrapper) that has access
-   to \`args\` and \`context\` (the full ToolExecutionContext, including
-   \`context.requestUserInput\` for interactive prompts).
+   to \`args\` and \`context\` (the full ToolExecutionContext).
 
 Always call \`list_dynamic_tools\` before creating — a tool with that name may
 already exist.`;

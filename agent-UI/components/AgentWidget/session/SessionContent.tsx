@@ -6,7 +6,6 @@ import { ChatInput } from "../chat/ChatInput";
 import { ToolsPanel } from "../panels/ToolsPanel";
 import { TodoPanel } from "../panels/TodoPanel";
 import { TokenProgressBar } from "../panels/TokenProgress";
-import { UserInputPrompt } from "../panels/UserInputPrompt";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
 import { ExperiencePanel } from "../panels/ExperiencePanel";
@@ -14,9 +13,9 @@ import { PlanPanel } from "../panels/PlanPanel";
 import { CronPanel } from "../panels/CronPanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
+import { slotRegistry } from "../../../slots/registry";
 import styles from "../AgentWidget.module.scss";
 import { pluginSystem } from "@agent-UI/agents";
-import { slotRegistry } from "../../../slots/registry";
 
 // ── Session content (inner chat/tools/todo/terminals) ─────────────────────────
 // Keyed by session ID so React resets local view state when switching sessions.
@@ -37,18 +36,11 @@ export function SessionContent({
     todos,
     terminalAdapter,
     enableAttachments,
-    pendingUserInputs,
-    respondUserInput,
     toggleTool,
     subAgentRegistries,
     experiences,
     experienceStore,
     plan,
-    queueUserInput,
-    pendingInputCount,
-    pendingInputMessages,
-    cancelQueuedInput,
-    resumeQueuedInputs,
     cronJobs,
     cronPauseJob,
     cronResumeJob,
@@ -61,14 +53,18 @@ export function SessionContent({
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      if (isLoading && queueUserInput) {
-        // Agent is busy — queue the message for the next loop iteration.
-        queueUserInput(text);
+      // Check if any plugin wants to intercept the message (e.g. queue it
+      // while the agent loop is running).
+      const interceptor = slotRegistry
+        .getByType("messageInterceptor")
+        .find((s) => s.declaration.shouldIntercept(isLoading));
+      if (interceptor) {
+        interceptor.declaration.interceptMessage(text);
       } else {
         await session.sendMessage(text, attachments);
       }
     },
-    [session, isLoading, queueUserInput],
+    [session, isLoading],
   );
 
   const handleEditMessage = useCallback(
@@ -147,13 +143,6 @@ export function SessionContent({
             onClick={() => setView("plan")}
           >
             Plan
-            {(pendingUserInputs?.length ?? 0) > 0 && (
-              <span
-                className={`${styles["tab-badge"]} ${styles["tab-badge--urgent"]}`}
-              >
-                !
-              </span>
-            )}
           </button>
         )}
         {hasTodos && (
@@ -240,47 +229,12 @@ export function SessionContent({
           tokenBudget={tokenBudget}
           onEditMessage={handleEditMessage}
         />
-        {/* Pending messages (queued during agent loop) shown as ghost bubbles */}
-        {pendingInputMessages && pendingInputMessages.length > 0 && (
-          <div className={styles["pending-strip"]}>
-            {pendingInputMessages.map((entry) => (
-              <div key={entry.id} className={styles["pending-msg"]}>
-                <span className={styles["pending-msg-icon"]}>⏳</span>
-                <span className={styles["pending-msg-text"]}>{entry.text}</span>
-                {cancelQueuedInput && (
-                  <button
-                    type="button"
-                    className={styles["pending-msg-cancel"]}
-                    onClick={() => cancelQueuedInput(entry.id)}
-                    title="Remove this message"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
-            {!isLoading && resumeQueuedInputs && (
-              <button
-                type="button"
-                className={styles["pending-resume-btn"]}
-                onClick={resumeQueuedInputs}
-              >
-                继续发送全部
-              </button>
-            )}
-          </div>
-        )}
         <ChatInput
           onSend={handleSend}
           onCancel={session.cancelMessage}
           isLoading={isLoading}
-          disabled={
-            (pendingUserInputs?.length ?? 0) > 0 ||
-            (!isLoading && (pendingInputMessages?.length ?? 0) > 0)
-          }
           enableAttachments={enableAttachments}
           skills={skills}
-          pendingCount={pendingInputCount}
         />
       </div>
       {view === "tools" && (
@@ -329,16 +283,21 @@ export function SessionContent({
           experienceStore={experienceStore}
         />
       )}
-      {/* Pending user-input prompt — shown in all views so a tool paused in the
-          background never silently blocks execution when the user switches tabs.
-          Multiple simultaneous prompts are possible (e.g. main agent + sub-agent);
-          we surface the oldest one first and let the user work through them. */}
-      {pendingUserInputs?.[0] && respondUserInput && (
-        <UserInputPrompt
-          pending={pendingUserInputs[0]}
-          onRespond={respondUserInput}
-        />
-      )}
+      {/* Inline prompt slots — plugin-managed user-input overlays.
+          Each slot creates a sandboxed iframe that receives prompt state
+          via InlinePromptHostMessage and calls the plugin's responder.
+          Shown in all views so pending prompts never silently block execution. */}
+      {slotRegistry
+        .getByType("inlinePrompt")
+        .map((entry) => (
+          <SlotRenderer
+            key={`${entry.pluginId}:${entry.declaration.id}`}
+            pluginId={entry.pluginId}
+            slotType="inlinePrompt"
+            slotId={entry.declaration.id}
+            session={session}
+          />
+        ))}
     </>
   );
 }

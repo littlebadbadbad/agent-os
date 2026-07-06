@@ -11,8 +11,7 @@ function makeCtx(sessionId = 'session-1') {
     agentName: 'main',
     conversationId: MAIN_CONVERSATION_ID,
     signal: new AbortController().signal,
-    requestUserInput: () => Promise.resolve(null),
-  };
+    };
 }
 
 /**
@@ -38,8 +37,7 @@ function makeSubAgentCtx(
     agentName,
     conversationId: convId,   // sub-agent: conversationId !== sessionId
     signal: new AbortController().signal,
-    requestUserInput: () => Promise.resolve(null),
-  };
+    };
 }
 
 async function writeTodos(

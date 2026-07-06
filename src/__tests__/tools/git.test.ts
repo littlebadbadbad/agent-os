@@ -34,13 +34,10 @@ function makeAdapter(overrides: Partial<GitAdapter> = {}): GitAdapter {
   };
 }
 
-function makeSdkCtx(
-  overrides: Partial<{ requestUserInput: (...args: any[]) => Promise<any> }> = {},
-) {
+function makeSdkCtx() {
   return {
     ...ctx,
     signal: new AbortController().signal,
-    ...overrides,
   } as unknown as Parameters<ReturnType<typeof createGitTools>['tools'][number]['execute']>[1];
 }
 
@@ -162,66 +159,16 @@ describe('git_log', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('git_stage', () => {
-  it('returns NO_USER_INPUT_ERROR when requestUserInput is missing', async () => {
-    const adapter = makeAdapter();
-    const { tools } = createGitTools(adapter);
-    const gitStage = tools.find(t => t.name === 'git_stage')!;
-
-    const result = await gitStage.execute({ paths: ['src/foo.ts'] }, makeSdkCtx());
-    expect(result).toEqual({ error: expect.stringContaining('requestUserInput') });
-    expect(adapter.stage).not.toHaveBeenCalled();
-  });
-
-  it('returns {status: cancelled} when user declines', async () => {
-    const adapter = makeAdapter();
-    const { tools } = createGitTools(adapter);
-    const gitStage = tools.find(t => t.name === 'git_stage')!;
-
-    const sdkCtx = makeSdkCtx({
-      requestUserInput: vi.fn().mockResolvedValue('no'),
-    });
-    const result = await gitStage.execute({ paths: ['src/foo.ts'] }, sdkCtx);
-    expect(result).toEqual({ status: 'cancelled' });
-  });
-
-  it('calls adapter.stage when user confirms', async () => {
+  it('calls adapter.stage with provided paths', async () => {
     const adapter = makeAdapter({
       stage: vi.fn().mockResolvedValue({ staged: ['src/foo.ts'] }),
     });
     const { tools } = createGitTools(adapter);
     const gitStage = tools.find(t => t.name === 'git_stage')!;
 
-    const sdkCtx = makeSdkCtx({
-      requestUserInput: vi.fn().mockResolvedValue('yes'),
-    });
-    const result = await gitStage.execute({ paths: ['src/foo.ts'] }, sdkCtx) as { staged: string[] };
+    const result = await gitStage.execute({ paths: ['src/foo.ts'] }, makeSdkCtx()) as { staged: string[] };
     expect(adapter.stage).toHaveBeenCalledWith(['src/foo.ts']);
     expect(result.staged).toContain('src/foo.ts');
-  });
-
-  it('includes "all changes" in the prompt when paths is empty', async () => {
-    const adapter = makeAdapter();
-    const { tools } = createGitTools(adapter);
-    const gitStage = tools.find(t => t.name === 'git_stage')!;
-
-    const requestUserInput = vi.fn().mockResolvedValue('no');
-    await gitStage.execute({ paths: [] }, makeSdkCtx({ requestUserInput }));
-
-    const prompt = (requestUserInput.mock.calls[0][0] as { message: string }).message;
-    expect(prompt).toContain('all changes');
-  });
-
-  it('includes file paths in the prompt when paths is non-empty', async () => {
-    const adapter = makeAdapter();
-    const { tools } = createGitTools(adapter);
-    const gitStage = tools.find(t => t.name === 'git_stage')!;
-
-    const requestUserInput = vi.fn().mockResolvedValue('no');
-    await gitStage.execute({ paths: ['a.ts', 'b.ts'] }, makeSdkCtx({ requestUserInput }));
-
-    const prompt = (requestUserInput.mock.calls[0][0] as { message: string }).message;
-    expect(prompt).toContain('a.ts');
-    expect(prompt).toContain('b.ts');
   });
 });
 
@@ -230,45 +177,16 @@ describe('git_stage', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('git_unstage', () => {
-  it('returns NO_USER_INPUT_ERROR without requestUserInput', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitUnstage = tools.find(t => t.name === 'git_unstage')!;
-
-    const result = await gitUnstage.execute({}, makeSdkCtx());
-    expect(result).toEqual({ error: expect.stringContaining('requestUserInput') });
-  });
-
-  it('returns {status: cancelled} when user declines', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitUnstage = tools.find(t => t.name === 'git_unstage')!;
-
-    const sdkCtx = makeSdkCtx({ requestUserInput: vi.fn().mockResolvedValue('no') });
-    const result = await gitUnstage.execute({ paths: ['a.ts'] }, sdkCtx);
-    expect(result).toEqual({ status: 'cancelled' });
-  });
-
-  it('calls adapter.unstage when confirmed', async () => {
+  it('calls adapter.unstage with provided paths', async () => {
     const adapter = makeAdapter({
       unstage: vi.fn().mockResolvedValue({ unstaged: ['a.ts'] }),
     });
     const { tools } = createGitTools(adapter);
     const gitUnstage = tools.find(t => t.name === 'git_unstage')!;
 
-    const sdkCtx = makeSdkCtx({ requestUserInput: vi.fn().mockResolvedValue('yes') });
-    const result = await gitUnstage.execute({ paths: ['a.ts'] }, sdkCtx) as { unstaged: string[] };
+    const result = await gitUnstage.execute({ paths: ['a.ts'] }, makeSdkCtx()) as { unstaged: string[] };
     expect(adapter.unstage).toHaveBeenCalledWith(['a.ts']);
     expect(result.unstaged).toContain('a.ts');
-  });
-
-  it('includes "all staged changes" in prompt when paths is empty', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitUnstage = tools.find(t => t.name === 'git_unstage')!;
-
-    const requestUserInput = vi.fn().mockResolvedValue('no');
-    await gitUnstage.execute({ paths: [] }, makeSdkCtx({ requestUserInput }));
-
-    const prompt = (requestUserInput.mock.calls[0][0] as { message: string }).message;
-    expect(prompt).toContain('all staged changes');
   });
 });
 
@@ -277,43 +195,14 @@ describe('git_unstage', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('git_commit', () => {
-  it('returns NO_USER_INPUT_ERROR without requestUserInput', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitCommit = tools.find(t => t.name === 'git_commit')!;
-
-    const result = await gitCommit.execute({ message: 'feat: foo' }, makeSdkCtx());
-    expect(result).toEqual({ error: expect.stringContaining('requestUserInput') });
-  });
-
-  it('returns {status: cancelled} when user declines', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitCommit = tools.find(t => t.name === 'git_commit')!;
-
-    const sdkCtx = makeSdkCtx({ requestUserInput: vi.fn().mockResolvedValue('no') });
-    const result = await gitCommit.execute({ message: 'feat: foo' }, sdkCtx);
-    expect(result).toEqual({ status: 'cancelled' });
-  });
-
-  it('calls adapter.commit with the message when confirmed', async () => {
+  it('calls adapter.commit with the message', async () => {
     const adapter = makeAdapter();
     const { tools } = createGitTools(adapter);
     const gitCommit = tools.find(t => t.name === 'git_commit')!;
 
-    const sdkCtx = makeSdkCtx({ requestUserInput: vi.fn().mockResolvedValue('yes') });
-    const result = await gitCommit.execute({ message: 'feat: my feature' }, sdkCtx) as GitCommitResult;
+    const result = await gitCommit.execute({ message: 'feat: my feature' }, makeSdkCtx()) as GitCommitResult;
     expect(adapter.commit).toHaveBeenCalledWith('feat: my feature');
     expect(result.hash).toBe('abc1234');
-  });
-
-  it('includes the commit message in the confirmation prompt', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitCommit = tools.find(t => t.name === 'git_commit')!;
-
-    const requestUserInput = vi.fn().mockResolvedValue('no');
-    await gitCommit.execute({ message: 'fix: crash on load' }, makeSdkCtx({ requestUserInput }));
-
-    const prompt = (requestUserInput.mock.calls[0][0] as { message: string }).message;
-    expect(prompt).toContain('fix: crash on load');
   });
 });
 
@@ -322,46 +211,16 @@ describe('git_commit', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('git_discard', () => {
-  it('returns NO_USER_INPUT_ERROR without requestUserInput', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitDiscard = tools.find(t => t.name === 'git_discard')!;
-
-    const result = await gitDiscard.execute({ paths: ['a.ts'] }, makeSdkCtx());
-    expect(result).toEqual({ error: expect.stringContaining('requestUserInput') });
-  });
-
-  it('returns {status: cancelled} when user declines', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitDiscard = tools.find(t => t.name === 'git_discard')!;
-
-    const sdkCtx = makeSdkCtx({ requestUserInput: vi.fn().mockResolvedValue('no') });
-    const result = await gitDiscard.execute({ paths: ['a.ts'] }, sdkCtx);
-    expect(result).toEqual({ status: 'cancelled' });
-  });
-
-  it('calls adapter.discard when confirmed', async () => {
+  it('calls adapter.discard with required paths', async () => {
     const adapter = makeAdapter({
       discard: vi.fn().mockResolvedValue({ discarded: ['a.ts', 'b.ts'] }),
     });
     const { tools } = createGitTools(adapter);
     const gitDiscard = tools.find(t => t.name === 'git_discard')!;
 
-    const sdkCtx = makeSdkCtx({ requestUserInput: vi.fn().mockResolvedValue('yes') });
-    const result = await gitDiscard.execute({ paths: ['a.ts', 'b.ts'] }, sdkCtx) as { discarded: string[] };
+    const result = await gitDiscard.execute({ paths: ['a.ts', 'b.ts'] }, makeSdkCtx()) as { discarded: string[] };
     expect(adapter.discard).toHaveBeenCalledWith(['a.ts', 'b.ts']);
     expect(result.discarded).toContain('a.ts');
-  });
-
-  it('includes file paths in the DESTRUCTIVE confirmation prompt', async () => {
-    const { tools } = createGitTools(makeAdapter());
-    const gitDiscard = tools.find(t => t.name === 'git_discard')!;
-
-    const requestUserInput = vi.fn().mockResolvedValue('no');
-    await gitDiscard.execute({ paths: ['src/critical.ts'] }, makeSdkCtx({ requestUserInput }));
-
-    const prompt = (requestUserInput.mock.calls[0][0] as { message: string }).message;
-    expect(prompt).toContain('src/critical.ts');
-    expect(prompt.toUpperCase()).toContain('DESTRUCTIVE');
   });
 });
 

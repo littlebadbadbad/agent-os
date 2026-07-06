@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import { toolSetContextKey } from '../toolSet';
-import type { ToolSetContext } from '@agent-type';
-import type { UserInputRequest } from '../types';
+import type { ToolSetContext, UserInputRequest } from '@agent-type';
 import type { UpgradeAdapter, TerminalSnapshot } from './adapter';
 import { upgradeStore } from './store';
 import { truncateHeadTail } from './truncateOutput';

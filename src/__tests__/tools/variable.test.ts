@@ -15,8 +15,7 @@ function makeToolCtx(sessionId = 'vs-session-1', conversationId = MAIN_CONVERSAT
     agentName: 'main',
     conversationId,
     signal: new AbortController().signal,
-    requestUserInput: () => Promise.resolve(null),
-  };
+    };
 }
 
 function getTool(ts: ReturnType<typeof createVariableToolSet>, name: string) {
@@ -293,7 +292,7 @@ describe('createVariableToolSet', () => {
     // Store something first
     await getTool(ts, 'var_write').execute({ json: '"data"' }, toolCtx);
     ts.onRemoveSession!(ctx);
-    // After removal, a fresh store is created â€” should be empty
+    // After removal, a fresh store is created â€?should be empty
     const store = getSessionStore(sessionId);
     expect(store.list()).toHaveLength(0);
   });
@@ -412,7 +411,7 @@ describe('createVariableToolSet', () => {
     const ctx = makeCtx(sessionId);
     const args = { handle: '$var:12345678' };
     const result = ts.onResolveToolArgs!(ctx, 'var_read_path', args);
-    expect(result).toBe(args); // same reference â€” untouched
+    expect(result).toBe(args); // same reference â€?untouched
   });
 
   it('onResolveToolArgs resolves string-valued JSON handles in non-var_ tool args', async () => {

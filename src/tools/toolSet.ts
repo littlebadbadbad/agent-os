@@ -1,5 +1,5 @@
 import type { Tool, ToolSet, ToolSetContext } from "@agent-type";
-import type { SessionEntryData } from "@agent-sdk/client/sessionManager.types";
+import type { SessionEntryData } from "@agent-type";
 import type { SessionEntryExtension } from '@agent-type';
 export { resolveToolSetTools } from '@agent-type';
 

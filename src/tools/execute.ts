@@ -49,7 +49,6 @@ export const NOOP_CONTEXT: ToolExecutionContext = {
   sessionId: '',
   agentName: 'main',
   conversationId: '',
-  requestUserInput: () => Promise.resolve(null),
 };
 
 // ── Validated result type ─────────────────────────────────────────────────────

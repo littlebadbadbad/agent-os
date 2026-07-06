@@ -15,8 +15,6 @@ import {
   createTokenBudgetToolSet,
   createVariableToolSet,
   createMemoryGraphToolSet,
-  createUserInputToolSet,
-  createPendingInputToolSet,
   createPlanToolSet,
   createUpgradeToolSet,
   createToolResultCompressorToolSet,
@@ -41,6 +39,7 @@ import {
   sessionStore,
 } from "./createAdapters";
 import { createDefaultUIRenderer } from "./defaultRenderUI";
+import { IS_ELECTRON_IPC } from "./env";
 
 // ── Plugin system ──────────────────────────────────────────────────────────────
 // Initialised after agent creation so plugins can register tools on sessions.
@@ -169,8 +168,6 @@ const asyncSubAgentToolset = createSubAgentToolset("async", {
 const streamSubAgentToolset = createSubAgentToolset("stream", {
   withVariables: true,
 });
-const userInputToolset = createUserInputToolSet();
-const pendingInputToolSet = createPendingInputToolSet();
 const toolSearchToolSet = createToolSearchToolSet();
 
 // ── Permission rules ──────────────────────────────────────────────────────────
@@ -259,8 +256,6 @@ const permissionsToolSet = createPermissionsToolSet({
 });
 const planToolset = createPlanToolSet();
 const sharedToolSets = [
-  pendingInputToolSet,
-  userInputToolset,
   toolSearchToolSet,
   permissionsToolSet,
   toolStateToolSet,
@@ -283,10 +278,15 @@ const sharedToolSets = [
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns a debounced onSessionsChange handler that batches normal saves
- * (2 s) but writes immediately when `force=true` (e.g. before a restart).
+ * Returns a debounced onSessionsChange handler that batches saves (2 s)
+ * but writes immediately when `force=true` (e.g. before a restart).
+ *
+ * IMPORTANT: The SDK layer already has a 200ms debounce via
+ * `wireSessionPersistence`.  This outer debounce exists ONLY to batch
+ * successive saves into fewer HTTP requests — the inner 200ms timer
+ * means data is at most 200ms stale when the outer callback fires.
  */
-function makeDebouncedSave(agentId: string, delayMs = 2000) {
+function makeDebouncedSave(agentId: string, delayMs = 200) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   return (sessions: Parameters<typeof sessionStore.saveSessions>[1], force?: boolean): void | Promise<void> => {
     if (force) {
@@ -351,4 +351,48 @@ export async function initSessions(): Promise<void> {
   ]);
   if (asyncSessions.length > 0) asyncAgent.restoreSessions(asyncSessions);
   if (streamSessions.length > 0) streamAgent.restoreSessions(streamSessions);
+
+  // ── Shutdown persistence guard ──────────────────────────────────────────
+  // BROWSER: beforeunload/visibilitychange/pagehide flush session data before
+  // the tab closes or switches away.
+  //
+  // ELECTRON: The renderer's beforeunload is unreliable for async IPC —
+  // the renderer process may be torn down before ipcRenderer.invoke completes.
+  // Instead, the main process sends an 'app:requestFlush' IPC message on
+  // window close.  We listen for it, flush ALL agents, then reply
+  // 'app:flushComplete' so the main process can safely close the window.
+  if (typeof window !== 'undefined') {
+    if (IS_ELECTRON_IPC) {
+      // ── Electron: main-process-coordinated flush (once for all agents) ───
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI?.on) {
+        electronAPI.on('app:requestFlush', () => {
+          Promise.all([
+            asyncAgent.flushPersistence(),
+            streamAgent.flushPersistence(),
+          ]).then(
+            () => electronAPI.invoke('app:flushComplete'),
+            () => electronAPI.invoke('app:flushComplete'),
+          );
+        });
+      }
+    }
+
+    // Per-agent browser guards (beforeunload etc.) — in Electron these are
+    // backup only; the main-process IPC flow is the primary mechanism.
+    function registerAgentFlushGuard(agent: typeof asyncAgent) {
+      const doFlush = () => { agent.flushPersistence().catch(() => {}); };
+      window.addEventListener('beforeunload', doFlush);
+      if (!IS_ELECTRON_IPC) {
+        // visibilitychange/pagehide: opportunistic flush for browser tabs.
+        window.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') doFlush();
+        });
+        window.addEventListener('pagehide', doFlush);
+      }
+    }
+
+    registerAgentFlushGuard(asyncAgent);
+    registerAgentFlushGuard(streamAgent);
+  }
 }

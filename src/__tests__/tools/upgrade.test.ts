@@ -21,7 +21,7 @@ import type { Tool } from '@agent-type';
 
 const SESSION = 'test-session';
 
-/** Context where conversationId === "main" → toolSetContextKey returns sessionId */
+/** Context where conversationId === "main" �?toolSetContextKey returns sessionId */
 const ctx = {
   sessionId:      SESSION,
   agentName:      'main',
@@ -58,9 +58,9 @@ beforeEach(() => {
   upgradeStore.remove(SESSION);
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════�?
 // upgradeStore
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════�?
 
 describe('upgradeStore', () => {
   it('returns undefined for an unknown key', () => {
@@ -129,9 +129,9 @@ describe('upgradeStore', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// createUpgradeTools — individual tool execution
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════�?
+// createUpgradeTools �?individual tool execution
+// ══════════════════════════════════════════════════════════════════════════════�?
 
 describe('createUpgradeTools', () => {
   it('returns an array with all 7 upgrade tools', () => {
@@ -320,7 +320,7 @@ describe('upgrade_restart', () => {
     const tools = createUpgradeTools(adapter);
     const restart = tools.find(t => t.name === 'upgrade_restart')!;
 
-    // No requestUserInput → falls back to adapter.confirm
+    // No requestUserInput �?falls back to adapter.confirm
     const result = await restart.execute({}, makeSdkCtx());
     expect(result).toEqual({ status: 'cancelled' });
   });
@@ -346,7 +346,7 @@ describe('upgrade_restart', () => {
     const tools = createUpgradeTools(adapter);
     const restart = tools.find(t => t.name === 'upgrade_restart')!;
 
-    // No requestUserInput → adapter.confirm used for pre-restart
+    // No requestUserInput �?adapter.confirm used for pre-restart
     const result = await restart.execute({}, makeSdkCtx());
     expect(adapter.restart).toHaveBeenCalledOnce();
     expect(result).toEqual({ status: 'triggered' });
@@ -370,9 +370,9 @@ describe('upgrade_restart', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// createUpgradeToolSet — lifecycle hooks
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════�?
+// createUpgradeToolSet �?lifecycle hooks
+// ══════════════════════════════════════════════════════════════════════════════�?
 
 describe('createUpgradeToolSet', () => {
   it('has the correct name and description', () => {
@@ -387,7 +387,7 @@ describe('createUpgradeToolSet', () => {
   });
 });
 
-describe('createUpgradeToolSet — onBeforeRun', () => {
+describe('createUpgradeToolSet �?onBeforeRun', () => {
   it('resets frozen=false at the start of each run', () => {
     const toolSet = createUpgradeToolSet({ adapter: makeAdapter() });
     upgradeStore.setFrozen(SESSION, true);
@@ -398,7 +398,7 @@ describe('createUpgradeToolSet — onBeforeRun', () => {
   });
 });
 
-describe('createUpgradeToolSet — onFilterTools', () => {
+describe('createUpgradeToolSet �?onFilterTools', () => {
   function fakeTools(names: Array<{ name: string; group: string }>): Tool[] {
     return names.map(({ name, group }) => ({
       name,
@@ -448,7 +448,7 @@ describe('createUpgradeToolSet — onFilterTools', () => {
   });
 });
 
-describe('createUpgradeToolSet — onGetSystemPrompt', () => {
+describe('createUpgradeToolSet �?onGetSystemPrompt', () => {
   const emptyPromptCtx: SystemPromptContext = {
     userMessage: undefined,
     baseSystemPrompt: undefined,
@@ -490,7 +490,7 @@ describe('createUpgradeToolSet — onGetSystemPrompt', () => {
   });
 });
 
-describe('createUpgradeToolSet — onGetState', () => {
+describe('createUpgradeToolSet �?onGetState', () => {
   it('returns all four upgrade state fields', () => {
     upgradeStore.setVersion(SESSION, { version: '1.0.0' });
     upgradeStore.setDevState(SESSION, 'http://localhost:5173', true);
@@ -515,7 +515,7 @@ describe('createUpgradeToolSet — onGetState', () => {
   });
 });
 
-describe('createUpgradeToolSet — onInitSession', () => {
+describe('createUpgradeToolSet �?onInitSession', () => {
   it('fetches version from adapter on init', async () => {
     const adapter = makeAdapter();
     const toolSet = createUpgradeToolSet({ adapter });
@@ -536,7 +536,7 @@ describe('createUpgradeToolSet — onInitSession', () => {
   });
 });
 
-describe('createUpgradeToolSet — onResetSession', () => {
+describe('createUpgradeToolSet �?onResetSession', () => {
   it('clears restartPending', () => {
     upgradeStore.setRestartPending(SESSION, true);
     const toolSet = createUpgradeToolSet({ adapter: makeAdapter() });
@@ -545,7 +545,7 @@ describe('createUpgradeToolSet — onResetSession', () => {
   });
 });
 
-describe('createUpgradeToolSet — onRemoveSession', () => {
+describe('createUpgradeToolSet �?onRemoveSession', () => {
   it('deletes the bucket', () => {
     upgradeStore.setVersion(SESSION, { version: '1.0.0' });
     const toolSet = createUpgradeToolSet({ adapter: makeAdapter() });
@@ -554,7 +554,7 @@ describe('createUpgradeToolSet — onRemoveSession', () => {
   });
 });
 
-describe('createUpgradeToolSet — onBuildSnapshot', () => {
+describe('createUpgradeToolSet �?onBuildSnapshot', () => {
   it('includes upgradeRestartPending when the flag is set', () => {
     upgradeStore.setRestartPending(SESSION, true);
     const toolSet = createUpgradeToolSet({ adapter: makeAdapter() });
@@ -570,7 +570,7 @@ describe('createUpgradeToolSet — onBuildSnapshot', () => {
   });
 });
 
-describe('createUpgradeToolSet — onSubscribe', () => {
+describe('createUpgradeToolSet �?onSubscribe', () => {
   it('subscribes to store and returns an unsubscribe function', () => {
     const toolSet = createUpgradeToolSet({ adapter: makeAdapter() });
     const cb = vi.fn();
@@ -581,11 +581,11 @@ describe('createUpgradeToolSet — onSubscribe', () => {
 
     unsub?.();
     upgradeStore.setVersion(SESSION, { version: '6.0.0' });
-    expect(cb).toHaveBeenCalledOnce(); // still once — unsubscribed
+    expect(cb).toHaveBeenCalledOnce(); // still once �?unsubscribed
   });
 });
 
-describe('createUpgradeToolSet — onSessionReady', () => {
+describe('createUpgradeToolSet �?onSessionReady', () => {
   it('does nothing when restartPending is false', () => {
     const adapter = makeAdapter();
     const toolSet = createUpgradeToolSet({ adapter });
@@ -620,9 +620,9 @@ describe('createUpgradeToolSet — onSessionReady', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════�?
 // createHttpUpgradeAdapter
-// ═══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════�?
 
 describe('createHttpUpgradeAdapter', () => {
   afterEach(() => {

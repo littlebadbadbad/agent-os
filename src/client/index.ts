@@ -2,11 +2,11 @@
   createDefaultContainer,
   wireSessionPersistence,
 } from "./helpers";
-import { resolveToolSetTools, type Attachment, type Tool } from '@agent-type';
+import { resolveToolSetTools, type Attachment, type Tool, type SessionEntryData } from '@agent-type';
 import { resolveAgentClientConfig } from "@agent-sdk/client/resolveConfig";
 import type { ToolManager } from "@agent-sdk/client/toolManager";
 import { createSessionManager } from "@agent-sdk/client/sessionManager";
-import type { SessionManager, SessionEntryData } from "@agent-sdk/client/sessionManager.types";
+import type { SessionManager } from "@agent-sdk/client/sessionManager.types";
 import type { AgentClientConfig } from "@agent-sdk/client/types";
 import type { ToolSet, ToolSetContext, AgentClientLike } from '@agent-type';
 import { MAIN_CONVERSATION_ID } from "@agent-sdk/tools/toolSet";
@@ -254,6 +254,22 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
     // ── Tool management ────────────────────────────────────────────────────
 
     ...toolsLifeCycle,
+
+    // ── Persistence ───────────────────────────────────────────────────────
+
+    /**
+     * Force-flush any pending debounced session-save timers immediately.
+     *
+     * Call this on `beforeunload` / `visibilitychange` so that session data
+     * lands on disk before the renderer process exits — otherwise the
+     * double-debounce chain (SDK 200ms + UI 200ms) can drop up to 400ms of
+     * state changes when the browser tab is closed abruptly (Ctrl+C).
+     */
+    async flushPersistence(): Promise<void> {
+      if (persistenceHolder.flush) {
+        await persistenceHolder.flush();
+      }
+    },
   };
 
   // Upgrade agentRef to the full client so future getAgentClient() calls

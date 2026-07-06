@@ -4,11 +4,11 @@
  *
  * Test strategy
  * ─────────────
- * • Every test creates a fresh `createAgentClient` (+ auto-created "New Chat"
+ * �?Every test creates a fresh `createAgentClient` (+ auto-created "New Chat"
  *   session) and inspects the session state / registered tools directly.
- * • Handler is mocked to return `{ text: 'done' }` so turn-based assertions
+ * �?Handler is mocked to return `{ text: 'done' }` so turn-based assertions
  *   stay fast and deterministic.
- * • ToolSet hooks are spied on with `vi.spyOn` to verify they fire at the
+ * �?ToolSet hooks are spied on with `vi.spyOn` to verify they fire at the
  *   right lifecycle points.
  */
 
@@ -99,8 +99,12 @@ describe('createAgentClient + TodoToolSet', () => {
       agentName: 'main',
       conversationId: MAIN_CONVERSATION_ID,
       signal: new AbortController().signal,
-      requestUserInput: () => Promise.resolve(null),
-    };
+
+        requestUserInput: () => Promise.resolve(null),
+
+        cancelUserInput: () => {},
+
+      };
     const writeTool = agent.getTools().find((t) => t.name === 'todo_write')!;
     await writeTool.execute(
       { todos: [{ id: 1, title: 'Buy milk', status: 'not-started', priority: 'medium' }] },
@@ -207,11 +211,15 @@ describe('createAgentClient + ExperienceToolSet', () => {
       agentName: 'main',
       conversationId: sessionId,
       signal: new AbortController().signal,
-      requestUserInput: () => Promise.resolve(null),
-    };
+
+        requestUserInput: () => Promise.resolve(null),
+
+        cancelUserInput: () => {},
+
+      };
     await addTool.execute({ trigger: 'T', insight: 'I' }, ctx);
 
-    // Create a second session — it should also see the experience
+    // Create a second session �?it should also see the experience
     agent.getSessionManager().createSession();
     const sessions = agent.getSessionManager().getState().sessions;
     const session2State = sessions[sessions.length - 1].session.getState();
@@ -320,8 +328,12 @@ describe('createAgentClient + VariableToolSet', () => {
       agentName: 'main',
       conversationId: sessionId1,
       signal: new AbortController().signal,
-      requestUserInput: () => Promise.resolve(null),
-    };
+
+        requestUserInput: () => Promise.resolve(null),
+
+        cancelUserInput: () => {},
+
+      };
     const writeTool = agent.getTools().find((t) => t.name === 'var_write')!;
     await writeTool.execute({ content: 'session1 data' }, ctx1);
 

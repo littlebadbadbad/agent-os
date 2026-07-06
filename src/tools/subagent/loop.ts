@@ -68,8 +68,10 @@ export async function runAgentLoop(config: SubAgentConfig): Promise<SubAgentResu
   const fallbackRegistry = tools.reduce((reg, t) => withTool(reg, t), emptyRegistry());
   const fallbackCallTool = (call: ToolCall) =>
     executeToolCall(fallbackRegistry, call, {
-      signal, sessionId, agentName, conversationId,
-      requestUserInput: () => Promise.resolve(null),
+      signal,
+      sessionId,
+      agentName,
+      conversationId,
     });
 
   // Resolve the final callTool BEFORE building HandlerContext so that

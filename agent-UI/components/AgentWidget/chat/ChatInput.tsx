@@ -7,12 +7,10 @@ import styles from '../AgentWidget.module.scss';
 
 interface ChatInputProps {
   onSend: (text: string, attachments?: readonly Attachment[]) => void;
-  disabled: boolean;
   /**
    * Whether the agent loop is currently running.
    * When true, the Stop button is shown in place of the Send button so the
-   * user can abort the run.  Decoupled from `disabled` so that the input
-   * area can remain editable for message-queuing while the agent is active.
+   * user can abort the run.
    */
   isLoading?: boolean;
   /** Called when the user clicks the stop button during a loading state. */
@@ -21,11 +19,9 @@ interface ChatInputProps {
   enableAttachments?: boolean;
   /** Currently loaded skills — displayed in the "/" slash-command menu. */
   skills?: readonly SkillState[];
-  /** Number of pending messages queued for injection (0 = none). */
-  pendingCount?: number;
 }
 
-export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enableAttachments = true, skills = [], pendingCount = 0 }: ChatInputProps): ReactElement {
+export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachments = true, skills = [] }: ChatInputProps): ReactElement {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<DataAttachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
@@ -79,7 +75,7 @@ export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enabl
 
   const submit = useCallback(() => {
     const trimmed = value.trim();
-    if ((!trimmed && attachments.length === 0) || disabled) return;
+    if (!trimmed && attachments.length === 0) return;
     onSend(trimmed, attachments.length > 0 ? attachments : undefined);
 
     setValue('');
@@ -88,7 +84,7 @@ export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enabl
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, attachments, disabled, onSend]);
+  }, [value, attachments, onSend]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -174,7 +170,7 @@ export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enabl
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const canSend = (value.trim().length > 0 || attachments.length > 0) && !disabled;
+  const canSend = value.trim().length > 0 || attachments.length > 0;
 
   return (
     <div className={styles['input-area']}>
@@ -212,7 +208,6 @@ export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enabl
                 className={styles['attach-remove']}
                 onClick={() => removeAttachment(i)}
                 aria-label={`Remove ${att.name ?? 'attachment'}`}
-                disabled={disabled}
               >
                 ×
               </button>
@@ -256,7 +251,6 @@ export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enabl
             type="button"
             className={styles['attach-btn']}
             onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
             aria-label="Attach file"
             title="Attach image or document"
           >
@@ -272,15 +266,9 @@ export function ChatInput({ onSend, disabled, isLoading = false, onCancel, enabl
           onKeyDown={handleKeyDown}
           placeholder="Ask something… (Shift+Enter for new line)"
           rows={1}
-          disabled={disabled}
           aria-label="Message input"
         />
 
-        {pendingCount > 0 && (
-          <span className={styles['pending-badge']} title={`${pendingCount} message(s) queued for next turn`}>
-            ⏳ {pendingCount}
-          </span>
-        )}
         {isLoading && onCancel ? (
           <button
             type="button"

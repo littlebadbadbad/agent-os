@@ -1,0 +1,89 @@
+/**
+ * extensions/user-input/ui/PendingInputStrip.module.scss
+ *
+ * SCSS module for pending (queued) input ghost message strip.
+ */
+
+$color-bg:          #252525;
+$color-border:      #444;
+$color-text-muted:  #858585;
+$color-text:        #d4d4d4;
+$color-primary:     #0e639c;
+$color-primary-hover: #1177bb;
+
+$font-stack: system-ui, -apple-system, sans-serif;
+
+// ── Strip container ───────────────────────────────────────────────────────────
+
+.strip {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  background: $color-bg;
+  font-family: $font-stack;
+
+  &HasBorder {
+    border-top: 1px solid $color-border;
+  }
+}
+
+// ── Entry row ─────────────────────────────────────────────────────────────────
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.entryIcon {
+  color: $color-text-muted;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.entryText {
+  flex: 1;
+  color: $color-text-muted;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── Cancel button ─────────────────────────────────────────────────────────────
+
+.cancelBtn {
+  border: none;
+  background: none;
+  color: $color-text-muted;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 2px;
+  font-family: $font-stack;
+
+  &:hover {
+    color: $color-text;
+  }
+}
+
+// ── Continue All button ───────────────────────────────────────────────────────
+
+.continueBtn {
+  margin-top: 6px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 4px;
+  background: $color-primary;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: $font-stack;
+  transition: background 0.15s;
+
+  &:hover {
+    background: $color-primary-hover;
+  }
+}

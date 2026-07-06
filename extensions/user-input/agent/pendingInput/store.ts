@@ -1,26 +1,43 @@
-import type { PendingInputEntry } from './types';
+/**
+ * extensions/user-input/agent/pendingInput/store.ts — PendingInputStore factory
+ *
+ * Per-scope queue store for in-flight pending input entries.
+ * Keyed by sessionId.
+ *
+ * Ported from src/tools/pendingInput/store.ts with full TypeScript typing.
+ */
+
+import type { PendingInputEntry } from "./types";
 
 // ── Bucket ────────────────────────────────────────────────────────────────────
 
-type Bucket = {
+interface Bucket {
   queue: PendingInputEntry[];
   /** Bound to `session.sendMessage` once `onSessionReady` fires. */
   sendMessage: ((text: string) => void) | undefined;
   subs: Set<() => void>;
-};
+}
+
+// ── Store API ─────────────────────────────────────────────────────────────────
+
+export interface PendingInputStore {
+  enqueue(key: string, entry: PendingInputEntry): void;
+  cancel(key: string, id: string): void;
+  getQueue(key: string): readonly PendingInputEntry[];
+  drainForInvoke(key: string): readonly PendingInputEntry[];
+  resume(key: string): void;
+  setSendMessage(key: string, fn: (text: string) => void): void;
+  reset(key: string): void;
+  remove(key: string): void;
+  subscribe(key: string, fn: () => void): () => void;
+  serialize(key: string): readonly PendingInputEntry[] | undefined;
+  restore(key: string, entries: readonly PendingInputEntry[]): void;
+}
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-/**
- * Per-scope queue store for in-flight pending input entries.
- *
- * Keyed by `toolSetContextKey(ctx)` (sessionId for the main agent,
- * "sessionId:agentName" for sub-agents).
- */
-export function createPendingInputStore() {
+export function createPendingInputStore(): PendingInputStore {
   const buckets = new Map<string, Bucket>();
-
-  // ── Internals ─────────────────────────────────────────────────────────────
 
   function getOrCreate(key: string): Bucket {
     let b = buckets.get(key);
@@ -35,17 +52,13 @@ export function createPendingInputStore() {
     for (const fn of b.subs) fn();
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
-
   return {
-    /** Add a new entry to the tail of the queue. */
     enqueue(key: string, entry: PendingInputEntry): void {
       const b = getOrCreate(key);
       b.queue.push(entry);
       notify(b);
     },
 
-    /** Remove a specific entry by ID (user cancelled it). */
     cancel(key: string, id: string): void {
       const b = buckets.get(key);
       if (!b) return;
@@ -55,20 +68,10 @@ export function createPendingInputStore() {
       notify(b);
     },
 
-    /** Snapshot of the current queue (in order). */
     getQueue(key: string): readonly PendingInputEntry[] {
       return buckets.get(key)?.queue ?? [];
     },
 
-    /**
-     * Drain the entire queue and return all entries.
-     *
-     * Called by `onBeforeInvoke` to inject ALL queued user messages into the
-     * LLM history at once before the next handler call.
-     *
-     * UI injection is handled by `agentSession` after receiving the returned
-     * entries via the `onBeforeInvoke` hook — no subscriber notification needed.
-     */
     drainForInvoke(key: string): readonly PendingInputEntry[] {
       const b = buckets.get(key);
       if (!b?.queue.length) return [];
@@ -77,15 +80,6 @@ export function createPendingInputStore() {
       return toInject;
     },
 
-    /**
-     * Send the first queued entry as a new agent run.
-     *
-     * Dispatches the first entry via `sendMessage`; the remaining entries stay
-     * in the queue and are all drained together by `drainForInvoke` on the
-     * first turn of the new run.
-     *
-     * No-ops when the queue is empty or `sendMessage` is not yet bound.
-     */
     resume(key: string): void {
       const b = buckets.get(key);
       if (!b?.queue.length) return;
@@ -95,12 +89,10 @@ export function createPendingInputStore() {
       b.sendMessage?.(first.text);
     },
 
-    /** Bind the session's sendMessage function (called from onSessionReady). */
     setSendMessage(key: string, fn: (text: string) => void): void {
       getOrCreate(key).sendMessage = fn;
     },
 
-    /** Empty the queue (session cleared). */
     reset(key: string): void {
       const b = buckets.get(key);
       if (!b) return;
@@ -108,34 +100,27 @@ export function createPendingInputStore() {
       notify(b);
     },
 
-    /** Discard the bucket entirely (session removed). */
     remove(key: string): void {
       buckets.delete(key);
     },
 
-    /** Subscribe to queue changes.  Returns an unsubscribe function. */
     subscribe(key: string, fn: () => void): () => void {
       const b = getOrCreate(key);
       b.subs.add(fn);
-      return () => b.subs.delete(fn);
+      return () => {
+        b.subs.delete(fn);
+      };
     },
 
-    /** Serialize the queue for persistence (undefined when empty). */
     serialize(key: string): readonly PendingInputEntry[] | undefined {
       const q = buckets.get(key)?.queue;
       return q?.length ? [...q] : undefined;
     },
 
-    /**
-     * Restore a previously persisted queue (page reload).
-     *
-     * The UI exposes a "Continue" button so the user can review and decide
-     * before the next run starts.
-     */
-    restore(key: string, entries: PendingInputEntry[]): void {
-      if (entries.length) getOrCreate(key).queue = [...entries];
+    restore(key: string, entries: readonly PendingInputEntry[]): void {
+      const b = getOrCreate(key);
+      b.queue = [...entries];
+      notify(b);
     },
   };
 }
-
-export type PendingInputStore = ReturnType<typeof createPendingInputStore>;

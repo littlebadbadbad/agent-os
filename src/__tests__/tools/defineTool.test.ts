@@ -38,8 +38,7 @@ describe('defineTool', () => {
 
     const result = await tool.execute({ a: 2, b: 3 }, {
       sessionId: '', agentName: 'main', conversationId: '',
-      signal: new AbortController().signal, requestUserInput: () => Promise.resolve(null),
-    });
+      signal: new AbortController().signal, });
     expect(result).toBe(5);
   });
 

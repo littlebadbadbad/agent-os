@@ -4,8 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "build:ui": "vite build --config vite.ui.config.ts"
+    "build": "node scripts/build.mjs"
   },
   "devDependencies": {
     "@types/react": "*",

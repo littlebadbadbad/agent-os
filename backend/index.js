@@ -36,6 +36,7 @@ import { handleUpgradeRoutes } from './transports/network/upgrade.js';
 import { WebSocketServer } from 'ws';
 import { pluginRouter } from './lib/plugin-router.js';
 import { createPluginScanner } from './lib/plugin-scanner.js';
+import { isBuiltInPlugin } from './lib/plugin-scanner.js';
 import { getProxyConfig } from './lib/proxy.js';
 import { createPluginConfigStore } from './lib/plugin-config-store.js';
 /**
@@ -221,6 +222,7 @@ async function handleRequest(req, res) {
           version: manifest.version,
           description: manifest.description,
           state: p.state,
+          builtIn: isBuiltInPlugin(manifest.id),
           hasAgentEntry: !!manifest.agentEntry,
           agentEntryUrl: manifest.agentEntry
             ? `/plugins/${manifest.id}/${manifest.agentEntry.replace(/\\/g, '/')}`

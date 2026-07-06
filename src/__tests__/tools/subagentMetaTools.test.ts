@@ -42,8 +42,7 @@ const stubCtx = {
   sessionId: 'test', agentName: 'main', conversationId: 'test',
   signal: new AbortController().signal,
   onProgress: vi.fn((_lane: string, _event: unknown) => {}),
-  requestUserInput: () => Promise.resolve(null),
-};
+  };
 
 // ── createSubAgentToolset ─────────────────────────────────────────────────────
 
@@ -217,7 +216,7 @@ describe('createSubAgentToolset', () => {
   it('update does not touch the parent agent registerTool at all', async () => {
     await meta.createSubAgent.execute({
       name: 'update_register_agent',
-      description: 'Will be updated �?no re-registration needed.',
+      description: 'Will be updated �?no re-registration needed.',
       tool_names: ['tool_a'],
       max_turns: 5,
     }, stubCtx as any);
@@ -327,7 +326,7 @@ describe('createSubAgentToolset', () => {
   });
 
   it('createSubAgent description() returns a string listing available tools', () => {
-    // Covers lines 100-113 in metaTools.ts �?the lazy description function body
+    // Covers lines 100-113 in metaTools.ts �?the lazy description function body
     const desc = meta.createSubAgent.description;
     const text = typeof desc === 'function' ? desc() : desc;
     expect(typeof text).toBe('string');
@@ -336,7 +335,7 @@ describe('createSubAgentToolset', () => {
   });
 
   it('createSubAgent description() lists tool names (descriptions intentionally omitted)', () => {
-    // poolNames() outputs only names by design — DO NOT change this expectation.
+    // poolNames() outputs only names by design �?DO NOT change this expectation.
     const toolWithFnDesc = makeTool('fn_desc_tool', undefined);
     (toolWithFnDesc as any).description = () => 'Dynamic description from function';
     agent.registerTool(toolWithFnDesc);
@@ -363,7 +362,7 @@ describe('createSubAgentToolset', () => {
   });
 
   it('updates max_turns when provided (covers ?? existing.maxTurns FALSE branch)', async () => {
-    // Covers line 211: `max_turns ?? existing.maxTurns` �?the left branch (max_turns is provided)
+    // Covers line 211: `max_turns ?? existing.maxTurns` �?the left branch (max_turns is provided)
     await meta.createSubAgent.execute({
       name: 'update_turns_agent',
       description: 'Agent to test updating max turns value.',
@@ -378,7 +377,7 @@ describe('createSubAgentToolset', () => {
 
   it('updates system_prompt with a non-empty string (line 211 false branch of === "" check)', async () => {
     // Covers `system_prompt === '' ? undefined : system_prompt` FALSE branch at line 211
-    // i.e., when system_prompt is provided and is NOT empty �?use the provided value
+    // i.e., when system_prompt is provided and is NOT empty �?use the provided value
     await meta.createSubAgent.execute({
       name: 'sys_prompt_agent',
       description: 'Agent to test updating system prompt to a non-empty string.',
@@ -452,12 +451,12 @@ describe('createSubAgentToolset', () => {
     const convId = await makeReadyAgent('cursor_test_agent');
     await meta.sendMessage.execute({ subagent_name: 'cursor_test_agent', message: 'msg1', conversation_id: convId }, stubCtx as any);
 
-    // First read �?cursor starts at 0
+    // First read �?cursor starts at 0
     const r1 = await meta.readHistory.execute({ subagent_name: 'cursor_test_agent', conversation_id: convId }, stubCtx as any) as any;
     expect(r1.messages.length).toBeGreaterThan(0);
     const firstNext = r1.next;
 
-    // Second read without from_index �?should continue from cursor
+    // Second read without from_index �?should continue from cursor
     await meta.sendMessage.execute({ subagent_name: 'cursor_test_agent', message: 'msg2', conversation_id: convId }, stubCtx as any);
     const r2 = await meta.readHistory.execute({ subagent_name: 'cursor_test_agent', conversation_id: convId }, stubCtx as any) as any;
     expect(r2.from).toBe(firstNext);
@@ -507,7 +506,7 @@ describe('createSubAgentToolset', () => {
 
     const snap = meta.getRegistry(stubCtx.sessionId).getState().subAgents.find((a) => a.name === 'switch_agent')!;
     expect(snap.activeConversationId).toBe(firstId);
-    // Now send without conversation_id �?should land on firstId.
+    // Now send without conversation_id �?should land on firstId.
     const result = await meta.sendMessage.execute(
       { subagent_name: 'switch_agent', message: 'hi' },
       stubCtx as any,
@@ -518,7 +517,7 @@ describe('createSubAgentToolset', () => {
 
   // ── session isolation ─────────────────────────────────────────────────────
 
-  it('sub-agents are isolated between sessions — session2 cannot see session1 agents', async () => {
+  it('sub-agents are isolated between sessions �?session2 cannot see session1 agents', async () => {
     const session1Ctx = { ...stubCtx, sessionId: 'session-1' };
     const session2Ctx = { ...stubCtx, sessionId: 'session-2' };
 
@@ -534,7 +533,7 @@ describe('createSubAgentToolset', () => {
     const list1 = await meta.listSubAgents.execute({}, session1Ctx as any) as any;
     expect(list1.subAgents.find((a: any) => a.name === 'isolated_agent')).toBeDefined();
 
-    // Session 2 should see an empty registry — completely isolated.
+    // Session 2 should see an empty registry �?completely isolated.
     const list2 = await meta.listSubAgents.execute({}, session2Ctx as any) as any;
     expect(list2.subAgents).toEqual([]);
     expect(list2.message).toContain('No async sub-agents');
@@ -542,7 +541,7 @@ describe('createSubAgentToolset', () => {
 
   it('send_async_message without conversation_id targets the active conversation', async () => {
     const convId = await makeReadyAgent('default_conv_agent');
-    // Do NOT pass conversation_id �?should auto-resolve to the active one.
+    // Do NOT pass conversation_id �?should auto-resolve to the active one.
     const result = await meta.sendMessage.execute(
       { subagent_name: 'default_conv_agent', message: 'hello' },
       stubCtx as any,

@@ -12,8 +12,7 @@ function makeCtx(sessionId = 'session-1') {
     agentName: 'main',
     conversationId: MAIN_CONVERSATION_ID,
     signal: new AbortController().signal,
-    requestUserInput: () => Promise.resolve(null),
-  };
+    };
 }
 
 /**
@@ -36,8 +35,7 @@ function makeSubAgentCtx(agentName: string, convId: string, sessionId = 'session
     agentName,
     conversationId: convId, // sub-agent: conversationId !== sessionId
     signal: new AbortController().signal,
-    requestUserInput: () => Promise.resolve(null),
-  };
+    };
 }
 
 function getTool(ts: ReturnType<typeof createExperienceTools>, name: string) {
@@ -232,7 +230,7 @@ describe('createExperienceTools', () => {
   // ── session isolation ──────────────────────────────────────────────────────
 
   it('sessions share the global experience pool', async () => {
-    // Experiences are cross-session and permanent by design — every session
+    // Experiences are cross-session and permanent by design �?every session
     // reads from the same global pool within a factory instance.
     const ts = createExperienceTools();
     await addExperience(ts, { trigger: 'T', insight: 'I' }, 'session-1');
@@ -243,7 +241,7 @@ describe('createExperienceTools', () => {
   // ── sub-agent isolation ────────────────────────────────────────────────────
 
   it('sub-agents are excluded via onFilterTools, not via separate stores', () => {
-    // The global store is shared — sub-agents are restricted by filtering experience
+    // The global store is shared �?sub-agents are restricted by filtering experience
     // tools out of their tool list via onFilterTools, not by store isolation.
     const ts = createExperienceTools();
     const mainCtx = makeTsCtx('session-1');
@@ -337,7 +335,7 @@ describe('createExperienceTools', () => {
   // ── lifecycle: onRemoveSession ─────────────────────────────────────────────
 
   it('onRemoveSession does not clear experiences (they are permanent)', async () => {
-    // Experiences are cross-session and permanent — removing a session does
+    // Experiences are cross-session and permanent �?removing a session does
     // not delete the global experience pool.
     const ts = createExperienceTools();
     await addExperience(ts, { trigger: 'T', insight: 'Will survive removal' });
@@ -349,7 +347,7 @@ describe('createExperienceTools', () => {
   // ── lifecycle: onResetSession ──────────────────────────────────────────────
 
   it('onResetSession does not clear experiences (they persist across history clears)', async () => {
-    // Experiences are permanent — clearing conversation history does not
+    // Experiences are permanent �?clearing conversation history does not
     // delete the global experience pool.
     const ts = createExperienceTools();
     await addExperience(ts, { trigger: 'T', insight: 'Before reset' });

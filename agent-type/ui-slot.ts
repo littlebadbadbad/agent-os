@@ -26,7 +26,9 @@ export type SlotType =
   | "toolCard"
   | "compactToolCard"
   | "toolbarButton"
-  | "statusBar";
+  | "statusBar"
+  | "inlinePrompt"
+  | "messageInterceptor";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot declarations (ToolSet → host: "I support these injection points")
@@ -120,6 +122,63 @@ export interface StatusBarSlotDeclaration {
 }
 
 /**
+ * An inlinePrompt slot renders a floating prompt overlay for user input.
+ *
+ * The host creates a sandboxed iframe and pushes
+ * {@link InlinePromptHostMessage} on every state change.
+ * The iframe reads prompt data from `host.getPluginState()`
+ * and calls the plugin's responder function directly.
+ *
+ * The host calls `shouldRender` on every session state change. When it
+ * returns `false`, the iframe is unmounted entirely — saving resources
+ * when no prompts are pending. This is analogous to
+ * {@link PanelSlotDeclaration.showTab}.
+ */
+export interface InlinePromptSlotDeclaration {
+  readonly type: "inlinePrompt";
+  /** Unique slot identifier within the plugin (e.g. "user-input.prompt"). */
+  readonly id: string;
+  /**
+   * Whether this inline prompt slot should render.
+   * Called on every session state change. Return `false` to hide the
+   * iframe entirely (saves resources when no prompts are pending).
+   *
+   * Typically returns `true` when `pendingUserInputs.length > 0`.
+   */
+  readonly shouldRender: () => boolean;
+}
+
+/**
+ * A messageInterceptor slot lets a plugin decide how to handle user messages
+ * that are sent while the agent loop is running (`isLoading === true`).
+ *
+ * No iframe — the host queries `shouldIntercept` on every `sendMessage` call.
+ * When it returns `true`, the host calls `interceptMessage` instead of
+ * `session.sendMessage`.
+ *
+ * This is how the pending-input plugin queues messages for the next loop
+ * iteration without the host knowing about queuing logic.
+ */
+export interface MessageInterceptorSlotDeclaration {
+  readonly type: "messageInterceptor";
+  /** Unique slot identifier within the plugin (e.g. "user-input.interceptor"). */
+  readonly id: string;
+  /**
+   * Called on every `sendMessage` attempt. Return `true` when the plugin
+   * wants to handle the message itself (e.g. queue it for later), `false`
+   * to let the host send it normally.
+   *
+   * Typically returns `true` only when `isLoading` is `true`.
+   */
+  readonly shouldIntercept: (isLoading: boolean) => boolean;
+  /**
+   * Called when `shouldIntercept` returned `true`.
+   * The plugin receives the message text and handles it (e.g. queues it).
+   */
+  readonly interceptMessage: (text: string) => void;
+}
+
+/**
  * Discriminated union of all slot declarations.
  *
  * A plugin's ToolSet returns this array via `PluginUiAdapter.slots`.
@@ -129,7 +188,9 @@ export type PluginSlotDeclaration =
   | ToolCardSlotDeclaration
   | CompactToolCardSlotDeclaration
   | ToolbarButtonSlotDeclaration
-  | StatusBarSlotDeclaration;
+  | StatusBarSlotDeclaration
+  | InlinePromptSlotDeclaration
+  | MessageInterceptorSlotDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot context (iframe reads this to know which slot it's rendering)
@@ -231,6 +292,23 @@ export interface StatusBarHostMessage {
 }
 
 /**
+ * Host pushes state updates to an inlinePrompt iframe.
+ *
+ * The iframe re-reads `host.getPluginState()` when notified
+ * to access the current prompt entries and responder callbacks.
+ */
+export interface InlinePromptHostMessage {
+  readonly version: 1;
+  readonly type: "inlinePrompt";
+  /** The slot being targeted. */
+  readonly slotId: string;
+  /** Current session state snapshot. */
+  readonly payload: {
+    readonly state: AgentSessionState;
+  };
+}
+
+/**
  * Discriminated union of all host → iframe messages.
  *
  * Each branch carries `slotId` so the iframe can identify which
@@ -241,7 +319,8 @@ export type SlotHostMessage =
   | ToolCardHostMessage
   | CompactToolCardHostMessage
   | ToolbarButtonHostMessage
-  | StatusBarHostMessage;
+  | StatusBarHostMessage
+  | InlinePromptHostMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Iframe → Host message protocol (per slot type)
@@ -308,6 +387,20 @@ export interface StatusBarIframeMessage {
 }
 
 /**
+ * InlinePrompt iframe messages.
+ *
+ * - `resize`: reports content size so the host can adjust the overlay.
+ */
+export interface InlinePromptIframeMessage {
+  readonly version: 1;
+  readonly type: "resize";
+  readonly payload: {
+    readonly width: number;
+    readonly height: number;
+  };
+}
+
+/**
  * Discriminated union of all iframe → host messages.
  */
 export type SlotIframeMessage =
@@ -315,7 +408,8 @@ export type SlotIframeMessage =
   | ToolCardIframeMessage
   | CompactToolCardIframeMessage
   | ToolbarButtonIframeMessage
-  | StatusBarIframeMessage;
+  | StatusBarIframeMessage
+  | InlinePromptIframeMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers: extract slot declarations by type

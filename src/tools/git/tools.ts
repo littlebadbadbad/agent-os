@@ -2,8 +2,6 @@ import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import type { GitAdapter } from './adapter';
 
-const NO_USER_INPUT_ERROR = { error: 'requestUserInput not available — install UserInputToolSet' };
-
 export function createGitTools(adapter: GitAdapter) {
   // ── git_status ─────────────────────────────────────────────────────────────
 
@@ -69,15 +67,7 @@ export function createGitTools(adapter: GitAdapter) {
         .optional()
         .describe('Files to stage. Omit or pass [] to stage all changes (git add -A).'),
     }),
-    execute: async ({ paths }, context) => {
-      if (!context.requestUserInput) return NO_USER_INPUT_ERROR;
-      const target = paths?.length ? paths.join(', ') : 'all changes (git add -A)';
-      const reply = await context.requestUserInput({
-        type: 'confirm',
-        message: `Stage for commit: ${target}?`,
-        ephemeral: true,
-      });
-      if (reply !== 'yes') return { status: 'cancelled' };
+    execute: async ({ paths }) => {
       return adapter.stage(paths);
     },
   });
@@ -97,15 +87,7 @@ export function createGitTools(adapter: GitAdapter) {
         .optional()
         .describe('Files to unstage. Omit or pass [] to unstage all staged changes.'),
     }),
-    execute: async ({ paths }, context) => {
-      if (!context.requestUserInput) return NO_USER_INPUT_ERROR;
-      const target = paths?.length ? paths.join(', ') : 'all staged changes';
-      const reply = await context.requestUserInput({
-        type: 'confirm',
-        message: `Unstage: ${target}?`,
-        ephemeral: true,
-      });
-      if (reply !== 'yes') return { status: 'cancelled' };
+    execute: async ({ paths }) => {
       return adapter.unstage(paths);
     },
   });
@@ -121,14 +103,7 @@ export function createGitTools(adapter: GitAdapter) {
     parameters: z.object({
       message: z.string().min(1).describe('Commit message.'),
     }),
-    execute: async ({ message }, context) => {
-      if (!context.requestUserInput) return NO_USER_INPUT_ERROR;
-      const reply = await context.requestUserInput({
-        type: 'confirm',
-        message: `Commit with message:\n"${message}"\n\nProceed?`,
-        ephemeral: true,
-      });
-      if (reply !== 'yes') return { status: 'cancelled' };
+    execute: async ({ message }) => {
       return adapter.commit(message);
     },
   });
@@ -150,16 +125,7 @@ export function createGitTools(adapter: GitAdapter) {
           'Files whose unstaged changes to discard. Must be non-empty — no accidental git restore .',
         ),
     }),
-    execute: async ({ paths }, context) => {
-      if (!context.requestUserInput) return NO_USER_INPUT_ERROR;
-      const reply = await context.requestUserInput({
-        type: 'confirm',
-        message:
-          `⚠️ DESTRUCTIVE: Discard all unstaged changes in:\n${paths.join('\n')}\n\n` +
-          'This cannot be undone. Proceed?',
-        ephemeral: true,
-      });
-      if (reply !== 'yes') return { status: 'cancelled' };
+    execute: async ({ paths }) => {
       return adapter.discard(paths);
     },
   });
@@ -170,8 +136,8 @@ export function createGitTools(adapter: GitAdapter) {
     return [
       '## Git',
       'Use `git_status`, `git_diff`, and `git_log` for read-only inspection at any time.',
-      '`git_stage`, `git_unstage`, `git_commit`, and `git_discard` require user confirmation before executing.',
-      '`git_discard` is destructive — always show the affected paths clearly in the confirmation message.',
+      '`git_stage`, `git_unstage`, `git_commit`, and `git_discard` modify the working tree.',
+      '`git_discard` is destructive — always show the affected paths clearly when calling it.',
     ].join('\n');
   }
 

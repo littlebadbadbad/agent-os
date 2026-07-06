@@ -1,7 +1,7 @@
 /**
  * PermissionsAdapter — the external interface for custom permission logic.
  *
- * **Pattern:** adapter (same as `UpgradeAdapter`, `UserInputAdapter`).
+ * **Pattern:** adapter (same as `UpgradeAdapter`).
  *
  * The `PermissionsToolSet` delegates all permission decisions to the adapter
  * when one is provided.  When no adapter is supplied, the ToolSet uses the
@@ -9,7 +9,7 @@
  * `alwaysAskRules`) and defaults to `allow` for everything else.
  *
  * **Fallback chain for `ask` results:**
- * 1. `execCtx.requestUserInput(...)` — the UserInputToolSet's interactive prompt.
+ * 1. `execCtx.requestUserInput(...)` — interactive prompt via plugins.
  * 2. `adapter.confirm(...)` — the adapter's own headless fallback.
  * 3. Auto-deny — when neither is available (fail closed).
  *

@@ -14,7 +14,7 @@
  *                      rebuilt native bindings (better-sqlite3, node-pty, …)
  */
 
-import { app, BrowserWindow, Menu, shell } from 'electron';
+import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -115,14 +115,59 @@ function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // ── Session flush on window close ───────────────────────────────────────
+  // The renderer fires beforeunload to flush sessions via IPC, but the
+  // renderer process may be torn down before the async IPC completes.
+  // This main-process handler requests a flush from the renderer and
+  // waits for it before allowing the window to close.
+  let flushCompleteResolver: (() => void) | null = null;
+
+  ipcMain.handle('app:flushComplete', () => {
+    if (flushCompleteResolver) {
+      flushCompleteResolver();
+      flushCompleteResolver = null;
+    }
+  });
+
+  mainWindow.on('close', (event) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      event.preventDefault();
+      // Ask the renderer to flush session persistence.
+      mainWindow.webContents.send('app:requestFlush');
+
+      const doClose = () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.destroy();
+        }
+      };
+
+      // Wait for renderer confirmation, with a 3 s fallback.
+      const timeout = setTimeout(() => {
+        flushCompleteResolver = null;
+        doClose();
+      }, 3000);
+
+      flushCompleteResolver = () => {
+        clearTimeout(timeout);
+        doClose();
+      };
+    }
+  });
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   try {
     const backend = await loadBackend();
-    await backend.startServer();
+
+    // ── IPC handlers MUST be registered BEFORE startServer() ────────
+    // startServer() bootstraps plugins which may need IPC channels
+    // (proxy config, API methods, etc.).  Registering IPC first
+    // ensures all ipcMain.handle() channels are ready before any
+    // plugin backend entry attempts to communicate with the renderer.
     await backend.registerIpcHandlers();
+    await backend.startServer();
   } catch (err) {
     console.error('[electron] Backend startup failed:', err);
     app.quit();

@@ -11,8 +11,8 @@
  *   saveSessions(id,[])  → Promise<void>
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { DATA_ROOT } from './paths.js';
 
 /** Regex that ensures agentId can never escape DATA_ROOT via path traversal. */
@@ -38,12 +38,29 @@ export function loadSessions(agentId) {
 }
 
 /**
- * Persist sessions for a given agent to disk.
+ * Persist sessions for a given agent to disk using atomic write-then-rename.
+ *
+ * Writes to a temporary file first, then renames it over the target.  This
+ * prevents corruption when the process is killed mid-write — the target file
+ * is always either the previous valid state or the complete new state, never
+ * a half-written JSON blob.
+ *
  * @param {string} agentId
  * @param {object[]} sessions
  * @throws {Error} if agentId is invalid
  */
 export function saveSessions(agentId, sessions) {
   if (!AGENT_ID_RE.test(agentId)) throw new Error('Invalid agentId');
-  writeFileSync(sessionsFile(agentId), JSON.stringify(sessions), 'utf8');
+  const target = sessionsFile(agentId);
+  const tmp = target + '.tmp';
+
+  // Ensure the data directory exists (first-write guard).
+  const dir = dirname(target);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  // Remove a stale .tmp file from a previous interrupted write.
+  try { unlinkSync(tmp); } catch {}
+
+  writeFileSync(tmp, JSON.stringify(sessions), 'utf8');
+  renameSync(tmp, target);
 }

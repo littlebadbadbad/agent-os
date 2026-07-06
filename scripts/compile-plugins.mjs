@@ -3,20 +3,17 @@
  * scripts/compile-plugins.mjs  —  Orchestrate plugin compilation.
  *
  * For each sub-directory under extensions/ that has a package.json and a
- * manifest.json, this script runs the plugin's own build command (defined
- * in the plugin's package.json `scripts.build`), then copies manifest.json
- * and a cleaned package.json into the plugins/ output directory.
- *
- * Each plugin is responsible for its own compilation — tooling, platform
- * targeting, bundling, and output path are all controlled by the plugin's
- * own build script.  This script only orchestrates execution and copies
- * the metadata files.
+ * manifest.json, runs the plugin's single `build` command (defined in
+ * package.json), then copies manifest.json and a cleaned package.json
+ * into the plugins/ output directory.
  *
  * Convention:
+ *   - Each plugin has ONE build script (`scripts.build`) that compiles
+ *     everything: agent entry, backend entry, AND UI entry (Vite).
+ *   - The orchestrator does NOT run separate build:ui — each plugin's
+ *     build script handles all artifacts in one invocation.
  *   - Plugin builds output to `plugins/<plugin-name>/` (relative to repo root)
  *   - Plugin build scripts receive `PLUGIN_OUT_DIR` env var pointing there
- *   - The build script can use `process.env.PLUGIN_OUT_DIR` to know where
- *     to place compiled artifacts
  *
  * Run: node scripts/compile-plugins.mjs
  */
@@ -73,7 +70,8 @@ for (const name of pluginNames) {
   mkdirSync(outDir, { recursive: true });
 
   // ── Run the plugin's own build command ──────────────────────────────────
-  // Each plugin controls its compilation entirely — tool, platform, bundling.
+  // Each plugin controls its compilation entirely — agent entry, backend
+  // entry, and UI entry (Vite) are all handled by a single `build` script.
   // The plugin receives PLUGIN_OUT_DIR so it knows where to output artifacts.
   console.log(`\n━━━ Building plugin: ${name} ━━━`);
 

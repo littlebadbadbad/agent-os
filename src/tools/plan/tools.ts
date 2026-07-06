@@ -43,17 +43,17 @@ export function createPlanTools(store: typeof PlanStore) {
         .min(1)
         .describe(
           'Brief context shown before the approval prompt, ' +
-          'e.g. "Ready to implement the auth refactor — please review the plan above."',
+          'e.g. "Ready to implement the auth refactor �?please review the plan above."',
         ),
     }),
     execute: async ({ message }, context) => {
-      const action = await context.requestUserInput({
+      const action = await context.requestUserInput?.({
         type: 'select',
         message,
         options: ['Approve', 'Request changes', 'Cancel'],
       });
 
-      if (action === null || action === 'Cancel') {
+      if (action === null || action === undefined || action === 'Cancel') {
         return { status: 'cancelled' as const };
       }
 
@@ -61,14 +61,14 @@ export function createPlanTools(store: typeof PlanStore) {
         return { status: 'approved' as const };
       }
 
-      // 'Request changes' — collect feedback in a second prompt
-      const feedback = await context.requestUserInput({
+      // 'Request changes' �?collect feedback in a second prompt
+      const feedback = await context.requestUserInput?.({
         type: 'text',
         message: 'Describe the changes needed:',
         placeholder: 'e.g. "Split step 3 into two steps, the scope is too broad"',
       });
 
-      if (feedback === null) {
+      if (feedback === null || feedback === undefined) {
         return { status: 'cancelled' as const };
       }
 
@@ -83,7 +83,7 @@ export function createPlanTools(store: typeof PlanStore) {
     group: 'Planning',
     description:
       'Enter plan mode. In plan mode you design and refine your approach before executing. ' +
-      'Only write the plan — do not make any changes to the codebase. ' +
+      'Only write the plan �?do not make any changes to the codebase. ' +
       'Use plan_write to capture the plan, then call plan_exit when ready to submit for approval.',
     parameters: z.object({}),
     execute: async (_, context) => {
@@ -112,13 +112,13 @@ export function createPlanTools(store: typeof PlanStore) {
         return { status: 'no_plan', message: 'No plan found. Write a plan first with plan_write.' };
       }
 
-      const action = await context.requestUserInput({
+      const action = await context.requestUserInput?.({
         type: 'select',
         message: 'Plan is ready for review. What would you like to do?',
         options: ['Approve and execute', 'Request changes', 'Cancel'],
       });
 
-      if (action === null || action === 'Cancel') {
+      if (action === null || action === undefined || action === 'Cancel') {
         return { status: 'cancelled' };
       }
 
@@ -129,14 +129,14 @@ export function createPlanTools(store: typeof PlanStore) {
         };
       }
 
-      // Request changes → go back to plan mode
-      const feedback = await context.requestUserInput({
+      // Request changes �?go back to plan mode
+      const feedback = await context.requestUserInput?.({
         type: 'text',
         message: 'What changes are needed?',
         placeholder: 'Describe the adjustments...',
       });
 
-      if (feedback === null) return { status: 'cancelled' };
+      if (feedback === null || feedback === undefined) return { status: 'cancelled' };
 
       store.setPlanMode(key, true); // back to plan mode
       return { status: 'changes_requested', feedback: feedback.trim() };

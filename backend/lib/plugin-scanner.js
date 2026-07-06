@@ -27,6 +27,36 @@ import { createLogger } from './logger.js';
 import { createPluginHost } from './plugin-host.js';
 import { createPluginStateStore } from './plugin-state-store.js';
 import { DATA_ROOT } from './paths.js';
+import { readFileSync as _readFileSync } from 'fs';
+import { join as _join, dirname as _dirname } from 'path';
+import { fileURLToPath as _fileURLToPath } from 'url';
+
+// ── Built-in plugin registry ─────────────────────────────────────────────────
+// Single source of truth for which plugins are built-in.
+// Both backend (plugin-scanner.js) and UI (pluginSystem.ts) read this file.
+// Built-in plugins are always activated and can never be disabled.
+
+const __filename = _fileURLToPath(import.meta.url);
+const __dirname = _dirname(__filename);
+const BUILT_IN_JSON_PATH = _join(__dirname, '..', '..', 'built-in-plugins.json');
+
+/** @type {ReadonlySet<string>} */
+const BUILT_IN_PLUGIN_IDS = (() => {
+  try {
+    const raw = _readFileSync(BUILT_IN_JSON_PATH, 'utf-8');
+    const data = JSON.parse(raw);
+    return new Set(data.plugins ?? []);
+  } catch {
+    return new Set();
+  }
+})();
+
+/** @param {string} id */
+function isBuiltInPlugin(id) {
+  return BUILT_IN_PLUGIN_IDS.has(id);
+}
+
+export { isBuiltInPlugin };
 
 const log = createLogger('plugin-scanner');
 
@@ -102,6 +132,13 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
       let activated = 0;
       let failed = 0;
       for (const manifest of manifests) {
+        if (isBuiltInPlugin(manifest.id)) {
+          // Built-in plugins are always activated — disabled state is ignored.
+          const ok = await this.activate(manifest.id);
+          if (ok) activated++;
+          else failed++;
+          continue;
+        }
         if (disabledPlugins.has(manifest.id)) {
           _plugins.set(manifest.id, { manifest, state: STATE_DISABLED });
           log.info(`Plugin disabled (persisted state): ${manifest.id}`);
@@ -259,6 +296,12 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
         return false;
       }
 
+      // Built-in plugins cannot be deactivated.
+      if (isBuiltInPlugin(id)) {
+        log.warn(`Cannot deactivate built-in plugin: ${id}`);
+        return false;
+      }
+
       // Unregister all routes for this plugin.
       router.unregisterPlugin(id);
 
@@ -294,10 +337,28 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
     },
 
     /**
-     * Get the state store for external use (e.g., to persist disabled state).
+     * Get a wrapped state store that prevents built-in plugins from being disabled.
      */
     getStateStore() {
-      return stateStore;
+      const builtIns = new Set(
+        Array.from(_plugins.values())
+          .filter((p) => isBuiltInPlugin(p.manifest.id))
+          .map((p) => p.manifest.id),
+      );
+      return {
+        load: () => stateStore.load(),
+        save: () => stateStore.save(),
+        get: (id) => stateStore.get(id),
+        getAll: () => stateStore.getAll(),
+        remove: (id) => stateStore.remove(id),
+        set(id, state) {
+          if (state === STATE_DISABLED && builtIns.has(id)) {
+            log.warn(`Cannot disable built-in plugin: ${id}`);
+            return;
+          }
+          stateStore.set(id, state);
+        },
+      };
     },
   };
 }

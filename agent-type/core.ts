@@ -135,6 +135,49 @@ export type ToolResult = {
 export interface ToolExecutionContextExtension {}
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  UserInputRequest — built-in type contract
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Describes a user-input request that a tool can issue at runtime.
+ *
+ * The optional `ephemeral` flag marks a request as transient: it will not be
+ * persisted in session snapshots and will not be replayed on page reload.
+ */
+export type UserInputRequest = {
+  readonly ephemeral?: true;
+} & (
+  | { readonly type: "confirm"; readonly message: string }
+  | {
+      readonly type: "text";
+      readonly message: string;
+      readonly placeholder?: string;
+      readonly defaultValue?: string;
+    }
+  | {
+      readonly type: "select";
+      readonly message: string;
+      readonly options: readonly string[];
+    }
+  | {
+      readonly type: "multiSelect";
+      readonly message: string;
+      readonly options: readonly string[];
+      readonly minSelect?: number;
+      readonly maxSelect?: number;
+    }
+  | {
+      readonly type: "number";
+      readonly message: string;
+      readonly placeholder?: string;
+      readonly defaultValue?: number;
+      readonly min?: number;
+      readonly max?: number;
+      readonly step?: number;
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  Extension interfaces for module augmentation
 //  (来自 src/client/agentSession.types.ts + src/client/sessionManager.types.ts)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -292,6 +335,26 @@ export interface ToolExecutionContext extends ToolExecutionContextExtension {
    * or in headless test contexts.
    */
   readonly flushPersistence?: () => Promise<void>;
+  /**
+   * Request a value from the user, suspending tool execution until a response
+   * arrives. Returns `null` when the user cancels or the `AbortSignal` fires.
+   *
+   * `undefined` when the user-input plugin is not installed — callers must
+   * guard with `?.`.
+   *
+   * @param id  Optional stable identifier for this request.  Supply a
+   *            pre-generated `crypto.randomUUID()` to cancel the prompt
+   *            programmatically via `cancelUserInput`.
+   */
+  readonly requestUserInput?: (
+    request: UserInputRequest,
+    id?: string,
+  ) => Promise<string | null>;
+  /**
+   * Cancel a pending user-input prompt by its ID.
+   * `undefined` when the user-input plugin is not installed.
+   */
+  readonly cancelUserInput?: (id: string) => void;
 }
 
 // ── Resolvable helper ─────────────────────────────────────────────────────────

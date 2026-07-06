@@ -23,7 +23,7 @@ export function createDefaultContainer(): HTMLElement {
  *
  * `flush()` lets callers force any pending debounced write to land
  * synchronously — used by the upgrade ToolSet just before restarting the
- * server so that `pendingUserInput` is on disk before the process exits.
+ * server so that session state is on disk before the process exits.
  */
 export interface SessionPersistenceHandle {
   /** Cancel any pending debounce timer, fire the write immediately, and

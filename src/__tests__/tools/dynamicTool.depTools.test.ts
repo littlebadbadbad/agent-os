@@ -41,7 +41,7 @@ describe('createDepTools', () => {
       });
       const tools = createDepTools(adapter);
       const tool = (tools as unknown as any[]).find(t => t.name === 'list_tool_deps')!;
-      const result = await tool.execute({}, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', requestUserInput: () => Promise.resolve(null) });
+      const result = await tool.execute({}, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', });
       expect(adapter.listDeps).toHaveBeenCalled();
       expect(result).toEqual(['lodash', 'axios']);
     });
@@ -53,7 +53,7 @@ describe('createDepTools', () => {
         installDeps: vi.fn().mockResolvedValue({ success: true, packages: ['axios@1', 'lodash'], output: 'installed' }),
       });
       const tool = (createDepTools(adapter) as unknown as any[]).find(t => t.name === 'install_tool_deps')!;
-      const result = await tool.execute({ packages: ['axios@1', 'lodash'] }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', requestUserInput: () => Promise.resolve(null) });
+      const result = await tool.execute({ packages: ['axios@1', 'lodash'] }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', });
       expect(adapter.installDeps).toHaveBeenCalledWith(['axios@1', 'lodash']);
       expect(result.installed).toEqual(['axios@1', 'lodash']);
       expect(result.message).toContain('Installed');
@@ -64,7 +64,7 @@ describe('createDepTools', () => {
         installDeps: vi.fn().mockResolvedValue({ success: false, packages: [], output: 'error details' }),
       });
       const tool = (createDepTools(adapter) as unknown as any[]).find(t => t.name === 'install_tool_deps')!;
-      await expect(tool.execute({ packages: ['bad-pkg'] }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', requestUserInput: () => Promise.resolve(null) })).rejects.toThrow('Package installation failed');
+      await expect(tool.execute({ packages: ['bad-pkg'] }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', })).rejects.toThrow('Package installation failed');
     });
   });
 
@@ -74,7 +74,7 @@ describe('createDepTools', () => {
         removeDep: vi.fn().mockResolvedValue({ success: true, output: 'removed' }),
       });
       const tool = (createDepTools(adapter) as unknown as any[]).find(t => t.name === 'remove_tool_dep')!;
-      const result = await tool.execute({ package: 'axios' }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', requestUserInput: () => Promise.resolve(null) });
+      const result = await tool.execute({ package: 'axios' }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', });
       expect(adapter.removeDep).toHaveBeenCalledWith('axios');
       expect(result.removed).toBe('axios');
     });
@@ -84,7 +84,7 @@ describe('createDepTools', () => {
         removeDep: vi.fn().mockResolvedValue({ success: false, output: 'not found' }),
       });
       const tool = (createDepTools(adapter) as unknown as any[]).find(t => t.name === 'remove_tool_dep')!;
-      await expect(tool.execute({ package: 'missing' }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', requestUserInput: () => Promise.resolve(null) })).rejects.toThrow('Package removal failed');
+      await expect(tool.execute({ package: 'missing' }, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', })).rejects.toThrow('Package removal failed');
     });
   });
 });

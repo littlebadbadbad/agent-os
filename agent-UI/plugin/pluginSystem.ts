@@ -27,6 +27,21 @@ import { createAgentPluginHost, type AgentPluginContext } from "./host";
 import { slotRegistry } from "../slots/registry";
 import type { AgentSession } from "@agent-sdk/client";
 
+// ── Compile-time built-in plugin registry ────────────────────────────────────
+// Baked into the bundle at build time by Vite.  Same source of truth as
+// backend/lib/plugin-scanner.js — both read built-in-plugins.json.
+import builtInPluginData from "../../built-in-plugins.json";
+
+/** Set of plugin IDs that are built-in and cannot be disabled. */
+const BUILT_IN_PLUGIN_IDS: ReadonlySet<string> = new Set(
+  builtInPluginData.plugins ?? [],
+);
+
+/** @internal Compile-time built-in check (no network dependency). */
+export function isBuiltInPlugin(id: string): boolean {
+  return BUILT_IN_PLUGIN_IDS.has(id);
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -41,6 +56,8 @@ export interface PluginDescriptor {
   readonly version: string;
   readonly description?: string;
   readonly state: string;
+  /** Whether this plugin is built-in (always active, cannot be disabled). */
+  readonly builtIn?: boolean;
   /** Whether this plugin has an agent entry point. */
   readonly hasAgentEntry: boolean;
   /**
@@ -183,7 +200,23 @@ async function fetchEnabledPlugins(): Promise<PluginDescriptor[]> {
       return [];
     }
     const body = (await res.json()) as { plugins?: PluginDescriptor[] };
-    return body.plugins ?? [];
+    const plugins = body.plugins ?? [];
+
+    // Cross-reference built-in status: if the API omitted `builtIn`,
+    // backfill from compile-time JSON.  If there's a mismatch, log a
+    // warning — the JSON is the single source of truth.
+    for (const p of plugins) {
+      const compileBuiltIn = BUILT_IN_PLUGIN_IDS.has(p.id);
+      if (p.builtIn === undefined) {
+        (p as { builtIn?: boolean }).builtIn = compileBuiltIn;
+      } else if (p.builtIn !== compileBuiltIn) {
+        console.warn(
+          `[pluginSystem] built-in mismatch for "${p.id}": API says ${p.builtIn}, JSON says ${compileBuiltIn}. Using JSON as ground truth.`,
+        );
+        (p as { builtIn?: boolean }).builtIn = compileBuiltIn;
+      }
+    }
+    return plugins;
   } catch (err) {
     console.warn("[pluginSystem] Error fetching plugin list:", err);
     return [];

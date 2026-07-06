@@ -4,7 +4,7 @@ import './types';
 import { toolSetContextKey } from '@agent-sdk/tools/toolSet';
 import type { ToolSet, ToolSetContext } from '@agent-type';
 import type { Tool } from '@agent-type';
-import type { SessionEntryData } from '@agent-sdk/client/sessionManager.types';
+import type { SessionEntryData } from '@agent-type';
 import type { AgentMessage } from '@agent-type';
 import type { UpgradeAdapter } from './adapter';
 import { upgradeStore } from './store';

@@ -14,11 +14,16 @@
  * like a plain `(call) => Promise<ToolResult>` at the call site.
  */
 
-import { validateToolCall, executeValidatedToolCall } from './execute';
-import { isAgentError } from './errors';
-import type { ToolRegistry } from './registry';
-import type { ToolSet, ToolSetContext } from '@agent-type';
-import type { ToolCall, ToolResult, ToolExecutionContext, AgentHandler } from '@agent-type';
+import { validateToolCall, executeValidatedToolCall } from "./execute";
+import { isAgentError } from "./errors";
+import type { ToolRegistry } from "./registry";
+import type { ToolSet, ToolSetContext } from "@agent-type";
+import type {
+  ToolCall,
+  ToolResult,
+  ToolExecutionContext,
+  AgentHandler,
+} from "@agent-type";
 
 export type ToolCallPipeline = (
   call: ToolCall,
@@ -60,7 +65,9 @@ export type ToolCallPipelineOptions = {
   readonly flushPersistence?: () => Promise<void>;
 };
 
-export function createToolCallPipeline(opts: ToolCallPipelineOptions): ToolCallPipeline {
+export function createToolCallPipeline(
+  opts: ToolCallPipelineOptions,
+): ToolCallPipeline {
   const { registry, toolSets, ctx, handler, flushPersistence } = opts;
 
   return async function callTool(
@@ -70,15 +77,16 @@ export function createToolCallPipeline(opts: ToolCallPipelineOptions): ToolCallP
     // Resolve both the registry and the ToolSet list lazily so that anything
     // registered after pipeline creation (e.g. via agent.registerToolSet) is
     // always visible at the point of the actual call.
-    const reg = typeof registry === 'function' ? registry() : registry;
-    const tsets = typeof toolSets === 'function' ? toolSets() : toolSets;
+    const reg = typeof registry === "function" ? registry() : registry;
+    const tsets = typeof toolSets === "function" ? toolSets() : toolSets;
 
     // ── Stage 1: Resolve arguments ─────────────────────────────────────────
     let args = call.arguments;
     for (const ts of tsets) {
       args = ts.onResolveToolArgs?.(ctx, call.name, args) ?? args;
     }
-    const resolvedCall = args !== call.arguments ? { ...call, arguments: args } : call;
+    const resolvedCall =
+      args !== call.arguments ? { ...call, arguments: args } : call;
 
     // ── Stage 2: Build execution context ────────────────────────────────────
     let ctxPatch: Partial<ToolExecutionContext> = {};
@@ -94,7 +102,7 @@ export function createToolCallPipeline(opts: ToolCallPipelineOptions): ToolCallP
       signal,
       handler,
       flushPersistence,
-      requestUserInput: () => Promise.resolve(null), // default; overridden by patch
+
       ...ctxPatch,
     };
 
@@ -135,13 +143,17 @@ export function createToolCallPipeline(opts: ToolCallPipelineOptions): ToolCallP
  * The result payload is a JSON object `{ _error, code, toolName, message }`
  * — the LLM receives structured context about what went wrong.
  */
-export function withErrorBoundary(pipeline: ToolCallPipeline): ToolCallPipeline {
+export function withErrorBoundary(
+  pipeline: ToolCallPipeline,
+): ToolCallPipeline {
   return async function callToolSafe(call, signal) {
     try {
       return await pipeline(call, signal);
     } catch (err) {
-      const code = isAgentError(err) ? err.code : 'TOOL_EXECUTION';
-      const toolName = isAgentError(err) ? (err.toolName ?? call.name) : call.name;
+      const code = isAgentError(err) ? err.code : "TOOL_EXECUTION";
+      const toolName = isAgentError(err)
+        ? (err.toolName ?? call.name)
+        : call.name;
       const message = err instanceof Error ? err.message : String(err);
       return {
         toolCallId: call.id,
