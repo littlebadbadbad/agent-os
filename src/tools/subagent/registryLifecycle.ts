@@ -13,9 +13,10 @@ import type { SessionEntryData } from '../../client/sessionManager.types';
 import { generateConvId, makeConversation } from './registryConversation';
 import type { ConversationHandle } from './registryConversation';
 import type { InternalEntry, RegistryDeps } from './registryInternal';
-import type { collectToolSetState } from './registrySnapshot';
+import type { collectToolSetState, collectToolSetSymbolState } from './registrySnapshot';
 
 type CollectToolSetStateFn = typeof collectToolSetState;
+type CollectToolSetSymbolStateFn = typeof collectToolSetSymbolState;
 
 export type LifecycleFunctions = {
   createConversationForEntry(
@@ -49,6 +50,7 @@ export type LifecycleFunctions = {
 export function createLifecycleFunctions(
   deps: RegistryDeps,
   collectState: CollectToolSetStateFn,
+  collectSymbolState: CollectToolSetSymbolStateFn,
   convSubCleanups: Map<string, () => void>,
   notify: () => void,
 ): LifecycleFunctions {
@@ -61,7 +63,10 @@ export function createLifecycleFunctions(
   ): ConversationHandle {
     const id = existingId ?? generateConvId();
     const convCtx = deps.subCtx(entry.name, id);
-    const conv = makeConversation(id, title, notify, () => collectState(deps, convCtx, entry));
+    const conv = makeConversation(id, title, entry.name, notify, () => ({
+      ...collectState(deps, convCtx, entry),
+      ...collectSymbolState(deps, convCtx, entry),
+    }));
 
     const unsubs: Array<() => void> = [];
     for (const ts of deps.resolveToolSets()) {
@@ -71,8 +76,7 @@ export function createLifecycleFunctions(
     if (unsubs.length > 0) {
       convSubCleanups.set(id, () => { for (const u of unsubs) u(); });
     }
-    // Fire onInitConversation so per-conversation ToolSet state (e.g. token-budget
-    // trackers) is ready before the first turn — never undefined in the initial UI.
+    // Fire onInitConversation so per-conversation ToolSet state is ready before the first turn.
     for (const ts of deps.resolveToolSets()) {
       ts.onInitConversation?.(convCtx);
     }
@@ -133,7 +137,7 @@ export function createLifecycleFunctions(
   /** Tear down all per-conversation subscriptions and ToolSet hooks for an agent. */
   function removeAgentToolSets(entry: InternalEntry): void {
     // Fire onRemoveConversation for every conversation so per-conversation
-    // ToolSet state (e.g. token-budget trackers) is properly released.
+    // ToolSet state is properly released.
     for (const [convId] of entry.conversations) {
       const convCtx = deps.subCtx(entry.name, convId);
       for (const ts of deps.resolveToolSets()) ts.onRemoveConversation?.(convCtx);

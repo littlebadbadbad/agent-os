@@ -18,10 +18,11 @@
  * Run: node scripts/compile-plugins.mjs
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import { setTimeout as sleep } from 'timers/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT           = resolve(__dirname, '..');
@@ -34,6 +35,31 @@ function readJSON(path) {
     return JSON.parse(readFileSync(path, 'utf-8'));
   } catch {
     return null;
+  }
+}
+
+/**
+ * Run a build command with retry on transient failure (eg. antivirus/DLP file lock).
+ *
+ * Some security software (EsafeNet Cobra DocGuard, Windows Defender, etc.) holds
+ * temporary exclusive locks on newly written files.  When esbuild writes a .js
+ * and immediately writes its .map, the scanner may still hold the lock — causing
+ * a spurious "Access is denied" error.  Retrying after a short delay works around it.
+ */
+async function runWithRetry(cmd, opts, { label, maxRetries = 2, delayMs = 1500 } = {}) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      execSync(cmd, opts);
+      return; // success
+    } catch (err) {
+      const isLast = attempt === maxRetries;
+      const note = isLast ? '' : ` (retry ${attempt}/${maxRetries - 1} in ${delayMs}ms…)`;
+      console.error(`  ✖  ${label} build failed: ${err.message}${note}`);
+
+      if (isLast) throw err; // re-throw on final attempt
+
+      await sleep(delayMs);
+    }
   }
 }
 
@@ -69,6 +95,21 @@ for (const name of pluginNames) {
   const outDir = join(PLUGINS_DIR, name);
   mkdirSync(outDir, { recursive: true });
 
+  // ── Clean old output files ────────────────────────────────────────────────
+  // DLP/antivirus software (EsafeNet Cobra DocGuard, Windows Defender, etc.)
+  // may hold an exclusive lock on previously written output files, causing
+  // esbuild's write to fail with "Access is denied".  Deleting before writing
+  // avoids overwriting a locked file entirely.
+  for (const entry of readdirSync(outDir)) {
+    const fp = join(outDir, entry);
+    try {
+      rmSync(fp, { recursive: true, force: true });
+    } catch {
+      // Best-effort — if the lock is too strong even for delete, the build's
+      // own retry mechanism will handle it.
+    }
+  }
+
   // ── Run the plugin's own build command ──────────────────────────────────
   // Each plugin controls its compilation entirely — agent entry, backend
   // entry, and UI entry (Vite) are all handled by a single `build` script.
@@ -77,7 +118,7 @@ for (const name of pluginNames) {
 
   if (pkg.scripts?.build) {
     try {
-      execSync(pkg.scripts.build, {
+      await runWithRetry(pkg.scripts.build, {
         cwd: srcDir,
         stdio: 'inherit',
         env: {
@@ -85,7 +126,7 @@ for (const name of pluginNames) {
           PLUGIN_OUT_DIR: outDir,
           PLUGIN_NAME: name,
         },
-      });
+      }, { label: name });
       console.log(`  ✔  ${name} build succeeded`);
     } catch (err) {
       console.error(`  ✖  ${name} build failed: ${err.message}`);

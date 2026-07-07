@@ -34,6 +34,7 @@ export function generateConvId(): string {
  */
 export type MutableConvState = {
   id: string;
+  agentName: string;
   title: string;
   isLoading: boolean;
   streamingText: string;
@@ -74,11 +75,12 @@ export type ConversationHandle = SubAgentConversation & {
  *
  * @param id              Unique conversation ID (use `generateConvId()`).
  * @param title           Human-readable title.
+ * @param agentName       Name of the sub-agent that owns this conversation.
  * @param notifyRegistry  Callback to notify the parent registry of structural
  *                        changes (e.g. history finalized, isLoading toggled).
  * @param getExtraState   Optional function that returns additional fields to
  *                        merge into the snapshot (e.g. ToolSet-contributed
- *                        state like token budget).
+ *                        per-conversation state).
  *
  * @returns A `ConversationHandle` with both the public `SubAgentConversation`
  *          interface and internal `_state` / `_notify` / `_notifyRegistry`
@@ -87,11 +89,13 @@ export type ConversationHandle = SubAgentConversation & {
 export function makeConversation(
   id: string,
   title: string,
+  agentName: string,
   notifyRegistry: () => void,
   getExtraState?: () => Partial<SubAgentConversationState>,
 ): ConversationHandle {
   const state: MutableConvState = {
     id,
+    agentName,
     title,
     isLoading: false,
     streamingText: '',
@@ -131,6 +135,8 @@ export function makeConversation(
       if (!convSnapshot) {
         convSnapshot = {
           id: state.id,
+          agentName: state.agentName,
+          conversationId: state.id,
           title: state.title,
           isLoading: state.isLoading,
           streamingText: state.streamingText,

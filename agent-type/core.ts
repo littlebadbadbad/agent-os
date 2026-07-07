@@ -265,9 +265,8 @@ export type PluginId = string;
  * Core session state shape exposed to plugins.
  *
  * Plugins see the standard fields (id, messages, isLoading, title, etc.).
- * Business-specific fields (toolStates, tokenBudget, todos, adapters, …) are
- * contributed by the host application via `AgentSessionExtension` module
- * augmentation.
+ * Business-specific fields are contributed by the host application via
+ * `AgentSessionExtension` module augmentation.
  *
  * @see AgentSessionExtension — augment this interface to add custom fields.
  */
@@ -276,6 +275,26 @@ export type AgentSessionState = {
   readonly isLoading: boolean;
   /** Unique ID of this session. */
   readonly id: string;
+  /**
+   * Name of the agent that owns this session.
+   *
+   * Main agent: the configured `id` or `"main"`.
+   * Sub-agent: the registered sub-agent tool name (e.g. `"researcher_agent"`).
+   *
+   * Plugins use this to distinguish whether a slot is opened by the main
+   * agent or a sub-agent's conversation.
+   */
+  readonly agentName: string;
+  /**
+   * ID of the conversation this state belongs to.
+   *
+   * Main agent: `"main"` (MAIN_CONVERSATION_ID).
+   * Sub-agent: the conversation's unique ID.
+   *
+   * Together with `agentName`, this lets plugins identify the exact
+   * conversation context a slot is rendering for.
+   */
+  readonly conversationId: string;
 } & AgentSessionExtension;
 /** Context passed to the tool's `execute` function on every invocation. */
 export interface ToolExecutionContext extends ToolExecutionContextExtension {
@@ -290,7 +309,7 @@ export interface ToolExecutionContext extends ToolExecutionContextExtension {
    * which agent is calling them.
    *
    * Do NOT use this to distinguish one agent from another — use `agentName`.
-   * For per-agent state (e.g. todos) derive the key as:
+   * For per-agent state derive the key as:
    *   - main agent: `sessionId`
    *   - sub-agent:  `"${sessionId}:${agentName}"`
    */

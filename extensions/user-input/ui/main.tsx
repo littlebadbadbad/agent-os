@@ -20,7 +20,6 @@ import { createRoot } from "react-dom/client";
 import type {
   UiPluginHost,
   SlotHostMessage,
-  SlotIframeMessage,
   AgentSessionState,
 } from "@agent-type";
 import { UserInputPrompt } from "./UserInputPrompt";
@@ -147,21 +146,6 @@ function bootApp(host: UiPluginHost): void {
       </StrictMode>,
     );
 
-    const reportSize = () => {
-      const msg: SlotIframeMessage = {
-        version: 1,
-        type: "resize",
-        payload: {
-          width: rootEl?.clientWidth ?? document.body.clientWidth,
-          height: rootEl?.clientHeight ?? document.body.clientHeight,
-        },
-      };
-      host.sendSlotMessage(msg);
-    };
-
-    requestAnimationFrame(reportSize);
-    const resizeObserver = new ResizeObserver(() => reportSize());
-    resizeObserver.observe(rootEl);
   }
 }
 

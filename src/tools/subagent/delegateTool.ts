@@ -52,16 +52,11 @@ export function createDelegateTaskTool(
       task: z
         .string()
         .min(1)
-        .describe(
-          "The self-contained task to execute. Be specific: state the goal, expected output format, and any constraints.",
-        ),
+        .describe("The self-contained task: goal, expected output, constraints"),
       context: z
         .string()
         .optional()
-        .describe(
-          "Background knowledge the sub-agent needs: what you've already tried, ruled out, or discovered. " +
-          "Omit when the task description is self-contained.",
-        ),
+        .describe("Background knowledge (omit if task is self-contained)"),
       max_turns: z
         .number()
         .int()
@@ -69,7 +64,7 @@ export function createDelegateTaskTool(
         .max(20)
         .default(10)
         .optional()
-        .describe("Maximum agentic turns the sub-agent may use. Default: 10."),
+        .describe("Max agentic turns (default 10)"),
     }),
 
     execute: async ({ task, context, max_turns }, execContext) => {

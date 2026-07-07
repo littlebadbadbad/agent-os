@@ -1,10 +1,5 @@
-import type { WidgetHandler, ToolCall, ToolResult, AgentMessage, Attachment, TokenUsage, AgentSessionExtension, AgentSessionState } from '@agent-type';
-import type { TokenBudgetState } from "@agent-sdk/tools/track/tokenTracker";
+import type { WidgetHandler, ToolCall, ToolResult, AgentMessage, Attachment, TokenUsage, AgentSessionState } from '@agent-type';
 import type { CompactionResult, AgentRunOutcome } from '@agent-type';
-import type { TerminalManagerAdapter } from "@agent-sdk/tools/terminal";
-import type { ToolStateEntry } from "@agent-sdk/client/types";
-import type { TodoItem } from "@agent-sdk/tools/todo";
-import type { SubAgentRegistry } from "@agent-sdk/tools/subagent/registryTypes";
 import type { Message } from "../../agent-UI/components/AgentWidget/types";
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -13,8 +8,8 @@ import type { Message } from "../../agent-UI/components/AgentWidget/types";
 export type { AgentSessionState } from '@agent-type';
 
 // ── Module augmentation ───────────────────────────────────────────────────────
-// UI-specific session state fields. Business-module fields (toolStates, todos,
-// tokenBudget, adapters, subAgentRegistries) are augmented by their own modules.
+// UI-specific session state fields. Business-module fields (toolStates,
+// adapters, subAgentRegistries) are augmented by their own modules.
 declare module '@agent-type' {
   interface AgentSessionExtension {
     /** Conversation messages (UI Message format — richer than AgentMessage). */
@@ -44,6 +39,20 @@ export type AgentSessionConfig = {
   getHandler: (userMessage?: string) => WidgetHandler;
   /** Unique ID of this session. */
   id: string;
+  /**
+   * Name of the agent that owns this session.
+   *
+   * Main agent: the configured client `id` or `"main"`.
+   * Sub-agent: the registered sub-agent tool name.
+   */
+  agentName: string;
+  /**
+   * ID of the conversation this session belongs to.
+   *
+   * Main agent: `MAIN_CONVERSATION_ID` (`"main"`).
+   * Sub-agent: the conversation's unique ID.
+   */
+  conversationId: string;
   /** Unique ID forwarded to the widget for per-instance ball-position persistence. */
   agentId?: string;
   /** Human-readable title for this session. */

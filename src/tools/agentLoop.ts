@@ -1,3 +1,4 @@
+import { toErrorMessage } from './errors';
 import type { AgentStreamChunk, Attachment, TokenUsage, ToolCall, ToolResult } from '@agent-type';
 
 // ── Hook interface ────────────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ export async function drainAgentStream(
         const promise = executeTool(value.call).catch((err): ToolResult => ({
           toolCallId: value.call.id,
           name: value.call.name,
-          result: `Error: ${err instanceof Error ? err.message : String(err)}`,
+          result: `Error: ${toErrorMessage(err)}`,
         }));
         pending.push({ call: value.call, promise });
 

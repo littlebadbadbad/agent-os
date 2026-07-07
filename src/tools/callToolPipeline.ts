@@ -15,7 +15,7 @@
  */
 
 import { validateToolCall, executeValidatedToolCall } from "./execute";
-import { isAgentError } from "./errors";
+import { isAgentError, toErrorMessage } from "./errors";
 import type { ToolRegistry } from "./registry";
 import type { ToolSet, ToolSetContext } from "@agent-type";
 import type {
@@ -154,7 +154,7 @@ export function withErrorBoundary(
       const toolName = isAgentError(err)
         ? (err.toolName ?? call.name)
         : call.name;
-      const message = err instanceof Error ? err.message : String(err);
+      const message = toErrorMessage(err);
       return {
         toolCallId: call.id,
         name: call.name,

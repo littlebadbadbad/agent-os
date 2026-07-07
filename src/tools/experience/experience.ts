@@ -151,7 +151,7 @@ const experienceInputSchema = z.object({
  * a dense machine-readable block before every turn so the agent can pattern-match
  * against past experience without an explicit read call.
  *
- * State isolation mirrors the todo ToolSet:
+ * State isolation per agent scope:
  *   sessionId                   -> root agent
  *   `${sessionId}:${agentName}` -> each sub-agent
  */

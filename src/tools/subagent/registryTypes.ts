@@ -18,9 +18,8 @@ declare module '@agent-type' {
 
 import type { AgentMessage } from '@agent-type';
 import type { Attachment } from '@agent-type';
-import type { TokenBudgetState } from '../track/tokenTracker';
+import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
 import type { SubAgentResult } from './types';
-import type { TodoItem } from '../todo';
 
 
 // ── Serialization types (for persistence) ─────────────────────────────────────
@@ -31,6 +30,8 @@ import type { TodoItem } from '../todo';
  */
 export type SubAgentSerializedConversation = {
   id: string;
+  /** Name of the sub-agent that owns this conversation. */
+  agentName: string;
   title: string;
   /** Full conversation history (all messages, for UI display). */
   history: AgentMessage[];
@@ -46,8 +47,6 @@ export type SubAgentSerializedConversation = {
 
 /**
  * Serialisable snapshot of one sub-agent definition plus all its conversations.
- * Todos are stored at agent level (not per-conversation) because they are
- * scoped to the agent identity and shared across all its conversations.
  */
 export type SubAgentSerializedEntry = {
   name: string;
@@ -58,8 +57,6 @@ export type SubAgentSerializedEntry = {
   parent: string;
   createdAt: string;
   activeConversationId: string;
-  /** Todo items for this agent — contributed by the todo ToolSet when registered. */
-  todos?: TodoItem[];
   conversations: SubAgentSerializedConversation[];
 };
 
@@ -81,13 +78,23 @@ export type ConversationMessageEntry = AgentMessage & { readonly index: number }
  * Consumed by UI components to render streaming conversation panels,
  * token usage progress bars, and message history.
  *
- * Note: todos are not per-conversation — they live on the parent
- * `SubAgentEntrySnapshot` because they are scoped to the agent identity
- * and shared across all of the agent's conversations.
+ * Symbol-keyed plugin state is accessible via the `[key: symbol]` index
+ * signature — UI layers look up state by the plugin's declared symbol,
+ * fully generic with no hardcoded fields.
  */
 export type SubAgentConversationState = {
   /** Unique ID of this conversation. */
   readonly id: string;
+  /** Name of the sub-agent that owns this conversation. */
+  readonly agentName: string;
+  /**
+   * ID of this conversation — same value as `id`.
+   *
+   * Included for contract uniformity with `AgentSessionState` so plugins
+   * can read `conversationId` regardless of whether the slot is opened
+   * by the main agent or a sub-agent.
+   */
+  readonly conversationId: string;
   /** Human-readable title (auto-generated or provided at creation). */
   readonly title: string;
   /** Whether the sub-agent is currently executing a task in this conversation. */
@@ -99,8 +106,15 @@ export type SubAgentConversationState = {
   readonly streamingText: string;
   /** Full message history — reactive, updates after each turn and after summarization. */
   readonly history: readonly AgentMessage[];
-  /** Token budget state for this conversation (undefined when no budget configured). */
-  readonly tokenBudget?: TokenBudgetState;
+  /**
+   * Symbol-keyed plugin state slices.
+   *
+   * Each registered ToolSet that declares a `symbol` and implements
+   * `onGetSymbolState` contributes its state here. UI layers look up
+   * state by the plugin's symbol — no plugin-specific fields are
+   * hardcoded on this type.
+   */
+  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
 };
 
 /**
@@ -122,8 +136,9 @@ export type SubAgentConversation = {
  * Read-only snapshot of one sub-agent entry in the registry.
  * Used for rendering the sub-agent management UI.
  *
- * `todos` are stored here (not on each conversation) because they are owned
- * by the agent and shared across all of the agent's conversations.
+ * Symbol-keyed plugin state is accessible via the `[key: symbol]` index
+ * signature — UI layers look up state by the plugin's declared symbol,
+ * fully generic with no hardcoded fields.
  */
 export type SubAgentEntrySnapshot = {
   /** Registered tool name, e.g. `'researcher_agent'`. */
@@ -146,13 +161,17 @@ export type SubAgentEntrySnapshot = {
   readonly createdAt: string;
   /** ID of the currently active conversation. */
   readonly activeConversationId: string;
-  /**
-   * Todo items for this agent — contributed by the todo ToolSet when registered.
-   * `undefined` when no todo ToolSet is active.
-   */
-  readonly todos?: readonly TodoItem[];
   /** All conversations for this sub-agent, ordered oldest-first. */
   readonly conversations: readonly SubAgentConversationState[];
+  /**
+   * Symbol-keyed plugin state slices (agent-level).
+   *
+   * Each registered ToolSet that declares a `symbol` and implements
+   * `onGetSymbolState` contributes its state here. UI layers look up
+   * state by the plugin's symbol — no plugin-specific fields are
+   * hardcoded on this type.
+   */
+  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
 };
 
 /** Observable state of the entire sub-agent registry. */

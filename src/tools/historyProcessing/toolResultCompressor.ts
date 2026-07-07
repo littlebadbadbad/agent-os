@@ -15,14 +15,8 @@
  * etc. does not bloat the context window across a long session, while preserving
  * the most recent results that the model may still need.
  *
- * ### Relationship to other ToolSets
- * - **variable ToolSet** — handles single large results (> 16 K) by storing
- *   them as `$var:xxxxxxxx` handles before they enter history.  Complementary.
- * - **tokenBudgetToolSet** — LLM-based compaction triggered reactively at
- *   ≥ 85% context usage.  The compressor reduces *how often* that fires.
- *
  * ### Non-compactable tools
- * Structural-state tools (`plan_*`, `todo_*`, `experience_*`, `var_*`,
+ * Structural-state tools (`plan_*`, `experience_*`, `var_*`,
  * `*_subagent`, `send_*_message`, etc.) are intentionally excluded so that
  * their results always stay in full.  Pass `compactableToolNames` to override.
  *
@@ -97,13 +91,12 @@ export type ToolResultCompressorOptions = {
 /**
  * Create a tool-result compressor ToolSet.
  *
- * Register before `tokenBudgetToolSet` so cheap mechanical cleanup runs first,
- * reducing how often the expensive LLM-based summarisation triggers.
+ * Register early in the ToolSet list so cheap mechanical cleanup runs first,
+ * reducing how often expensive LLM-based summarisation triggers.
  *
  * @example
  * ```ts
  * const compressor = createToolResultCompressorToolSet({ keepRecentResults: 3 });
- * const agent = createAgentClient({ toolSets: [compressor, tokenBudget, ...] });
  * ```
  */
 export function createToolResultCompressorToolSet(

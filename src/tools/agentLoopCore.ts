@@ -17,6 +17,7 @@
 
 import { drainAgentStream } from './agentLoop';
 import { isAgentTurnResponse, resolveToolField } from './types';
+import { toErrorMessage } from './errors';
 import type { AgentStreamHooks } from './agentLoop';
 import type {
   AgentMessage,
@@ -237,7 +238,7 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
           const res: ToolResult = {
             toolCallId: call.id,
             name: call.name,
-            result: `Error: ${err instanceof Error ? err.message : String(err)}`,
+            result: `Error: ${toErrorMessage(err)}`,
           };
           onAfterToolCall?.(call, res);
           return res;

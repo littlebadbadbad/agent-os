@@ -38,6 +38,7 @@ export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
           const show = declaration.showTab();
           const isActive = activePluginView === view;
           if (!show) return null;
+          const badgeText = declaration.badge?.() ?? null;
           return (
             <button
               key={`${pluginId}:${declaration.id}`}
@@ -47,6 +48,9 @@ export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
             >
               {declaration.icon && <span>{declaration.icon} </span>}
               {declaration.label}
+              {badgeText !== null && (
+                <span className={styles["tab-badge"]}>{badgeText}</span>
+              )}
             </button>
           );
         })}

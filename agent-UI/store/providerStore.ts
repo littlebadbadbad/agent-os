@@ -10,17 +10,11 @@
  */
 
 import { providerConfigStore } from './providerConfigStore';
+import type { ModelMeta } from '@agent-type';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Provider = string;
-
-export type ModelMeta = {
-  id: string;
-  label: string;
-  contextWindow: number;
-  description: string;
-};
 
 export type ProviderSelection = {
   providerId: Provider;

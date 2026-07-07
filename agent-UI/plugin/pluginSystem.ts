@@ -25,6 +25,7 @@ import { createPluginConfigClient } from "./configClient";
 import { loadPluginAgentEntry, type PluginAgentModule } from "./loader";
 import { createAgentPluginHost, type AgentPluginContext } from "./host";
 import { slotRegistry } from "../slots/registry";
+import { providerStore } from "../store/providerStore";
 import type { AgentSession } from "@agent-sdk/client";
 
 // ── Compile-time built-in plugin registry ────────────────────────────────────
@@ -266,6 +267,7 @@ async function activatePlugin(
           plugin.symbols.push(toolSet.symbol);
         }
       },
+      getSelectedModel: () => providerStore.getSelectedModel(),
     });
     // Step 5: Call activate — this is where the plugin registers ToolSets.
     await Promise.resolve(loadResult.module.activate(host));

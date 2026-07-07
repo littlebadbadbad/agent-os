@@ -10,13 +10,11 @@
  * via `host._onIframeMessage`:
  *   - `openDetail`: the user clicked the compact card → call `onOpenDetail`
  *     so the host can open the full detail modal.
- *   - `resize`: size report — updates iframe dimensions to fit content.
  */
 
-import { useRef, useMemo, useCallback, useState, type ReactElement } from "react";
+import { useRef, useMemo, useCallback, type ReactElement } from "react";
 import type {
   CompactToolCardHostMessage,
-  CompactToolCardIframeMessage,
   UiPluginHostInternal,
 } from "@agent-type";
 import type { ToolCallInfo } from "@agent-type";
@@ -24,7 +22,8 @@ import { IframeSandbox } from "../IframeSandbox";
 import { createUiPluginHost } from "../../plugin/uiHost";
 import { createPluginApiClient } from "../../plugin/apiClient";
 import { createPluginConfigClient } from "../../plugin/configClient";
-import type { PluginManifest } from "@agent-type";
+import type { PluginManifest, CompactToolCardSlotDeclaration } from "@agent-type";
+import { slotRegistry } from "../registry";
 import { pluginSystem } from "../../agents";
 
 export interface CompactToolCardSlotRendererProps {
@@ -43,12 +42,10 @@ export function CompactToolCardSlotRenderer(
 
   const hostRef = useRef<UiPluginHostInternal | null>(null);
 
-  // Dynamic iframe dimensions — updated when the iframe reports its content size.
-  // Start at "auto" (browser default ~300×150) so the compact card has room to
-  // render and measure itself.  The first resize report from the iframe will
-  // shrink-wrap to the exact content dimensions.
-  const [iframeWidth, setIframeWidth] = useState<string>("auto");
-  const [iframeHeight, setIframeHeight] = useState<string>("auto");
+  // Read dimensions from slot declaration, fall back to sensible defaults.
+  const decl = slotRegistry.getSlot(pluginId, slotId) as CompactToolCardSlotDeclaration | undefined;
+  const containingWidth = decl?.containingWidth ?? "auto";
+  const containingHeight = decl?.containingHeight ?? "auto";
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
@@ -71,7 +68,6 @@ export function CompactToolCardSlotRenderer(
     });
   }, [pluginId, slotId, uiPlugin]);
 
-  // Keep a ref to the host so handleReady can access it without re-creating.
   hostRef.current = host;
 
   const handleReady = useCallback(
@@ -79,14 +75,10 @@ export function CompactToolCardSlotRenderer(
       const h = hostRef.current;
       if (!h) return;
 
-      // Listen for iframe → host messages.
+      // Listen for iframe → host messages (only openDetail for compact cards).
       h._onIframeMessage((msg) => {
         if (msg.type === "openDetail") {
           onOpenDetail?.();
-        } else if (msg.type === "resize") {
-          // Dynamic dimension adjustment — the iframe reports its content size.
-          if (msg.payload?.width) setIframeWidth(`${msg.payload.width}px`);
-          if (msg.payload?.height) setIframeHeight(`${msg.payload.height}px`);
         }
       });
 
@@ -110,8 +102,8 @@ export function CompactToolCardSlotRenderer(
       host={host}
       onReady={handleReady}
       sizing="fit"
-      iframeWidth={iframeWidth}
-      iframeHeight={iframeHeight}
+      containingWidth={containingWidth}
+      containingHeight={containingHeight}
     />
   );
 }

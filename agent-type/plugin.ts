@@ -1,6 +1,7 @@
 import type { ToolSet } from "./toolset";
 import type { AgentSessionState, PluginStateExtension, Tool } from "./core";
 import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, SlotIframeMessage } from "./ui-slot";
+import type { ModelMeta } from "./model";
 import { AgentSessionExtension } from "@agent-type";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -261,6 +262,42 @@ export interface AgentPluginHost {
    * Matches `manifest.version`.
    */
   readonly pluginVersion: string;
+
+  /**
+   * Returns metadata for the currently selected model.
+   *
+   * Plugins use this to configure their behaviour based on the active
+   * model's context window — without depending on the UI layer's
+   * provider store.
+   */
+  getSelectedModel(): ModelMeta;
+}
+
+// ── Slot session (minimal read surface for slot renderers) ────────────────────
+
+/**
+ * Minimal session interface consumed by slot renderers.
+ *
+ * Both {@link AgentSession} and {@link SubAgentConversation} satisfy this
+ * interface — it captures only the two methods that renderers need:
+ *   - `getState()` — read the current state snapshot
+ *   - `subscribe()` — react to state changes
+ *
+ * Extracting this interface lets `createUiPluginHost` and all slot
+ * renderers work with **either** a main-agent session **or** a sub-agent
+ * conversation, without depending on the full `AgentSession` type
+ * (which carries `sendMessage`, `cancelMessage`, etc. — capabilities
+ * that sub-agent conversations don't have and slot renderers don't need).
+ *
+ * The state type is {@link AgentSessionState}. `SubAgentConversationState`
+ * is structurally compatible because it has `id`, `isLoading`, and the
+ * same `[key: symbol]` index signature for plugin state slices.
+ */
+export interface SlotSession {
+  /** Returns the current state snapshot. */
+  getState(): AgentSessionState;
+  /** Subscribe to state changes. Returns an unsubscribe function. */
+  subscribe(fn: () => void): () => void;
 }
 
 export interface UiPluginHost {

@@ -23,12 +23,13 @@ import { type ReactElement } from "react";
 import type {
   SlotType,
   ToolCallInfo,
+  SlotSession,
 } from "@agent-type";
-import type { AgentSession } from "@agent-sdk";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
 import { CompactToolCardSlotRenderer } from "./renderers/CompactToolCardSlotRenderer";
 import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
+import { HeaderBarSlotRenderer } from "./renderers/HeaderBarSlotRenderer";
 import { slotRegistry } from "./registry";
 
 // ── Discriminated props union ─────────────────────────────────────────────────
@@ -38,7 +39,7 @@ export type SlotRendererProps =
       readonly pluginId: string;
       readonly slotType: "panel";
       readonly slotId: string;
-      readonly session: AgentSession;
+      readonly session: SlotSession;
       readonly className?: string;
     }
   | {
@@ -61,7 +62,14 @@ export type SlotRendererProps =
       readonly pluginId: string;
       readonly slotType: "inlinePrompt";
       readonly slotId: string;
-      readonly session: AgentSession;
+      readonly session: SlotSession;
+      readonly className?: string;
+    }
+  | {
+      readonly pluginId: string;
+      readonly slotType: "headerBar";
+      readonly slotId: string;
+      readonly session: SlotSession;
       readonly className?: string;
     };
 
@@ -116,6 +124,24 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       }
       return (
         <InlinePromptSlotRenderer
+          pluginId={props.pluginId}
+          slotId={props.slotId}
+          session={props.session}
+          className={props.className}
+        />
+      );
+    }
+
+    case "headerBar": {
+      const decl = slotRegistry.getSlot(props.pluginId, props.slotId);
+      if (
+        decl?.type === "headerBar" &&
+        !decl.shouldRender()
+      ) {
+        return null;
+      }
+      return (
+        <HeaderBarSlotRenderer
           pluginId={props.pluginId}
           slotId={props.slotId}
           session={props.session}

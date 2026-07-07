@@ -15,7 +15,7 @@
  * No classes — pure factory function.
  */
 
-import type { AgentPluginHost, PluginApiClient, ToolSet } from '@agent-type';
+import type { AgentPluginHost, PluginApiClient, ToolSet, ModelMeta } from '@agent-type';
 import type { PluginConfigClient } from './configClient';
 
 // ── Agent context ─────────────────────────────────────────────────────────────
@@ -53,6 +53,8 @@ export interface AgentPluginHostParams {
   readonly agentContext: AgentPluginContext;
   /** Function to add tools to the plugin. */
   readonly attatchToolSets: (toolSet: ToolSet) => void;
+  /** Returns the currently selected model metadata. */
+  readonly getSelectedModel: () => ModelMeta;
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ export interface AgentPluginHostParams {
  * @returns       An AgentPluginHost instance.
  */
 export function createAgentPluginHost(params: AgentPluginHostParams): AgentPluginHost {
-  const { pluginId, pluginName, pluginVersion, apiClient, configClient, agentContext, attatchToolSets } = params;
+  const { pluginId, pluginName, pluginVersion, apiClient, configClient, agentContext, attatchToolSets, getSelectedModel } = params;
 
   return {
     registerToolSet(toolSet: ToolSet): () => void {
@@ -109,6 +111,10 @@ export function createAgentPluginHost(params: AgentPluginHostParams): AgentPlugi
 
     get pluginVersion(): string {
       return pluginVersion;
+    },
+
+    getSelectedModel(): ModelMeta {
+      return getSelectedModel();
     },
   };
 }

@@ -4,6 +4,31 @@ import type { AgentHandler } from './handler';
 import { PluginUiAdapter } from './plugin';
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  Shared constants & helpers (used by both core and extensions)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Sentinel `conversationId` used for the main agent (non-sub-agent) context.
+ * Sub-agents always carry their real conversation ID.
+ */
+export const MAIN_CONVERSATION_ID = "main" as const;
+
+/**
+ * Derive the canonical Map key for a `ToolSetContext`.
+ *
+ * - Main agent:  `sessionId`
+ * - Sub-agent:   `"${sessionId}:${agentName}"`
+ *
+ * This matches the key format used before `ToolSetContext` was introduced,
+ * so persisted data (e.g. toolStates) remains compatible.
+ */
+export function toolSetContextKey(ctx: ToolSetContext): string {
+  return ctx.conversationId === MAIN_CONVERSATION_ID
+    ? ctx.sessionId
+    : `${ctx.sessionId}:${ctx.agentName}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  ToolSet types  (来自 src/tools/toolSet.ts — types only)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -11,7 +36,7 @@ import { PluginUiAdapter } from './plugin';
 
 /**
  * Read-only query surface passed to `onAttach` for ToolSets that only need to
- * inspect the agent (e.g. sub-agent meta-tools, token-budget toolsets).
+ * inspect the agent (e.g. sub-agent meta-tools).
  *
  * Deliberately kept to the minimum needed for description generation and
  * sub-agent delegation — no mutating registration methods.
@@ -223,7 +248,7 @@ export type AgentRunOutcome = 'completed' | 'max-turns' | 'aborted' | 'error';
  * The portion of agent session state that a ToolSet can contribute.
  * Fields are merged into the live session state and surfaced to the widget UI.
  *
- * This is an open-ended record; each ToolSet adds its own keys (e.g. `todos`,
+ * This is an open-ended record; each ToolSet adds its own keys (e.g.
  * `subAgentRegistries`) which the SDK merges into the session state object.
  */
 export type ToolSetState = Partial<AgentSessionState>;
@@ -400,7 +425,7 @@ export type ToolSet = {
   /**
    * Called when a sub-agent conversation is permanently removed.
    *
-   * Use to release per-conversation state (e.g. token-budget trackers).
+   * Use to release per-conversation state.
    * NOT called when the entire sub-agent is deleted — `onRemoveSession`
    * handles that case.
    */

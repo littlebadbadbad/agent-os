@@ -1,5 +1,5 @@
 import type { AgentClientConfig } from "./types";
-import type { AgentHandler } from "@agent-type";
+import { MAIN_CONVERSATION_ID, type AgentHandler } from "@agent-type";
 import { createMinIntervalQueue } from "@agent-sdk/utils/minIntervalQueue";
 
 /**
@@ -32,6 +32,7 @@ export function resolveAgentClientConfig(raw: AgentClientConfig) {
 
   return {
     ...raw,
+    id: raw.id ?? MAIN_CONVERSATION_ID,
     tools: raw.tools ?? [],
     toolSets: raw.toolSets ?? [],
     maxAgentTurns: raw.maxAgentTurns ?? 0,

@@ -8,8 +8,6 @@ const FILE_TOOL_NAMES = new Set([
   'get_workspace_root', 'set_workspace_root',
 ]);
 
-const TODO_TOOL_NAMES = new Set(['todo_write', 'todo_read']);
-
 const DYNAMIC_TOOL_NAMES = new Set([
   'create_tool', 'update_tool', 'delete_tool', 'list_dynamic_tools',
 ]);
@@ -29,10 +27,6 @@ export function isFileTool(name: string): boolean {
 
 export function isTerminalTool(name: string): boolean {
   return name.startsWith('terminal_');
-}
-
-export function isTodoTool(name: string): boolean {
-  return TODO_TOOL_NAMES.has(name);
 }
 
 export function isAskUserTool(name: string): boolean {

@@ -233,7 +233,7 @@ export function createExecutionFunctions(
    * context, then runs the same agent loop as `sendMessage`.
    *
    * All ToolSet lifecycle hooks (`onBeforeRun`, `onAfterTurn`, etc.) fire
-   * identically to a normal send — this is intentional so that token-budget
+   * identically to a normal send — this is intentional
    * tracking, variable injection, etc. behave the same way.
    */
   async function editConversationMessage(

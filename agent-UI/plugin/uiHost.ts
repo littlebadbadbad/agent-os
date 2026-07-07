@@ -36,10 +36,10 @@ import type {
   SlotContext,
   SlotHostMessage,
   SlotIframeMessage,
+  SlotSession,
 } from "@agent-type";
 import type { PluginConfigClient } from "./configClient";
 import { PluginDescriptor } from "./pluginSystem";
-import { AgentSession } from "@agent-sdk/client";
 
 
 // ── Factory params ────────────────────────────────────────────────────────────
@@ -51,8 +51,8 @@ export interface UiPluginHostParams {
   readonly apiClient: PluginApiClient;
   /** Configuration client for plugin settings. */
   readonly configClient: PluginConfigClient;
-  /** Active agent session (for getPluginState). */
-  readonly session?: AgentSession;
+  /** Active session (for getPluginState). Accepts both main-agent sessions and sub-agent conversations. */
+  readonly session?: SlotSession;
   /** Slot context — tells the iframe which slot instance it is rendering. */
   readonly slotContext: SlotContext;
 }

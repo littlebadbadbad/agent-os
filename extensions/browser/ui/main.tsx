@@ -18,7 +18,6 @@ import { createRoot } from "react-dom/client";
 import type {
   UiPluginHost,
   SlotHostMessage,
-  SlotIframeMessage,
   ToolCallInfo,
 } from "@agent-type";
 import { BrowserPanel } from "./BrowserPanel";
@@ -158,25 +157,5 @@ function bootApp(host: UiPluginHost): void {
       </StrictMode>,
     );
 
-    const reportSize = () => {
-      // In compact mode, measure the root element (which wraps the content)
-      // rather than the body, to get the true content height.
-      const measureEl = slotCtx.slotType === "compactToolCard"
-        ? rootEl
-        : document.body;
-      const msg: SlotIframeMessage = {
-        version: 1,
-        type: "resize",
-        payload: {
-          width: measureEl?.clientWidth ?? document.body.clientWidth,
-          height: measureEl?.clientHeight ?? document.body.clientHeight,
-        },
-      };
-      host.sendSlotMessage(msg);
-    };
-    requestAnimationFrame(reportSize);
-    if (rootEl) {
-      new ResizeObserver(() => reportSize()).observe(rootEl);
-    }
   }
 }

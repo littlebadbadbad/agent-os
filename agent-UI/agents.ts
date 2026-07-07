@@ -1,6 +1,5 @@
 import {
   createAgentClient,
-  createTodoTools,
   createExperienceTools,
   createToolSearchToolSet,
   createPermissionsToolSet,
@@ -12,7 +11,6 @@ import {
   createSkillToolset,
   createMcpToolset,
   createSubAgentToolset,
-  createTokenBudgetToolSet,
   createVariableToolSet,
   createMemoryGraphToolSet,
   createPlanToolSet,
@@ -122,24 +120,10 @@ const getCurrentTime = defineTool({
 });
 
 const fileTools = createFileTools(fileAdapter);
-const todoToolSet = createTodoTools();
 const experienceToolSet = createExperienceTools();
 const terminalToolSet = createTerminalToolSet(terminalAdapter);
 const cronToolSet = createCronToolSet(cronAdapter);
 const toolStateToolSet = createToolStateToolSet();
-
-// Token budget ToolSet — reads the current provider's context window lazily at
-// session/turn time, so switching models automatically takes effect.
-const tokenBudgetToolSet = createTokenBudgetToolSet(() => {
-  const { contextWindow } = providerStore.getSelectedModel();
-  return contextWindow
-    ? {
-        maxTokens: contextWindow,
-        warningThreshold: 0.7,
-        summarizationThreshold: 0.85,
-      }
-    : undefined;
-});
 
 const variableToolSet = createVariableToolSet();
 const toolResultCompressorToolSet = createToolResultCompressorToolSet({ keepRecentResults: 3 });
@@ -259,11 +243,9 @@ const sharedToolSets = [
   toolSearchToolSet,
   permissionsToolSet,
   toolStateToolSet,
-  todoToolSet,
   experienceToolSet,
   terminalToolSet,
   cronToolSet,
-  tokenBudgetToolSet,
   toolResultCompressorToolSet,
   variableToolSet,
   planToolset,

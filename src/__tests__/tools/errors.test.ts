@@ -89,7 +89,7 @@ describe('toolExecutionError', () => {
 
   it('creates an error with TOOL_EXECUTION code from object cause', () => {
     const err = toolExecutionError('crash_tool', { custom: 'error' });
-    expect(err.message).toBe('[object Object]');
+    expect(err.message).toBe('{"custom":"error"}');
   });
 
   it('_agentError is non-enumerable', () => {

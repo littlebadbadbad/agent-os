@@ -69,10 +69,10 @@ export type AgentClientConfig = {
    *
    * @example
    * ```ts
-   * import { createTodoTools } from '@agent-sdk';
+   * import { createExperienceTools } from '@agent-sdk';
    * const agent = createAgentClient({
    *   handler,
-   *   toolSets: [createTodoTools()],
+   *   toolSets: [createExperienceTools()],
    * });
    * ```
    */
@@ -119,11 +119,11 @@ export type AgentClientConfig = {
   /**
    * Static list of sessions to create at initialization.
    * Each entry becomes an independent session with its own message history,
-   * tool toggle states, and todo list.
+   * tool toggle states, and tool-specific state.
    */
   initialSessions?: SessionEntryData[];
   /**
-   * Called whenever any session data changes (messages, todos, tool states,
+   * Called whenever any session data changes (messages, tool states,
    * session list mutations).  Receives a full serialisable snapshot of every
    * live session — ideal for persistence.
    *

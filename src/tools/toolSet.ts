@@ -3,33 +3,16 @@ import type { SessionEntryData } from "@agent-type";
 import type { SessionEntryExtension } from '@agent-type';
 export { resolveToolSetTools } from '@agent-type';
 
+// Re-export shared constants & helpers (now defined in @agent-type)
+export { MAIN_CONVERSATION_ID, toolSetContextKey } from '@agent-type';
+
 // ── AgentClientLike types ──────────────────────────────────────────────────
 // AgentQueryFns and AgentClientLike are now defined in @agent-type/toolset.ts
 
 // ── ToolSet invocation context ────────────────────────────────────────────────
 
-/**
- * Sentinel `conversationId` used for the main agent (non-sub-agent) context.
- * Sub-agents always carry their real conversation ID.
- */
-export const MAIN_CONVERSATION_ID = "main" as const;
-
-// ToolSetContext type is now defined in @agent-type/toolset.ts
-
-/**
- * Derive the canonical Map key for a `ToolSetContext`.
- *
- * - Main agent:  `sessionId`
- * - Sub-agent:   `"${sessionId}:${agentName}"`
- *
- * This matches the key format used before `ToolSetContext` was introduced,
- * so persisted data (e.g. toolStates, todos) remains compatible.
- */
-export function toolSetContextKey(ctx: ToolSetContext): string {
-  return ctx.conversationId === MAIN_CONVERSATION_ID
-    ? ctx.sessionId
-    : `${ctx.sessionId}:${ctx.agentName}`;
-}
+// MAIN_CONVERSATION_ID and toolSetContextKey are now defined in @agent-type/toolset.ts
+// and re-exported above.
 
 // ToolSetStateContext, ToolContextPatch, SystemPromptContext, CompactionNotice,
 // CompactionResult, AgentRunOutcome, ToolSetState are now defined in @agent-type/toolset.ts

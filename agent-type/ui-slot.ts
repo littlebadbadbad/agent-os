@@ -26,7 +26,8 @@ export type SlotType =
   | "toolCard"
   | "compactToolCard"
   | "inlinePrompt"
-  | "messageInterceptor";
+  | "messageInterceptor"
+  | "headerBar";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot declarations (ToolSet → host: "I support these injection points")
@@ -40,7 +41,7 @@ export type SlotType =
  */
 export interface PanelSlotDeclaration {
   readonly type: "panel";
-  /** Unique slot identifier within the plugin (e.g. "browser.main"). */
+  /** Unique slot identifier within the plugin. */
   readonly id: string;
   /** Tab label shown in the sidebar tab bar. */
   readonly label: string;
@@ -50,6 +51,21 @@ export interface PanelSlotDeclaration {
   readonly icon?: string;
   /** Sort order in the tab bar (lower = first). Default 100. */
   readonly order?: number;
+  /**
+   * Optional badge text shown next to the tab label.
+   * Return `null` to hide the badge. Called on every state update.
+   */
+  readonly badge?: () => string | null;
+  /**
+   * Preferred containing width for this slot.
+   * Defaults to "100%" if omitted (fills panel container).
+   */
+  readonly containingWidth?: string;
+  /**
+   * Preferred containing height for this slot.
+   * Defaults to "100%" if omitted (fills panel container).
+   */
+  readonly containingHeight?: string;
 }
 
 /**
@@ -60,10 +76,20 @@ export interface PanelSlotDeclaration {
  */
 export interface ToolCardSlotDeclaration {
   readonly type: "toolCard";
-  /** Unique slot identifier within the plugin (e.g. "browser.toolCard"). */
+  /** Unique slot identifier within the plugin. */
   readonly id: string;
-  /** Tool names this slot handles (e.g. ["browser_launch", "browser_navigate"]). */
+  /** Tool names this slot handles. */
   readonly toolNames: readonly string[];
+  /**
+   * Preferred containing width for this slot.
+   * Defaults to "100%" if omitted.
+   */
+  readonly containingWidth?: string;
+  /**
+   * Preferred containing height for this slot.
+   * Defaults to "auto" if omitted.
+   */
+  readonly containingHeight?: string;
 }
 
 /**
@@ -79,10 +105,20 @@ export interface ToolCardSlotDeclaration {
  */
 export interface CompactToolCardSlotDeclaration {
   readonly type: "compactToolCard";
-  /** Unique slot identifier within the plugin (e.g. "browser.compactToolCard"). */
+  /** Unique slot identifier within the plugin. */
   readonly id: string;
-  /** Tool names this slot handles (e.g. ["browser_launch", "browser_navigate"]). */
+  /** Tool names this slot handles. */
   readonly toolNames: readonly string[];
+  /**
+   * Preferred containing width for this slot.
+   * Defaults to "auto" if omitted.
+   */
+  readonly containingWidth?: string;
+  /**
+   * Preferred containing height for this slot.
+   * Defaults to "auto" if omitted.
+   */
+  readonly containingHeight?: string;
 }
 
 /**
@@ -100,16 +136,24 @@ export interface CompactToolCardSlotDeclaration {
  */
 export interface InlinePromptSlotDeclaration {
   readonly type: "inlinePrompt";
-  /** Unique slot identifier within the plugin (e.g. "user-input.prompt"). */
+  /** Unique slot identifier within the plugin. */
   readonly id: string;
   /**
    * Whether this inline prompt slot should render.
    * Called on every session state change. Return `false` to hide the
    * iframe entirely (saves resources when no prompts are pending).
-   *
-   * Typically returns `true` when `pendingUserInputs.length > 0`.
    */
   readonly shouldRender: () => boolean;
+  /**
+   * Preferred containing width for this slot.
+   * Defaults to "100%" if omitted.
+   */
+  readonly containingWidth?: string;
+  /**
+   * Preferred containing height for this slot.
+   * Defaults to "auto" if omitted.
+   */
+  readonly containingHeight?: string;
 }
 
 /**
@@ -143,6 +187,30 @@ export interface MessageInterceptorSlotDeclaration {
 }
 
 /**
+ * A headerBar slot renders a thin full-width bar above the tab bar.
+ *
+ * The host creates a sandboxed iframe, subscribes to session state,
+ * and pushes state updates via {@link HeaderBarHostMessage}.
+ */
+export interface HeaderBarSlotDeclaration {
+  readonly type: "headerBar";
+  /** Unique slot identifier within the plugin. */
+  readonly id: string;
+  /** Whether this header bar should render. Called on every state update. */
+  readonly shouldRender: () => boolean;
+  /**
+   * Preferred containing width for this slot.
+   * Defaults to "100%" if omitted.
+   */
+  readonly containingWidth?: string;
+  /**
+   * Preferred containing height for this slot.
+   * Defaults to the slot type's standard height if omitted.
+   */
+  readonly containingHeight?: string;
+}
+
+/**
  * Discriminated union of all slot declarations.
  *
  * A plugin's ToolSet returns this array via `PluginUiAdapter.slots`.
@@ -152,7 +220,8 @@ export type PluginSlotDeclaration =
   | ToolCardSlotDeclaration
   | CompactToolCardSlotDeclaration
   | InlinePromptSlotDeclaration
-  | MessageInterceptorSlotDeclaration;
+  | MessageInterceptorSlotDeclaration
+  | HeaderBarSlotDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot context (iframe reads this to know which slot it's rendering)
@@ -245,6 +314,23 @@ export interface InlinePromptHostMessage {
 }
 
 /**
+ * Host pushes full session state to a headerBar iframe on every change.
+ *
+ * Same payload shape as {@link PanelHostMessage} — the headerBar iframe
+ * re-reads `host.getPluginState()` when notified.
+ */
+export interface HeaderBarHostMessage {
+  readonly version: 1;
+  readonly type: "headerBar";
+  /** The slot being targeted. */
+  readonly slotId: string;
+  /** Current session state snapshot. */
+  readonly payload: {
+    readonly state: AgentSessionState;
+  };
+}
+
+/**
  * Discriminated union of all host → iframe messages.
  *
  * Each branch carries `slotId` so the iframe can identify which
@@ -254,74 +340,28 @@ export type SlotHostMessage =
   | PanelHostMessage
   | ToolCardHostMessage
   | CompactToolCardHostMessage
-  | InlinePromptHostMessage;
+  | InlinePromptHostMessage
+  | HeaderBarHostMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Iframe → Host message protocol (per slot type)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Panel iframe reports size changes so the host can adjust the container.
- */
-export interface PanelIframeMessage {
-  readonly version: 1;
-  readonly type: "resize";
-  readonly payload: {
-    readonly width: number;
-    readonly height: number;
-  };
-}
-
-/**
- * ToolCard iframe reports size changes.
- */
-export interface ToolCardIframeMessage {
-  readonly version: 1;
-  readonly type: "resize";
-  readonly payload: {
-    readonly width: number;
-    readonly height: number;
-  };
-}
-
-/**
  * CompactToolCard iframe messages.
  *
- * - `resize`: same size-reporting as other slot types.
  * - `openDetail`: the user clicked the compact card; the host should open
  *   the full detail modal (which may itself render a `toolCard` slot).
  */
 export interface CompactToolCardIframeMessage {
   readonly version: 1;
-  readonly type: "resize" | "openDetail";
-  readonly payload?: {
-    readonly width?: number;
-    readonly height?: number;
-  };
-}
-
-/**
- * InlinePrompt iframe messages.
- *
- * - `resize`: reports content size so the host can adjust the overlay.
- */
-export interface InlinePromptIframeMessage {
-  readonly version: 1;
-  readonly type: "resize";
-  readonly payload: {
-    readonly width: number;
-    readonly height: number;
-  };
+  readonly type: "openDetail";
 }
 
 /**
  * Discriminated union of all iframe → host messages.
  */
-export type SlotIframeMessage =
-  | PanelIframeMessage
-  | ToolCardIframeMessage
-  | CompactToolCardIframeMessage
-  | InlinePromptIframeMessage;
+export type SlotIframeMessage = CompactToolCardIframeMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers: extract slot declarations by type

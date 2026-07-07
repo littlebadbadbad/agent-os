@@ -13,14 +13,14 @@ function makeSession(id: string): AgentSession {
     id,
     getState: () => ({
       id,
+      agentName: 'main',
+      conversationId: 'main',
       agentId: undefined,
       title: currentTitle,
       messages: [],
       isLoading: false,
       toolStates: [],
       skills: [],
-      tokenBudget: undefined,
-      todos: [],
       terminalAdapter: undefined,
       enableAttachments: true,
     }),
@@ -168,14 +168,12 @@ describe('createSessionManager', () => {
     const mgr = createSessionManager(factory);
     const messages = [{ role: 'user' as const, content: 'hello' }];
     const liveHistory = [{ role: 'user' as const, content: 'hello' }];
-    const todos = [{ id: '1', title: 'task', done: false }];
-    mgr.createSession({ id: 'full', title: 'Full', messages, liveHistory, todos } as any);
+    mgr.createSession({ id: 'full', title: 'Full', messages, liveHistory } as any);
     const call = factory.mock.calls.find(([d]) => d.id === 'full');
     expect(call).toBeDefined();
     const data = call![0];
     expect(data.messages).toBe(messages);
     expect(data.liveHistory).toBe(liveHistory);
-    expect(data.todos).toBe(todos);
   });
 
   // ── renameSession ─────────────────────────────────────────────────────────

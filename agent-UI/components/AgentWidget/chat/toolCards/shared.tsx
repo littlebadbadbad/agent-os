@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode, CSSProperties } from 'react';
 import type { ToolCallStatus, ToolCallInfo } from '../../types';
 import {
-  isFileTool, isTerminalTool, isTodoTool, isAskUserTool,
+  isFileTool, isTerminalTool, isAskUserTool,
   isDynamicTool, isMcpTool, isSkillTool, isSubAgentMetaTool, isExperienceTool,
 } from './identifiers';
 import styles from '../../AgentWidget.module.scss';
@@ -61,13 +61,12 @@ export function resStr(result: unknown): string | null {
 // ── Family accent colours ─────────────────────────────────────────────────────
 
 export type CardFamily =
-  | 'file' | 'terminal' | 'todo' | 'ask'
+  | 'file' | 'terminal' | 'ask'
   | 'dynamic' | 'mcp' | 'skill' | 'meta-agent';
 
 const ACCENT: Record<CardFamily, string> = {
   file:          '#d97706',   // amber
   terminal:      '#374151',   // slate
-  todo:          '#7c3aed',   // violet
   ask:           '#ea580c',   // orange
   dynamic:       '#4f46e5',   // indigo
   mcp:           '#0d9488',   // teal
@@ -229,7 +228,6 @@ export function PlainResult({ result }: { result: unknown }): ReactElement {
 const FAMILY_META: Record<CardFamily, { icon: string; label: string }> = {
   file:          { icon: '📄', label: 'File' },
   terminal:      { icon: '⌨',  label: 'Terminal' },
-  todo:          { icon: '☑',  label: 'Todo' },
   ask:           { icon: '💬', label: 'Ask' },
   dynamic:       { icon: '⚡', label: 'Tool' },
   mcp:           { icon: '🔌', label: 'MCP' },
@@ -267,9 +265,6 @@ export function getToolMeta(name: string): { icon: string; label: string; family
   } else if (isTerminalTool(name)) {
     family = 'terminal';
     label = terminalLabel(name);
-  } else if (isTodoTool(name)) {
-    family = 'todo';
-    label = name === 'todo_write' ? 'Update Todos' : 'Read Todos';
   } else if (isAskUserTool(name)) {
     family = 'ask';
     label = 'Ask User';

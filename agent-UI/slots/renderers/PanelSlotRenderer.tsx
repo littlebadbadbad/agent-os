@@ -17,8 +17,7 @@
  */
 
 import { useEffect, useRef, useMemo, type ReactElement } from "react";
-import type { AgentSession } from "@agent-sdk";
-import type { PanelHostMessage, UiPluginHostInternal } from "@agent-type";
+import type { PanelHostMessage, UiPluginHostInternal, SlotSession } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { createUiPluginHost } from "../../plugin/uiHost";
 import { createPluginApiClient } from "../../plugin/apiClient";
@@ -29,7 +28,7 @@ import { pluginSystem } from "../../agents";
 export interface PanelSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
-  readonly session: AgentSession;
+  readonly session: SlotSession;
   readonly className?: string;
 }
 

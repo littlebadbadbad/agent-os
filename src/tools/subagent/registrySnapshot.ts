@@ -8,7 +8,7 @@
  * — no mutable closure state required.
  */
 
-import type { ToolSetContext } from '@agent-type';
+import type { ToolSetContext, PluginStateExtension, PluginUiAdapter } from '@agent-type';
 import type {
   SubAgentConversationState,
   SubAgentEntrySnapshot,
@@ -37,6 +37,28 @@ export function collectToolSetState(
 }
 
 /**
+ * Collect all ToolSet `onGetSymbolState` results for the given context,
+ * keyed by each ToolSet's `symbol` property.
+ *
+ * Returns a record mapping `symbol → PluginStateExtension & PluginUiAdapter`.
+ * ToolSets without a `symbol` or without `onGetSymbolState` are skipped.
+ */
+export function collectToolSetSymbolState(
+  deps: RegistryDeps,
+  ctx: ToolSetContext,
+  entry: InternalEntry,
+): Record<symbol, PluginStateExtension & PluginUiAdapter> {
+  const stateCtx = { tools: deps.resolveTools(entry.toolNames) };
+  const merged: Record<symbol, PluginStateExtension & PluginUiAdapter> = {};
+  for (const ts of deps.resolveToolSets()) {
+    if (!ts.symbol) continue;
+    const s = ts.onGetSymbolState?.(ctx, stateCtx);
+    if (s) merged[ts.symbol] = s;
+  }
+  return merged;
+}
+
+/**
  * Merge all ToolSet `onBuildSnapshot` results for the given context.
  * Used by `getSnapshot()` so persistence receives the ToolSet's declared
  * snapshot fields rather than the transient runtime state.
@@ -60,10 +82,17 @@ export function snapshotConversation(
   conv: ConversationHandle,
   entry: InternalEntry,
 ): SubAgentConversationState {
-  return {
-    ...conv.getState(),
-    ...collectToolSetState(deps, deps.subCtx(entry.name, conv._state.id), entry),
-  } as SubAgentConversationState;
+  const ctx = deps.subCtx(entry.name, conv._state.id);
+  return Object.assign(
+    {},
+    {
+      ...conv.getState(),
+      agentName: entry.name,
+      conversationId: conv._state.id,
+      ...collectToolSetState(deps, ctx, entry),
+    },
+    collectToolSetSymbolState(deps, ctx, entry),
+  );
 }
 
 // ── Entry snapshot ───────────────────────────────────────────────────────────
@@ -72,19 +101,24 @@ export function snapshotEntry(
   deps: RegistryDeps,
   entry: InternalEntry,
 ): SubAgentEntrySnapshot {
+  const ctx = deps.subCtx(entry.name, entry.activeConversationId);
   const convList = [...entry.conversations.values()].map((c) =>
     snapshotConversation(deps, c, entry),
   );
-  return {
-    name: entry.name,
-    description: entry.description,
-    systemPrompt: entry.systemPrompt,
-    toolNames: [...entry.toolNames],
-    maxTurns: entry.maxTurns,
-    parent: entry.parent,
-    createdAt: entry.createdAt,
-    activeConversationId: entry.activeConversationId,
-    conversations: convList,
-    ...collectToolSetState(deps, deps.subCtx(entry.name, entry.activeConversationId), entry),
-  } as SubAgentEntrySnapshot;
+  return Object.assign(
+    {},
+    {
+      name: entry.name,
+      description: entry.description,
+      systemPrompt: entry.systemPrompt,
+      toolNames: [...entry.toolNames],
+      maxTurns: entry.maxTurns,
+      parent: entry.parent,
+      createdAt: entry.createdAt,
+      activeConversationId: entry.activeConversationId,
+      conversations: convList,
+      ...collectToolSetState(deps, ctx, entry),
+    },
+    collectToolSetSymbolState(deps, ctx, entry),
+  );
 }

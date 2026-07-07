@@ -1,0 +1,9 @@
+{
+  "id": "todo",
+  "name": "Todo",
+  "version": "0.1.0",
+  "description": "Task tracking with todo_write and todo_read tools. Provides a panel tab with progress badge, tool cards, and compact tool cards for chat rendering.",
+  "agentEntry": "activate.js",
+  "uiEntry": "ui/index.html",
+  "tools": ["todo"]
+}

@@ -49,10 +49,29 @@ export const toolValidationError = (name: string, detail: string): AgentError =>
 export const toolPermissionError = (name: string, reason: string): AgentError =>
   makeAgentError('TOOL_PERMISSION', reason, name);
 
+/**
+ * Convert an unknown error value to a human-readable string.
+ *
+ * - Error instances → `err.message`
+ * - Plain objects → `JSON.stringify(err)`
+ * - Other primitives → `String(err)`
+ */
+export function toErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null) {
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
+
 /** The tool's execute function threw an unexpected error. */
 export const toolExecutionError = (name: string, cause: unknown): AgentError =>
   makeAgentError(
     'TOOL_EXECUTION',
-    cause instanceof Error ? cause.message : String(cause),
+    toErrorMessage(cause),
     name,
   );

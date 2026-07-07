@@ -80,6 +80,9 @@ export type {
   SectionId,
 } from "./toolset";
 
+// Runtime constants & helpers (shared between core and extensions)
+export { MAIN_CONVERSATION_ID, toolSetContextKey } from "./toolset";
+
 // ── Widget types ──────────────────────────────────────────────────────────────
 export type {
   Position,
@@ -95,6 +98,7 @@ export type {
   PluginMethod,
   BackendPluginHost,
   AgentPluginHost,
+  SlotSession,
   UiPluginHost,
   UiPluginHostInternal,
   PluginUiAdapter,
@@ -120,17 +124,16 @@ export type {
   CompactToolCardSlotDeclaration,
   InlinePromptSlotDeclaration,
   MessageInterceptorSlotDeclaration,
+  HeaderBarSlotDeclaration,
   PluginSlotDeclaration,
   SlotContext,
   PanelHostMessage,
   ToolCardHostMessage,
   CompactToolCardHostMessage,
   InlinePromptHostMessage,
+  HeaderBarHostMessage,
   SlotHostMessage,
-  PanelIframeMessage,
-  ToolCardIframeMessage,
   CompactToolCardIframeMessage,
-  InlinePromptIframeMessage,
   SlotIframeMessage,
   FilterSlots,
 } from "./ui-slot";
@@ -143,3 +146,6 @@ export {
   resolveToolSetTools,
 } from "./defineTool";
 export type { ToolDef } from "./defineTool";
+
+// ── Model metadata ────────────────────────────────────────────────────────────
+export type { ModelMeta } from "./model";

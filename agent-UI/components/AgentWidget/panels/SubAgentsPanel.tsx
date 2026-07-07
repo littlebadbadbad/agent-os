@@ -4,7 +4,7 @@
  *
  * Layout (single registry):
  *   ┌──────────────┬──────────────────────────────────────────────────┐
- *   │  Agent list  │  Conversation tabs  ·  Token bar  ·  Todo        │
+ *   │  Agent list  │  Conversation tabs  ·  Header bar  ·  Panel      │
  *   │  (sidebar)   │  ChatMessages                                    │
  *   │              │  ChatInput                                        │
  *   └──────────────┴──────────────────────────────────────────────────┘
@@ -15,13 +15,14 @@
 
 import { useState, useCallback, useSyncExternalStore, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import type { Attachment, SubAgentRegistry, SubAgentConversationState, SubAgentEntrySnapshot, TodoItem } from '@agent-sdk';
+import type { Attachment, SubAgentRegistry, SubAgentConversationState, SubAgentEntrySnapshot } from '@agent-sdk';
 import { agentMessagesToUI } from '@agent-sdk';
 import { assistantMsg } from '../helpers';
 import { ChatMessages } from '../chat/ChatMessages';
 import { ChatInput } from '../chat/ChatInput';
-import { TodoPanel } from './TodoPanel';
-import { TokenProgressBar } from './TokenProgress';
+import { SlotRenderer } from '../../../slots/SlotRenderer';
+import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
+import type { HeaderBarSlotDeclaration, PanelSlotDeclaration } from '@agent-type';
 import styles from '../AgentWidget.module.scss';
 
 // ── ConversationPane ─────────────────────────────────────────────────────────
@@ -30,11 +31,9 @@ interface ConversationPaneProps {
   registry: SubAgentRegistry;
   agentName: string;
   convId: string;
-  /** Todo items for this agent — shared across all its conversations. */
-  todos: readonly TodoItem[];
 }
 
-function ConversationPane({ registry, agentName, convId, todos }: ConversationPaneProps): ReactElement {
+function ConversationPane({ registry, agentName, convId }: ConversationPaneProps): ReactElement {
   const rawConv = registry.getConversation(agentName, convId);
 
   // Stable fallbacks for useSyncExternalStore when the conversation handle is absent.
@@ -53,6 +52,45 @@ function ConversationPane({ registry, agentName, convId, todos }: ConversationPa
 
   // Subscribe to per-conversation state reactively.
   const conv = useSyncExternalStore(subscribe, getState, getState);
+
+  // Create a SlotSession adapter for this conversation.
+  // Memoised on `rawConv` identity — the adapter delegates to the conversation
+  // handle, so it only needs to be recreated when the handle changes.
+  const slotSession = useMemo(
+    () => (rawConv ? createSubAgentSlotSession(rawConv) : null),
+    [rawConv],
+  );
+
+  // Discover plugin slots from the conversation state.
+  // Re-runs on every state change (conv identity changes) — cheap because
+  // it just iterates active plugin symbols and reads .slots arrays.
+  const headerBarSlots = useMemo<readonly { pluginId: string; declaration: HeaderBarSlotDeclaration }[]>(
+    () => conv
+      ? discoverSubAgentSlots(conv)
+          .filter((e): e is { pluginId: string; declaration: HeaderBarSlotDeclaration } =>
+            e.declaration.type === 'headerBar' && e.declaration.shouldRender())
+      : [],
+    [conv],
+  );
+  const panelSlots = useMemo<readonly { pluginId: string; declaration: PanelSlotDeclaration }[]>(
+    () => conv
+      ? discoverSubAgentSlots(conv)
+          .filter((e): e is { pluginId: string; declaration: PanelSlotDeclaration } =>
+            e.declaration.type === 'panel' && e.declaration.showTab())
+      : [],
+    [conv],
+  );
+
+  // Local view state: "chat" or "plugin:<pluginId>" for panel slots.
+  const [paneView, setPaneView] = useState<string>('chat');
+
+  // Reset to chat when conversation changes or when the selected panel
+  // is no longer available.
+  const effectiveView = useMemo(() => {
+    if (paneView === 'chat') return 'chat';
+    const pluginId = paneView.slice('plugin:'.length);
+    return panelSlots.some((p) => p.pluginId === pluginId) ? paneView : 'chat';
+  }, [paneView, panelSlots]);
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
@@ -94,20 +132,72 @@ function ConversationPane({ registry, agentName, convId, todos }: ConversationPa
     [registry, agentName, convId, baseMessages],
   );
 
-  const showTodo = todos.length > 0;
-  const showToken = conv.tokenBudget !== undefined && conv.tokenBudget.maxTokens > 0 && conv.tokenBudget.turnCount > 0;
-
   return (
-    <div className={styles['chat-panel']}>
-      {showToken && <TokenProgressBar state={conv.tokenBudget!} />}
-      {showTodo && <TodoPanel todos={todos} />}
-      <ChatMessages messages={messages} tokenBudget={conv.tokenBudget} onEditMessage={handleEditMessage} />
-      <ChatInput
-        onSend={handleSend}
-        onCancel={handleCancel}
-        isLoading={conv.isLoading}
-        enableAttachments={true}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* HeaderBar slots — thin full-width bars above the chat.
+          Each slot is a sandboxed iframe that subscribes to
+          conversation state changes. */}
+      {slotSession && headerBarSlots.map((entry) => (
+        <SlotRenderer
+          key={`${entry.pluginId}:${entry.declaration.id}`}
+          pluginId={entry.pluginId}
+          slotType="headerBar"
+          slotId={entry.declaration.id}
+          session={slotSession}
+        />
+      ))}
+
+      {/* Panel slot tabs — shown when any plugin declares a visible panel */}
+      {panelSlots.length > 0 && (
+        <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
+          <button
+            type="button"
+            className={`${styles['tab']}${effectiveView === 'chat' ? ` ${styles['tab--active']}` : ''}`}
+            onClick={() => setPaneView('chat')}
+          >
+            Chat
+          </button>
+          {panelSlots.map((entry) => {
+            const v = `plugin:${entry.pluginId}`;
+            const badge = entry.declaration.badge?.() ?? null;
+            return (
+              <button
+                key={entry.pluginId}
+                type="button"
+                className={`${styles['tab']}${effectiveView === v ? ` ${styles['tab--active']}` : ''}`}
+                onClick={() => setPaneView(v)}
+              >
+                {entry.declaration.icon && <span style={{ marginRight: 4 }}>{entry.declaration.icon}</span>}
+                {entry.declaration.label}
+                {badge && <span className={styles['tab-badge']}>{badge}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Chat view (hidden when a panel tab is selected) */}
+      <div
+        className={effectiveView === 'chat' ? styles['chat-panel'] : styles['hidden']}
+      >
+        <ChatMessages messages={messages} onEditMessage={handleEditMessage} />
+        <ChatInput
+          onSend={handleSend}
+          onCancel={handleCancel}
+          isLoading={conv.isLoading}
+          enableAttachments={true}
+        />
+      </div>
+
+      {/* Panel slot view */}
+      {effectiveView !== 'chat' && slotSession && (
+        <SlotRenderer
+          pluginId={effectiveView.slice('plugin:'.length)}
+          slotType="panel"
+          slotId={`${effectiveView.slice('plugin:'.length)}.main`}
+          session={slotSession}
+        />
+      )}
     </div>
   );
 }
@@ -219,7 +309,6 @@ function RegistryView({ registry }: RegistryViewProps): ReactElement {
           registry={registry}
           agentName={activeEntry.name}
           convId={activeConvId}
-          todos={activeEntry.todos ?? []}
         />
       </div>
     </div>

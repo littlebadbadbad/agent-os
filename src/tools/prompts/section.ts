@@ -32,7 +32,7 @@ export const SECTION_IDS = [
   'tools_philosophy',  // How to choose and use tools wisely (priority 25)
   'permissions',       // Permission rules & tool access control
   'planning',          // Planning tools (plan_write, plan_checkpoint)
-  'task_tracking',     // Todo / task management
+  'task_tracking',     // Task tracking & checklist management
   'experience',        // Experience / memory records
   'subagent',          // Sub-agent delegation strategy
   'file',              // File management tools

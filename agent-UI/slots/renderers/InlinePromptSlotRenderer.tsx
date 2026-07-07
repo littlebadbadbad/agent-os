@@ -15,19 +15,19 @@
  */
 
 import { useEffect, useRef, useMemo, type ReactElement } from "react";
-import type { AgentSession } from "@agent-sdk";
-import type { InlinePromptHostMessage, UiPluginHostInternal } from "@agent-type";
+import type { InlinePromptHostMessage, UiPluginHostInternal, SlotSession } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { createUiPluginHost } from "../../plugin/uiHost";
 import { createPluginApiClient } from "../../plugin/apiClient";
 import { createPluginConfigClient } from "../../plugin/configClient";
-import type { PluginManifest } from "@agent-type";
+import type { PluginManifest, InlinePromptSlotDeclaration } from "@agent-type";
+import { slotRegistry } from "../registry";
 import { pluginSystem } from "../../agents";
 
 export interface InlinePromptSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
-  readonly session: AgentSession;
+  readonly session: SlotSession;
   readonly className?: string;
 }
 
@@ -40,6 +40,11 @@ export function InlinePromptSlotRenderer(
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
+
+  // Read dimensions from slot declaration, fall back to sensible defaults.
+  const decl = slotRegistry.getSlot(pluginId, slotId) as InlinePromptSlotDeclaration | undefined;
+  const containingWidth = decl?.containingWidth ?? "100%";
+  const containingHeight = decl?.containingHeight ?? "auto";
 
   // Create host eagerly so IframeSandbox can inject it on iframe load.
   const host: UiPluginHostInternal = useMemo(() => {
@@ -98,11 +103,12 @@ export function InlinePromptSlotRenderer(
   return (
     <IframeSandbox
       className={className}
-      iframeWidth="100%"
       uiEntryUrl={uiPlugin.uiEntryUrl}
       host={host}
       onReady={handleReady}
       sizing="fit"
+      containingWidth={containingWidth}
+      containingHeight={containingHeight}
     />
   );
 }

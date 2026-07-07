@@ -1,3 +1,4 @@
+import { toErrorMessage } from '../tools/errors';
 import type { ToolCall, ToolResult } from '@agent-type';
 import type { Message, ToolCallInfo } from '../../agent-UI/components/AgentWidget/types';
 import { createId, assistantMsg, toolMsg } from '../../agent-UI/components/AgentWidget/helpers';
@@ -84,7 +85,7 @@ export function buildRunToolCall(
       );
       return res;
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errMsg = toErrorMessage(err);
       setMessages((prev) =>
         prev.map((m) =>
           m.id === call.id

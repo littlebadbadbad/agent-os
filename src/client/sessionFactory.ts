@@ -32,7 +32,7 @@ export type SessionFactoryDeps = {
   masterTools: Tool[];
   slots: Map<string, ToolManager>;
   getAllToolSets: () => readonly ToolSet[];
-  id: string | undefined;
+  id: string;
   systemPrompt: string | undefined;
   toolChoice: ToolChoice | undefined;
   handler: AgentHandler;
@@ -113,6 +113,8 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
 
     const session = createAgentSession({
       id: sessionId,
+      agentName: id,
+      conversationId: MAIN_CONVERSATION_ID,
       agentId: id,
       title: entryData.title,
       initialMessages: entryData.messages ? [...entryData.messages] : undefined,

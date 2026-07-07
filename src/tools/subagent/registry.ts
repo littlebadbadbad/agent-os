@@ -4,9 +4,9 @@
  * Manages all sub-agents and their conversations as a single flat store.
  * Each sub-agent has N conversations; one is active at any time.
  *
- * Integrates with ToolSets (e.g. todo) by calling their session lifecycle
- * hooks once per agent (keyed by "${sessionId}:${agentName}") rather than
- * per-conversation — giving each agent its own isolated todo list shared
+ * Integrates with ToolSets by calling their session lifecycle hooks once
+ * per agent (keyed by "${sessionId}:${agentName}") rather than
+ * per-conversation — giving each agent its own isolated state shared
  * across all of its conversations.
  */
 
@@ -26,6 +26,7 @@ import type {
 } from './registryInternal';
 import {
   collectToolSetState,
+  collectToolSetSymbolState,
   collectToolSetSnapshot,
   snapshotEntry,
 } from './registrySnapshot';
@@ -90,7 +91,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
 
   // ── Sub-module factories ───────────────────────────────────────────────────
 
-  const lifecycle = createLifecycleFunctions(deps, collectToolSetState, convSubCleanups, notify);
+  const lifecycle = createLifecycleFunctions(deps, collectToolSetState, collectToolSetSymbolState, convSubCleanups, notify);
   const execution = createExecutionFunctions(deps, entries);
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -216,12 +217,12 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
         throw new Error(`Conversation "${conversationId}" not found on sub-agent "${subAgentName}".`);
       }
       // Only clear message history and progress — agent-level ToolSet state
-      // (e.g. todos) is scoped to the agent, not the conversation, and must
+      // is scoped to the agent, not the conversation, and must
       // not be reset when a single conversation is cleared.
       conv._state.history = [];
       conv._state.fullHistory = [];
       conv._state.streamingText = '';
-      // Let per-conversation ToolSets reset their own state (e.g. token-budget trackers).
+      // Let per-conversation ToolSets reset their own state.
       const convCtx = subCtx(subAgentName, conversationId);
       for (const ts of resolveToolSets()) ts.onResetConversation?.(convCtx);
       // Invalidate the prompt-section cache so the next turn gets fresh content.
@@ -305,6 +306,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
         activeConversationId: e.activeConversationId,
         conversations: [...e.conversations.values()].map((c) => ({
           id:          c._state.id,
+          agentName:   c._state.agentName,
           title:       c._state.title,
           history:     [...c._state.fullHistory],
           liveHistory: [...c._state.history],

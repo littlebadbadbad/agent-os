@@ -1,10 +1,8 @@
 import { useState } from "react";
 import type { ReactElement } from "react";
 import type { ToolCallInfo } from "../types";
-import type { TokenBudgetState } from "@agent-sdk";
 import { FileToolCard } from "./toolCards/FileToolCard";
 import { TerminalToolCard } from "./toolCards/TerminalToolCard";
-import { TodoToolCard } from "./toolCards/TodoToolCard";
 import { AskUserCard } from "./toolCards/AskUserCard";
 import { DynamicToolCard } from "./toolCards/DynamicToolCard";
 import { McpToolCard } from "./toolCards/McpToolCard";
@@ -24,7 +22,6 @@ import {
 import {
   isFileTool,
   isTerminalTool,
-  isTodoTool,
   isAskUserTool,
   isDynamicTool,
   isMcpTool,
@@ -93,7 +90,6 @@ function renderDetailCard(info: ToolCallInfo): ReactElement {
   const { name } = info;
   if (isFileTool(name)) return <FileToolCard info={info} />;
   if (isTerminalTool(name)) return <TerminalToolCard info={info} />;
-  if (isTodoTool(name)) return <TodoToolCard info={info} />;
   if (isAskUserTool(name)) return <AskUserCard info={info} />;
   if (isDynamicTool(name)) return <DynamicToolCard info={info} />;
   if (isMcpTool(name)) return <McpToolCard info={info} />;

@@ -14,7 +14,7 @@
  * ToolSets are all resolved lazily at call time from the attached agent.
  *
  * Token tracking and summarisation are handled by whichever ToolSets the
- * parent agent has registered (e.g. `createTokenBudgetToolSet`).
+ * parent agent has registered.
  *
  * Returns 9 tools (same pattern as terminal/browser):
  *   Sub-agent CRUD:
@@ -153,7 +153,7 @@ export function createSubAgentToolset(
   }
 
   // -- Per-session registry map -----------------------------------------------
-  // One isolated SubAgentRegistry per session — mirrors createTodoTools' pattern.
+  // One isolated SubAgentRegistry per session.
 
   const sessionRegistries = new Map<string, SubAgentRegistry>();
 
@@ -258,8 +258,7 @@ export function createSubAgentToolset(
     name: `create_${suffix}_subagent`,
     group: "Sub-Agents",
     description: () =>
-      `Define a new ${suffix} sub-agent with a focused tool set and system prompt. Returns the agent name and first conversation id.\n\n` +
-      `AVAILABLE TOOLS:\n` +
+      `Define a new ${suffix} sub-agent.\n\nAVAILABLE TOOLS:\n` +
       poolNames(),
 
     parameters: z.object({
@@ -268,35 +267,25 @@ export function createSubAgentToolset(
         .min(1)
         .max(64)
         .regex(/^\S+$/, "Name must not contain whitespace")
-        .describe(
-          'Unique name for this sub-agent, e.g. "researcher", "file_processor", "coder-v2"',
-        ),
+        .describe('Unique ID (no spaces), e.g. "researcher"'),
       description: z
         .string()
         .min(20)
-        .describe(
-          "Describes this sub-agent's specialisation. Shown in list_subagents for reference.",
-        ),
+        .describe("What this sub-agent specializes in"),
       system_prompt: z
         .string()
         .optional()
-        .describe(
-          "Role/persona injected into every call this sub-agent makes. " +
-            'Example: "You are an expert TypeScript developer. Be concise." ' +
-            "Omit for a general-purpose sub-agent.",
-        ),
+        .describe("System prompt / role (omit for general-purpose)"),
       tool_names: z
         .array(z.string())
-        .describe(
-          `Tool names from the available pool to give this sub-agent access to.`,
-        ),
+        .describe("Tool names to grant this sub-agent"),
       max_turns: z
         .number()
         .int()
         .min(1)
         .max(30)
         .default(8)
-        .describe("Maximum agentic turns (handler invocations). Default: 8."),
+        .describe("Max agentic turns (default 8)"),
     }),
 
     execute: async (
@@ -345,18 +334,15 @@ export function createSubAgentToolset(
   const updateSubAgent = defineTool({
     name: `update_${suffix}_subagent`,
     group: "Sub-Agents",
-    description:
-      `Edit an existing ${suffix} sub-agent's definition. ` +
-      `Omit any field to keep the existing value -- only supplied fields are overwritten. ` +
-      `Changes take effect immediately on the next message sent to the sub-agent.`,
+    description: `Edit an existing ${suffix} sub-agent. Omit fields to keep existing values.`,
 
     parameters: z.object({
-      name: z.string().describe("Exact name of the sub-agent to update"),
+      name: z.string().describe("Name of the sub-agent to update"),
       description: z
         .string()
         .min(20)
         .optional()
-        .describe("New description (omit to keep existing)"),
+        .describe("New description (omit to keep)"),
       system_prompt: z
         .string()
         .optional()
@@ -364,14 +350,14 @@ export function createSubAgentToolset(
       tool_names: z
         .array(z.string())
         .optional()
-        .describe("New tool list (omit to keep existing)"),
+        .describe("New tool list (omit to keep)"),
       max_turns: z
         .number()
         .int()
         .min(1)
         .max(30)
         .optional()
-        .describe("New maxTurns (omit to keep existing)"),
+        .describe("New maxTurns (omit to keep)"),
     }),
 
     execute: async (
@@ -417,10 +403,7 @@ export function createSubAgentToolset(
   const listSubAgents = defineTool({
     name: `list_${suffix}_subagents`,
     group: "Sub-Agents",
-    description:
-      `List all ${suffix} sub-agents with their conversations, tools, maxTurns, and token usage. ` +
-      `Each sub-agent shows its active conversation ID and all conversation IDs. ` +
-      `Use conversation IDs with send_${suffix}_message and read_${suffix}_history.`,
+    description: `List all ${suffix} sub-agents, conversations, and tool assignments.`,
     parameters: z.object({}),
     execute: async (_, context) => {
       const { subAgents } = getRegistry(context.sessionId).getState();
@@ -456,11 +439,9 @@ export function createSubAgentToolset(
   const deleteSubAgent = defineTool({
     name: `delete_${suffix}_subagent`,
     group: "Sub-Agents",
-    description:
-      `Permanently remove a ${suffix} sub-agent and all its conversations. ` +
-      `All conversation history is lost.`,
+    description: `Permanently remove a ${suffix} sub-agent and all conversations.`,
     parameters: z.object({
-      name: z.string().describe("Exact name of the sub-agent to delete"),
+      name: z.string().describe("Name of the sub-agent to delete"),
     }),
     execute: async ({ name }, context) => {
       const { sessionId } = context;
@@ -484,39 +465,24 @@ export function createSubAgentToolset(
     name: `send_${suffix}_message`,
     group: "Sub-Agents",
     description:
-      `Send a message to a ${suffix} sub-agent and wait for its response. ` +
-      `The sub-agent runs its full agent loop (may call tools internally) and returns the final text. ` +
-      `Conversation history is automatically preserved -- each call continues from where the last left off. ` +
-      `Omit \`conversation_id\` to target the active conversation. ` +
-      `Pass an explicit \`conversation_id\` to target a specific conversation (see list_${suffix}_subagents). ` +
-      `Use read_${suffix}_history to review prior messages in the conversation.` +
+      `Send a message to a ${suffix} sub-agent and return its response. History is auto-preserved.` +
       (withVariables
-        ? ` Pass \`attachment_handles\` to forward images or documents stored as variables to the sub-agent.`
+        ? ` Also forwards variable handles (\`attachment_handles\`) as attachments.`
         : ""),
     parameters: z.object({
-      subagent_name: z
-        .string()
-        .describe("Exact name of the sub-agent to message"),
-      message: z
-        .string()
-        .min(1)
-        .describe(
-          "The message to send. The sub-agent will reply and the response is returned.",
-        ),
+      subagent_name: z.string().describe("Name of the sub-agent"),
+      message: z.string().min(1).describe("Message text to send"),
       conversation_id: z
         .string()
         .optional()
-        .describe("Target conversation (omit to use the active conversation)"),
+        .describe("Target conversation ID (omit for active)"),
       attachment_handles: z
         .array(z.unknown())
         .optional()
         .describe(
           withVariables
-            ? "Variable handles ($var:xxxxxxxx) pointing to images or documents in the variable store. " +
-                "Resolved attachments are embedded in the opening user turn so the sub-agent can see them. " +
-                "Note: the variable ToolSet's onResolveToolArgs hook resolves handle strings to Attachment " +
-                "objects before this execute function is called."
-            : "Requires the variable ToolSet. Leave empty if variables are not in use.",
+            ? 'Variable handles ($var:xxxx) to forward as attachments to the sub-agent.'
+            : "Requires the variable ToolSet. Leave empty if not in use.",
         ),
     }),
     execute: async (
@@ -561,13 +527,9 @@ export function createSubAgentToolset(
     name: `read_${suffix}_history`,
     group: "Sub-Agents",
     description:
-      `Read the conversation history from a ${suffix} sub-agent conversation. ` +
-      `Each message carries a stable \`index\` for pagination. ` +
-      `Omit \`from_index\` to auto-continue from where the last read left off (like terminal_read). ` +
-      `Pass \`from_index: 0\` to re-read from the beginning of the conversation. ` +
-      `Omit \`conversation_id\` to read the active conversation.`,
+      `Read conversation history from a ${suffix} sub-agent. Cursor auto-advances.`,
     parameters: z.object({
-      subagent_name: z.string().describe("Exact name of the sub-agent"),
+      subagent_name: z.string().describe("Name of the sub-agent"),
       conversation_id: z
         .string()
         .optional()
@@ -578,7 +540,7 @@ export function createSubAgentToolset(
         .min(0)
         .optional()
         .describe(
-          "Start from this message index. Omit to auto-continue from last read position. Pass 0 to read from the beginning.",
+          "Start index. Omit to auto-continue from last read. Pass 0 for beginning.",
         ),
       max_messages: z
         .number()
@@ -586,7 +548,7 @@ export function createSubAgentToolset(
         .min(1)
         .max(200)
         .optional()
-        .describe("Maximum messages to return (default: all from from_index)"),
+        .describe("Max messages to return"),
     }),
     execute: async (
       { subagent_name, conversation_id, from_index, max_messages },
@@ -624,17 +586,13 @@ export function createSubAgentToolset(
   const createConversation = defineTool({
     name: `create_${suffix}_conversation`,
     group: "Sub-Agents",
-    description:
-      `Create a new conversation for a ${suffix} sub-agent. ` +
-      `The new conversation becomes the active one immediately. ` +
-      `Each conversation has its own isolated message history and todo list. ` +
-      `Use this to start a fresh thread without discarding the previous one.`,
+    description: `Create a new conversation for a ${suffix} sub-agent. Becomes active immediately.`,
     parameters: z.object({
-      subagent_name: z.string().describe("Exact name of the sub-agent"),
+      subagent_name: z.string().describe("Name of the sub-agent"),
       title: z
         .string()
         .optional()
-        .describe("Human-readable title. Auto-generated if omitted."),
+        .describe("Human-readable title (auto-generated if omitted)"),
     }),
     execute: async ({ subagent_name, title }, context) => {
       const conv = getRegistry(context.sessionId).createConversation(
@@ -658,12 +616,9 @@ export function createSubAgentToolset(
   const deleteConversation = defineTool({
     name: `delete_${suffix}_conversation`,
     group: "Sub-Agents",
-    description:
-      `Delete a specific conversation from a ${suffix} sub-agent. ` +
-      `If the deleted conversation was active, the nearest remaining one becomes active. ` +
-      `If it was the last conversation, a new empty one is created automatically.`,
+    description: `Delete a conversation from a ${suffix} sub-agent.`,
     parameters: z.object({
-      subagent_name: z.string().describe("Exact name of the sub-agent"),
+      subagent_name: z.string().describe("Name of the sub-agent"),
       conversation_id: z.string().describe("ID of the conversation to delete"),
     }),
     execute: async ({ subagent_name, conversation_id }, context) => {
@@ -684,13 +639,9 @@ export function createSubAgentToolset(
   const setActiveConversation = defineTool({
     name: `set_${suffix}_active_conversation`,
     group: "Sub-Agents",
-    description:
-      `Switch the active conversation for a ${suffix} sub-agent. ` +
-      `Subsequent calls to \`send_${suffix}_message\` without a \`conversation_id\` ` +
-      `will target the newly activated conversation. ` +
-      `Use \`list_${suffix}_subagents\` to see all available conversation IDs.`,
+    description: `Switch the active conversation for a ${suffix} sub-agent.`,
     parameters: z.object({
-      subagent_name: z.string().describe("Exact name of the sub-agent"),
+      subagent_name: z.string().describe("Name of the sub-agent"),
       conversation_id: z
         .string()
         .describe("ID of the conversation to make active"),

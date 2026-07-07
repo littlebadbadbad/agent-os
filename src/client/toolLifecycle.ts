@@ -136,7 +136,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
     getRegisteredToolSets(): readonly ToolSet[] {
       // Return ALL registered toolsets — both config-time (toolSets) and
       // runtime-registered (masterToolSets) — so callers such as
-      // createSubAgentMetaTools can wire per-agent lifecycle hooks (e.g. todo)
+      // createSubAgentMetaTools can wire per-agent lifecycle hooks
       // that live in the config-time list.
       return getAllToolSets();
     },

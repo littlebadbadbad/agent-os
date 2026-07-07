@@ -1,0 +1,65 @@
+/**
+ * extensions/token-budget/ui/TokenProgress.module.scss — Token progress bar styles
+ *
+ * Moved from agent-UI/components/AgentWidget/panels/TokenProgress.module.scss.
+ * Uses the same theme import pattern as the todo extension.
+ */
+
+@use '../../../agent-UI/styles/theme' as t;
+
+.token-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--asdk-primary-pale, #{t.$zima-blue-pale}) 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 10%, transparent);
+}
+
+.token-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 12%, transparent);
+  overflow: hidden;
+}
+
+.token-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.token-fill--normal {
+  background: var(--asdk-primary, #{t.$zima-blue});
+}
+
+.token-fill--warning {
+  background: #e6a700;
+}
+
+.token-fill--critical {
+  background: #d63031;
+}
+
+.token-label {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: t.$font-stack;
+  min-width: 32px;
+  text-align: right;
+  line-height: 1;
+}
+
+.token-label--normal {
+  color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
+}
+
+.token-label--warning {
+  color: #b58300;
+}
+
+.token-label--critical {
+  color: #d63031;
+}

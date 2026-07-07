@@ -1,0 +1,9 @@
+{
+  "id": "token-budget",
+  "name": "Token Budget",
+  "version": "0.1.0",
+  "description": "Tracks token usage and automatically compacts conversation history via summarisation when the configured budget threshold is reached. Provides a header bar with progress indicator.",
+  "agentEntry": "activate.js",
+  "uiEntry": "ui/index.html",
+  "tools": ["token-budget"]
+}

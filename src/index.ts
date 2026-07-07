@@ -21,7 +21,6 @@ export type {
 } from './client/sessionManager.types';
 
 // ── Tool primitives ───────────────────────────────────────────────────────────
-export { createTodoTools } from './tools/todo';
 export { createPlanToolSet } from './tools/plan/toolSet';
 export { createToolSearchToolSet } from './tools/toolSearch';
 export { createExperienceTools } from './tools/experience/experience';
@@ -54,11 +53,6 @@ export {
   toAnthropicMessages,
   toGeminiMessages,
 } from './tools/messages';
-export type {
-  TodoItem,
-  TodoStatus,
-  TodoPriority,
-} from './tools/todo';
 export {
   runAgentLoop,
   createSubAgentToolset,
@@ -167,15 +161,6 @@ export type {
 } from './tools/cron';
 
 // ── Token tracking & summarization ────────────────────────────────────────────
-export { createTokenTracker } from './tools/track/tokenTracker';
-export type {
-  TokenBudgetConfig,
-  TokenBudgetState,
-  TokenBudgetCallbacks,
-  TokenTracker,
-} from './tools/track/tokenTracker';
-export { createTokenBudgetToolSet } from './tools/track';
-export type { TokenBudgetToolSetOptions } from './tools/track';
 export { createMemoryGraphToolSet } from './tools/memoryGraph';
 export type {
   KnowledgeNode,
@@ -185,8 +170,6 @@ export type {
   MemoryGraphState,
   MemoryGraphToolSetOptions,
 } from './tools/memoryGraph';
-export { summarizeHistory, estimateTokens } from './tools/track/summarize';
-export type { SummarizeConfig } from './tools/track/summarize';
 export type {
   HandlerContext,
   OpenAIToolParam,

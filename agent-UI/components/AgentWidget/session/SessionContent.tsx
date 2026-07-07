@@ -4,8 +4,6 @@ import type { Attachment, AgentSession } from "@agent-sdk";
 import { ChatMessages } from "../chat/ChatMessages";
 import { ChatInput } from "../chat/ChatInput";
 import { ToolsPanel } from "../panels/ToolsPanel";
-import { TodoPanel } from "../panels/TodoPanel";
-import { TokenProgressBar } from "../panels/TokenProgress";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
 import { ExperiencePanel } from "../panels/ExperiencePanel";
@@ -17,7 +15,7 @@ import { slotRegistry } from "../../../slots/registry";
 import styles from "../AgentWidget.module.scss";
 import { pluginSystem } from "@agent-UI/agents";
 
-// ── Session content (inner chat/tools/todo/terminals) ─────────────────────────
+// ── Session content (chat/tools/terminals) ────────────────────────────────────
 // Keyed by session ID so React resets local view state when switching sessions.
 
 export function SessionContent({
@@ -32,8 +30,6 @@ export function SessionContent({
     isLoading,
     toolStates,
     skills,
-    tokenBudget,
-    todos,
     terminalAdapter,
     enableAttachments,
     toggleTool,
@@ -82,7 +78,6 @@ export function SessionContent({
     | "chat"
     | "tools"
     | "plan"
-    | "todo"
     | "terminals"
     | "subagents"
     | "experience"
@@ -103,9 +98,6 @@ export function SessionContent({
   const hasSubAgents = subAgentRegistries.length > 0;
   const hasCron = (cronJobs?.length ?? 0) > 0;
   const enabledCount = toolStates.filter((t) => t.enabled).length;
-  const hasTodos = todos.length > 0;
-  const todosDone = todos.filter((t) => t.status === "completed").length;
-  const todosActive = todos.filter((t) => t.status === "in-progress").length;
 
   function handleClear() {
     session.clearHistory();
@@ -113,9 +105,20 @@ export function SessionContent({
 
   return (
     <>
-      {tokenBudget &&
-        tokenBudget.maxTokens > 0 &&
-        tokenBudget.turnCount > 0 && <TokenProgressBar state={tokenBudget} />}
+      {/* HeaderBar slots — thin full-width bars above the tab bar.
+          Each slot is a sandboxed iframe that subscribes to session
+          state changes. */}
+      {slotRegistry
+        .getByType("headerBar")
+        .map((entry) => (
+          <SlotRenderer
+            key={`${entry.pluginId}:${entry.declaration.id}`}
+            pluginId={entry.pluginId}
+            slotType="headerBar"
+            slotId={entry.declaration.id}
+            session={session}
+          />
+        ))}
       <div className={styles["tab-bar"]}>
         <button
           type="button"
@@ -143,22 +146,6 @@ export function SessionContent({
             onClick={() => setView("plan")}
           >
             Plan
-          </button>
-        )}
-        {hasTodos && (
-          <button
-            type="button"
-            className={`${styles["tab"]}${view === "todo" ? ` ${styles["tab--active"]}` : ""}`}
-            onClick={() => setView("todo")}
-          >
-            Todo
-            {todos.length > 0 && (
-              <span className={styles["tab-badge"]}>
-                {todosActive > 0
-                  ? `${todosDone}/${todos.length} ◎`
-                  : `${todosDone}/${todos.length}`}
-              </span>
-            )}
           </button>
         )}
         {hasTerminals && (
@@ -226,7 +213,6 @@ export function SessionContent({
       >
         <ChatMessages
           messages={messages}
-          tokenBudget={tokenBudget}
           onEditMessage={handleEditMessage}
         />
         <ChatInput
@@ -264,7 +250,6 @@ export function SessionContent({
       )}
 
       {view === "plan" && plan && <PlanPanel plan={plan} />}
-      {view === "todo" && <TodoPanel todos={todos} />}
       {/* SubAgentsPanel is always mounted when sub-agents exist so that
           RegistryView and ConversationPane stay subscribed across tab switches.
           Same display-none pattern as the chat panel above. */}

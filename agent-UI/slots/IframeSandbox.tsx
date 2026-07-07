@@ -48,24 +48,23 @@ export interface IframeSandboxProps {
    * Sizing mode:
    *   - `"fill"` (default): wrapper + iframe stretch to 100% × 100%.
    *     Use for panels and full-viewport slots.
-   *   - `"fit"`: wrapper is `inline-block`; iframe width/height are
-   *     controlled dynamically by the parent via `iframeWidth` +
-   *     `iframeHeight` props.  Use for inline slots like compact
-   *     tool cards that should blend into the text flow.
+   *   - `"fit"`: wrapper is `inline-block`; iframe dimensions are set
+   *     via `containingWidth` + `containingHeight`.  Use for inline
+   *     slots like header bars that should blend into the layout flow.
    */
   readonly sizing?: "fill" | "fit";
   /**
-   * When `sizing === "fit"`, sets the iframe's width (CSS string).
-   * The parent updates this when it receives a `resize` message.
+   * When `sizing === "fit"`, sets the container/iframe width (CSS string).
+   * Sourced from the slot declaration's `containingWidth`.
    * Ignored when `sizing === "fill"`.
    */
-  readonly iframeWidth?: string;
+  readonly containingWidth?: string;
   /**
-   * When `sizing === "fit"`, sets the iframe's height (CSS string).
-   * The parent updates this when it receives a `resize` message.
+   * When `sizing === "fit"`, sets the container/iframe height (CSS string).
+   * Sourced from the slot declaration's `containingHeight`.
    * Ignored when `sizing === "fill"`.
    */
-  readonly iframeHeight?: string;
+  readonly containingHeight?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -82,13 +81,16 @@ export function IframeSandbox(
     onError,
     sandboxFlags,
     sizing = "fill",
-    iframeWidth,
-    iframeHeight,
+    containingWidth,
+    containingHeight,
   } = props;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const destroyedRef = useRef(false);
+
+  const cw = containingWidth ?? "auto";
+  const ch = containingHeight ?? "auto";
 
   const createSandbox = useCallback(() => {
     const container = containerRef.current;
@@ -104,8 +106,8 @@ export function IframeSandbox(
         iframe.sandbox.add(flag);
       }
 
-      iframe.style.width = sizing === "fit" ? (iframeWidth ?? "auto") : "100%";
-      iframe.style.height = sizing === "fit" ? (iframeHeight ?? "auto") : "100%";
+      iframe.style.width = sizing === "fit" ? cw : "100%";
+      iframe.style.height = sizing === "fit" ? ch : "100%";
       iframe.style.border = "none";
       if (sizing === "fit") {
         iframe.style.display = "inline-block";
@@ -136,7 +138,7 @@ export function IframeSandbox(
       console.warn("[IframeSandbox] Failed to create iframe:", err);
       onError?.(err instanceof Error ? err : new Error(String(err)));
     }
-  }, [uiEntryUrl, host, onReady, onError, sandboxFlags]);
+  }, [uiEntryUrl, host, onReady, onError, sandboxFlags, cw, ch, sizing]);
 
   useEffect(() => {
     destroyedRef.current = false;
@@ -151,27 +153,13 @@ export function IframeSandbox(
     };
   }, [uiEntryUrl]);
 
-  // Update iframe + wrapper width/height when iframeWidth/iframeHeight changes (fit mode).
-  useEffect(() => {
-    if (sizing !== "fit") return;
-    const iframe = iframeRef.current;
-    const container = containerRef.current;
-    if (!iframe || !container) return;
-    iframe.style.width = iframeWidth ?? "auto";
-    iframe.style.height = iframeHeight ?? "auto";
-    iframe.style.overflow = "hidden";
-    container.style.width = iframeWidth ?? "auto";
-    container.style.height = iframeHeight ?? "auto";
-    container.style.overflow = "hidden";
-  }, [iframeWidth, iframeHeight, sizing]);
-
   return (
     <div
       ref={containerRef}
       id={id}
       className={className}
       style={sizing === "fit"
-        ? { display: "inline-block", width: iframeWidth ?? "auto", height: iframeHeight ?? "auto", verticalAlign: "middle", overflow: "hidden" }
+        ? { display: "inline-block", width: cw, height: ch, verticalAlign: "middle", overflow: "hidden" }
         : { width: "100%", height: "100%" }
       }
     />

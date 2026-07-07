@@ -49,7 +49,7 @@ function ExperienceAddCard({ info }: { info: ToolCallInfo }): ReactElement {
   ) : undefined;
 
   return (
-    <CardShell family="todo">
+    <CardShell family="dynamic">
       <CardHeader icon="💡" label="experience_add" status={status} badge={badge} />
       {(trigger || insight) && (
         <div className={styles['tc-body']}>
@@ -102,7 +102,7 @@ function ExperienceUpdateCard({ info }: { info: ToolCallInfo }): ReactElement {
   ].filter((x): x is string => x !== null);
 
   return (
-    <CardShell family="todo">
+    <CardShell family="dynamic">
       <CardHeader icon="✏️" label="experience_update" status={status} />
       <div className={styles['tc-body']}>
         <div className={styles['tc-info-row']}>
@@ -147,7 +147,7 @@ function ExperienceDeleteCard({ info }: { info: ToolCallInfo }): ReactElement {
   ) : undefined;
 
   return (
-    <CardShell family="todo">
+    <CardShell family="dynamic">
       <CardHeader icon="🗑" label="experience_delete" status={status} badge={badge} />
       <div className={styles['tc-body']}>
         <div className={styles['tc-info-row']}>
@@ -171,7 +171,7 @@ function ExperienceListCard({ info }: { info: ToolCallInfo }): ReactElement {
   ) : undefined;
 
   return (
-    <CardShell family="todo">
+    <CardShell family="dynamic">
       <CardHeader icon="📋" label="experience_list" status={status} badge={badge} />
       {tag && (
         <div className={styles['tc-body']}>

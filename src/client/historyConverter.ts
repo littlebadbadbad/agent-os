@@ -1,7 +1,7 @@
 import type { AgentMessage } from '@agent-type';
 import { createId } from '../../agent-UI/components/AgentWidget/helpers';
 import type { Message } from '../../agent-UI/components/AgentWidget/types';
-import { SUMMARY_ANCHOR_PREFIX, SUMMARY_ANCHOR_ACK } from '@agent-sdk/tools/track/summarize';
+import { SUMMARY_ANCHOR_PREFIX, SUMMARY_ANCHOR_ACK } from '../constants';
 
 /**
  * Convert raw LLM-facing history to UI display messages.
