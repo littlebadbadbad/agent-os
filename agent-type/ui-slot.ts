@@ -25,8 +25,6 @@ export type SlotType =
   | "panel"
   | "toolCard"
   | "compactToolCard"
-  | "toolbarButton"
-  | "statusBar"
   | "inlinePrompt"
   | "messageInterceptor";
 
@@ -85,40 +83,6 @@ export interface CompactToolCardSlotDeclaration {
   readonly id: string;
   /** Tool names this slot handles (e.g. ["browser_launch", "browser_navigate"]). */
   readonly toolNames: readonly string[];
-}
-
-/**
- * A toolbarButton slot renders an inline button in the AI control bar.
- *
- * No iframe — the host renders a native button. Click dispatches
- * to the plugin via {@link ToolbarButtonIframeMessage}.
- */
-export interface ToolbarButtonSlotDeclaration {
-  readonly type: "toolbarButton";
-  /** Unique slot identifier within the plugin (e.g. "browser.refresh"). */
-  readonly id: string;
-  /** Emoji or text icon for the button. */
-  readonly icon: string;
-  /** Tooltip shown on hover. */
-  readonly tooltip?: string;
-  /** Whether the button is enabled. */
-  readonly enabled?: () => boolean;
-}
-
-/**
- * A statusBar slot renders persistent text in the sidebar footer.
- *
- * No iframe — the host renders inline text. Plugin pushes updates
- * via {@link StatusBarIframeMessage}.
- */
-export interface StatusBarSlotDeclaration {
-  readonly type: "statusBar";
-  /** Unique slot identifier within the plugin. */
-  readonly id: string;
-  /** Initial text to display. */
-  readonly text: string;
-  /** Alignment: "left" or "right". */
-  readonly alignment: "left" | "right";
 }
 
 /**
@@ -187,8 +151,6 @@ export type PluginSlotDeclaration =
   | PanelSlotDeclaration
   | ToolCardSlotDeclaration
   | CompactToolCardSlotDeclaration
-  | ToolbarButtonSlotDeclaration
-  | StatusBarSlotDeclaration
   | InlinePromptSlotDeclaration
   | MessageInterceptorSlotDeclaration;
 
@@ -266,32 +228,6 @@ export interface CompactToolCardHostMessage {
 }
 
 /**
- * Host pushes enabled/disabled state to a toolbarButton.
- */
-export interface ToolbarButtonHostMessage {
-  readonly version: 1;
-  readonly type: "toolbarButton";
-  /** The slot being targeted. */
-  readonly slotId: string;
-  readonly payload: {
-    readonly enabled: boolean;
-  };
-}
-
-/**
- * Host pushes text content to a statusBar slot.
- */
-export interface StatusBarHostMessage {
-  readonly version: 1;
-  readonly type: "statusBar";
-  /** The slot being targeted. */
-  readonly slotId: string;
-  readonly payload: {
-    readonly text: string;
-  };
-}
-
-/**
  * Host pushes state updates to an inlinePrompt iframe.
  *
  * The iframe re-reads `host.getPluginState()` when notified
@@ -318,8 +254,6 @@ export type SlotHostMessage =
   | PanelHostMessage
   | ToolCardHostMessage
   | CompactToolCardHostMessage
-  | ToolbarButtonHostMessage
-  | StatusBarHostMessage
   | InlinePromptHostMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -367,26 +301,6 @@ export interface CompactToolCardIframeMessage {
 }
 
 /**
- * Toolbar button click dispatched from host to plugin.
- * (The host renders the button, click sends this message to the plugin.)
- */
-export interface ToolbarButtonIframeMessage {
-  readonly version: 1;
-  readonly type: "click";
-}
-
-/**
- * StatusBar pushes updated text to the host.
- */
-export interface StatusBarIframeMessage {
-  readonly version: 1;
-  readonly type: "update";
-  readonly payload: {
-    readonly text: string;
-  };
-}
-
-/**
  * InlinePrompt iframe messages.
  *
  * - `resize`: reports content size so the host can adjust the overlay.
@@ -407,8 +321,6 @@ export type SlotIframeMessage =
   | PanelIframeMessage
   | ToolCardIframeMessage
   | CompactToolCardIframeMessage
-  | ToolbarButtonIframeMessage
-  | StatusBarIframeMessage
   | InlinePromptIframeMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════

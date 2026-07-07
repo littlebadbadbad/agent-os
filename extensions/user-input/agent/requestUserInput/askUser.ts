@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { defineTool } from "@agent-type/defineTool";
+import { defineTool } from "@agent-type";
 
 const askUserSchema = z.object({
   type: z

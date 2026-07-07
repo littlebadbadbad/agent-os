@@ -16,8 +16,6 @@ import type {
   PanelSlotDeclaration,
   ToolCardSlotDeclaration,
   CompactToolCardSlotDeclaration,
-  ToolbarButtonSlotDeclaration,
-  StatusBarSlotDeclaration,
   InlinePromptSlotDeclaration,
   MessageInterceptorSlotDeclaration,
 } from "@agent-type";
@@ -56,8 +54,6 @@ export interface SlotRegistry {
   getByType(type: "panel"): ReadonlyArray<SlotEntry<PanelSlotDeclaration>>;
   getByType(type: "toolCard"): ReadonlyArray<SlotEntry<ToolCardSlotDeclaration>>;
   getByType(type: "compactToolCard"): ReadonlyArray<SlotEntry<CompactToolCardSlotDeclaration>>;
-  getByType(type: "toolbarButton"): ReadonlyArray<SlotEntry<ToolbarButtonSlotDeclaration>>;
-  getByType(type: "statusBar"): ReadonlyArray<SlotEntry<StatusBarSlotDeclaration>>;
   getByType(type: "inlinePrompt"): ReadonlyArray<SlotEntry<InlinePromptSlotDeclaration>>;
   getByType(type: "messageInterceptor"): ReadonlyArray<SlotEntry<MessageInterceptorSlotDeclaration>>;
   getByType(type: SlotType): ReadonlyArray<SlotEntry<PluginSlotDeclaration>>;

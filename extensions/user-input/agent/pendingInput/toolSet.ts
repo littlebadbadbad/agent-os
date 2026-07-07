@@ -11,7 +11,14 @@
  *   - Exports PENDING_INPUT_SYMBOL for host access from SessionContent
  */
 
-import type { ToolSet, ToolSetContext, AgentRunOutcome, SessionEntryData, PluginSlotDeclaration, PluginUiAdapter } from "@agent-type";
+import type {
+  ToolSet,
+  ToolSetContext,
+  AgentRunOutcome,
+  SessionEntryData,
+  PluginSlotDeclaration,
+  PluginUiAdapter,
+} from "@agent-type";
 import { createPendingInputStore } from "./store";
 import type { PendingInputStore } from "./store";
 import type { PendingInputEntry } from "./types";
@@ -167,17 +174,14 @@ export function createPendingInputToolSet(
 
     // ── Persistence ────────────────────────────────────────────────────────
 
-    onBuildSnapshot(
-      ctx: ToolSetContext,
-    ): { pendingInputs?: readonly PendingInputEntry[] } {
+    onBuildSnapshot(ctx: ToolSetContext): {
+      pendingInputs?: readonly PendingInputEntry[];
+    } {
       const inputs = store.serialize(ctx.sessionId);
       return inputs?.length ? { pendingInputs: [...inputs] } : {};
     },
 
-    onInitSession(
-      ctx: ToolSetContext,
-      entryData: SessionEntryData,
-    ): void {
+    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
       const inputs = entryData.pendingInputs;
       if (inputs?.length) store.restore(ctx.sessionId, inputs);
     },

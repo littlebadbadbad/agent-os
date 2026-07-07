@@ -28,7 +28,6 @@ import type { AgentSession } from "@agent-sdk";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
 import { CompactToolCardSlotRenderer } from "./renderers/CompactToolCardSlotRenderer";
-import { ToolbarButtonSlotRenderer } from "./renderers/ToolbarButtonSlotRenderer";
 import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
 import { slotRegistry } from "./registry";
 
@@ -56,18 +55,6 @@ export type SlotRendererProps =
       readonly toolCallInfo: ToolCallInfo;
       /** Called when the compact card signals it should open the detail modal. */
       readonly onOpenDetail?: () => void;
-      readonly className?: string;
-    }
-  | {
-      readonly pluginId: string;
-      readonly slotType: "toolbarButton";
-      readonly slotId: string;
-      readonly className?: string;
-    }
-  | {
-      readonly pluginId: string;
-      readonly slotType: "statusBar";
-      readonly slotId: string;
       readonly className?: string;
     }
   | {
@@ -118,20 +105,6 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           className={props.className}
         />
       );
-
-    case "toolbarButton":
-      return (
-        <ToolbarButtonSlotRenderer
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          className={props.className}
-        />
-      );
-
-    case "statusBar":
-      // StatusBar slots: rendered inline, no iframe.
-      // For now, return null — implement when needed.
-      return null;
 
     case "inlinePrompt": {
       const decl = slotRegistry.getSlot(props.pluginId, props.slotId);
