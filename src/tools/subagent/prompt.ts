@@ -47,7 +47,7 @@ Returns \`{ created, conversationId }\` — use the conversation ID with \`send_
 
 **\`read_<suffix>_history\`** — Read conversation messages. Omit \`from_index\` to auto-continue from the last read position (cursor auto-advances like terminal_read). Pass \`from_index: 0\` to restart from the beginning.
 
-**`create_<suffix>_conversation`** — Start a new isolated conversation thread. Becomes active immediately. Each conversation has its own message history and sub-agent-scoped state (shared across all conversations of the same sub-agent).
+**\`create_<suffix>_conversation\`** — Start a new isolated conversation thread. Becomes active immediately. Each conversation has its own message history and sub-agent-scoped state (shared across all conversations of the same sub-agent).
 
 **\`set_<suffix>_active_conversation\`** — Switch which conversation \`send_*\` targets when no \`conversation_id\` is given. Use \`list_*\` to find conversation IDs.
 
