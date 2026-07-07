@@ -180,6 +180,12 @@ type IpcRouteEntry = {
   readonly toParams?: (path: string, body?: unknown) => Record<string, unknown>;
 };
 
+/** Extract the last path segment from a URL path, defaulting to '' if empty. */
+function lastPathSegment(path: string): string {
+  const seg = path.split('/').pop();
+  return seg ?? '';
+}
+
 function createIpcApiTransport(): ApiTransport {
   // Route table: ordered entries — exact matches first, prefix matches after.
   // Each entry maps a REST-like URL pattern to an IPC channel and provides a
@@ -195,9 +201,9 @@ function createIpcApiTransport(): ApiTransport {
     { method: 'POST',   pattern: '/api/skills',                exact: true,  channel: 'skills:install',
       toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
     { method: 'POST',   pattern: '/api/skills/refresh/',       exact: false, channel: 'skills:refresh',
-      toParams: (path) => ({ name: decodeURIComponent(path.split('/').pop()!) }) },
+      toParams: (path) => ({ name: decodeURIComponent(lastPathSegment(path)) }) },
     { method: 'DELETE', pattern: '/api/skills/',               exact: false, channel: 'skills:remove',
-      toParams: (path) => ({ name: decodeURIComponent(path.split('/').pop()!) }) },
+      toParams: (path) => ({ name: decodeURIComponent(lastPathSegment(path)) }) },
     // ── Proxy ──────────────────────────────────────────────────────────────
     { method: 'GET',    pattern: '/api/proxy',                 exact: true,  channel: 'api:proxy:get' },
     { method: 'PUT',    pattern: '/api/proxy',                 exact: true,  channel: 'api:proxy:update',
@@ -229,13 +235,13 @@ function createIpcApiTransport(): ApiTransport {
     { method: 'POST',   pattern: '/api/api-keys',              exact: true,  channel: 'api:api-keys:save',
       toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
     { method: 'DELETE', pattern: '/api/api-keys/',             exact: false, channel: 'api:api-keys:delete',
-      toParams: (path) => ({ providerId: decodeURIComponent(path.split('/').pop()!) }) },
+      toParams: (path) => ({ providerId: decodeURIComponent(lastPathSegment(path)) }) },
     // ── Session persistence ────────────────────────────────────────────────
     { method: 'GET',    pattern: '/api/agent-sessions/',       exact: false, channel: 'sessions:load',
-      toParams: (path) => ({ agentId: decodeURIComponent(path.split('/').pop()!) }) },
+      toParams: (path) => ({ agentId: decodeURIComponent(lastPathSegment(path)) }) },
     { method: 'PUT',    pattern: '/api/agent-sessions/',       exact: false, channel: 'sessions:save',
       toParams: (path, body) => ({
-        agentId: decodeURIComponent(path.split('/').pop()!),
+        agentId: decodeURIComponent(lastPathSegment(path)),
         ...(isRecord(body) ? body : {}),
       })},
     // ── ADO proxy ──────────────────────────────────────────────────────────
@@ -245,7 +251,10 @@ function createIpcApiTransport(): ApiTransport {
       toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
   ];
 
-  const electronAPI = (window as any).electronAPI;
+  const electronAPI = window.electronAPI;
+  if (!electronAPI) {
+    throw new Error('[IpcApiTransport] window.electronAPI is not available');
+  }
 
   function matchRoute(method: string, rawPath: string): IpcRouteEntry {
     // Strip query string before matching so `/api/models?provider=doubao`

@@ -64,7 +64,7 @@ describe('executeToolCall', () => {
       execute: executeSpy,
     });
 
-    await executeToolCall(registry, makeCall('ctx_tool'), { sessionId: 'session-42', agentName: 'main', conversationId: 'session-42', signal: new AbortController().signal, });
+    await executeToolCall(registry, makeCall('ctx_tool'), { sessionId: 'session-42', agentName: 'main', conversationId: 'session-42', sourceAgent: 'main', isSubAgent: false, signal: new AbortController().signal, });
     expect(executeSpy).toHaveBeenCalledWith({}, expect.objectContaining({ sessionId: 'session-42' }));
   });
 

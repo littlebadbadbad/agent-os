@@ -26,8 +26,8 @@ export type IpcCronAdapterConfig = Record<string, never>;
 export function createIpcCronAdapter(
   _config?: IpcCronAdapterConfig,
 ): CronManagerAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
-  const onEvent = (window as any).electronAPI?.on;
+  const invoke = window.electronAPI?.invoke;
+  const onEvent = window.electronAPI?.on;
   if (!invoke) {
     throw new Error('createIpcCronAdapter: window.electronAPI.invoke is not available');
   }
@@ -96,11 +96,11 @@ export function createIpcCronAdapter(
 
       // Listen for fired events — filter by sessionId so each session
       // only receives its own cron jobs.
-      const unsub = onEvent('cron:fired', ({ jobId, prompt, sessionId: eventSessionId }: { jobId: string; prompt: string; sessionId: string }) => {
+      const unsub = onEvent('cron:fired', (({ jobId, prompt, sessionId: eventSessionId }: { jobId: string; prompt: string; sessionId: string }) => {
         if (eventSessionId === sessionId) {
           onFired(jobId, prompt);
         }
-      });
+      }) as (...args: unknown[]) => void);
 
       const cleanup = () => {
         unsub();

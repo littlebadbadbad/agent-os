@@ -262,6 +262,37 @@ export type SessionEntryData = SessionEntryDataBase & SessionEntryExtension;
 export type PluginId = string;
 
 /**
+ * Minimal session state shape consumed by slot renderers.
+ *
+ * Both {@link AgentSessionState} and {@link SubAgentConversationState}
+ * are assignable to this interface — it captures only the fields that
+ * slot renderers and {@link UiPluginHost.getPluginState} actually read.
+ *
+ * Unlike `AgentSessionState`, this type does **not** extend
+ * `Record<string, unknown>`, so `state.id` / `state.agentName` /
+ * `state.conversationId` are typed as `string` without casts.
+ *
+ * Plugins access their own state slices via the symbol-keyed index
+ * signature (`state[symbol]`), which returns `PluginStateExtension &
+ * PluginUiAdapter` — the same type as `AgentSessionExtension` provides.
+ */
+export interface SessionStateLike {
+  /** Whether the agent is currently processing a turn. */
+  readonly isLoading: boolean;
+  /** Unique ID of this session or sub-agent conversation. */
+  readonly id: string;
+  /** Name of the agent that owns this session/conversation. */
+  readonly agentName: string;
+  /** ID of the conversation within the session. */
+  readonly conversationId: string;
+  /**
+   * Symbol-keyed plugin state slices.
+   * Each registered ToolSet contributes state under its own symbol.
+   */
+  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
+}
+
+/**
  * Core session state shape exposed to plugins.
  *
  * Plugins see the standard fields (id, messages, isLoading, title, etc.).
@@ -331,6 +362,17 @@ export interface ToolExecutionContext extends ToolExecutionContextExtension {
    * sub-agent vs. the root agent.
    */
   readonly conversationId: string;
+  /**
+   * Name of the agent currently executing this tool.
+   * `'main'` for the root agent; the sub-agent's registered name otherwise.
+   * Use this for attribution in tool cards and debug logging.
+   */
+  readonly sourceAgent: 'main' | string;
+  /**
+   * Derived convenience: `true` when this tool is being executed by a
+   * sub-agent (i.e. `sourceAgent !== 'main'`).
+   */
+  readonly isSubAgent: boolean;
   /**
    * The `AgentHandler` driving the current agent session.
    *

@@ -1,5 +1,5 @@
 import type { ToolSet } from "./toolset";
-import type { AgentSessionState, PluginStateExtension, Tool } from "./core";
+import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool } from "./core";
 import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, SlotIframeMessage } from "./ui-slot";
 import type { ModelMeta } from "./model";
 import { AgentSessionExtension } from "@agent-type";
@@ -11,17 +11,32 @@ import { AgentSessionExtension } from "@agent-type";
 /**
  * A single configuration property definition.
  * Simplified version of VS Code's `contributes.configuration` property schema.
+ *
+ * The discriminated union ensures that `default` is typed to match `type`.
  */
-export interface ConfigProperty {
-  /** JSON Schema type (string, number, boolean, array, object). */
-  readonly type: string;
-  /** Default value if not explicitly set. */
-  readonly default?: unknown;
-  /** Human-readable description of this property. */
-  readonly description?: string;
-  /** Enum of allowed values (for string types). */
-  readonly enum?: readonly string[];
-}
+export type ConfigProperty =
+  | {
+      readonly type: 'string';
+      readonly default?: string;
+      readonly description?: string;
+      /** Enum of allowed values. */
+      readonly enum?: readonly string[];
+    }
+  | {
+      readonly type: 'number';
+      readonly default?: number;
+      readonly description?: string;
+    }
+  | {
+      readonly type: 'boolean';
+      readonly default?: boolean;
+      readonly description?: string;
+    }
+  | {
+      readonly type: 'array' | 'object';
+      readonly default?: unknown;
+      readonly description?: string;
+    };
 
 /**
  * Plugin configuration schema — declares what config the plugin accepts.
@@ -295,7 +310,7 @@ export interface AgentPluginHost {
  */
 export interface SlotSession {
   /** Returns the current state snapshot. */
-  getState(): AgentSessionState;
+  getState(): SessionStateLike;
   /** Subscribe to state changes. Returns an unsubscribe function. */
   subscribe(fn: () => void): () => void;
 }
@@ -318,7 +333,7 @@ export interface UiPluginHost {
   /**
    * Read the current session state and any plugin-specific state slices.
    */
-  getPluginState(): [AgentSessionState, ...(PluginStateExtension & PluginUiAdapter)[]] | undefined;
+  getPluginState(): [SessionStateLike, ...(PluginStateExtension & PluginUiAdapter)[]] | undefined;
 
   /**
    * Returns the current slot context so the plugin UI knows which

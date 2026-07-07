@@ -24,7 +24,7 @@ export type IpcSkillAdapterConfig = Record<string, never>;
 export function createIpcSkillAdapter(
   _config: IpcSkillAdapterConfig = {},
 ): SkillManagerAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
+  const invoke = window.electronAPI?.invoke;
   if (!invoke) {
     throw new Error('createIpcSkillAdapter: window.electronAPI.invoke is not available');
   }

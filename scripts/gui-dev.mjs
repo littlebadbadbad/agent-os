@@ -44,13 +44,26 @@ let viteProcess = null;
 let electronProcess = null;
 
 function cleanup() {
+  // Graceful shutdown: send SIGTERM first so Electron can flush sessions.
+  // On Windows, child_process.kill() is forcible (SIGTERM not supported),
+  // so we use a small delay to give the app:requestFlush IPC cycle time
+  // to complete before the process is killed.
+  if (electronProcess) {
+    try {
+      console.log('[gui-dev] Shutting down — giving Electron 2 s to flush sessions...');
+      // Send a custom message to trigger flush before killing.
+      const killed = electronProcess.kill('SIGTERM');
+      if (!killed) {
+        // Windows: SIGTERM may not work; give a grace period then force kill.
+        setTimeout(() => {
+          try { electronProcess?.kill(); } catch {}
+        }, 2000);
+      }
+    } catch {}
+  }
   if (viteProcess) {
     try { viteProcess.kill(); } catch {}
     viteProcess = null;
-  }
-  if (electronProcess) {
-    try { electronProcess.kill(); } catch {}
-    electronProcess = null;
   }
 }
 

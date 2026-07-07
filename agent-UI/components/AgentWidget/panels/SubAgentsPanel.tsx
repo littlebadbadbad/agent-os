@@ -22,7 +22,7 @@ import { ChatMessages } from '../chat/ChatMessages';
 import { ChatInput } from '../chat/ChatInput';
 import { SlotRenderer } from '../../../slots/SlotRenderer';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
-import type { HeaderBarSlotDeclaration, PanelSlotDeclaration } from '@agent-type';
+import type { HeaderBarSlotDeclaration, PanelSlotDeclaration, InlinePromptSlotDeclaration, MessageInterceptorSlotDeclaration, SlotDisplayContext } from '@agent-type';
 import styles from '../AgentWidget.module.scss';
 
 // ── ConversationPane ─────────────────────────────────────────────────────────
@@ -31,15 +31,19 @@ interface ConversationPaneProps {
   registry: SubAgentRegistry;
   agentName: string;
   convId: string;
+  sessionId: string;
 }
 
-function ConversationPane({ registry, agentName, convId }: ConversationPaneProps): ReactElement {
+function ConversationPane({ registry, agentName, convId, sessionId }: ConversationPaneProps): ReactElement {
   const rawConv = registry.getConversation(agentName, convId);
+
+  // Slot display context for this sub-agent conversation.
+  const slotCtx: SlotDisplayContext = { sessionId, agentName, conversationId: convId };
 
   // Stable fallbacks for useSyncExternalStore when the conversation handle is absent.
   // Defined outside the conditional so hook call count is always the same.
   const emptySubscribe = useMemo<(fn: () => void) => () => void>(() => (_fn) => () => {}, []);
-  const emptyGetState  = useMemo<() => SubAgentConversationState | null>(() => () => null as unknown as SubAgentConversationState, []);
+  const emptyGetState  = useMemo<() => null>(() => () => null, []);
 
   const subscribe = useMemo(
     () => (rawConv ? rawConv.subscribe.bind(rawConv) : emptySubscribe),
@@ -68,7 +72,7 @@ function ConversationPane({ registry, agentName, convId }: ConversationPaneProps
     () => conv
       ? discoverSubAgentSlots(conv)
           .filter((e): e is { pluginId: string; declaration: HeaderBarSlotDeclaration } =>
-            e.declaration.type === 'headerBar' && e.declaration.shouldRender())
+            e.declaration.type === 'headerBar' && e.declaration.shouldRender(slotCtx))
       : [],
     [conv],
   );
@@ -76,7 +80,29 @@ function ConversationPane({ registry, agentName, convId }: ConversationPaneProps
     () => conv
       ? discoverSubAgentSlots(conv)
           .filter((e): e is { pluginId: string; declaration: PanelSlotDeclaration } =>
-            e.declaration.type === 'panel' && e.declaration.showTab())
+            e.declaration.type === 'panel' && e.declaration.showTab(slotCtx))
+      : [],
+    [conv],
+  );
+
+  // Message-interceptor slots — queried on every send to decide whether
+  // to queue the message (while loading) or forward it to the registry.
+  const messageInterceptorSlots = useMemo<readonly { pluginId: string; declaration: MessageInterceptorSlotDeclaration }[]>(
+    () => conv
+      ? discoverSubAgentSlots(conv)
+          .filter((e): e is { pluginId: string; declaration: MessageInterceptorSlotDeclaration } =>
+            e.declaration.type === 'messageInterceptor')
+      : [],
+    [conv],
+  );
+
+  // InlinePrompt slots — overlay iframes that render pending-message strips
+  // and user-input prompts.  Reuses the same pattern as headerBar slots.
+  const inlinePromptSlots = useMemo<readonly { pluginId: string; declaration: InlinePromptSlotDeclaration }[]>(
+    () => conv
+      ? discoverSubAgentSlots(conv)
+          .filter((e): e is { pluginId: string; declaration: InlinePromptSlotDeclaration } =>
+            e.declaration.type === 'inlinePrompt' && e.declaration.shouldRender(slotCtx))
       : [],
     [conv],
   );
@@ -94,9 +120,18 @@ function ConversationPane({ registry, agentName, convId }: ConversationPaneProps
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      await registry.sendConversationMessage(agentName, convId, text, attachments);
+      // Check if any plugin wants to intercept the message (e.g. queue it
+      // while the sub-agent loop is running).
+      const interceptor = messageInterceptorSlots.find(
+        (s) => s.declaration.shouldIntercept(conv?.isLoading ?? false, slotCtx),
+      );
+      if (interceptor) {
+        interceptor.declaration.interceptMessage(text);
+      } else {
+        await registry.sendConversationMessage(agentName, convId, text, attachments);
+      }
     },
-    [registry, agentName, convId],
+    [registry, agentName, convId, messageInterceptorSlots, slotCtx, conv],
   );
 
   const handleCancel = useCallback(() => {
@@ -159,7 +194,7 @@ function ConversationPane({ registry, agentName, convId }: ConversationPaneProps
           </button>
           {panelSlots.map((entry) => {
             const v = `plugin:${entry.pluginId}`;
-            const badge = entry.declaration.badge?.() ?? null;
+            const badge = entry.declaration.badge?.(slotCtx) ?? null;
             return (
               <button
                 key={entry.pluginId}
@@ -198,6 +233,20 @@ function ConversationPane({ registry, agentName, convId }: ConversationPaneProps
           session={slotSession}
         />
       )}
+
+      {/* InlinePrompt slots — plugin-managed overlays for pending messages
+          and user-input prompts.  Each slot creates a sandboxed iframe that
+          receives prompt state via InlinePromptHostMessage.
+          Shown above all content so pending prompts never silently block. */}
+      {slotSession && inlinePromptSlots.map((entry) => (
+        <SlotRenderer
+          key={`${entry.pluginId}:${entry.declaration.id}`}
+          pluginId={entry.pluginId}
+          slotType="inlinePrompt"
+          slotId={entry.declaration.id}
+          session={slotSession}
+        />
+      ))}
     </div>
   );
 }
@@ -206,9 +255,10 @@ function ConversationPane({ registry, agentName, convId }: ConversationPaneProps
 
 interface RegistryViewProps {
   registry: SubAgentRegistry;
+  sessionId: string;
 }
 
-function RegistryView({ registry }: RegistryViewProps): ReactElement {
+function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement {
   // Stable callbacks — memoised on `registry` identity so React's
   // useSyncExternalStore correctly re-subscribes only when the registry changes.
   const subscribe = useMemo(() => registry.subscribe.bind(registry), [registry]);
@@ -309,6 +359,7 @@ function RegistryView({ registry }: RegistryViewProps): ReactElement {
           registry={registry}
           agentName={activeEntry.name}
           convId={activeConvId}
+          sessionId={sessionId}
         />
       </div>
     </div>
@@ -319,9 +370,10 @@ function RegistryView({ registry }: RegistryViewProps): ReactElement {
 
 export interface SubAgentsPanelProps {
   registries: readonly SubAgentRegistry[];
+  sessionId: string;
 }
 
-export function SubAgentsPanel({ registries }: SubAgentsPanelProps): ReactElement {
+export function SubAgentsPanel({ registries, sessionId }: SubAgentsPanelProps): ReactElement {
   const [activeRegistryIdx, setActiveRegistryIdx] = useState(0);
 
   if (registries.length === 0) {
@@ -356,6 +408,7 @@ export function SubAgentsPanel({ registries }: SubAgentsPanelProps): ReactElemen
       <RegistryView
         key={clampedIdx}
         registry={activeRegistry}
+        sessionId={sessionId}
       />
     </div>
   );

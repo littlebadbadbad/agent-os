@@ -113,6 +113,10 @@ export function IframeSandbox(
         iframe.style.display = "inline-block";
         iframe.style.verticalAlign = "middle";
         iframe.style.overflow = "hidden";
+        // Prevent fit-mode iframes from growing beyond their containing height.
+        if (ch !== "auto") {
+          iframe.style.maxHeight = ch;
+        }
       }
       iframe.setAttribute("aria-label", `Plugin slot iframe`);
 

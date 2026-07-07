@@ -134,7 +134,7 @@ export function createTodoTools(): ToolSet {
             type: 'panel',
             id: 'todo.main',
             label: 'Todo',
-            showTab: () => items.length > 0,
+            showTab: (_ctx) => items.length > 0,
             order: 30,
             badge: () => {
               if (items.length === 0) return null;

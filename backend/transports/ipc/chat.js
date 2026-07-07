@@ -54,6 +54,11 @@ export function registerChatHandlers(ipcMain) {
 
     // Build Electron-specific callbacks — these are transport wiring,
     // not business logic.
+    //
+    // CHANNEL ISOLATION: Each streaming session gets its own IPC channel
+    // namespace (`chat:stream:<sessionId>:*`) so parallel streams (e.g.
+    // main agent + sub-agent chat simultaneously) never cross-talk.
+    // This mirrors the plugin stream pattern (`plugin:<id>:<name>:frame`).
     const { sessionId, abortController } = chatService.startChatStreamingSession({
       provider: providerName,
       model,
@@ -61,15 +66,15 @@ export function registerChatHandlers(ipcMain) {
       tools,
       toolChoice,
       systemPrompt,
-      onText: (delta) => { if (!win.isDestroyed()) win.send('chat:stream:chunk', { type: 'text', delta }); },
-      onThinking: (delta) => { if (!win.isDestroyed()) win.send('chat:stream:chunk', { type: 'thinking', delta }); },
-      onToolCall: (tc) => { if (!win.isDestroyed()) win.send('chat:stream:chunk', { type: 'tool_call', call: tc }); },
-      onUsage: (usage) => { if (!win.isDestroyed()) win.send('chat:stream:chunk', { type: 'usage', usage }); },
+      onText: (delta) => { if (!win.isDestroyed()) win.send(`chat:stream:${sessionId}:chunk`, { type: 'text', delta }); },
+      onThinking: (delta) => { if (!win.isDestroyed()) win.send(`chat:stream:${sessionId}:chunk`, { type: 'thinking', delta }); },
+      onToolCall: (tc) => { if (!win.isDestroyed()) win.send(`chat:stream:${sessionId}:chunk`, { type: 'tool_call', call: tc }); },
+      onUsage: (usage) => { if (!win.isDestroyed()) win.send(`chat:stream:${sessionId}:chunk`, { type: 'usage', usage }); },
       onDone: (result) => {
-        if (!win.isDestroyed()) win.send('chat:stream:done', result);
+        if (!win.isDestroyed()) win.send(`chat:stream:${sessionId}:done`, result);
       },
       onError: (error) => {
-        if (!win.isDestroyed()) win.send('chat:stream:error', { error, sessionId });
+        if (!win.isDestroyed()) win.send(`chat:stream:${sessionId}:error`, { error });
       },
     });
 

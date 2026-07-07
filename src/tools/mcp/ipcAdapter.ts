@@ -24,7 +24,7 @@ export type IpcMcpAdapterConfig = Record<string, never>;
 export function createIpcMcpAdapter(
   _config: IpcMcpAdapterConfig = {},
 ): McpAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
+  const invoke = window.electronAPI?.invoke;
   if (!invoke) {
     throw new Error('createIpcMcpAdapter: window.electronAPI.invoke is not available');
   }

@@ -143,7 +143,10 @@ function createHttpChatTransport(): ChatTransport {
 // ── IPC implementation ─────────────────────────────────────────────────────────
 
 function createIpcChatTransport(): ChatTransport {
-  const electronAPI = (window as any).electronAPI;
+  const electronAPI = window.electronAPI;
+  if (!electronAPI) {
+    throw new Error('[IpcChatTransport] window.electronAPI is not available');
+  }
 
   return {
     async sendAsync(params: ChatParams): Promise<AgentTurnResponse> {
@@ -153,9 +156,15 @@ function createIpcChatTransport(): ChatTransport {
     sendStream(params: ChatParams): ReadableStream<AgentStreamChunk> {
       const { signal } = params;
       let cleanup: (() => void) | null = null;
+      let sessionId: string | null = null;
 
       return new ReadableStream<AgentStreamChunk>({
-        start(controller) {
+        // CHANNEL ISOLATION: Each streaming session gets its own IPC channel
+        // namespace (`chat:stream:<sessionId>:*`).  The sessionId is returned
+        // by `chat:stream:start` BEFORE any chunk events fire — we use it to
+        // construct per-session channel names so parallel streams cannot
+        // cross-talk.  This mirrors the plugin stream pattern.
+        async start(controller) {
           let cancelled = false;
 
           // Unsubscribe all IPC listeners — call once when the stream ends.
@@ -166,6 +175,12 @@ function createIpcChatTransport(): ChatTransport {
             unsubs.length = 0;
           };
 
+          // 1. Start the stream and get the session-scoped channel prefix.
+          const result = (await electronAPI.invoke('chat:stream:start', params)) as { sessionId: string };
+          sessionId = result.sessionId;
+          const ch = (name: string) => `chat:stream:${sessionId}:${name}`;
+
+          // 2. Subscribe to the session-scoped channels.
           const onChunk = (chunk: AgentStreamChunk) => {
             if (!cancelled) controller.enqueue(chunk);
           };
@@ -194,22 +209,21 @@ function createIpcChatTransport(): ChatTransport {
           };
 
           unsubs.push(
-            electronAPI.on('chat:stream:chunk', onChunk),
-            electronAPI.on('chat:stream:done', onDone),
-            electronAPI.on('chat:stream:error', onError),
+            electronAPI.on(ch('chunk'), onChunk as (...args: unknown[]) => void),
+            electronAPI.on(ch('done'), onDone as (...args: unknown[]) => void),
+            electronAPI.on(ch('error'), onError as (...args: unknown[]) => void),
           );
-          electronAPI.invoke('chat:stream:start', params);
 
           if (signal) {
             signal.addEventListener('abort', () => {
-              electronAPI.invoke('chat:stream:stop');
+              if (sessionId) electronAPI.invoke('chat:stream:stop', { sessionId });
               cleanup?.();
             });
           }
         },
 
         cancel() {
-          electronAPI.invoke('chat:stream:stop');
+          if (sessionId) electronAPI.invoke('chat:stream:stop', { sessionId });
           cleanup?.();
         },
       });

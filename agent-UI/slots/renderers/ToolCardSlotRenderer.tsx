@@ -48,7 +48,13 @@ export function ToolCardSlotRenderer(
       plugin: uiPlugin,
       apiClient,
       configClient,
-      slotContext: { slotId, slotType: "toolCard" },
+      slotContext: {
+        slotId,
+        slotType: "toolCard",
+        sessionId: '',
+        agentName: 'main',
+        conversationId: 'main',
+      },
     });
   }, [pluginId, slotId, uiPlugin]);
 

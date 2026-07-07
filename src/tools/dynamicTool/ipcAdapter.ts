@@ -31,7 +31,7 @@ export type IpcDynamicToolAdapterConfig = Record<string, never>;
 export function createIpcDynamicToolAdapter(
   _config: IpcDynamicToolAdapterConfig = {},
 ): DynamicToolAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
+  const invoke = window.electronAPI?.invoke;
   if (!invoke) {
     throw new Error('createIpcDynamicToolAdapter: window.electronAPI.invoke is not available');
   }

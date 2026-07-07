@@ -26,6 +26,7 @@ export function SessionContent({
   sessionId: string;
 }): ReactElement {
   const {
+    id: sessionStateId,
     messages,
     isLoading,
     toolStates,
@@ -41,6 +42,8 @@ export function SessionContent({
     cronPauseJob,
     cronResumeJob,
     cronDeleteJob,
+    agentName,
+    conversationId,
   } = useSyncExternalStore(
     session.subscribe,
     session.getState,
@@ -53,7 +56,7 @@ export function SessionContent({
       // while the agent loop is running).
       const interceptor = slotRegistry
         .getByType("messageInterceptor")
-        .find((s) => s.declaration.shouldIntercept(isLoading));
+        .find((s) => s.declaration.shouldIntercept(isLoading, slotCtx));
       if (interceptor) {
         interceptor.declaration.interceptMessage(text);
       } else {
@@ -91,10 +94,13 @@ export function SessionContent({
   // Refresh slot registry from session state (reads PluginUiAdapter.slots).
   pluginSystem.refreshSlots(session);
 
+  // Build SlotDisplayContext from session state for slot visibility decisions.
+  const slotCtx = { sessionId: sessionStateId, agentName, conversationId };
+
   // Check if any plugin panel slots are visible.
   const hasPluginUi = slotRegistry
     .getByType("panel")
-    .some((s) => s.declaration.showTab());
+    .some((s) => s.declaration.showTab(slotCtx));
   const hasSubAgents = subAgentRegistries.length > 0;
   const hasCron = (cronJobs?.length ?? 0) > 0;
   const enabledCount = toolStates.filter((t) => t.enabled).length;
@@ -171,6 +177,7 @@ export function SessionContent({
           <PluginTabBar
             activePluginView={view.startsWith("plugin:") ? view : null}
             onSelect={(v) => setView(v)}
+            slotCtx={slotCtx}
           />
         )}
         {hasSubAgents && (
@@ -259,7 +266,7 @@ export function SessionContent({
             view === "subagents" ? styles["chat-panel"] : styles["hidden"]
           }
         >
-          <SubAgentsPanel registries={subAgentRegistries} />
+          <SubAgentsPanel registries={subAgentRegistries} sessionId={sessionStateId} />
         </div>
       )}
       {view === "experience" && (

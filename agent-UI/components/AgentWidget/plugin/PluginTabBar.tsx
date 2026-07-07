@@ -10,17 +10,18 @@
  */
 
 import { type ReactElement } from "react";
-import type { PanelSlotDeclaration } from "@agent-type";
+import type { PanelSlotDeclaration, SlotDisplayContext } from "@agent-type";
 import styles from "../AgentWidget.module.scss";
 import { slotRegistry, type SlotEntry } from "../../../slots/registry";
 
 export interface PluginTabBarProps {
   readonly activePluginView: string | null;
   readonly onSelect: (view: string) => void;
+  readonly slotCtx: SlotDisplayContext;
 }
 
 export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
-  const { activePluginView, onSelect } = props;
+  const { activePluginView, onSelect, slotCtx } = props;
 
   const panelSlots: ReadonlyArray<SlotEntry<PanelSlotDeclaration>> =
     slotRegistry.getByType("panel");
@@ -35,10 +36,10 @@ export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
         .map((entry) => {
           const { pluginId, declaration } = entry;
           const view = `plugin:${pluginId}`;
-          const show = declaration.showTab();
+          const show = declaration.showTab(slotCtx);
           const isActive = activePluginView === view;
           if (!show) return null;
-          const badgeText = declaration.badge?.() ?? null;
+          const badgeText = declaration.badge?.(slotCtx) ?? null;
           return (
             <button
               key={`${pluginId}:${declaration.id}`}

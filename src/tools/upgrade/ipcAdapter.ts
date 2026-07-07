@@ -31,7 +31,7 @@ export type IpcUpgradeAdapterConfig = {
 export function createIpcUpgradeAdapter(
   config: IpcUpgradeAdapterConfig = {},
 ): UpgradeAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
+  const invoke = window.electronAPI?.invoke;
   if (!invoke) {
     throw new Error('createIpcUpgradeAdapter: window.electronAPI.invoke is not available');
   }

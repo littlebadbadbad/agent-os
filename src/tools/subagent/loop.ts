@@ -72,6 +72,8 @@ export async function runAgentLoop(config: SubAgentConfig): Promise<SubAgentResu
       sessionId,
       agentName,
       conversationId,
+      sourceAgent: agentName as 'main' | string,
+      isSubAgent: true,
     });
 
   // Resolve the final callTool BEFORE building HandlerContext so that

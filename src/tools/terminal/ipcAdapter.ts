@@ -69,8 +69,8 @@ function mapEntry(raw: RawEntry): TerminalEntry {
 export function createIpcTerminalAdapter(
   _config?: IpcTerminalAdapterConfig,
 ): TerminalManagerAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
-  const onEvent = (window as any).electronAPI?.on;
+  const invoke = window.electronAPI?.invoke;
+  const onEvent = window.electronAPI?.on;
   if (!invoke) {
     throw new Error('createIpcTerminalAdapter: window.electronAPI.invoke is not available');
   }
@@ -120,16 +120,16 @@ export function createIpcTerminalAdapter(
 
       // Listen for output chunks from main process
       if (onEvent) {
-        unsubOutput = onEvent(`terminal:output:${id}`, (text: string) => {
+        unsubOutput = onEvent(`terminal:output:${id}`, ((text: string) => {
           if (!stopped) onData(text, false);
-        });
+        }) as (...args: unknown[]) => void);
 
-        unsubDone = onEvent(`terminal:done:${id}`, (exitCode: number | null) => {
+        unsubDone = onEvent(`terminal:done:${id}`, ((exitCode: number | null) => {
           if (!stopped) {
             onData('', true, exitCode ?? undefined);
             stopped = true;
           }
-        });
+        }) as (...args: unknown[]) => void);
       }
 
       return () => {

@@ -14,7 +14,7 @@ export type RuntimeEnvironment = 'electron-ipc' | 'standalone';
 export function detectEnvironment(): RuntimeEnvironment {
   if (
     typeof window !== 'undefined' &&
-    (window as any).electronAPI?.invoke
+    window.electronAPI?.invoke
   ) {
     return 'electron-ipc';
   }

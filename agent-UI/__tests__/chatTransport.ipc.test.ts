@@ -74,6 +74,10 @@ const DEFAULT_PARAMS = {
   messages: [{ role: 'user' as const, content: 'Hi' }],
 };
 
+/** Session-scoped IPC channel helper. */
+const SID = 'test-session';
+const CH = (name: string) => `chat:stream:${SID}:${name}`;
+
 // ═════════════════════════════════════════════════════════════════════════════
 // sendAsync (non-streaming)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -96,44 +100,48 @@ describe('sendAsync (IPC)', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('sendStream (IPC) — channel names', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue({ sessionId: SID });
+  });
 
   it('invokes chat:stream:start with params (not chat:stream-start)', async () => {
     mockInvoke.mockResolvedValue({ sessionId: 'sess_1' });
 
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
-    // Give the stream time to register handlers and invoke start
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(mockInvoke).toHaveBeenCalledWith('chat:stream:start', DEFAULT_PARAMS);
     expect(mockInvoke).not.toHaveBeenCalledWith('chat:stream-start', expect.anything());
 
-    // Cleanup: cancel the stream to avoid hanging
     stream.cancel();
   });
 
-  it('registers listener on chat:stream:chunk (not chat:stream-chunk)', () => {
+  it('registers listener on session-scoped chunk channel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(mockOn).toHaveBeenCalledWith('chat:stream:chunk', expect.any(Function));
+    expect(mockOn).toHaveBeenCalledWith(CH('chunk'), expect.any(Function));
     expect(mockOn).not.toHaveBeenCalledWith('chat:stream-chunk', expect.any(Function));
 
     stream.cancel();
   });
 
-  it('registers listener on chat:stream:done (not chat:stream-done)', () => {
+  it('registers listener on session-scoped done channel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(mockOn).toHaveBeenCalledWith('chat:stream:done', expect.any(Function));
+    expect(mockOn).toHaveBeenCalledWith(CH('done'), expect.any(Function));
     expect(mockOn).not.toHaveBeenCalledWith('chat:stream-done', expect.any(Function));
 
     stream.cancel();
   });
 
-  it('registers listener on chat:stream:error (not chat:stream-error)', () => {
+  it('registers listener on session-scoped error channel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(mockOn).toHaveBeenCalledWith('chat:stream:error', expect.any(Function));
+    expect(mockOn).toHaveBeenCalledWith(CH('error'), expect.any(Function));
     expect(mockOn).not.toHaveBeenCalledWith('chat:stream-error', expect.any(Function));
 
     stream.cancel();
@@ -145,18 +153,20 @@ describe('sendStream (IPC) — channel names', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('sendStream (IPC) — chunk delivery', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue({ sessionId: SID });
+  });
 
-  it('delivers text chunks pushed via chat:stream:chunk', async () => {
+  it('delivers text chunks pushed via session-scoped chunk channel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
-    const pushChunk = captureOnHandler('chat:stream:chunk');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const pushChunk = captureOnHandler(CH('chunk'));
 
-    // Simulate backend pushing chunks
     pushChunk({ type: 'text', delta: 'Hello' });
     pushChunk({ type: 'text', delta: ' world' });
 
-    // Simulate backend completing
-    const pushDone = captureOnHandler('chat:stream:done');
+    const pushDone = captureOnHandler(CH('done'));
     pushDone();
 
     const chunks = await collectStream(stream);
@@ -167,12 +177,13 @@ describe('sendStream (IPC) — chunk delivery', () => {
 
   it('delivers thinking chunks', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
-    const pushChunk = captureOnHandler('chat:stream:chunk');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const pushChunk = captureOnHandler(CH('chunk'));
 
     pushChunk({ type: 'thinking', delta: 'reasoning...' });
     pushChunk({ type: 'text', delta: 'Answer' });
 
-    const pushDone = captureOnHandler('chat:stream:done');
+    const pushDone = captureOnHandler(CH('done'));
     pushDone();
 
     const chunks = await collectStream(stream);
@@ -182,14 +193,15 @@ describe('sendStream (IPC) — chunk delivery', () => {
 
   it('delivers tool_call chunks', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
-    const pushChunk = captureOnHandler('chat:stream:chunk');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const pushChunk = captureOnHandler(CH('chunk'));
 
     pushChunk({
       type: 'tool_call',
       call: { id: 'tc1', name: 'add', arguments: { a: 1 } },
     });
 
-    const pushDone = captureOnHandler('chat:stream:done');
+    const pushDone = captureOnHandler(CH('done'));
     pushDone();
 
     const chunks = await collectStream(stream);
@@ -200,9 +212,10 @@ describe('sendStream (IPC) — chunk delivery', () => {
     });
   });
 
-  it('surfaces errors via chat:stream:error', async () => {
+  it('surfaces errors via session-scoped error channel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
-    const pushError = captureOnHandler('chat:stream:error');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const pushError = captureOnHandler(CH('error'));
 
     const err = new Error('API timeout');
     pushError(err);
@@ -217,39 +230,43 @@ describe('sendStream (IPC) — chunk delivery', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('sendStream (IPC) — abort / cancel', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInvoke.mockResolvedValue({ sessionId: SID });
+  });
 
-  it('invokes chat:stream:stop on cancel (not chat:stream-abort)', () => {
+  it('invokes chat:stream:stop with sessionId on cancel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
+    await new Promise((resolve) => setTimeout(resolve, 10));
     stream.cancel();
 
-    expect(mockInvoke).toHaveBeenCalledWith('chat:stream:stop');
+    expect(mockInvoke).toHaveBeenCalledWith('chat:stream:stop', { sessionId: SID });
     expect(mockInvoke).not.toHaveBeenCalledWith('chat:stream-abort', expect.anything());
   });
 
-  it('invokes chat:stream:stop when abort signal fires', () => {
+  it('invokes chat:stream:stop with sessionId when abort signal fires', async () => {
     const abortController = new AbortController();
     chatTransport.sendStream({
       ...DEFAULT_PARAMS,
       signal: abortController.signal,
     });
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     abortController.abort();
 
-    expect(mockInvoke).toHaveBeenCalledWith('chat:stream:stop');
+    expect(mockInvoke).toHaveBeenCalledWith('chat:stream:stop', { sessionId: SID });
   });
 
-  it('stops delivering chunks after cancel', () => {
+  it('stops delivering chunks after cancel', async () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
-    const pushChunk = captureOnHandler('chat:stream:chunk');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const pushChunk = captureOnHandler(CH('chunk'));
 
     stream.cancel();
 
     // After cancel, chunks should not be enqueued
     pushChunk({ type: 'text', delta: 'should be ignored' });
 
-    // Verify the stream is already closed/errored
     const reader = stream.getReader();
-    // After cancel the stream should be closed
   });
 });

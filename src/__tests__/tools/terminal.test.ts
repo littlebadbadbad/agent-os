@@ -46,7 +46,7 @@ const SESSION = 'session-test';
 const ctx = {
   sessionId:      SESSION,
   agentName:      'main',
-  conversationId: SESSION,
+  conversationId: SESSION, sourceAgent: 'main', isSubAgent: false,
   signal:         new AbortController().signal,
 
     requestUserInput: () => Promise.resolve(null),

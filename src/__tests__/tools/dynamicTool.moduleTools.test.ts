@@ -42,7 +42,7 @@ describe('createModuleTools', () => {
       const tool = getTool(adapter, 'create_module');
       const result = await tool.execute(
         { name: 'my-utils', description: 'Utility functions', content: 'export const x = 1;' },
-        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', },
+        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false, },
       );
       expect(adapter.createModule).toHaveBeenCalledWith({
         name: 'my-utils',
@@ -58,7 +58,7 @@ describe('createModuleTools', () => {
     it('returns message when no modules exist', async () => {
       const adapter = makeAdapter({ listModules: vi.fn().mockResolvedValue([]) });
       const tool = getTool(adapter, 'list_modules');
-      const result = await tool.execute({}, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', });
+      const result = await tool.execute({}, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false, });
       expect(result.message).toContain('No shared modules');
       expect(result.modules).toEqual([]);
     });
@@ -70,7 +70,7 @@ describe('createModuleTools', () => {
       ];
       const adapter = makeAdapter({ listModules: vi.fn().mockResolvedValue(modules) });
       const tool = getTool(adapter, 'list_modules');
-      const result = await tool.execute({}, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', });
+      const result = await tool.execute({}, { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false, });
       expect(result.count).toBe(2);
       expect(result.modules).toHaveLength(2);
     });
@@ -82,7 +82,7 @@ describe('createModuleTools', () => {
       const tool = getTool(adapter, 'get_module');
       const result = await tool.execute(
         { name: 'my-mod' },
-        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', },
+        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false, },
       );
       expect(adapter.getModule).toHaveBeenCalledWith('my-mod');
       expect(result.content).toBe('export const a = 1;');
@@ -95,7 +95,7 @@ describe('createModuleTools', () => {
       const tool = getTool(adapter, 'update_module');
       const result = await tool.execute(
         { name: 'my-mod', description: 'Updated desc', content: 'export const b = 2;' },
-        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', },
+        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false, },
       );
       expect(adapter.updateModule).toHaveBeenCalledWith('my-mod', { description: 'Updated desc', content: 'export const b = 2;' });
       expect(result.updated).toBe('my-mod');
@@ -108,7 +108,7 @@ describe('createModuleTools', () => {
       const tool = getTool(adapter, 'delete_module');
       const result = await tool.execute(
         { name: 'my-mod' },
-        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', },
+        { signal: new AbortController().signal, sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false, },
       );
       expect(adapter.deleteModule).toHaveBeenCalledWith('my-mod');
       expect(result.deleted).toBe('my-mod');

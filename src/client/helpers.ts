@@ -47,6 +47,10 @@ export function wireSessionPersistence(
   // Tracks the most recent onSessionsChange invocation so flush() can wait for
   // an already-in-flight write to land instead of racing it.
   let inflight: Promise<void> | null = null;
+  // Track last successful save time so we can force-flush stale data.
+  let lastSaveTime = Date.now();
+  const DEBOUNCE_MS = 500;
+  const STALE_CEILING_MS = 5000;
 
   function doSave(force = false): void {
     if (saveTimer !== null) {
@@ -69,12 +73,15 @@ export function wireSessionPersistence(
     }
     inflight = Promise.resolve(result)
       .catch(() => undefined)
-      .then(() => { inflight = null; });
+      .then(() => { inflight = null; lastSaveTime = Date.now(); });
   }
 
   function scheduleSave(): void {
     if (saveTimer !== null) clearTimeout(saveTimer);
-    saveTimer = setTimeout(doSave, 200);
+    // Ceiling flush: if data is older than STALE_CEILING_MS since last save,
+    // write immediately to prevent data loss from rapid stream bursts.
+    const delay = (Date.now() - lastSaveTime > STALE_CEILING_MS) ? 0 : DEBOUNCE_MS;
+    saveTimer = setTimeout(doSave, delay);
   }
 
   const sessionUnsubs = new Map<string, () => void>();

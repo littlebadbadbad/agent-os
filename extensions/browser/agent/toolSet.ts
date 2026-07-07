@@ -1,4 +1,4 @@
-import type { ToolSet, ToolSetContext } from "@agent-type";
+import { MAIN_CONVERSATION_ID, type ToolSet, type ToolSetContext } from "@agent-type";
 import type { BrowserAdapter } from "./types";
 import { createBrowserTools } from "./tools";
 
@@ -24,7 +24,7 @@ export function createBrowserToolSet(adapter: BrowserAdapter): ToolSet {
           type: "panel",
           id: "browser.main",
           label: "Browser",
-          showTab: () => true,
+          showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
           order: 50,
         },
         {

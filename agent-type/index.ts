@@ -16,6 +16,7 @@ export type {
   ToolExecutionContext,
   ToolExecutionContextExtension,
   AgentSessionState,
+  SessionStateLike,
   AgentSessionExtension,
   SessionEntryExtension,
   SessionEntryDataBase,
@@ -127,6 +128,7 @@ export type {
   HeaderBarSlotDeclaration,
   PluginSlotDeclaration,
   SlotContext,
+  SlotDisplayContext,
   PanelHostMessage,
   ToolCardHostMessage,
   CompactToolCardHostMessage,
@@ -149,3 +151,7 @@ export type { ToolDef } from "./defineTool";
 
 // ── Model metadata ────────────────────────────────────────────────────────────
 export type { ModelMeta } from "./model";
+
+// ── IPC channels (type-safe channel name registry) ───────────────────────────
+export type { IpcChannel } from "./ipc-channels";
+export { typedInvoke } from "./ipc-channels";

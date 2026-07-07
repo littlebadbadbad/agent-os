@@ -257,27 +257,25 @@ function createIpcPluginApiClient(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getElectronInvoke(): (channel: string, params: Record<string, unknown>) => Promise<unknown> {
-  const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-    { invoke?: (channel: string, ...args: unknown[]) => Promise<unknown> } | undefined;
+  const electronAPI = window.electronAPI;
   if (!electronAPI?.invoke) {
     throw new Error(
       '[createPluginApiClient] IPC mode detected but window.electronAPI.invoke is not available. ' +
       'This likely means the preload script is not exposing the expected API.',
     );
   }
-  return (channel, params) => electronAPI.invoke!(channel, params);
+  return (channel, params) => electronAPI.invoke(channel, params);
 }
 
 function getElectronOn(): (channel: string, cb: (...args: unknown[]) => void) => () => void {
-  const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-    { on?: (channel: string, cb: (...args: unknown[]) => void) => () => void } | undefined;
+  const electronAPI = window.electronAPI;
   if (!electronAPI?.on) {
     throw new Error(
       '[createPluginApiClient] IPC mode detected but window.electronAPI.on is not available. ' +
       'This likely means the preload script is not exposing the expected API.',
     );
   }
-  return (channel, cb) => electronAPI.on!(channel, cb);
+  return (channel, cb) => electronAPI.on(channel, cb);
 }
 
 function isPluginApiError(err: unknown): err is PluginApiError {

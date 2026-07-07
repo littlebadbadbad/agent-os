@@ -1,4 +1,4 @@
-import { MAIN_CONVERSATION_ID } from '../toolSet';
+import { MAIN_CONVERSATION_ID } from '@agent-type';
 import type { ToolSet, ToolSetContext } from '@agent-type';
 import type { AgentMessage } from '@agent-type';
 import type { ToolResult } from '@agent-type';

@@ -260,23 +260,33 @@ const sharedToolSets = [
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns a debounced onSessionsChange handler that batches saves (2 s)
- * but writes immediately when `force=true` (e.g. before a restart).
- *
- * IMPORTANT: The SDK layer already has a 200ms debounce via
- * `wireSessionPersistence`.  This outer debounce exists ONLY to batch
- * successive saves into fewer HTTP requests — the inner 200ms timer
- * means data is at most 200ms stale when the outer callback fires.
+ * Check whether the sessionStorage flush marker indicates an unclean shutdown
+ * within the last 10 minutes.  Returns true if a recent marker exists,
+ * meaning the file-based session data might be stale.
  */
-function makeDebouncedSave(agentId: string, delayMs = 200) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  return (sessions: Parameters<typeof sessionStore.saveSessions>[1], force?: boolean): void | Promise<void> => {
-    if (force) {
-      if (timer !== null) { clearTimeout(timer); timer = null; }
-      return sessionStore.saveSessions(agentId, sessions);
+function hasRecentFlushMarker(agentId: string): boolean {
+  try {
+    const raw = sessionStorage.getItem(`__uap_flush_${agentId}`);
+    if (!raw) return false;
+    const backup = JSON.parse(raw) as { agentId: string; ts: number };
+    if (Date.now() - backup.ts > 10 * 60 * 1000) {
+      sessionStorage.removeItem(`__uap_flush_${agentId}`);
+      return false;
     }
-    if (timer !== null) clearTimeout(timer);
-    timer = setTimeout(() => { timer = null; sessionStore.saveSessions(agentId, sessions); }, delayMs);
+    sessionStorage.removeItem(`__uap_flush_${agentId}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── MakeDebouncedSave (now direct pass-through — SDK layer handles debounce) ──
+
+function makeDebouncedSave(agentId: string, _delayMs = 200) {
+  // SDK layer handles all debouncing now (500 ms + 5 s ceiling).
+  // This outer callback is a direct pass-through.
+  return (sessions: Parameters<typeof sessionStore.saveSessions>[1], _force?: boolean): void | Promise<void> => {
+    return sessionStore.saveSessions(agentId, sessions);
   };
 }
 
@@ -327,6 +337,11 @@ export async function initSessions(): Promise<void> {
   // Load provider config before anything else
   await providerConfigStore.load();
 
+  const hadUncleanShutdown = hasRecentFlushMarker('async-agent') || hasRecentFlushMarker('stream-agent');
+  if (hadUncleanShutdown) {
+    console.warn('[initSessions] Unclean shutdown detected — session data may be incomplete.');
+  }
+
   const [asyncSessions, streamSessions] = await Promise.all([
     sessionStore.loadSessions("async-agent"),
     sessionStore.loadSessions("stream-agent"),
@@ -346,7 +361,7 @@ export async function initSessions(): Promise<void> {
   if (typeof window !== 'undefined') {
     if (IS_ELECTRON_IPC) {
       // ── Electron: main-process-coordinated flush (once for all agents) ───
-      const electronAPI = (window as any).electronAPI;
+      const electronAPI = window.electronAPI;
       if (electronAPI?.on) {
         electronAPI.on('app:requestFlush', () => {
           Promise.all([
@@ -362,8 +377,20 @@ export async function initSessions(): Promise<void> {
 
     // Per-agent browser guards (beforeunload etc.) — in Electron these are
     // backup only; the main-process IPC flow is the primary mechanism.
-    function registerAgentFlushGuard(agent: typeof asyncAgent) {
-      const doFlush = () => { agent.flushPersistence().catch(() => {}); };
+    function registerAgentFlushGuard(agent: typeof asyncAgent, agentId: string) {
+      const doFlush = () => {
+        agent.flushPersistence().catch(() => {});
+        // Last-resort sync backup: write a marker so initSessions knows to
+        // re-check the file-based data on next boot.  The actual data is
+        // written by flushPersistence() above; this marker just confirms
+        // we attempted a flush.
+        try {
+          sessionStorage.setItem(
+            `__uap_flush_${agentId}`,
+            JSON.stringify({ agentId, ts: Date.now() }),
+          );
+        } catch { /* sessionStorage may be unavailable */ }
+      };
       window.addEventListener('beforeunload', doFlush);
       if (!IS_ELECTRON_IPC) {
         // visibilitychange/pagehide: opportunistic flush for browser tabs.
@@ -374,7 +401,7 @@ export async function initSessions(): Promise<void> {
       }
     }
 
-    registerAgentFlushGuard(asyncAgent);
-    registerAgentFlushGuard(streamAgent);
+    registerAgentFlushGuard(asyncAgent, 'async-agent');
+    registerAgentFlushGuard(streamAgent, 'stream-agent');
   }
 }

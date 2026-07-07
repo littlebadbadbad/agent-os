@@ -37,7 +37,7 @@ describe('defineTool', () => {
     });
 
     const result = await tool.execute({ a: 2, b: 3 }, {
-      sessionId: '', agentName: 'main', conversationId: '',
+      sessionId: '', agentName: 'main', conversationId: '', sourceAgent: 'main', isSubAgent: false,
       signal: new AbortController().signal, });
     expect(result).toBe(5);
   });

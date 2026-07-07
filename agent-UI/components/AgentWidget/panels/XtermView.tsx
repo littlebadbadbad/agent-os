@@ -4,12 +4,24 @@ import '@xterm/xterm/css/xterm.css';
 import type { TerminalEntry, TerminalManagerAdapter } from '@agent-sdk';
 import styles from './TerminalPanel.module.scss';
 
-// Access internal xterm dimensions without requiring @xterm/addon-fit.
-interface XtermInternal {
-  _core: {
-    _renderService: {
-      dimensions?: { css?: { cell?: { width: number; height: number } } };
-    };
+/**
+ * Measure terminal cell dimensions via DOM probes.
+ *
+ * xterm.js renders a `.xterm-char-measure-element` in its element tree.
+ * We read its `getBoundingClientRect()` to determine cell width/height
+ * without accessing underscore-prefixed private internals.
+ */
+function measureCell(term: Terminal): { width: number; height: number } | null {
+  const el = term.element;
+  if (!el) return null;
+  // xterm.js inserts an inline element for char measurement inside .xterm-screen
+  const screen = el.querySelector('.xterm-screen');
+  if (!screen) return null;
+  const { width, height } = screen.getBoundingClientRect();
+  if (!width || !height || !term.cols || !term.rows) return null;
+  return {
+    width: width / term.cols,
+    height: height / term.rows,
   };
 }
 
@@ -74,7 +86,7 @@ export function XtermView({ entry, adapter, sessionId, onExited }: XtermViewProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
 
-  // ── PTY resize via ResizeObserver ─────────────────────────────────────────
+  // ── PTY resize via ResizeObserver + DOM cell measurement ─────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -82,9 +94,10 @@ export function XtermView({ entry, adapter, sessionId, onExited }: XtermViewProp
     const ro = new ResizeObserver(() => {
       const term = termRef.current;
       if (!term) return;
-      const cell = (term as unknown as XtermInternal)._core._renderService.dimensions?.css?.cell;
-      if (!cell?.width || !cell?.height) return;
-      const cols = Math.max(1, Math.floor(container.clientWidth  / cell.width));
+
+      const cell = measureCell(term);
+      if (!cell) return;
+      const cols = Math.max(1, Math.floor(container.clientWidth / cell.width));
       const rows = Math.max(1, Math.floor(container.clientHeight / cell.height));
       if (cols !== term.cols || rows !== term.rows) {
         term.resize(cols, rows);

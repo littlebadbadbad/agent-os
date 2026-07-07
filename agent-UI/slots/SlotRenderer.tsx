@@ -118,7 +118,11 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       const decl = slotRegistry.getSlot(props.pluginId, props.slotId);
       if (
         decl?.type === "inlinePrompt" &&
-        !decl.shouldRender()
+        !decl.shouldRender({
+          sessionId: props.session.getState().id,
+          agentName: props.session.getState().agentName,
+          conversationId: props.session.getState().conversationId,
+        })
       ) {
         return null;
       }
@@ -136,7 +140,11 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       const decl = slotRegistry.getSlot(props.pluginId, props.slotId);
       if (
         decl?.type === "headerBar" &&
-        !decl.shouldRender()
+        !decl.shouldRender({
+          sessionId: props.session.getState().id,
+          agentName: props.session.getState().agentName,
+          conversationId: props.session.getState().conversationId,
+        })
       ) {
         return null;
       }

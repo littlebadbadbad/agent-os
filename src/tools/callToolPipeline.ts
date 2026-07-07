@@ -99,6 +99,8 @@ export function createToolCallPipeline(
       sessionId: ctx.sessionId,
       agentName: ctx.agentName,
       conversationId: ctx.conversationId,
+      sourceAgent: ctx.agentName as 'main' | string,
+      isSubAgent: ctx.agentName !== 'main',
       signal,
       handler,
       flushPersistence,

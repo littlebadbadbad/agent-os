@@ -58,7 +58,13 @@ export function PanelSlotRenderer(
       apiClient,
       configClient,
       session,
-      slotContext: { slotId, slotType: "panel" },
+      slotContext: {
+        slotId,
+        slotType: "panel",
+        sessionId: session.getState().id,
+        agentName: session.getState().agentName,
+        conversationId: session.getState().conversationId,
+      },
     });
   }, [pluginId, session, slotId, uiPlugin]);
 

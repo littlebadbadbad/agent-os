@@ -27,7 +27,7 @@ export type IpcGitAdapterConfig = Record<string, never>;
  * ```
  */
 export function createIpcGitAdapter(_config: IpcGitAdapterConfig = {}): GitAdapter {
-  const invoke = (window as any).electronAPI?.invoke;
+  const invoke = window.electronAPI?.invoke;
   if (!invoke) {
     throw new Error('createIpcGitAdapter: window.electronAPI.invoke is not available');
   }

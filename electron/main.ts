@@ -165,3 +165,18 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+// ── App-level flush guard ─────────────────────────────────────────────────
+// When the app is quitting (not just a window close), request session flush
+// from the renderer proactively.  This catches process-level shutdowns
+// (e.g. Ctrl+C in gui-dev.mjs on Windows) where the window-level close
+// event may not fire cleanly.
+app.on('before-quit', (_event) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('app:requestFlush');
+    } catch {
+      // Renderer may already be torn down — that's OK.
+    }
+  }
+});

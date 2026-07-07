@@ -18,7 +18,9 @@ import type {
   SessionEntryData,
   PluginSlotDeclaration,
   PluginUiAdapter,
+  SlotDisplayContext,
 } from "@agent-type";
+import { MAIN_CONVERSATION_ID } from "@agent-type";
 import { createPendingInputStore } from "./store";
 import type { PendingInputStore } from "./store";
 import type { PendingInputEntry } from "./types";
@@ -101,6 +103,16 @@ export function createPendingInputToolSet(
     return cbs;
   }
 
+  // ── Composite store key ──────────────────────────────────────────────────
+  // Uses plain sessionId for the main conversation, and `${sessionId}:${conversationId}`
+  // for sub-agent conversations — matching the toolSetContextKey pattern.
+
+  function storeKey(ctx: ToolSetContext): string {
+    return ctx.conversationId === MAIN_CONVERSATION_ID
+      ? ctx.sessionId
+      : `${ctx.sessionId}:${ctx.conversationId}`;
+  }
+
   return {
     symbol: PENDING_INPUT_SYMBOL,
     name: "pending-input",
@@ -109,7 +121,7 @@ export function createPendingInputToolSet(
     // ── State (symbol-isolated for plugin iframe + flat keys for host integration) ──
 
     onGetSymbolState(ctx: ToolSetContext): PendingInputSymbolState {
-      const key = ctx.sessionId;
+      const key = storeKey(ctx);
       const queue = store.getQueue(key);
       const { queueUserInput, cancelQueuedInput, resumeQueuedInputs } =
         getCallbacks(key);
@@ -127,7 +139,7 @@ export function createPendingInputToolSet(
           {
             type: "messageInterceptor",
             id: "user-input.interceptor",
-            shouldIntercept: (isLoading: boolean) => isLoading,
+            shouldIntercept: (isLoading: boolean, _ctx: SlotDisplayContext) => isLoading,
             interceptMessage: (text: string) => queueUserInput(text),
           },
         ],
@@ -137,14 +149,14 @@ export function createPendingInputToolSet(
     // ── Subscriptions ──────────────────────────────────────────────────────
 
     onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-      return store.subscribe(ctx.sessionId, fn);
+      return store.subscribe(storeKey(ctx), fn);
     },
 
     // ── Per-invoke injection ───────────────────────────────────────────────
 
     onBeforeInvoke(ctx: ToolSetContext) {
       return store
-        .drainForInvoke(ctx.sessionId)
+        .drainForInvoke(storeKey(ctx))
         .map((e) => ({ role: "user" as const, content: e.text }));
     },
 
@@ -152,7 +164,7 @@ export function createPendingInputToolSet(
 
     onAfterRun(ctx: ToolSetContext, outcome: AgentRunOutcome): void {
       if (outcome === "aborted" || outcome === "error") return;
-      store.resume(ctx.sessionId);
+      store.resume(storeKey(ctx));
     },
 
     // ── Session lifecycle ──────────────────────────────────────────────────
@@ -161,15 +173,15 @@ export function createPendingInputToolSet(
       ctx: ToolSetContext,
       sendMessage: (text: string) => void,
     ): void {
-      store.setSendMessage(ctx.sessionId, sendMessage);
+      store.setSendMessage(storeKey(ctx), sendMessage);
     },
 
     onResetSession(ctx: ToolSetContext): void {
-      store.reset(ctx.sessionId);
+      store.reset(storeKey(ctx));
     },
 
     onRemoveSession(ctx: ToolSetContext): void {
-      store.remove(ctx.sessionId);
+      store.remove(storeKey(ctx));
     },
 
     // ── Persistence ────────────────────────────────────────────────────────
@@ -177,13 +189,13 @@ export function createPendingInputToolSet(
     onBuildSnapshot(ctx: ToolSetContext): {
       pendingInputs?: readonly PendingInputEntry[];
     } {
-      const inputs = store.serialize(ctx.sessionId);
+      const inputs = store.serialize(storeKey(ctx));
       return inputs?.length ? { pendingInputs: [...inputs] } : {};
     },
 
     onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
       const inputs = entryData.pendingInputs;
-      if (inputs?.length) store.restore(ctx.sessionId, inputs);
+      if (inputs?.length) store.restore(storeKey(ctx), inputs);
     },
   };
 }

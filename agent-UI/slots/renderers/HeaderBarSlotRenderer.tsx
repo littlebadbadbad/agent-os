@@ -68,7 +68,13 @@ export function HeaderBarSlotRenderer(
       apiClient,
       configClient,
       session,
-      slotContext: { slotId, slotType: "headerBar" },
+      slotContext: {
+        slotId,
+        slotType: "headerBar",
+        sessionId: session.getState().id,
+        agentName: session.getState().agentName,
+        conversationId: session.getState().conversationId,
+      },
     });
   }, [pluginId, session, slotId, uiPlugin]);
 

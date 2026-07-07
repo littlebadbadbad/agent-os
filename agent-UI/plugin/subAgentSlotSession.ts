@@ -19,7 +19,7 @@
  * bridge without any runtime transformation.
  */
 
-import type { SlotSession, AgentSessionState, PluginSlotDeclaration } from "@agent-type";
+import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
 import type { SubAgentConversation, SubAgentConversationState } from "@agent-sdk";
 import type { SlotEntry } from "../slots/registry";
 import { pluginSystem } from "../agents";
@@ -30,20 +30,18 @@ import { pluginSystem } from "../agents";
  * The returned object delegates `getState()` and `subscribe()` directly to
  * the conversation handle — no copying, no caching, no extra allocations.
  *
- * The `getState()` return type is widened to `AgentSessionState` via a
- * cast that is safe because:
- *   1. `SubAgentConversationState` has `id: string` and `isLoading: boolean`
- *      (the two required fields on the core `AgentSessionState`).
- *   2. `SubAgentConversationState` has `[key: symbol]: PluginStateExtension & PluginUiAdapter`
- *      (the same symbol index signature as `AgentSessionExtension`).
- *   3. Slot renderers and `createUiPluginHost` only access `state[symbol]`
- *      and spread the object — they never rely on the string index signature.
+ * The conversion is type-safe without casts because:
+ *   1. `SubAgentConversationState` is structurally assignable to
+ *      `SessionStateLike` (has `id`, `isLoading`, `agentName`,
+ *      `conversationId`, and `[key: symbol]`).
+ *   2. `SlotSession.getState()` returns `SessionStateLike` — a minimal
+ *      interface that captures only what slot renderers need.
  */
 export function createSubAgentSlotSession(
   conv: SubAgentConversation,
 ): SlotSession {
   return {
-    getState: () => conv.getState() as unknown as AgentSessionState,
+    getState: () => conv.getState(),
     subscribe: (fn) => conv.subscribe(fn),
   };
 }

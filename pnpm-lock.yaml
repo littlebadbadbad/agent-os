@@ -235,6 +235,87 @@ importers:
 
   extensions/plugin-manager: {}
 
+  extensions/todo:
+    devDependencies:
+      '@types/react':
+        specifier: '*'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: '*'
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: '*'
+        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      react:
+        specifier: '*'
+        version: 19.2.4
+      react-dom:
+        specifier: '*'
+        version: 19.2.4(react@19.2.4)
+      sass:
+        specifier: '*'
+        version: 1.98.0
+      vite:
+        specifier: '*'
+        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
+
+  extensions/token-budget:
+    devDependencies:
+      '@types/react':
+        specifier: '*'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: '*'
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: '*'
+        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      react:
+        specifier: '*'
+        version: 19.2.4
+      react-dom:
+        specifier: '*'
+        version: 19.2.4(react@19.2.4)
+      sass:
+        specifier: '*'
+        version: 1.98.0
+      vite:
+        specifier: '*'
+        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
+
+  extensions/user-input:
+    devDependencies:
+      '@types/react':
+        specifier: '*'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: '*'
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: '*'
+        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      react:
+        specifier: '*'
+        version: 19.2.4
+      react-dom:
+        specifier: '*'
+        version: 19.2.4(react@19.2.4)
+      sass:
+        specifier: '*'
+        version: 1.98.0
+      vite:
+        specifier: '*'
+        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
+
 packages:
 
   '@adobe/css-tools@4.5.0':

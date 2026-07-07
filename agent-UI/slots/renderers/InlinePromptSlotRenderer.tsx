@@ -62,7 +62,13 @@ export function InlinePromptSlotRenderer(
       apiClient,
       configClient,
       session,
-      slotContext: { slotId, slotType: "inlinePrompt" },
+      slotContext: {
+        slotId,
+        slotType: "inlinePrompt",
+        sessionId: session.getState().id,
+        agentName: session.getState().agentName,
+        conversationId: session.getState().conversationId,
+      },
     });
   }, [pluginId, session, slotId, uiPlugin]);
 

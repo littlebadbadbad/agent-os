@@ -68,17 +68,17 @@ async function resolveAsk(
   execCtx: ToolExecutionContext,
 ): Promise<boolean> {
   // 1. Interactive prompt via execCtx.requestUserInput (only when user-input plugin is installed)
-  const response = await execCtx.requestUserInput?.({
+  const userResponse = await execCtx.requestUserInput?.({
     type: 'confirm',
     message,
     ephemeral: true,
   });
-  if (response === 'yes') return true;
+  if (userResponse === 'yes') return true;
 
   // 2. Adapter fallback (headless / SDK mode)
   if (adapter?.confirm) {
-    const response = await adapter.confirm(message);
-    return response === true;
+    const confirmResult = await adapter.confirm(message);
+    return confirmResult === true;
   }
 
   // 3. No channel available — fail closed
@@ -171,7 +171,7 @@ export function createPermissionsToolSet(
   return {
     name: 'permissions',
     description: 'Tool permission checking',
-    sectionId: sectionId ?? ('permissions' as any),
+    sectionId: sectionId ?? 'permissions',
     tools: [],
 
     // ── Per-tool-call hooks ────────────────────────────────────────────────

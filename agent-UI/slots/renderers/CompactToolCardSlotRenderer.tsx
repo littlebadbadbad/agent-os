@@ -44,8 +44,10 @@ export function CompactToolCardSlotRenderer(
 
   // Read dimensions from slot declaration, fall back to sensible defaults.
   const decl = slotRegistry.getSlot(pluginId, slotId) as CompactToolCardSlotDeclaration | undefined;
+  // Base-layer default: compact cards max out at 36px tall.
+  // Plugins can override via containingHeight in their slot declaration.
   const containingWidth = decl?.containingWidth ?? "auto";
-  const containingHeight = decl?.containingHeight ?? "auto";
+  const containingHeight = decl?.containingHeight ?? "36px";
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
@@ -64,7 +66,13 @@ export function CompactToolCardSlotRenderer(
       plugin: uiPlugin,
       apiClient,
       configClient,
-      slotContext: { slotId, slotType: "compactToolCard" },
+      slotContext: {
+        slotId,
+        slotType: "compactToolCard",
+        sessionId: '',
+        agentName: 'main',
+        conversationId: 'main',
+      },
     });
   }, [pluginId, slotId, uiPlugin]);
 

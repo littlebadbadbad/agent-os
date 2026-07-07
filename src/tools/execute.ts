@@ -49,6 +49,8 @@ export const NOOP_CONTEXT: ToolExecutionContext = {
   sessionId: '',
   agentName: 'main',
   conversationId: '',
+  sourceAgent: 'main',
+  isSubAgent: false,
 };
 
 // ── Validated result type ─────────────────────────────────────────────────────
