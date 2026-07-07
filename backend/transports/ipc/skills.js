@@ -12,5 +12,6 @@ export function registerSkillHandlers(ipcMain) {
   ipcMain.handle('skills:list', async () => skillService.getSkillsList());
   ipcMain.handle('skills:install', async (_e, p) => skillService.installSkill(p));
   ipcMain.handle('skills:remove', async (_e, p) => skillService.removeSkillByName(p));
+  ipcMain.handle('skills:refresh', async (_e, p) => skillService.getSkillInfo(p));
   ipcMain.handle('skills:readFile', async (_e, p) => skillService.readSkillFileContent(p));
 }

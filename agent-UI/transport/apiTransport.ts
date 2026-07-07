@@ -192,9 +192,19 @@ function createIpcApiTransport(): ApiTransport {
     { method: 'GET',    pattern: '/api/public-key',            exact: true,  channel: 'publicKey:get' },
     // ── Skills ─────────────────────────────────────────────────────────────
     { method: 'GET',    pattern: '/api/skills',                exact: true,  channel: 'skills:list' },
+    { method: 'POST',   pattern: '/api/skills',                exact: true,  channel: 'skills:install',
+      toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
+    { method: 'POST',   pattern: '/api/skills/refresh/',       exact: false, channel: 'skills:refresh',
+      toParams: (path) => ({ name: decodeURIComponent(path.split('/').pop()!) }) },
+    { method: 'DELETE', pattern: '/api/skills/',               exact: false, channel: 'skills:remove',
+      toParams: (path) => ({ name: decodeURIComponent(path.split('/').pop()!) }) },
     // ── Proxy ──────────────────────────────────────────────────────────────
     { method: 'GET',    pattern: '/api/proxy',                 exact: true,  channel: 'api:proxy:get' },
     { method: 'PUT',    pattern: '/api/proxy',                 exact: true,  channel: 'api:proxy:update',
+      toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
+    { method: 'POST',   pattern: '/api/proxy',                 exact: true,  channel: 'api:proxy:update',
+      toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
+    { method: 'POST',   pattern: '/api/proxy/test',            exact: true,  channel: 'api:proxy:test',
       toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
     // ── Models (query string carries provider name) ────────────────────────
     { method: 'GET',    pattern: '/api/models',                exact: true,  channel: 'api:models:list',

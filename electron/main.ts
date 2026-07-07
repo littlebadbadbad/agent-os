@@ -40,25 +40,10 @@ if (app.isPackaged) {
 // ── Backend startup ───────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
-/**
- * Load the backend module.
- *
- * ── Production (packaged): the backend is pre-bundled as CJS at
- *    dist-electron/server.cjs, loaded via require().
- * ── Development: the backend source is loaded directly via dynamic
- *    import() so that changes to backend/index.js are visible without
- *    a separate bundling step.  The esbuild build in compile-electron.mjs
- *    excludes '../backend/index.js' from the bundle so this import()
- *    resolves to the real file-system module at runtime.
- */
 async function loadBackend() {
   if (app.isPackaged) {
     return require('./server.cjs');
   }
-  // In dev mode: directly import the ESM source so changes to backend/
-  // are picked up without a bundling step. The esbuild bundle in
-  // compile-electron.mjs excludes this path, preserving the real
-  // filesystem module resolution at runtime.
   return import('../backend/index.js');
 }
 
@@ -161,13 +146,8 @@ app.whenReady().then(async () => {
   try {
     const backend = await loadBackend();
 
-    // ── IPC handlers MUST be registered BEFORE startServer() ────────
-    // startServer() bootstraps plugins which may need IPC channels
-    // (proxy config, API methods, etc.).  Registering IPC first
-    // ensures all ipcMain.handle() channels are ready before any
-    // plugin backend entry attempts to communicate with the renderer.
-    await backend.registerIpcHandlers();
     await backend.startServer();
+    await backend.registerIpcHandlers();
   } catch (err) {
     console.error('[electron] Backend startup failed:', err);
     app.quit();
