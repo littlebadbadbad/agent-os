@@ -52,18 +52,11 @@ export function SessionContent({
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      // Check if any plugin wants to intercept the message (e.g. queue it
-      // while the agent loop is running).
-      const interceptor = slotRegistry
-        .getByType("messageInterceptor")
-        .find((s) => s.declaration.shouldIntercept(isLoading, slotCtx));
-      if (interceptor) {
-        interceptor.declaration.interceptMessage(text);
-      } else {
-        await session.sendMessage(text, attachments);
-      }
+      // ToolSet-level interceptor hooks handle message queuing automatically
+      // (e.g. pending-input plugin queues messages while the agent is busy).
+      await session.sendMessage(text, attachments);
     },
-    [session, isLoading],
+    [session],
   );
 
   const handleEditMessage = useCallback(

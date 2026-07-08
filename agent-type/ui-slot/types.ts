@@ -45,7 +45,6 @@ export type SlotType =
   | "toolCard"
   | "compactToolCard"
   | "inlinePrompt"
-  | "messageInterceptor"
   | "headerBar";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -179,37 +178,6 @@ export interface InlinePromptSlotDeclaration {
 }
 
 /**
- * A messageInterceptor slot lets a plugin decide how to handle user messages
- * that are sent while the agent loop is running (`isLoading === true`).
- *
- * No iframe — the host queries `shouldIntercept` on every `sendMessage` call.
- * When it returns `true`, the host calls `interceptMessage` instead of
- * `session.sendMessage`.
- *
- * This is how the pending-input plugin queues messages for the next loop
- * iteration without the host knowing about queuing logic.
- */
-export interface MessageInterceptorSlotDeclaration {
-  readonly type: "messageInterceptor";
-  /** Unique slot identifier within the plugin (e.g. "user-input.interceptor"). */
-  readonly id: string;
-  /**
-   * Called on every `sendMessage` attempt. Return `true` when the plugin
-   * wants to handle the message itself (e.g. queue it for later), `false`
-   * to let the host send it normally.
-   *
-   * Typically returns `true` only when `isLoading` is `true`.
-   * Receives routing context so the plugin can distinguish main vs sub-agent.
-   */
-  readonly shouldIntercept: (isLoading: boolean, ctx: SlotDisplayContext) => boolean;
-  /**
-   * Called when `shouldIntercept` returned `true`.
-   * The plugin receives the message text and handles it (e.g. queues it).
-   */
-  readonly interceptMessage: (text: string) => void;
-}
-
-/**
  * A headerBar slot renders a thin full-width bar above the tab bar.
  *
  * The host creates a sandboxed iframe, subscribes to session state,
@@ -244,7 +212,6 @@ export type PluginSlotDeclaration =
   | ToolCardSlotDeclaration
   | CompactToolCardSlotDeclaration
   | InlinePromptSlotDeclaration
-  | MessageInterceptorSlotDeclaration
   | HeaderBarSlotDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════════════════

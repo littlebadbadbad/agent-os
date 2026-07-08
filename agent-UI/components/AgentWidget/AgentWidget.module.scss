@@ -258,12 +258,42 @@
 
   &:hover {
     color: var(--asdk-text, #{t.$color-text});
+    .tab-close { opacity: 0.65; }
   }
 
   &--active {
     color: var(--asdk-primary, #{t.$zima-blue});
     border-bottom-color: var(--asdk-primary, #{t.$zima-blue});
     font-weight: 600;
+    .tab-close { opacity: 0.65; }
+  }
+}
+
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+  cursor: pointer;
+  color: inherit;
+
+  &:hover {
+    background: color-mix(in srgb, #ef4444 18%, transparent);
+    color: #ef4444;
+    opacity: 1 !important;
   }
 }
 

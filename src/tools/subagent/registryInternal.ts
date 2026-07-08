@@ -49,6 +49,11 @@ export type CreateSubAgentRegistryOptions = {
    */
   toolPool: () => ReadonlyMap<string, Tool>;
   /**
+   * Human-readable label for this registry (e.g. "async-agent", "stream-agent").
+   * UI layers use this to differentiate registries when multiple are present.
+   */
+  label?: string;
+  /**
    * Lazy getter for the LLM handler used by all sub-agents created through this
    * registry.  A getter (rather than a direct reference) lets the registry be
    * constructed before the parent agent is fully attached — the handler is only

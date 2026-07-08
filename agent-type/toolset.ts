@@ -242,6 +242,19 @@ export type CompactionResult = {
  */
 export type AgentRunOutcome = 'completed' | 'max-turns' | 'aborted' | 'error';
 
+// ── Intercept result ───────────────────────────────────────────────────────────
+
+/**
+ * Returned by {@link ToolSet.onInterceptMessage} when the ToolSet has handled
+ * the message itself (e.g. queued it for later delivery).  When any ToolSet
+ * returns `{ intercepted: true }`, the sendMessage call stops — the message
+ * is not delivered to the agent.
+ *
+ * Return `void` / `undefined` to let other ToolSets try, or to let the
+ * message pass through to the normal send path.
+ */
+export type InterceptResult = { readonly intercepted: true } | void;
+
 // ── State ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -432,6 +445,31 @@ export type ToolSet = {
   onRemoveConversation?(ctx: ToolSetContext): void;
 
   // ── Per-run hooks (fire once per sendMessage call) ─────────────────────────
+
+  /**
+   * Called before every `sendMessage` attempt — including both UI-originated
+   * sends and programmatic sends from tools (e.g. `send_async_message`).
+   *
+   * Return `{ intercepted: true }` to claim the message: the send call stops
+   * and the message is not delivered to the agent.  Only the **first** ToolSet
+   * that returns `{ intercepted: true }` takes effect (registration order).
+   *
+   * `isLoading` indicates whether the agent is currently processing a previous
+   * message.  ToolSets typically intercept only when `isLoading` is `true`,
+   * queueing the message for the next available turn.
+   *
+   * Does NOT fire for edit operations (`editAndSendMessage`,
+   * `editConversationMessage`) — edits are never intercepted.
+   *
+   * @param ctx       ToolSet context (session, agent, conversation ids).
+   * @param message   The message being sent (`content` + optional `attachments`).
+   * @param isLoading Whether the agent is currently processing a message.
+   */
+  onInterceptMessage?(
+    ctx: ToolSetContext,
+    message: { readonly content: string; readonly attachments?: readonly Attachment[] },
+    isLoading: boolean,
+  ): InterceptResult;
 
   /**
    * Called once per user message, immediately before the agent loop starts.

@@ -121,6 +121,19 @@ export type AgentSessionConfig = {
    */
   onBeforeInvoke?: () => AgentMessage[];
   /**
+   * Called before every `sendMessage` attempt.  Return `true` to intercept
+   * the message — the send call stops and the message is not delivered to
+   * the agent.  Composed from all registered ToolSets' `onInterceptMessage`
+   * hooks by the agent client.
+   *
+   * Does NOT fire for edit operations (`editAndSendMessage`).
+   */
+  onInterceptMessage?: (
+    text: string,
+    attachments: readonly Attachment[] | undefined,
+    isLoading: boolean,
+  ) => boolean;
+  /**
    * Called once after the entire agent run finishes (success, max-turns, abort, or error).
    * Composed from all registered ToolSets' `onAfterRun` hooks by the agent client.
    */

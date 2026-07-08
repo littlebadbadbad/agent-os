@@ -22,7 +22,7 @@ import { ChatMessages } from '../chat/ChatMessages';
 import { ChatInput } from '../chat/ChatInput';
 import { SlotRenderer } from '../../../slots/SlotRenderer';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
-import type { HeaderBarSlotDeclaration, PanelSlotDeclaration, InlinePromptSlotDeclaration, MessageInterceptorSlotDeclaration, SlotDisplayContext } from '@agent-type';
+import type { HeaderBarSlotDeclaration, PanelSlotDeclaration, InlinePromptSlotDeclaration, SlotDisplayContext } from '@agent-type';
 import styles from '../AgentWidget.module.scss';
 
 // ── ConversationPane ─────────────────────────────────────────────────────────
@@ -85,17 +85,6 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
     [conv],
   );
 
-  // Message-interceptor slots — queried on every send to decide whether
-  // to queue the message (while loading) or forward it to the registry.
-  const messageInterceptorSlots = useMemo<readonly { pluginId: string; declaration: MessageInterceptorSlotDeclaration }[]>(
-    () => conv
-      ? discoverSubAgentSlots(conv)
-          .filter((e): e is { pluginId: string; declaration: MessageInterceptorSlotDeclaration } =>
-            e.declaration.type === 'messageInterceptor')
-      : [],
-    [conv],
-  );
-
   // InlinePrompt slots — overlay iframes that render pending-message strips
   // and user-input prompts.  Reuses the same pattern as headerBar slots.
   const inlinePromptSlots = useMemo<readonly { pluginId: string; declaration: InlinePromptSlotDeclaration }[]>(
@@ -120,18 +109,11 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      // Check if any plugin wants to intercept the message (e.g. queue it
-      // while the sub-agent loop is running).
-      const interceptor = messageInterceptorSlots.find(
-        (s) => s.declaration.shouldIntercept(conv?.isLoading ?? false, slotCtx),
-      );
-      if (interceptor) {
-        interceptor.declaration.interceptMessage(text);
-      } else {
-        await registry.sendConversationMessage(agentName, convId, text, attachments);
-      }
+      // ToolSet-level interceptor hooks handle message queuing automatically
+      // (e.g. pending-input plugin queues messages while the agent is busy).
+      await registry.sendConversationMessage(agentName, convId, text, attachments);
     },
-    [registry, agentName, convId, messageInterceptorSlots, slotCtx, conv],
+    [registry, agentName, convId],
   );
 
   const handleCancel = useCallback(() => {
@@ -335,20 +317,32 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
         {activeEntry.conversations.length > 1 && (
           <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
             {activeEntry.conversations.map((conv) => (
-              <button
+              <div
                 key={conv.id}
-                type="button"
                 className={`${styles['tab']}${conv.id === activeConvId ? ` ${styles['tab--active']}` : ''}`}
-                onClick={() => setSelectedConv(conv.id)}
-                title={conv.title}
               >
-                <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                  {conv.title}
-                </span>
-                {conv.isLoading && (
-                  <span className={styles['tab-badge']}>●</span>
-                )}
-              </button>
+                <button
+                  type="button"
+                  className={styles['tab-label']}
+                  onClick={() => setSelectedConv(conv.id)}
+                  title={conv.title}
+                >
+                  <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                    {conv.title}
+                  </span>
+                  {conv.isLoading && (
+                    <span className={styles['tab-badge']}>●</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className={styles['tab-close']}
+                  onClick={() => registry.deleteConversation(activeEntry.name, conv.id)}
+                  title={`Close "${conv.title}"`}
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -392,14 +386,14 @@ export function SubAgentsPanel({ registries, sessionId }: SubAgentsPanelProps): 
       {/* Registry selector — only shown when multiple registries exist */}
       {registries.length > 1 && (
         <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
-          {registries.map((_, idx) => (
+          {registries.map((reg, idx) => (
             <button
               key={idx}
               type="button"
               className={`${styles['tab']}${idx === clampedIdx ? ` ${styles['tab--active']}` : ''}`}
               onClick={() => setActiveRegistryIdx(idx)}
             >
-              Registry {idx + 1}
+              {reg.label}
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import type { AgentMessage, Attachment, TokenUsage, ToolResult } from '@agent-type';
 import { runAgentLoopCore } from '@agent-sdk/tools/agentLoopCore';
+import { truncateAtUserMessage } from '@agent-sdk/tools/subagent/historyUtils';
 import { createId, assistantMsg, toolMsg } from '../../agent-UI/components/AgentWidget/helpers';
 import type { AgentSessionState, AgentSessionConfig, AgentSession } from './agentSession.types';
 import type { AgentRunOutcome } from '@agent-type';
@@ -309,6 +310,11 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   ): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed && (!attachments || attachments.length === 0)) return;
+    // ToolSet intercept check — plugins can queue the message while the agent
+    // is busy (e.g. pending-input plugin). Runs BEFORE the isLoading guard so
+    // that programmatic sends from tools (e.g. send_async_message) also hit
+    // the interceptor.
+    if (config.onInterceptMessage?.(text, attachments, isLoadingFlag)) return;
     if (isLoadingFlag) return;
 
     setMessages((prev) => [
@@ -353,24 +359,12 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     // real user message. history (LLM context) may contain SUMMARY_ANCHOR_PREFIX
     // user messages after compaction that are invisible in the UI, causing count
     // misalignment if used as the basis for truncation.
-    let fhUserIdx = -1;
-    let fhUserFound = 0;
-    for (let i = 0; i < fullHistory.length; i++) {
-      if (fullHistory[i].role === 'user') {
-        fhUserFound++;
-        if (fhUserFound === userCount) {
-          fhUserIdx = i;
-          break;
-        }
-      }
-    }
-    if (fhUserIdx === -1) return;
+    const truncResult = truncateAtUserMessage(fullHistory, userCount);
+    if (truncResult.userIndex === -1) return;
 
     // Destructively truncate the old branch from both histories.
-    fullHistory = fullHistory.slice(0, fhUserIdx);
-    // Resync LLM context from fullHistory — this also drops any stale compaction
-    // anchors that are no longer valid after the branch is discarded.
-    history = [...fullHistory];
+    fullHistory = truncResult.fullHistory;
+    history = truncResult.history;
 
     // Truncate UI messages at the edit point.
     setMessages((prev) => prev.slice(0, msgIndex));

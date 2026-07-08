@@ -12,6 +12,7 @@
 import type { AgentMessage, TokenUsage } from '@agent-type';
 import type { Attachment } from '@agent-type';
 import type { SubAgentResult } from './types';
+import { truncateAtUserMessage } from './historyUtils';
 import { runAgentLoop } from './loop';
 import { emptyRegistry, withTool } from '../registry';
 import { createToolCallPipeline, withErrorBoundary } from '../callToolPipeline';
@@ -208,6 +209,18 @@ export function createExecutionFunctions(
       throw new Error(`Conversation "${conversationId}" not found on sub-agent "${subAgentName}".`);
     }
 
+    // ToolSet intercept check — plugins can queue the message while the agent
+    // is busy (e.g. pending-input plugin). Runs BEFORE the isLoading guard so
+    // that programmatic sends from tools (e.g. send_async_message) also hit
+    // the interceptor.
+    const interceptCtx = deps.subCtx(subAgentName, conversationId);
+    for (const ts of deps.resolveToolSets()) {
+      const r = ts.onInterceptMessage?.(interceptCtx, { content: message, attachments: opts.attachments }, conv._state.isLoading);
+      if (r?.intercepted) {
+        return { output: '', turns: 0, toolCallCount: 0, history: conv._state.history } satisfies SubAgentResult;
+      }
+    }
+
     // Concurrency guard: prevent two parallel sends from corrupting the same
     // conversation's history and isLoading flag.
     if (conv._state.isLoading) {
@@ -258,25 +271,16 @@ export function createExecutionFunctions(
     }
 
     // Use fullHistory (never compacted) to find the Nth real user message.
-    let fhUserIdx = -1;
-    let fhUserFound = 0;
-    for (let i = 0; i < conv._state.fullHistory.length; i++) {
-      if (conv._state.fullHistory[i].role === 'user') {
-        fhUserFound++;
-        if (fhUserFound === userCount) { fhUserIdx = i; break; }
-      }
-    }
-    if (fhUserIdx === -1) {
+    const truncResult = truncateAtUserMessage(conv._state.fullHistory, userCount);
+    if (truncResult.userIndex === -1) {
       throw new Error(
         `[sub-agent:${subAgentName}] Cannot find user message ${userCount} in conversation "${conversationId}".`,
       );
     }
 
     // Destructively truncate the old branch from both histories.
-    conv._state.fullHistory = conv._state.fullHistory.slice(0, fhUserIdx);
-    // Resync LLM context from fullHistory — drops any stale compaction anchors
-    // that are no longer valid after the branch is discarded.
-    conv._state.history = [...conv._state.fullHistory];
+    conv._state.fullHistory = truncResult.fullHistory;
+    conv._state.history = truncResult.history;
 
     const priorHistory = [...conv._state.history];
     const openingUserMsg: AgentMessage = opts.attachments?.length

@@ -39,7 +39,8 @@ import type { SendMessageOpts } from './registryExecution';
 export type { CreateSubAgentRegistryOptions };
 
 export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): SubAgentRegistry {
-  const { getToolSets, sessionId, toolPool, handler } = options;
+  const { getToolSets, sessionId, toolPool, handler, label } = options;
+  const registryLabel = label ?? 'Sub-Agents';
 
   // ── Closure state ──────────────────────────────────────────────────────────
 
@@ -97,6 +98,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
   // ── Public API ─────────────────────────────────────────────────────────────
 
   return {
+    get label(): string { return registryLabel; },
     getState(): SubAgentRegistryState {
       if (!registrySnapshotCache) {
         registrySnapshotCache = {

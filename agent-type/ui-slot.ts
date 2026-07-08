@@ -16,7 +16,6 @@ export type {
   ToolCardSlotDeclaration,
   CompactToolCardSlotDeclaration,
   InlinePromptSlotDeclaration,
-  MessageInterceptorSlotDeclaration,
   HeaderBarSlotDeclaration,
   PluginSlotDeclaration,
   SlotContext,

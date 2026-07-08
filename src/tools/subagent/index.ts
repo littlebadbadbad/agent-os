@@ -8,7 +8,7 @@ export type {
   SubAgentRegistry,
 } from './registryTypes';
 export { runAgentLoop } from './loop';
-export { createSubAgentToolset } from './metaTools';
+export { createSubAgentToolset } from './subAgentToolset';
 export { createSubAgentRegistry } from './registry';
 export type { CreateSubAgentRegistryOptions } from './registry';
 export { createDelegationNudgeToolSet } from './delegationNudge';

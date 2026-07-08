@@ -18,8 +18,8 @@ import type {
   SessionEntryData,
   PluginSlotDeclaration,
   PluginUiAdapter,
-  SlotDisplayContext,
 } from "@agent-type";
+import type { Attachment } from "@agent-type";
 import { MAIN_CONVERSATION_ID } from "@agent-type";
 import { createPendingInputStore } from "./store";
 import type { PendingInputStore } from "./store";
@@ -135,15 +135,24 @@ export function createPendingInputToolSet(
         resumeQueuedInputs,
         pendingUserInputs: [],
         respondUserInput: () => {},
-        slots: [
-          {
-            type: "messageInterceptor",
-            id: "user-input.interceptor",
-            shouldIntercept: (isLoading: boolean, _ctx: SlotDisplayContext) => isLoading,
-            interceptMessage: (text: string) => queueUserInput(text),
-          },
-        ],
+        slots: [],
       };
+    },
+
+    // ── Message interception ──────────────────────────────────────────────
+    // Called on every sendMessage attempt — including programmatic sends from
+    // tools.  Intercepts when the agent is busy and queues for later delivery.
+
+    onInterceptMessage(
+      ctx: ToolSetContext,
+      message: { readonly content: string; readonly attachments?: readonly Attachment[] },
+      isLoading: boolean,
+    ) {
+      if (!isLoading) return;
+      const key = storeKey(ctx);
+      const cbs = getCallbacks(key);
+      cbs.queueUserInput(message.content);
+      return { intercepted: true as const };
     },
 
     // ── Subscriptions ──────────────────────────────────────────────────────

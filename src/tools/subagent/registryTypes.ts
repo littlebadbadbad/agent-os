@@ -193,6 +193,11 @@ export type SubAgentRegistryState = {
  *   and UI access (e.g. a future SubAgent management panel).
  */
 export type SubAgentRegistry = {
+  /**
+   * Human-readable label identifying which agent mode this registry belongs to
+   * (e.g. "async-agent", "stream-agent").
+   */
+  readonly label: string;
   /** Returns the current observable state snapshot. */
   getState(): SubAgentRegistryState;
   /** Subscribe to any state change. Returns an unsubscribe function. */

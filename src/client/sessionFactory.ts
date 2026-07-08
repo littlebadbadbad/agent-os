@@ -5,6 +5,7 @@ import type {
   TokenUsage,
   ToolChoice,
   AgentSessionExtension,
+  Attachment,
 } from "@agent-type";
 import {
   createToolCallPipeline,
@@ -208,6 +209,17 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
       },
       onBeforeRun: (history) => {
         for (const ts of getAllToolSets()) ts.onBeforeRun?.(tsCtx, history);
+      },
+      onInterceptMessage: (
+        text: string,
+        attachments: readonly Attachment[] | undefined,
+        isLoading: boolean,
+      ): boolean => {
+        for (const ts of getAllToolSets()) {
+          const r = ts.onInterceptMessage?.(tsCtx, { content: text, attachments }, isLoading);
+          if (r?.intercepted) return true;
+        }
+        return false;
       },
       onBeforeInvoke: () =>
         getAllToolSets().flatMap((ts) => ts.onBeforeInvoke?.(tsCtx) ?? []),
