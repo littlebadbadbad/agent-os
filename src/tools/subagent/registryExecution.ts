@@ -75,7 +75,7 @@ export function createExecutionFunctions(
    * `openingUserMsg` and `priorHistory` (history WITHOUT the new user turn)
    * before calling this helper.
    *
-   * Appends `openingUserMsg` to `state.history` and `state.fullHistory`,
+   * Appends `openingUserMsg` to both live and full history via the tracker,
    * runs the sub-agent loop, persists the resulting full history, and
    * returns the result.
    */
@@ -91,10 +91,8 @@ export function createExecutionFunctions(
 
     // Immediately append the user message so the UI can display it
     // before the sub-agent loop begins processing.
-    state.history = [...priorHistory, openingUserMsg];
-    state.fullHistory.push(openingUserMsg);
-    // Tracks the slice boundary for incrementally appending to fullHistory each turn.
-    let nextTurnStart = state.history.length;
+    state.tracker.pushToBoth(openingUserMsg);
+    state.tracker.setTurnStart(state.tracker.getLiveHistory().length);
     state.isLoading = true;
     state.streamingText = '';
     conv._notifyRegistry();
@@ -104,7 +102,7 @@ export function createExecutionFunctions(
     // variable ToolSet stores any attachments in the user message as variables,
     // making them accessible via var_read for the duration of this sub-agent turn).
     for (const ts of deps.resolveToolSets()) {
-      ts.onBeforeRun?.(turnCtx, state.history);
+      ts.onBeforeRun?.(turnCtx, state.tracker.getLiveHistory());
     }
 
     // onAfterTurn: update history after every turn (so tool calls appear
@@ -116,24 +114,22 @@ export function createExecutionFunctions(
       usage: TokenUsage | undefined,
       signal: AbortSignal,
     ): Promise<AgentMessage[] | void> => {
-      // Append any messages added this turn to the full (non-compacted) record.
-      state.fullHistory.push(...history.slice(nextTurnStart));
-      state.history = history;
       state.streamingText = '';
 
       // Notices are sub-agent-internal and have no dedicated UI stream here;
       // they are intentionally dropped (the compacted history is all we need).
       const r = await composeToolSetAfterTurn(history, deps.resolveToolSets(), turnCtx, usage, signal, deps.handler);
       if (r.changed) {
-        state.history = r.history;
-        nextTurnStart = r.history.length;
+        state.tracker.advanceTurn(r.history);
       } else {
-        nextTurnStart = history.length;
+        state.tracker.advanceTurn(history);
       }
 
       conv._notifyRegistry();
       return r.changed ? r.history : undefined;
     };
+
+    let outcome: import('@agent-type').AgentRunOutcome = 'error';
 
     try {
       const fullSystemPrompt = buildSystemPrompt(entry.systemPrompt, deps.resolveToolSets(), turnCtx, message, entry.sectionCache);
@@ -174,13 +170,23 @@ export function createExecutionFunctions(
 
       // Final history is already up-to-date from onAfterTurn; set it here as
       // a safety net in case onAfterTurn wasn't called (e.g. single turn).
-      state.history = result.history;
+      state.tracker.advanceTurn(result.history);
+
+      outcome = opts.signal.aborted
+        ? 'aborted'
+        : result.turns >= entry.maxTurns ? 'max-turns' : 'completed';
+
       return result;
+    } catch (_err) {
+      outcome = opts.signal.aborted ? 'aborted' : 'error';
+      throw _err;
     } finally {
-      // Reconcile fullHistory: merge any messages written to `history` during
-      // turns that completed before an abort fired (safety net for partial turns).
-      if (state.fullHistory.length < state.history.length) {
-        state.fullHistory.push(...state.history.slice(state.fullHistory.length));
+      state.tracker.reconcile();
+      // Fire post-run hooks.  Implementations (e.g. PendingInputToolSet) may
+      // call sendMessage synchronously here — isLoading is already false so
+      // the call goes through immediately and starts the next run.
+      for (const ts of deps.resolveToolSets()) {
+        ts.onAfterRun?.(turnCtx, outcome);
       }
       // isLoading change is structural — update the registry snapshot.
       state.streamingText = '';
@@ -217,7 +223,7 @@ export function createExecutionFunctions(
     for (const ts of deps.resolveToolSets()) {
       const r = ts.onInterceptMessage?.(interceptCtx, { content: message, attachments: opts.attachments }, conv._state.isLoading);
       if (r?.intercepted) {
-        return { output: '', turns: 0, toolCallCount: 0, history: conv._state.history } satisfies SubAgentResult;
+        return { output: '', turns: 0, toolCallCount: 0, history: conv._state.tracker.getLiveHistory() } satisfies SubAgentResult;
       }
     }
 
@@ -230,7 +236,7 @@ export function createExecutionFunctions(
       );
     }
 
-    const priorHistory = [...conv._state.history];
+    const priorHistory = conv._state.tracker.getLiveHistory();
     const openingUserMsg: AgentMessage = opts.attachments?.length
       ? { role: 'user', content: message, attachments: opts.attachments }
       : { role: 'user', content: message };
@@ -271,7 +277,7 @@ export function createExecutionFunctions(
     }
 
     // Use fullHistory (never compacted) to find the Nth real user message.
-    const truncResult = truncateAtUserMessage(conv._state.fullHistory, userCount);
+    const truncResult = truncateAtUserMessage(conv._state.tracker.getFullHistory(), userCount);
     if (truncResult.userIndex === -1) {
       throw new Error(
         `[sub-agent:${subAgentName}] Cannot find user message ${userCount} in conversation "${conversationId}".`,
@@ -279,10 +285,9 @@ export function createExecutionFunctions(
     }
 
     // Destructively truncate the old branch from both histories.
-    conv._state.fullHistory = truncResult.fullHistory;
-    conv._state.history = truncResult.history;
+    conv._state.tracker.replaceBoth(truncResult.history, truncResult.fullHistory);
 
-    const priorHistory = [...conv._state.history];
+    const priorHistory = conv._state.tracker.getLiveHistory();
     const openingUserMsg: AgentMessage = opts.attachments?.length
       ? { role: 'user', content: newText, attachments: opts.attachments }
       : { role: 'user', content: newText };

@@ -9,6 +9,7 @@
  */
 
 import type { AgentMessage } from '@agent-type';
+import { createHistoryTracker, type HistoryTracker } from '@agent-sdk/tools/historyTracker';
 import type {
   SubAgentConversation,
   SubAgentConversationState,
@@ -38,13 +39,8 @@ export type MutableConvState = {
   title: string;
   isLoading: boolean;
   streamingText: string;
-  history: AgentMessage[];
-  /**
-   * Append-only record of every message — never replaced by a compacted
-   * summary.  Used by `getSnapshot()` so persistence saves the full
-   * conversation.
-   */
-  fullHistory: AgentMessage[];
+  /** Unified dual-buffer history tracker (live LLM context + full append-only record). */
+  tracker: HistoryTracker;
 };
 
 /**
@@ -99,8 +95,7 @@ export function makeConversation(
     title,
     isLoading: false,
     streamingText: '',
-    history: [],
-    fullHistory: [],
+    tracker: createHistoryTracker(),
   };
   const subs = new Set<() => void>();
   let convSnapshot: SubAgentConversationState | undefined;
@@ -140,7 +135,7 @@ export function makeConversation(
           title: state.title,
           isLoading: state.isLoading,
           streamingText: state.streamingText,
-          history: [...state.fullHistory],
+          history: state.tracker.getFullHistory(),
           ...getExtraState?.(),
         } as SubAgentConversationState;
       }
@@ -153,7 +148,7 @@ export function makeConversation(
     },
 
     getHistory(): AgentMessage[] {
-      return [...state.history];
+      return state.tracker.getLiveHistory();
     },
   };
 }

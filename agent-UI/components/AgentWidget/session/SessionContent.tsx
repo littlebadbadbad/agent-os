@@ -12,6 +12,7 @@ import { CronPanel } from "../panels/CronPanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
 import { slotRegistry } from "../../../slots/registry";
+import { buildSlotDisplayContextFromState } from "../../../slots/context";
 import styles from "../AgentWidget.module.scss";
 import { pluginSystem } from "@agent-UI/agents";
 
@@ -88,7 +89,7 @@ export function SessionContent({
   pluginSystem.refreshSlots(session);
 
   // Build SlotDisplayContext from session state for slot visibility decisions.
-  const slotCtx = { sessionId: sessionStateId, agentName, conversationId };
+  const slotCtx = buildSlotDisplayContextFromState({ id: sessionStateId, agentName, conversationId });
 
   // Check if any plugin panel slots are visible.
   const hasPluginUi = slotRegistry

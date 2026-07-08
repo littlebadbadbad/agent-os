@@ -27,6 +27,7 @@ import { createAgentPluginHost, type AgentPluginContext } from "./host";
 import { slotRegistry } from "../slots/registry";
 import { providerStore } from "../store/providerStore";
 import type { AgentSession } from "@agent-sdk/client";
+import { discoverSlots } from "./discoverSlots";
 
 // ── Compile-time built-in plugin registry ────────────────────────────────────
 // Baked into the bundle at build time by Vite.  Same source of truth as
@@ -173,16 +174,14 @@ export function createPluginSystem(): PluginSystem {
 
     refreshSlots(session: AgentSession): void {
       const sessionState = session.getState();
+      // Clear all existing entries first — slots are fully recomputed from
+      // the current session state on each call.
       for (const plugin of state.activePlugins) {
         slotRegistry.unregister(plugin.id);
-        for (const sym of plugin.symbols) {
-          const adapter = sessionState[sym];
-          if (adapter?.slots) {
-            for (const slot of adapter.slots) {
-              slotRegistry.register(plugin.id, slot);
-            }
-          }
-        }
+      }
+      const entries = discoverSlots(sessionState, state.activePlugins);
+      for (const entry of entries) {
+        slotRegistry.register(entry.pluginId, entry.declaration);
       }
     },
   };

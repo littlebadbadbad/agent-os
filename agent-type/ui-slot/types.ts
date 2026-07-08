@@ -141,19 +141,6 @@ export interface CompactToolCardSlotDeclaration {
   readonly containingHeight?: string;
 }
 
-/**
- * An inlinePrompt slot renders a floating prompt overlay for user input.
- *
- * The host creates a sandboxed iframe and pushes
- * {@link InlinePromptHostMessage} on every state change.
- * The iframe reads prompt data from `host.getPluginState()`
- * and calls the plugin's responder function directly.
- *
- * The host calls `shouldRender` on every session state change. When it
- * returns `false`, the iframe is unmounted entirely — saving resources
- * when no prompts are pending. This is analogous to
- * {@link PanelSlotDeclaration.showTab}.
- */
 export interface InlinePromptSlotDeclaration {
   readonly type: "inlinePrompt";
   /** Unique slot identifier within the plugin. */

@@ -20,8 +20,9 @@ import { agentMessagesToUI } from '@agent-sdk';
 import { assistantMsg } from '../helpers';
 import { ChatMessages } from '../chat/ChatMessages';
 import { ChatInput } from '../chat/ChatInput';
-import { SlotRenderer } from '../../../slots/SlotRenderer';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
+import { PaneSlotLayout } from '../panes/PaneSlotLayout';
+import { buildSlotDisplayContextFromState } from '../../../slots/context';
 import type { HeaderBarSlotDeclaration, PanelSlotDeclaration, InlinePromptSlotDeclaration, SlotDisplayContext } from '@agent-type';
 import styles from '../AgentWidget.module.scss';
 
@@ -38,7 +39,10 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
   const rawConv = registry.getConversation(agentName, convId);
 
   // Slot display context for this sub-agent conversation.
-  const slotCtx: SlotDisplayContext = { sessionId, agentName, conversationId: convId };
+  const slotCtx: SlotDisplayContext = useMemo(
+    () => buildSlotDisplayContextFromState({ id: sessionId, agentName, conversationId: convId }),
+    [sessionId, agentName, convId],
+  );
 
   // Stable fallbacks for useSyncExternalStore when the conversation handle is absent.
   // Defined outside the conditional so hook call count is always the same.
@@ -97,15 +101,7 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
   );
 
   // Local view state: "chat" or "plugin:<pluginId>" for panel slots.
-  const [paneView, setPaneView] = useState<string>('chat');
-
-  // Reset to chat when conversation changes or when the selected panel
-  // is no longer available.
-  const effectiveView = useMemo(() => {
-    if (paneView === 'chat') return 'chat';
-    const pluginId = paneView.slice('plugin:'.length);
-    return panelSlots.some((p) => p.pluginId === pluginId) ? paneView : 'chat';
-  }, [paneView, panelSlots]);
+  // Now managed by PaneSlotLayout — removed from this component.
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
@@ -151,51 +147,12 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      {/* HeaderBar slots — thin full-width bars above the chat.
-          Each slot is a sandboxed iframe that subscribes to
-          conversation state changes. */}
-      {slotSession && headerBarSlots.map((entry) => (
-        <SlotRenderer
-          key={`${entry.pluginId}:${entry.declaration.id}`}
-          pluginId={entry.pluginId}
-          slotType="headerBar"
-          slotId={entry.declaration.id}
-          session={slotSession}
-        />
-      ))}
-
-      {/* Panel slot tabs — shown when any plugin declares a visible panel */}
-      {panelSlots.length > 0 && (
-        <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
-          <button
-            type="button"
-            className={`${styles['tab']}${effectiveView === 'chat' ? ` ${styles['tab--active']}` : ''}`}
-            onClick={() => setPaneView('chat')}
-          >
-            Chat
-          </button>
-          {panelSlots.map((entry) => {
-            const v = `plugin:${entry.pluginId}`;
-            const badge = entry.declaration.badge?.(slotCtx) ?? null;
-            return (
-              <button
-                key={entry.pluginId}
-                type="button"
-                className={`${styles['tab']}${effectiveView === v ? ` ${styles['tab--active']}` : ''}`}
-                onClick={() => setPaneView(v)}
-              >
-                {entry.declaration.icon && <span style={{ marginRight: 4 }}>{entry.declaration.icon}</span>}
-                {entry.declaration.label}
-                {badge && <span className={styles['tab-badge']}>{badge}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Chat view (hidden when a panel tab is selected) */}
-      <div
-        className={effectiveView === 'chat' ? styles['chat-panel'] : styles['hidden']}
+      <PaneSlotLayout
+        slotSession={slotSession}
+        headerBarSlots={headerBarSlots}
+        panelSlots={panelSlots}
+        inlinePromptSlots={inlinePromptSlots}
+        slotCtx={slotCtx}
       >
         <ChatMessages messages={messages} onEditMessage={handleEditMessage} />
         <ChatInput
@@ -204,31 +161,7 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
           isLoading={conv.isLoading}
           enableAttachments={true}
         />
-      </div>
-
-      {/* Panel slot view */}
-      {effectiveView !== 'chat' && slotSession && (
-        <SlotRenderer
-          pluginId={effectiveView.slice('plugin:'.length)}
-          slotType="panel"
-          slotId={`${effectiveView.slice('plugin:'.length)}.main`}
-          session={slotSession}
-        />
-      )}
-
-      {/* InlinePrompt slots — plugin-managed overlays for pending messages
-          and user-input prompts.  Each slot creates a sandboxed iframe that
-          receives prompt state via InlinePromptHostMessage.
-          Shown above all content so pending prompts never silently block. */}
-      {slotSession && inlinePromptSlots.map((entry) => (
-        <SlotRenderer
-          key={`${entry.pluginId}:${entry.declaration.id}`}
-          pluginId={entry.pluginId}
-          slotType="inlinePrompt"
-          slotId={entry.declaration.id}
-          session={slotSession}
-        />
-      ))}
+      </PaneSlotLayout>
     </div>
   );
 }

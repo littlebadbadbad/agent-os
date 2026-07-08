@@ -1,6 +1,7 @@
 import type { AgentMessage, Attachment, TokenUsage, ToolResult } from '@agent-type';
 import { runAgentLoopCore } from '@agent-sdk/tools/agentLoopCore';
 import { truncateAtUserMessage } from '@agent-sdk/tools/subagent/historyUtils';
+import { createHistoryTracker } from '@agent-sdk/tools/historyTracker';
 import { createId, assistantMsg, toolMsg } from '../../agent-UI/components/AgentWidget/helpers';
 import type { AgentSessionState, AgentSessionConfig, AgentSession } from './agentSession.types';
 import type { AgentRunOutcome } from '@agent-type';
@@ -53,19 +54,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
 
   // ── Mutable runtime state (not observable) ────────────────────────────────
 
-  // `history` is the compacted LLM context fed to the model on every API call.
-  // On session restore it starts as `liveHistory` (if saved) so that a long
-  // fullHistory does not immediately overflow the model's context window.
-  let history: AgentMessage[] = config.liveHistory
-    ? [...config.liveHistory]
-    : config.initialMessages
-      ? [...config.initialMessages]
-      : [];
-  // fullHistory is the append-only record of every message in the conversation.
-  // Unlike `history` (the LLM context), it is never replaced by a compacted
-  // summary — it grows monotonically so that persistence always saves the
-  // complete conversation rather than just the compacted LLM context window.
-  let fullHistory: AgentMessage[] = config.initialMessages ? [...config.initialMessages] : [];
+  const tracker = createHistoryTracker(config.initialMessages, config.liveHistory);
   let isLoadingFlag = false;
   let abortController: AbortController | null = null;
 
@@ -83,12 +72,9 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     userText: string,
     userMsg: AgentMessage,
   ): Promise<void> {
-    config.onBeforeRun?.(history);
+    config.onBeforeRun?.(tracker.getLiveHistory());
 
-    // Tracks the slice boundary for incrementally appending to fullHistory.
-    // After each turn (or compaction) this advances to the new end of the LLM
-    // context so we only push the *new* messages from that turn.
-    let nextTurnStart = history.length;
+    tracker.setTurnStart(tracker.getLiveHistory().length);
 
     // Per-turn streaming state. Captured as a mutable object so the batched
     // appenders (created once) can pick up updates via their closure.
@@ -108,23 +94,9 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
       usage: TokenUsage | undefined,
       signal: AbortSignal,
     ): Promise<AgentMessage[] | void> {
-      // Append any messages added this turn to the full (non-compacted) record.
-      fullHistory.push(...historySnapshot.slice(nextTurnStart));
-
-      // Keep the live history reference current after every turn so that
-      // getLiveHistory() (and therefore flushPersistence / snapshot saves) always
-      // reflects the latest LLM context — not just the stale snapshot from when
-      // sendMessage was first called.  Without this, tools like upgrade_restart
-      // that call flushPersistence() mid-loop would save a history that only
-      // contains the initial user message.
-      history = [...historySnapshot];
-
       const result = await config.onAfterTurn?.(historySnapshot, usage, signal);
       if (result) {
-        // Advance the boundary to the compacted context length so the next
-        // turn only slices the genuinely new messages.
-        nextTurnStart = result.history.length;
-        history = [...result.history];
+        tracker.advanceTurn([...result.history]);
         for (const notice of result.notices ?? []) {
           setMessages((prev) => [
             ...prev,
@@ -133,8 +105,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
         }
         return result.history;
       }
-      // No compaction — advance boundary to the current snapshot length.
-      nextTurnStart = historySnapshot.length;
+      tracker.advanceTurn([...historySnapshot]);
     }
 
     isLoadingFlag = true;
@@ -147,7 +118,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
 
     try {
       const loopResult = await runAgentLoopCore({
-        initialHistory: [...history],
+        initialHistory: tracker.getLiveHistory(),
         maxTurns: config.maxAgentTurns <= 0 ? Infinity : config.maxAgentTurns,
         signal: controller.signal,
         invokeHandler: (msgs, sig) =>
@@ -226,8 +197,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
               // debounced snapshot save that fires before onAfterTurn still
               // captures them — closes the persistence gap that would otherwise
               // lose queued messages on a page reload.
-              fullHistory.push(...injected);
-              nextTurnStart += injected.length;
+              tracker.injectToFull(injected);
 
               const uiMsgs = agentMessagesToUI(injected.filter((m) => m.role === 'user'));
               console.log('[onBeforeInvoke] uiMsgs.length =', uiMsgs.length, uiMsgs.map(m => ({ role: m.role, content: m.content.slice(0, 40) })));
@@ -257,7 +227,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
         },
       });
 
-      history = loopResult.history;
+      tracker.advanceTurn(loopResult.history);
 
       outcome = controller.signal.aborted
         ? 'aborted'
@@ -325,8 +295,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
       attachments && attachments.length > 0
         ? { role: 'user', content: trimmed, attachments }
         : { role: 'user', content: trimmed };
-    history.push(userMsg);
-    fullHistory.push(userMsg);
+    tracker.pushToBoth(userMsg);
 
     await runInternalAgentLoop(trimmed, userMsg);
   }
@@ -359,23 +328,21 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     // real user message. history (LLM context) may contain SUMMARY_ANCHOR_PREFIX
     // user messages after compaction that are invisible in the UI, causing count
     // misalignment if used as the basis for truncation.
-    const truncResult = truncateAtUserMessage(fullHistory, userCount);
+    const truncResult = truncateAtUserMessage(tracker.getFullHistory(), userCount);
     if (truncResult.userIndex === -1) return;
 
     // Destructively truncate the old branch from both histories.
-    fullHistory = truncResult.fullHistory;
-    history = truncResult.history;
+    tracker.replaceBoth(truncResult.history, truncResult.fullHistory);
 
     // Truncate UI messages at the edit point.
     setMessages((prev) => prev.slice(0, msgIndex));
 
-    // Add the new user message to all three: fullHistory, history, and UI.
+    // Add the new user message to both histories and UI.
     const newUserMsg: AgentMessage =
       attachments && attachments.length > 0
         ? { role: 'user', content: trimmed, attachments }
         : { role: 'user', content: trimmed };
-    fullHistory.push(newUserMsg);
-    history.push(newUserMsg);
+    tracker.pushToBoth(newUserMsg);
     setMessages((prev) => [
       ...prev,
       { id: createId(), role: 'user', content: trimmed, isStreaming: false, attachments },
@@ -397,8 +364,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
 
   function clearHistory(): void {
     setMessages(() => []);
-    history = [];
-    fullHistory = [];
+    tracker.reset();
     config.onClearHistory();
   }
 
@@ -423,8 +389,8 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     clearHistory,
     getState,
     subscribe,
-    getHistory(): AgentMessage[] { return [...fullHistory]; },
-    getLiveHistory(): AgentMessage[] { return [...history]; },
+    getHistory(): AgentMessage[] { return tracker.getFullHistory(); },
+    getLiveHistory(): AgentMessage[] { return tracker.getLiveHistory(); },
     setTitle(title: string): void { setState((prev) => ({ ...prev, title })); },
   };
 }

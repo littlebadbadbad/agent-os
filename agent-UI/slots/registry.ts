@@ -98,8 +98,14 @@ export function createSlotRegistry(): SlotRegistry {
       }
     },
 
-    getByType(type: SlotType): ReadonlyArray<SlotEntry<any>> {
-      const result: SlotEntry<any>[] = [];
+    // `getByType` implementation returns `SlotEntry<PluginSlotDeclaration>`.
+    // TypeScript's overload compatibility requires the implementation to be
+    // assignable to every narrow overload (e.g. `SlotEntry<PanelSlotDeclaration>`),
+    // which is not structurally provable.  The `as SlotRegistry` assertion on
+    // the returned object bridges this gap — callers always resolve via the
+    // typed overloads on the `SlotRegistry` interface.
+    getByType(type: SlotType) {
+      const result: SlotEntry<PluginSlotDeclaration>[] = [];
       for (const entry of entries.values()) {
         if (entry.declaration.type === type) {
           result.push(entry);
@@ -128,7 +134,7 @@ export function createSlotRegistry(): SlotRegistry {
     get isEmpty(): boolean {
       return entries.size === 0;
     },
-  };
+  } as SlotRegistry;
 }
 
 // ── Singleton ─────────────────────────────────────────────────────────────────

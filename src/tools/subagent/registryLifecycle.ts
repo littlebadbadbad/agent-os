@@ -14,6 +14,8 @@ import { generateConvId, makeConversation } from './registryConversation';
 import type { ConversationHandle } from './registryConversation';
 import type { InternalEntry, RegistryDeps } from './registryInternal';
 import type { collectToolSetState, collectToolSetSymbolState } from './registrySnapshot';
+import type { SendMessageOpts } from './registryExecution';
+import type { SubAgentResult } from './types';
 
 type CollectToolSetStateFn = typeof collectToolSetState;
 type CollectToolSetSymbolStateFn = typeof collectToolSetSymbolState;
@@ -46,6 +48,10 @@ export type LifecycleFunctions = {
  * @param collectState     The `collectToolSetState` function from registrySnapshot.
  * @param convSubCleanups  Mutable map of per-conversation cleanup callbacks.
  * @param notify           Registry-level notify function (snapshot invalidation).
+ * @param getSessionId     Returns the parent session ID (for onSessionReady).
+ * @param sendMessageRef   Mutable holder for execution.sendMessage — wired
+ *                         after `createExecutionFunctions` builds the execution
+ *                         object (avoiding a circular dependency).
  */
 export function createLifecycleFunctions(
   deps: RegistryDeps,
@@ -53,6 +59,8 @@ export function createLifecycleFunctions(
   collectSymbolState: CollectToolSetSymbolStateFn,
   convSubCleanups: Map<string, () => void>,
   notify: () => void,
+  getSessionId: () => string,
+  sendMessageRef: { current?: (agentName: string, convId: string, text: string, opts: SendMessageOpts) => Promise<SubAgentResult> },
 ): LifecycleFunctions {
   // ── Conversation creation ─────────────────────────────────────────────────
 
@@ -129,6 +137,18 @@ export function createLifecycleFunctions(
     const initData = { id: sessionId, title: entry.name, ...entryData } as SessionEntryData;
     for (const ts of deps.resolveToolSets()) {
       ts.onInitSession?.(ctx, initData);
+      // Fire onSessionReady so ToolSets (e.g. PendingInputToolSet) can
+      // register a sendMessage callback for auto-resuming queued messages.
+      // Uses a lazy ref to avoid circular dependency with executionFunctions.
+      ts.onSessionReady?.(ctx, (text: string) => {
+        const fn = sendMessageRef.current;
+        if (!fn) return;
+        fn(entry.name, entry.activeConversationId, text, {
+          sessionId,
+          signal: new AbortController().signal,
+          attachments: undefined,
+        });
+      });
     }
   }
 

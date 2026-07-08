@@ -28,7 +28,7 @@ function buildContext(
   callTool: (call: ToolCall) => Promise<ToolResult>,
 ): HandlerContext {
   const { tools, toolChoice, systemPrompt, signal } = options;
-  return { tools: toDescriptors(tools as Tool[]), callTool, toolChoice, systemPrompt, signal };
+  return { tools: toDescriptors(tools), callTool, toolChoice, systemPrompt, signal };
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export async function runAgentLoop(config: SubAgentConfig): Promise<SubAgentResu
       sessionId,
       agentName,
       conversationId,
-      sourceAgent: agentName as 'main' | string,
+      sourceAgent: agentName,
       isSubAgent: true,
     });
 

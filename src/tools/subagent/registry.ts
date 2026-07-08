@@ -92,8 +92,24 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
 
   // ── Sub-module factories ───────────────────────────────────────────────────
 
-  const lifecycle = createLifecycleFunctions(deps, collectToolSetState, collectToolSetSymbolState, convSubCleanups, notify);
+  // Holder for execution.sendMessage — wired below after execution is created.
+  // This avoids a circular dependency between lifecycle (which needs
+  // sendMessage for onSessionReady) and execution (which lifecycle creates).
+  const sendMessageRef: {
+    current?: (agentName: string, convId: string, text: string, opts: import('./registryExecution').SendMessageOpts) => Promise<import('./types').SubAgentResult>
+  } = {};
+
+  const lifecycle = createLifecycleFunctions(
+    deps, collectToolSetState, collectToolSetSymbolState, convSubCleanups, notify,
+    () => sessionId,
+    sendMessageRef,
+  );
   const execution = createExecutionFunctions(deps, entries);
+
+  // Wire the holder now that execution is built — onSessionReady closures
+  // created later by lifecycle.initAgentToolSets will pick up this reference.
+  sendMessageRef.current = (agentName, convId, text, opts) =>
+    execution.sendMessage(agentName, convId, text, opts);
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -221,8 +237,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       // Only clear message history and progress — agent-level ToolSet state
       // is scoped to the agent, not the conversation, and must
       // not be reset when a single conversation is cleared.
-      conv._state.history = [];
-      conv._state.fullHistory = [];
+      conv._state.tracker.reset();
       conv._state.streamingText = '';
       // Let per-conversation ToolSets reset their own state.
       const convCtx = subCtx(subAgentName, conversationId);
@@ -241,7 +256,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       if (!entry) throw new Error(`Sub-agent "${subAgentName}" not found.`);
       const conv = entry.conversations.get(conversationId);
       if (!conv) throw new Error(`Conversation "${conversationId}" not found on sub-agent "${subAgentName}".`);
-      const history = conv._state.history;
+      const history = conv._state.tracker.getLiveHistory();
       const slice = history.slice(
         fromIndex,
         maxMessages !== undefined ? fromIndex + maxMessages : undefined,
@@ -259,7 +274,12 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
 
     async sendConversationMessage(agentName, conversationId, message, attachments) {
       const key = `${agentName}:${conversationId}`;
-      convControllers.get(key)?.abort();
+      // Do NOT pre-emptively abort the current run.
+      // execution.sendMessage() runs onInterceptMessage first — if a
+      // pending-input plugin is active the message will be queued and the
+      // current run allowed to finish naturally so onAfterRun can resume().
+      // Without an interceptor, sendMessage throws "already running" which
+      // is the correct guard against concurrent sends on the same conversation.
       const controller = new AbortController();
       convControllers.set(key, controller);
       try {
@@ -280,7 +300,8 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
 
     async editConversationMessage(agentName, conversationId, userCount, newText, attachments) {
       const key = `${agentName}:${conversationId}`;
-      convControllers.get(key)?.abort();
+      // Same rationale as sendConversationMessage: let the interceptor
+      // decide whether to queue or proceed; don't pre-abort the current run.
       const controller = new AbortController();
       convControllers.set(key, controller);
       try {
@@ -310,8 +331,8 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
           id:          c._state.id,
           agentName:   c._state.agentName,
           title:       c._state.title,
-          history:     [...c._state.fullHistory],
-          liveHistory: [...c._state.history],
+          history:     c._state.tracker.getFullHistory(),
+          liveHistory: c._state.tracker.getLiveHistory(),
           ...collectToolSetSnapshot(deps, subCtx(e.name, c._state.id)),
         })),
         ...collectToolSetSnapshot(deps, subCtx(e.name, e.activeConversationId)),
@@ -348,10 +369,10 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
         // read state that onInitSession just set up.
         for (const sc of raw.conversations) {
           const conv = lifecycle.createConversationForEntry(sc.title, entry, sc.id);
-          conv._state.fullHistory = [...sc.history];
-          // Use liveHistory (compacted context) if present so the next LLM call
-          // does not overflow the context window with the full conversation.
-          conv._state.history = [...(sc.liveHistory ?? sc.history)];
+          conv._state.tracker.replaceBoth(
+            [...(sc.liveHistory ?? sc.history)],
+            [...sc.history],
+          );
           entry.conversations.set(sc.id, conv);
         }
 
