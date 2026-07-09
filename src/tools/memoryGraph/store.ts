@@ -10,7 +10,7 @@ import type { KnowledgeGraph, KnowledgeNode, KnowledgeEdge } from './types';
  * - Main agent session:      `sessionId`
  * - Sub-agent conversation:  `"${sessionId}:${agentName}:${conversationId}"`
  *
- * Unlike `toolSetContextKey`, this includes `conversationId` for sub-agents
+ * Unlike `ctxKey`, this includes `conversationId` for sub-agents
  * so that each sub-agent conversation maintains its own isolated graph.
  */
 export function convKey(ctx: {

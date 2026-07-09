@@ -48,6 +48,42 @@ export type SlotType =
   | "headerBar";
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  Base slot declaration — common fields shared by all slot types
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Base interface that all slot declarations extend.
+ *
+ * Every declaration carries:
+ *   - `type` — discriminant for the slot kind
+ *   - `id` — unique slot identifier within the plugin
+ *   - `shouldRender` (optional) — render-gating callback
+ *   - `containingWidth` / `containingHeight` (optional) — iframe sizing hints
+ */
+export interface BaseSlotDeclaration {
+  readonly type: SlotType;
+  /** Unique slot identifier within the plugin. */
+  readonly id: string;
+  /**
+   * Whether this slot should render.
+   * Called on every session state change. Return `false` to hide the iframe.
+   * When undefined, the slot always renders.
+   * Receives routing context so plugins can filter by agent.
+   */
+  readonly shouldRender?: (ctx: SlotDisplayContext) => boolean;
+  /**
+   * Preferred containing width for this slot.
+   * Defaults vary by slot type (see each declaration's doc).
+   */
+  readonly containingWidth?: string;
+  /**
+   * Preferred containing height for this slot.
+   * Defaults vary by slot type (see each declaration's doc).
+   */
+  readonly containingHeight?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  Slot declarations (ToolSet → host: "I support these injection points")
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -57,10 +93,8 @@ export type SlotType =
  * The host creates a sandboxed iframe, subscribes to session state,
  * and pushes state updates via {@link PanelHostMessage}.
  */
-export interface PanelSlotDeclaration {
+export interface PanelSlotDeclaration extends BaseSlotDeclaration {
   readonly type: "panel";
-  /** Unique slot identifier within the plugin. */
-  readonly id: string;
   /** Tab label shown in the sidebar tab bar. */
   readonly label: string;
   /** Whether to show a tab for this panel. Called on every state update.
@@ -76,16 +110,6 @@ export interface PanelSlotDeclaration {
    * Receives routing context for agent-scoped badge logic.
    */
   readonly badge?: (ctx: SlotDisplayContext) => string | null;
-  /**
-   * Preferred containing width for this slot.
-   * Defaults to "100%" if omitted (fills panel container).
-   */
-  readonly containingWidth?: string;
-  /**
-   * Preferred containing height for this slot.
-   * Defaults to "100%" if omitted (fills panel container).
-   */
-  readonly containingHeight?: string;
 }
 
 /**
@@ -94,22 +118,10 @@ export interface PanelSlotDeclaration {
  * The host creates a sandboxed iframe and pushes
  * {@link ToolCardHostMessage} when a matching tool is invoked.
  */
-export interface ToolCardSlotDeclaration {
+export interface ToolCardSlotDeclaration extends BaseSlotDeclaration {
   readonly type: "toolCard";
-  /** Unique slot identifier within the plugin. */
-  readonly id: string;
   /** Tool names this slot handles. */
   readonly toolNames: readonly string[];
-  /**
-   * Preferred containing width for this slot.
-   * Defaults to "100%" if omitted.
-   */
-  readonly containingWidth?: string;
-  /**
-   * Preferred containing height for this slot.
-   * Defaults to "auto" if omitted.
-   */
-  readonly containingHeight?: string;
 }
 
 /**
@@ -123,45 +135,14 @@ export interface ToolCardSlotDeclaration {
  * {@link CompactToolCardIframeMessage} with `type: "openDetail"` so the
  * host can open the detail modal (which may itself use a `toolCard` slot).
  */
-export interface CompactToolCardSlotDeclaration {
+export interface CompactToolCardSlotDeclaration extends BaseSlotDeclaration {
   readonly type: "compactToolCard";
-  /** Unique slot identifier within the plugin. */
-  readonly id: string;
   /** Tool names this slot handles. */
   readonly toolNames: readonly string[];
-  /**
-   * Preferred containing width for this slot.
-   * Defaults to "auto" if omitted.
-   */
-  readonly containingWidth?: string;
-  /**
-   * Preferred containing height for this slot.
-   * Defaults to "auto" if omitted.
-   */
-  readonly containingHeight?: string;
 }
 
-export interface InlinePromptSlotDeclaration {
+export interface InlinePromptSlotDeclaration extends BaseSlotDeclaration {
   readonly type: "inlinePrompt";
-  /** Unique slot identifier within the plugin. */
-  readonly id: string;
-  /**
-   * Whether this inline prompt slot should render.
-   * Called on every session state change. Return `false` to hide the
-   * iframe entirely (saves resources when no prompts are pending).
-   * Receives routing context so plugins can filter by agent.
-   */
-  readonly shouldRender: (ctx: SlotDisplayContext) => boolean;
-  /**
-   * Preferred containing width for this slot.
-   * Defaults to "100%" if omitted.
-   */
-  readonly containingWidth?: string;
-  /**
-   * Preferred containing height for this slot.
-   * Defaults to "auto" if omitted.
-   */
-  readonly containingHeight?: string;
 }
 
 /**
@@ -170,23 +151,8 @@ export interface InlinePromptSlotDeclaration {
  * The host creates a sandboxed iframe, subscribes to session state,
  * and pushes state updates via {@link HeaderBarHostMessage}.
  */
-export interface HeaderBarSlotDeclaration {
+export interface HeaderBarSlotDeclaration extends BaseSlotDeclaration {
   readonly type: "headerBar";
-  /** Unique slot identifier within the plugin. */
-  readonly id: string;
-  /** Whether this header bar should render. Called on every state update.
-   *  Receives routing context for agent-scoped visibility. */
-  readonly shouldRender: (ctx: SlotDisplayContext) => boolean;
-  /**
-   * Preferred containing width for this slot.
-   * Defaults to "100%" if omitted.
-   */
-  readonly containingWidth?: string;
-  /**
-   * Preferred containing height for this slot.
-   * Defaults to the slot type's standard height if omitted.
-   */
-  readonly containingHeight?: string;
 }
 
 /**

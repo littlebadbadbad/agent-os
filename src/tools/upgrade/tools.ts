@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import { toolSetContextKey } from '../toolSet';
+import { ctxKey } from '../toolSet';
 import type { ToolSetContext, UserInputRequest } from '@agent-type';
 import type { UpgradeAdapter, TerminalSnapshot } from './adapter';
 import { upgradeStore } from './store';
@@ -18,10 +18,6 @@ type WaitForTerminalContext = ToolSetContext & {
   requestUserInput?: (request: UserInputRequest, id?: string) => Promise<string | null>;
   cancelUserInput?: (id: string) => void;
 };
-
-function ctxKey(ctx: ToolSetContext): string {
-  return toolSetContextKey(ctx);
-}
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 

@@ -5,15 +5,17 @@
  * Provides `todo_write` and `todo_read` tools.
  */
 
-import { z } from 'zod';
-import { defineTool } from '@agent-type/defineTool';
-import { MAIN_CONVERSATION_ID, toolSetContextKey } from '@agent-type';
-import { TODO_WRITE_DESCRIPTION, TODO_READ_DESCRIPTION } from './prompt';
-import { todoItemSchema, todoArraySchema, emptySchema } from './types';
+import { z } from "zod";
+import { defineTool } from "@agent-type/defineTool";
+import { TODO_WRITE_DESCRIPTION, TODO_READ_DESCRIPTION } from "./prompt";
+import { todoItemSchema, todoArraySchema, emptySchema } from "./types";
+
+import type { TodoItem } from "./types";
+import { ctxKey } from "@agent-type";
 
 // Re-export schemas and types for convenience
 export { todoItemSchema, todoArraySchema, emptySchema };
-export type { TodoItem } from './types';
+export type { TodoItem } from "./types";
 
 // ── Tool factories ────────────────────────────────────────────────────────────
 
@@ -23,23 +25,21 @@ export type TodoStore = {
   notify: (key: string) => void;
 };
 
-import type { TodoItem } from './types';
-
 export function createTodoWriteTool(store: TodoStore) {
   return defineTool({
-    name: 'todo_write',
-    group: 'Tracking',
+    name: "todo_write",
+    group: "Tracking",
     description: TODO_WRITE_DESCRIPTION,
     parameters: z.object({
       todos: todoArraySchema,
     }),
     execute: async ({ todos: newTodos }, context) => {
-      const todoKey = toolSetContextKey(context);
+      const todoKey = ctxKey(context);
       const todos = newTodos as TodoItem[];
       store.set(todoKey, todos);
       store.notify(todoKey);
 
-      const inProgress = todos.filter((t) => t.status === 'in-progress');
+      const inProgress = todos.filter((t) => t.status === "in-progress");
       if (inProgress.length > 1) {
         return {
           success: false,
@@ -47,20 +47,21 @@ export function createTodoWriteTool(store: TodoStore) {
         };
       }
 
-      const done = todos.filter((t) => t.status === 'completed').length;
+      const done = todos.filter((t) => t.status === "completed").length;
       const active = inProgress.length;
-      const blocked = todos.filter((t) => t.status === 'blocked').length;
-      const pending = todos.filter((t) => t.status === 'not-started').length;
+      const blocked = todos.filter((t) => t.status === "blocked").length;
+      const pending = todos.filter((t) => t.status === "not-started").length;
 
       return {
         success: true,
-        summary: [`${done}/${todos.length} completed`,
+        summary: [
+          `${done}/${todos.length} completed`,
           active ? `${active} in-progress` : null,
           blocked ? `${blocked} blocked` : null,
           pending ? `${pending} pending` : null,
         ]
           .filter(Boolean)
-          .join(', '),
+          .join(", "),
       };
     },
   });
@@ -68,14 +69,14 @@ export function createTodoWriteTool(store: TodoStore) {
 
 export function createTodoReadTool(store: TodoStore) {
   return defineTool({
-    name: 'todo_read',
-    group: 'Tracking',
+    name: "todo_read",
+    group: "Tracking",
     description: TODO_READ_DESCRIPTION,
     parameters: emptySchema,
     execute: async (_, context) => {
-      const todoKey = toolSetContextKey(context);
+      const todoKey = ctxKey(context);
       const items = store.get(todoKey);
-      if (items.length === 0) return { todos: [], message: 'No tasks yet.' };
+      if (items.length === 0) return { todos: [], message: "No tasks yet." };
       return { todos: items };
     },
   });

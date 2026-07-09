@@ -2,6 +2,16 @@
  * agent-UI/slots/SlotRenderer.tsx — Unified slot renderer entry point
  *
  * Dispatches to the correct renderer based on `slotType`.
+ * All slot declarations are read from the global `slotRegistry` only.
+ *
+ * `shouldRender` check happens at the top — before any renderer is invoked:
+ *   - declaration not found in registry → render (no gating)
+ *   - `shouldRender` undefined → render
+ *   - `shouldRender` returns `false` → skip
+ *   - otherwise → render
+ *
+ * ALL slot types receive a `session` prop so `shouldRender` can evaluate
+ * the correct conversation context (main agent vs sub-agent).
  *
  * Usage:
  *   <SlotRenderer
@@ -15,17 +25,15 @@
  *     pluginId="browser"
  *     slotType="toolCard"
  *     slotId="browser.toolCard"
+ *     session={session}
  *     toolCallInfo={info}
  *   />
  */
 
 import { type ReactElement } from "react";
 import type {
-  SlotType,
   ToolCallInfo,
   SlotSession,
-  InlinePromptSlotDeclaration,
-  HeaderBarSlotDeclaration,
 } from "@agent-type";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
@@ -33,8 +41,34 @@ import { CompactToolCardSlotRenderer } from "./renderers/CompactToolCardSlotRend
 import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
 import { HeaderBarSlotRenderer } from "./renderers/HeaderBarSlotRenderer";
 import { slotRegistry } from "./registry";
+import { buildSlotDisplayContext } from "./context";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Unified shouldRender check.
+ * Returns `true` when the slot should render.
+ *
+ * Rules:
+ *   - If the declaration is not found in registry → render (don't gate)
+ *   - If `shouldRender` is not defined → render
+ *   - If `shouldRender` returns `false` → skip
+ *   - Otherwise → render
+ */
+function checkShouldRender(
+  pluginId: string,
+  slotId: string,
+  session: SlotSession,
+): boolean {
+  const decl = slotRegistry.getSlot(pluginId, slotId);
+  if (!decl?.shouldRender) return true;
+  const ctx = buildSlotDisplayContext(session);
+  return decl.shouldRender(ctx);
+}
 
 // ── Discriminated props union ─────────────────────────────────────────────────
+// All variants carry `session: SlotSession` so `shouldRender` can always
+// be evaluated with the correct conversation context.
 
 export type SlotRendererProps =
   | {
@@ -48,6 +82,7 @@ export type SlotRendererProps =
       readonly pluginId: string;
       readonly slotType: "toolCard";
       readonly slotId: string;
+      readonly session: SlotSession;
       readonly toolCallInfo: ToolCallInfo;
       readonly className?: string;
     }
@@ -55,6 +90,7 @@ export type SlotRendererProps =
       readonly pluginId: string;
       readonly slotType: "compactToolCard";
       readonly slotId: string;
+      readonly session: SlotSession;
       readonly toolCallInfo: ToolCallInfo;
       /** Called when the compact card signals it should open the detail modal. */
       readonly onOpenDetail?: () => void;
@@ -65,16 +101,6 @@ export type SlotRendererProps =
       readonly slotType: "inlinePrompt";
       readonly slotId: string;
       readonly session: SlotSession;
-      /**
-       * Optional slot declaration override.
-       * When provided (e.g. by sub-agent slot discovery), this declaration
-       * is used for `shouldRender` checks instead of the global slotRegistry.
-       * Sub-agent slots are discovered per-conversation and are never
-       * registered in the global registry — without this override, the
-       * renderer would silently use the main session's declaration and
-       * check the wrong session's state.
-       */
-      readonly declaration?: InlinePromptSlotDeclaration;
       readonly className?: string;
     }
   | {
@@ -82,10 +108,6 @@ export type SlotRendererProps =
       readonly slotType: "headerBar";
       readonly slotId: string;
       readonly session: SlotSession;
-      /**
-       * Optional slot declaration override (same semantics as inlinePrompt).
-       */
-      readonly declaration?: HeaderBarSlotDeclaration;
       readonly className?: string;
     };
 
@@ -95,9 +117,20 @@ export type SlotRendererProps =
  * Render a plugin slot by type.
  *
  * Type-safe dispatch: the props union ensures that `session` is
- * required for "panel" slots, `toolCallInfo` for "toolCard", etc.
+ * required for all slot types, with slot-specific props (`toolCallInfo`,
+ * `onOpenDetail`) gated behind the `slotType` discriminant.
+ *
+ * `shouldRender` is always evaluated upfront. Sub-agent slots that are
+ * not registered globally (see discoverSubAgentSlots) will pass through
+ * since `checkShouldRender` defaults to `true` when no declaration found.
  */
 export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
+  // ── shouldRender gate — evaluated before dispatch ─────────────────────────
+  if (!checkShouldRender(props.pluginId, props.slotId, props.session)) {
+    return null;
+  }
+
+  // ── Dispatch to per-type renderer ─────────────────────────────────────────
   switch (props.slotType) {
     case "panel":
       return (
@@ -130,47 +163,17 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
         />
       );
 
-    case "inlinePrompt": {
-      // Prefer caller-supplied declaration (sub-agent slots) over global registry.
-      const decl: InlinePromptSlotDeclaration | undefined =
-        props.declaration ??
-        (slotRegistry.getSlot(props.pluginId, props.slotId) as InlinePromptSlotDeclaration | undefined);
-      if (
-        decl?.type === "inlinePrompt" &&
-        !decl.shouldRender({
-          sessionId: props.session.getState().id,
-          agentName: props.session.getState().agentName,
-          conversationId: props.session.getState().conversationId,
-        })
-      ) {
-        return null;
-      }
+    case "inlinePrompt":
       return (
         <InlinePromptSlotRenderer
           pluginId={props.pluginId}
           slotId={props.slotId}
           session={props.session}
-          declaration={decl}
           className={props.className}
         />
       );
-    }
 
-    case "headerBar": {
-      // Prefer caller-supplied declaration (sub-agent slots) over global registry.
-      const decl: HeaderBarSlotDeclaration | undefined =
-        props.declaration ??
-        (slotRegistry.getSlot(props.pluginId, props.slotId) as HeaderBarSlotDeclaration | undefined);
-      if (
-        decl?.type === "headerBar" &&
-        !decl.shouldRender({
-          sessionId: props.session.getState().id,
-          agentName: props.session.getState().agentName,
-          conversationId: props.session.getState().conversationId,
-        })
-      ) {
-        return null;
-      }
+    case "headerBar":
       return (
         <HeaderBarSlotRenderer
           pluginId={props.pluginId}
@@ -179,7 +182,6 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           className={props.className}
         />
       );
-    }
 
     default: {
       const _exhaustive: never = props;

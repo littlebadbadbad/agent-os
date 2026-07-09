@@ -4,6 +4,8 @@
  * Renders an inlinePrompt slot as a sandboxed iframe overlay.
  * Host creation and session subscription are delegated to
  * {@link useSlotHostBridge}.
+ *
+ * Slot declaration is always read from the global slotRegistry.
  */
 
 import { type ReactElement } from "react";
@@ -17,27 +19,19 @@ export interface InlinePromptSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
   readonly session: SlotSession;
-  /**
-   * Optional slot declaration override.
-   * When provided (e.g. by sub-agent slots), used for dimensions.
-   * Falls back to global slotRegistry when omitted.
-   */
-  readonly declaration?: InlinePromptSlotDeclaration;
   readonly className?: string;
 }
 
 export function InlinePromptSlotRenderer(
   props: InlinePromptSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, declaration: propsDecl, className } = props;
+  const { pluginId, slotId, session, className } = props;
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
-  // Prefer caller-supplied declaration; fall back to global registry.
-  const decl: InlinePromptSlotDeclaration | undefined =
-    propsDecl ??
-    (slotRegistry.getSlot(pluginId, slotId) as InlinePromptSlotDeclaration | undefined);
+  // Read dimensions from slot declaration, fall back to sensible defaults.
+  const decl = slotRegistry.getSlot(pluginId, slotId) as InlinePromptSlotDeclaration | undefined;
   const containingWidth = decl?.containingWidth ?? "100%";
   const containingHeight = decl?.containingHeight ?? "auto";
 

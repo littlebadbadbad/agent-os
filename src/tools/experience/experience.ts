@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import type { ToolSet, ToolSetContext } from '@agent-type';
-import { toolSetContextKey, MAIN_CONVERSATION_ID } from '@agent-sdk/tools/toolSet';
+import { ctxKey, MAIN_CONVERSATION_ID } from '@agent-sdk/tools/toolSet';
 import { buildExperienceSectionContent, EXPERIENCE_SECTION_ID } from './prompt';
 
 // ── Module augmentation ───────────────────────────────────────────────────────

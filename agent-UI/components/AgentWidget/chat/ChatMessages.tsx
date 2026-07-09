@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ReactElement, ChangeEvent, KeyboardEvent } from 'react';
 import type { Message } from '../types';
 import type { DataAttachment, Attachment } from '@agent-sdk';
+import type { SlotSession } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { ToolCallCard } from './ToolCallCard';
 import { AttachmentList } from './AttachmentList';
@@ -17,6 +18,8 @@ interface ChatMessagesProps {
   messages: Message[];
   /** Called when the user edits a message and clicks "Save & Resend". */
   onEditMessage?: (messageId: string, newText: string, attachments?: readonly Attachment[]) => void;
+  /** Session for plugin slot shouldRender evaluation. */
+  readonly session: SlotSession;
 }
 
 /** Returns true when the scroll container is close enough to the bottom. */
@@ -24,7 +27,7 @@ function isNearBottom(container: HTMLElement): boolean {
   return container.scrollHeight - container.scrollTop - container.clientHeight < NEAR_BOTTOM_THRESHOLD;
 }
 
-export function ChatMessages({ messages, onEditMessage }: ChatMessagesProps): ReactElement {
+export function ChatMessages({ messages, onEditMessage, session }: ChatMessagesProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef<number>(-1);
 
@@ -225,7 +228,7 @@ export function ChatMessages({ messages, onEditMessage }: ChatMessagesProps): Re
               >
                 {/* ── Tool call bubble ── */}
                 {message.role === 'tool' && message.toolCall ? (
-                  <ToolCallCard info={message.toolCall} />
+                  <ToolCallCard info={message.toolCall} session={session} />
                 ) : (
                   /* ── Regular message bubble ── */
                   <div

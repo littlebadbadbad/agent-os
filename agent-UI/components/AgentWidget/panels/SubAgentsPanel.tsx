@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useSyncExternalStore, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import type { Attachment, SubAgentRegistry, SubAgentConversationState, SubAgentEntrySnapshot } from '@agent-sdk';
+import type { Attachment, SubAgentRegistry, SubAgentEntrySnapshot } from '@agent-sdk';
 import { agentMessagesToUI } from '@agent-sdk';
 import { assistantMsg } from '../helpers';
 import { ChatMessages } from '../chat/ChatMessages';
@@ -35,8 +35,10 @@ interface ConversationPaneProps {
   sessionId: string;
 }
 
-function ConversationPane({ registry, agentName, convId, sessionId }: ConversationPaneProps): ReactElement {
+function ConversationPane({ registry, agentName, convId, sessionId }: ConversationPaneProps): ReactElement | null {
   const rawConv = registry.getConversation(agentName, convId);
+  // If the conversation doesn't exist, render nothing.
+  if (!rawConv) return null;
 
   // Slot display context for this sub-agent conversation.
   const slotCtx: SlotDisplayContext = useMemo(
@@ -44,69 +46,46 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
     [sessionId, agentName, convId],
   );
 
-  // Stable fallbacks for useSyncExternalStore when the conversation handle is absent.
-  // Defined outside the conditional so hook call count is always the same.
-  const emptySubscribe = useMemo<(fn: () => void) => () => void>(() => (_fn) => () => {}, []);
-  const emptyGetState  = useMemo<() => null>(() => () => null, []);
-
   const subscribe = useMemo(
-    () => (rawConv ? rawConv.subscribe.bind(rawConv) : emptySubscribe),
-    [rawConv, emptySubscribe],
+    () => rawConv.subscribe.bind(rawConv),
+    [rawConv],
   );
   const getState = useMemo(
-    () => (rawConv ? rawConv.getState.bind(rawConv) : emptyGetState),
-    [rawConv, emptyGetState],
+    () => rawConv.getState.bind(rawConv),
+    [rawConv],
   );
 
   // Subscribe to per-conversation state reactively.
   const conv = useSyncExternalStore(subscribe, getState, getState);
 
   // Create a SlotSession adapter for this conversation.
-  // Memoised on `rawConv` identity — the adapter delegates to the conversation
-  // handle, so it only needs to be recreated when the handle changes.
   const slotSession = useMemo(
-    () => (rawConv ? createSubAgentSlotSession(rawConv) : null),
+    () => createSubAgentSlotSession(rawConv),
     [rawConv],
   );
 
   // Discover plugin slots from the conversation state.
-  // Re-runs on every state change (conv identity changes) — cheap because
-  // it just iterates active plugin symbols and reads .slots arrays.
   const headerBarSlots = useMemo<readonly { pluginId: string; declaration: HeaderBarSlotDeclaration }[]>(
-    () => conv
-      ? discoverSubAgentSlots(conv)
-          .filter((e): e is { pluginId: string; declaration: HeaderBarSlotDeclaration } =>
-            e.declaration.type === 'headerBar' && e.declaration.shouldRender(slotCtx))
-      : [],
+    () => discoverSubAgentSlots(conv)
+        .filter((e): e is { pluginId: string; declaration: HeaderBarSlotDeclaration } =>
+          e.declaration.type === 'headerBar'),
     [conv],
   );
   const panelSlots = useMemo<readonly { pluginId: string; declaration: PanelSlotDeclaration }[]>(
-    () => conv
-      ? discoverSubAgentSlots(conv)
-          .filter((e): e is { pluginId: string; declaration: PanelSlotDeclaration } =>
-            e.declaration.type === 'panel' && e.declaration.showTab(slotCtx))
-      : [],
+    () => discoverSubAgentSlots(conv)
+        .filter((e): e is { pluginId: string; declaration: PanelSlotDeclaration } =>
+          e.declaration.type === 'panel' && e.declaration.showTab(slotCtx)),
     [conv],
   );
-
-  // InlinePrompt slots — overlay iframes that render pending-message strips
-  // and user-input prompts.  Reuses the same pattern as headerBar slots.
   const inlinePromptSlots = useMemo<readonly { pluginId: string; declaration: InlinePromptSlotDeclaration }[]>(
-    () => conv
-      ? discoverSubAgentSlots(conv)
-          .filter((e): e is { pluginId: string; declaration: InlinePromptSlotDeclaration } =>
-            e.declaration.type === 'inlinePrompt' && e.declaration.shouldRender(slotCtx))
-      : [],
+    () => discoverSubAgentSlots(conv)
+        .filter((e): e is { pluginId: string; declaration: InlinePromptSlotDeclaration } =>
+          e.declaration.type === 'inlinePrompt'),
     [conv],
   );
-
-  // Local view state: "chat" or "plugin:<pluginId>" for panel slots.
-  // Now managed by PaneSlotLayout — removed from this component.
 
   const handleSend = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      // ToolSet-level interceptor hooks handle message queuing automatically
-      // (e.g. pending-input plugin queues messages while the agent is busy).
       await registry.sendConversationMessage(agentName, convId, text, attachments);
     },
     [registry, agentName, convId],
@@ -115,10 +94,6 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
   const handleCancel = useCallback(() => {
     registry.cancelConversationMessage(agentName, convId);
   }, [registry, agentName, convId]);
-
-  if (!conv) {
-    return <div className={styles['tools-empty']}>Conversation not found.</div>;
-  }
 
   // Memoize UI message conversion so message IDs are stable between renders.
   // Without memoization, agentMessagesToUI creates fresh IDs on every render,
@@ -154,7 +129,7 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
         inlinePromptSlots={inlinePromptSlots}
         slotCtx={slotCtx}
       >
-        <ChatMessages messages={messages} onEditMessage={handleEditMessage} />
+        <ChatMessages messages={messages} onEditMessage={handleEditMessage} session={slotSession} />
         <ChatInput
           onSend={handleSend}
           onCancel={handleCancel}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactElement } from "react";
 import type { ToolCallInfo } from "../types";
+import type { SlotSession } from "@agent-type";
 import { FileToolCard } from "./toolCards/FileToolCard";
 import { TerminalToolCard } from "./toolCards/TerminalToolCard";
 import { AskUserCard } from "./toolCards/AskUserCard";
@@ -86,7 +87,7 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
 //
 // Renders the full specialized card for display inside the modal.
 
-function renderDetailCard(info: ToolCallInfo): ReactElement {
+function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSession }): ReactElement {
   const { name } = info;
   if (isFileTool(name)) return <FileToolCard info={info} />;
   if (isTerminalTool(name)) return <TerminalToolCard info={info} />;
@@ -108,6 +109,7 @@ function renderDetailCard(info: ToolCallInfo): ReactElement {
         pluginId={slot.pluginId}
         slotType="toolCard"
         slotId={slot.declaration.id}
+        session={session}
         toolCallInfo={info}
       />
     );
@@ -118,7 +120,7 @@ function renderDetailCard(info: ToolCallInfo): ReactElement {
 
 // ── Public component ──────────────────────────────────────────────────────────
 
-export function ToolCallCard({ info }: { info: ToolCallInfo }): ReactElement {
+export function ToolCallCard({ info, session }: { info: ToolCallInfo; session: SlotSession }): ReactElement {
   const [isOpen, setIsOpen] = useState(false);
 
   const meta = getToolMeta(info.name);
@@ -127,10 +129,10 @@ export function ToolCallCard({ info }: { info: ToolCallInfo }): ReactElement {
 
   return (
     <>
-      <CompactToolCard info={info} onOpen={() => setIsOpen(true)} />
+      <CompactToolCard info={info} onOpen={() => setIsOpen(true)} session={session} />
       {isOpen && (
         <ToolCardModal title={modalTitle} onClose={() => setIsOpen(false)}>
-          {renderDetailCard(info)}
+          <DetailCard info={info} session={session} />
         </ToolCardModal>
       )}
     </>

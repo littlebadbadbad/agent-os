@@ -215,6 +215,7 @@ export function SessionContent({
         <ChatMessages
           messages={messages}
           onEditMessage={handleEditMessage}
+          session={session}
         />
         <ChatInput
           onSend={handleSend}

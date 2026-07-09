@@ -82,7 +82,7 @@ export type {
 } from "./toolset";
 
 // Runtime constants & helpers (shared between core and extensions)
-export { MAIN_CONVERSATION_ID, toolSetContextKey } from "./toolset";
+export { MAIN_CONVERSATION_ID, ctxKey as ctxKey } from "./toolset";
 
 // ── Widget types ──────────────────────────────────────────────────────────────
 export type {
@@ -107,7 +107,6 @@ export type {
   ToolCallInfo,
   ToolCardDescriptor,
   ToolCardRenderContext,
-  ToolCardRenderer,
   StreamHandler,
   StreamConnection,
   StreamCallbacks,

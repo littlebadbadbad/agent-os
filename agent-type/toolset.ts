@@ -22,7 +22,7 @@ export const MAIN_CONVERSATION_ID = "main" as const;
  * This matches the key format used before `ToolSetContext` was introduced,
  * so persisted data (e.g. toolStates) remains compatible.
  */
-export function toolSetContextKey(ctx: ToolSetContext): string {
+export function ctxKey(ctx: ToolSetContext): string {
   return ctx.conversationId === MAIN_CONVERSATION_ID
     ? ctx.sessionId
     : `${ctx.sessionId}:${ctx.agentName}`;
@@ -80,7 +80,7 @@ export type AgentClientLike = AgentQueryFns & {
  * - **conversationId** — `MAIN_CONVERSATION_ID` for main-agent turns; the
  *   actual conversation ID for sub-agent turns.
  *
- * ToolSet implementations should use `toolSetContextKey(ctx)` when they need
+ * ToolSet implementations should use `ctxKey(ctx)` when they need
  * a single string to key their internal per-scope Maps, preserving backward-
  * compatible key semantics across main agents and sub-agents.
  */
@@ -390,7 +390,7 @@ export type ToolSet = {
    *
    * Use to initialise or rehydrate per-session state from the persisted
    * `entryData`.  Fired for both main-agent sessions and sub-agent scopes
-   * (keyed by `toolSetContextKey(ctx)`).
+   * (keyed by `ctxKey(ctx)`).
    *
    * The `entryData` includes all core fields (`id`, `title`, `messages`,
    * `liveHistory`) plus any ToolSet-contributed fields from the

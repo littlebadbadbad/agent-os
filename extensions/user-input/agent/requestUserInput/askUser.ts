@@ -14,69 +14,45 @@ const askUserSchema = z.object({
   type: z
     .enum(["text", "confirm", "select", "multiSelect", "number"])
     .describe(
-      '"text" — free-form answer; "confirm" — yes/no question (returns "yes" or cancelled); ' +
-        '"select" — pick one option from a fixed list; ' +
-        '"multiSelect" — pick one or more options (returns JSON array string); ' +
-        '"number" — numeric input (returns number as string).',
+      'Prompt type: "text" (free-form), "confirm" (yes/no → returns "yes"), ' +
+        '"select" (pick one), "multiSelect" (pick many → JSON array string), ' +
+        '"number" (numeric → string).',
     ),
-  question: z
-    .string()
-    .min(1)
-    .describe("The question or prompt shown to the user."),
+  question: z.string().min(1).describe("The question shown to the user."),
   placeholder: z
     .string()
     .optional()
-    .describe(
-      "(text/number only) Hint shown inside the input field before the user types.",
-    ),
+    .describe("(text/number) Hint text before user types."),
   default_value: z
     .string()
     .optional()
-    .describe(
-      "(text only) Pre-filled text the user can accept or edit.",
-    ),
+    .describe("(text) Pre-filled text the user can accept or edit."),
   default_number: z
     .number()
     .optional()
-    .describe("(number only) Pre-filled numeric value."),
+    .describe("(number) Pre-filled numeric value."),
   options: z
     .array(z.string().min(1))
     .optional()
-    .describe(
-      "(select/multiSelect only) The choices available to the user (minimum 2 items required).",
-    ),
+    .describe("(select/multiSelect) Choices for the user (min 2 items)."),
   min_select: z
     .number()
     .int()
     .min(1)
     .optional()
-    .describe("(multiSelect only) Minimum number of selections required."),
+    .describe("(multiSelect) Minimum selections required."),
   max_select: z
     .number()
     .int()
     .min(1)
     .optional()
-    .describe("(multiSelect only) Maximum number of selections allowed."),
-  min: z
-    .number()
-    .optional()
-    .describe("(number only) Minimum allowed value."),
-  max: z
-    .number()
-    .optional()
-    .describe("(number only) Maximum allowed value."),
-  step: z
-    .number()
-    .optional()
-    .describe("(number only) Increment step for the number input."),
+    .describe("(multiSelect) Maximum selections allowed."),
+  min: z.number().optional().describe("(number) Minimum allowed value."),
+  max: z.number().optional().describe("(number) Maximum allowed value."),
+  step: z.number().optional().describe("(number) Increment step."),
 });
 
-const DESCRIPTION = `ALWAYS call this tool to collect a required piece of information from the user before taking any action that depends on it. NEVER guess, assume, or proceed without asking when any of the following is true:
-• The user's intent is ambiguous and the wrong choice would be hard to undo (e.g. deleting files, overwriting content, choosing a target environment).
-• A required parameter is missing and no default is reasonable.
-• The task has two or more equally valid interpretations.
-• You need explicit confirmation before a destructive or irreversible operation.
-Use type "confirm" for yes/no decisions, "select" to present a fixed set of options, "multiSelect" when multiple choices are allowed, "number" for numeric input, and "text" to collect a free-form answer. Prefer "select" or "multiSelect" over "text" whenever the valid answers are known in advance.`;
+const DESCRIPTION = `Ask the user for input. Suspend tool execution until the user responds. Never guess or assume missing required information — always use this tool.`;
 
 export const askUserTool = defineTool({
   name: "ask_user",

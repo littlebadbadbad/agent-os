@@ -1,6 +1,6 @@
 // ── Plan store ────────────────────────────────────────────────────────────────
 //
-// Per-session markdown plan storage + plan-mode flag.  Keyed by `toolSetContextKey(ctx)`.
+// Per-session markdown plan storage + plan-mode flag.  Keyed by `ctxKey(ctx)`.
 
 type Bucket = {
   content: string;

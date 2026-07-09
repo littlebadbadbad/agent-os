@@ -124,7 +124,7 @@ export function createLifecycleFunctions(
    * Called when an agent entry is first created or restored from a snapshot.
    * Per-conversation subscriptions are managed by `createConversationForEntry`.
    *
-   * Uses the active conversation ID so `toolSetContextKey` produces the
+   * Uses the active conversation ID so `ctxKey` produces the
    * correct per-agent key `"${sessionId}:${agentName}"` regardless of which
    * conversation happens to be active at call time.
    */

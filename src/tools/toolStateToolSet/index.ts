@@ -48,7 +48,7 @@ declare module '@agent-type' {
  */
 
 import type { Tool, ToolResult, ToolExecutionContext, SystemPromptContext } from '@agent-type';
-import { toolSetContextKey, TOOL_STATE_TOOLSET_BRAND } from '../toolSet';
+import { ctxKey, TOOL_STATE_TOOLSET_BRAND } from '../toolSet';
 import { ToolSet, ToolSetContext, resolveToolSetTools } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
 
@@ -128,21 +128,21 @@ export function createToolStateToolSet(): ToolStateToolSet {
         .filter(([, enabled]) => !enabled)
         .map(([name]) => name);
       if (toDisable.length > 0) {
-        const disabled = getDisabled(toolSetContextKey(ctx));
+        const disabled = getDisabled(ctxKey(ctx));
         for (const name of toDisable) disabled.add(name);
       }
     }
   }
 
   function onRemoveSession(ctx: ToolSetContext): void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     disabledMap.delete(key);
     toolCache.delete(key);
     subsMap.delete(key);
   }
 
   function onGetState(ctx: ToolSetContext, stateCtx?: { readonly tools: readonly Tool[] }): Record<string, unknown> {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const tools = stateCtx?.tools ?? toolCache.get(key) ?? [];
     const disabled = disabledMap.get(key);
     const toolStates: ToolStateEntry[] = tools.map((t) => ({
@@ -155,7 +155,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     let subs = subsMap.get(key);
     if (!subs) { subs = new Set(); subsMap.set(key, subs); }
     subs.add(fn);
@@ -163,7 +163,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function onBuildSnapshot(ctx: ToolSetContext): { toolStates?: Record<string, boolean> } {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const tools = toolCache.get(key) ?? [];
     const disabled = disabledMap.get(key);
     if (!tools.length && !disabled?.size) return {};
@@ -182,7 +182,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function onFilterTools(ctx: ToolSetContext, tools: readonly Tool[]): readonly Tool[] {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     // Cache the full tool list so disableGroup can resolve names.
     toolCache.set(key, tools);
     const disabled = disabledMap.get(key);
@@ -210,7 +210,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
     _args: Record<string, unknown>,
     _execCtx: ToolExecutionContext,
   ): Promise<{ allow: true } | { allow: false; result: ToolResult } | void> {
-    const disabled = disabledMap.get(toolSetContextKey(ctx));
+    const disabled = disabledMap.get(ctxKey(ctx));
     if (disabled?.has(toolName)) {
       const result: ToolResult = {
         toolCallId: '',
@@ -240,7 +240,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
     promptCtx: SystemPromptContext,
     toolSets: readonly ToolSet[],
   ): undefined {
-    const disabled = disabledMap.get(toolSetContextKey(ctx));
+    const disabled = disabledMap.get(ctxKey(ctx));
     if (!disabled || disabled.size === 0) return;
 
     for (const ts of toolSets) {
@@ -258,7 +258,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   // ── Control API ───────────────────────────────────────────────────────────
 
   function toggleTool(ctx: ToolSetContext, name: string): void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const disabled = getDisabled(key);
     if (disabled.has(name)) disabled.delete(name);
     else disabled.add(name);
@@ -266,14 +266,14 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function disableNames(ctx: ToolSetContext, names: ReadonlySet<string>): void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const disabled = getDisabled(key);
     for (const n of names) disabled.add(n);
     notifyScope(key);
   }
 
   function enableNames(ctx: ToolSetContext, names: ReadonlySet<string>): void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const disabled = disabledMap.get(key);
     if (!disabled) return;
     for (const n of names) disabled.delete(n);
@@ -281,7 +281,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function disableGroup(ctx: ToolSetContext, group: string): void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const cached = toolCache.get(key);
     if (!cached) return; // No-op until first turn has populated the cache.
     const names = cached.filter((t) => t.group === group).map((t) => t.name);
@@ -292,7 +292,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function enableGroup(ctx: ToolSetContext, group: string): void {
-    const key = toolSetContextKey(ctx);
+    const key = ctxKey(ctx);
     const cached = toolCache.get(key);
     if (!cached) return;
     const names = new Set(cached.filter((t) => t.group === group).map((t) => t.name));
@@ -304,7 +304,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
   }
 
   function getDisabledNames(ctx: ToolSetContext): ReadonlySet<string> {
-    return disabledMap.get(toolSetContextKey(ctx)) ?? new Set<string>();
+    return disabledMap.get(ctxKey(ctx)) ?? new Set<string>();
   }
 
   const toolStateSelf: ToolStateToolSet = {

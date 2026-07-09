@@ -17,7 +17,7 @@
  * can check both toolset states before the inline iframe mounts.
  */
 
-import type { AgentPluginHost } from "@agent-type";
+import { ctxKey, SlotDisplayContext, type AgentPluginHost } from "@agent-type";
 import { createUserInputToolSet } from "./requestUserInput";
 import { createPendingInputToolSet } from "./pendingInput";
 import { createUserInputStore } from "./requestUserInput/store";
@@ -30,14 +30,18 @@ export function activate(host: AgentPluginHost): void {
 
   // ── Composite shouldRender: show inline iframe if EITHER toolset has content ─
   // Called per-session by onGetSymbolState → creates a stable closure per sessionId.
-  const shouldRenderInlinePrompt = (sessionId: string) => (): boolean =>
-    userInputStore.getAll(sessionId).length > 0 ||
-    pendingStore.getQueue(sessionId).length > 0;
+  const shouldRenderInlinePrompt = (ctx: SlotDisplayContext) => {
+    debugger;
+    return (
+      userInputStore.getAll(ctxKey(ctx)).length > 0 ||
+      pendingStore.getQueue(ctxKey(ctx)).length > 0
+    );
+  };
 
   // ── Register userInput FIRST → plugin.symbols[0] → getPluginState()[1] ──────
   const userInputToolSet = createUserInputToolSet({
     store: userInputStore,
-    shouldRenderInlinePrompt,
+    shouldRenderInlinePrompt: shouldRenderInlinePrompt,
   });
   host.registerToolSet(userInputToolSet);
 

@@ -23,7 +23,7 @@ declare module '@agent-type' {
   }
 }
 
-import { toolSetContextKey } from '@agent-type';
+import { ctxKey } from '@agent-type';
 import { createTodoWriteTool, createTodoReadTool } from './tools';
 import { buildTaskTrackingSectionContent, SECTION_ID } from './prompt';
 import type { TodoSymbolState } from './types';
@@ -39,7 +39,7 @@ export const TODO_SYMBOL = Symbol('todo');
  *
  * Each agent (main + sub-agents) gets its own isolated task list.  A single
  * instance manages task lists for all agents via an internal `Map<key, TodoItem[]>`
- * where the key is derived from `toolSetContextKey(ctx)`:
+ * where the key is derived from `ctxKey(ctx)`:
  *   - `sessionId`                   — for the root (main) agent
  *   - `"${sessionId}:${agentName}"` — for each sub-agent
  */
@@ -95,13 +95,13 @@ export function createTodoTools(): ToolSet {
     tools: [todoWrite, todoRead],
 
     onGetSystemPrompt(ctx: ToolSetContext): string | undefined {
-      const key = toolSetContextKey(ctx);
+      const key = ctxKey(ctx);
       const items = sessionTodos.get(key);
       return buildTaskTrackingSectionContent(items);
     },
 
     onInitSession(ctx: ToolSetContext, entryData): void {
-      const key = toolSetContextKey(ctx);
+      const key = ctxKey(ctx);
       const data = entryData as unknown as Record<string, unknown>;
       if (data.todos) {
         const restored = data.todos as TodoItem[];
@@ -112,19 +112,19 @@ export function createTodoTools(): ToolSet {
     },
 
     onRemoveSession(ctx: ToolSetContext): void {
-      const key = toolSetContextKey(ctx);
+      const key = ctxKey(ctx);
       sessionTodos.delete(key);
       sessionSubscribers.delete(key);
     },
 
     onResetSession(ctx: ToolSetContext): void {
-      const key = toolSetContextKey(ctx);
+      const key = ctxKey(ctx);
       sessionTodos.set(key, []);
       notifySession(key);
     },
 
     onGetSymbolState(ctx: ToolSetContext): TodoSymbolState {
-      const key = toolSetContextKey(ctx);
+      const key = ctxKey(ctx);
       const items = sessionTodos.get(key) ?? [];
       return {
         type: 'todo',
@@ -158,13 +158,13 @@ export function createTodoTools(): ToolSet {
     },
 
     onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-      const subs = getSubs(toolSetContextKey(ctx));
+      const subs = getSubs(ctxKey(ctx));
       subs.add(fn);
       return () => subs.delete(fn);
     },
 
     onBuildSnapshot(ctx: ToolSetContext) {
-      const items = sessionTodos.get(toolSetContextKey(ctx));
+      const items = sessionTodos.get(ctxKey(ctx));
       return items?.length ? { todos: [...items] } : {};
     },
   };

@@ -19,14 +19,12 @@ import type {
   UserInputRequest,
   PluginUiAdapter,
   PluginSlotDeclaration,
+  SlotDisplayContext,
 } from "@agent-type";
 import { createUserInputStore } from "./store";
 import { askUserTool } from "./askUser";
 import type { UserInputStore } from "./types";
-import type {
-  UserInputAdapter,
-  InlinePromptEntry,
-} from "./types";
+import type { UserInputAdapter, InlinePromptEntry } from "./types";
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
@@ -127,13 +125,13 @@ export interface UserInputToolSetOptions {
    * Receives sessionId → returns a () => boolean.
    * Use to combine multiple toolset states (e.g. "show if either has content").
    */
-  readonly shouldRenderInlinePrompt?: ((sessionId: string) => () => boolean) | undefined;
+  readonly shouldRenderInlinePrompt: (ctx: SlotDisplayContext) => boolean;
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export function createUserInputToolSet(
-  options: UserInputToolSetOptions = {},
+  options: UserInputToolSetOptions = { shouldRenderInlinePrompt: () => false },
 ): ToolSet {
   const { adapter, shouldRenderInlinePrompt } = options;
   const store = options.store ?? createUserInputStore();
@@ -199,15 +197,38 @@ export function createUserInputToolSet(
   return {
     symbol: USER_INPUT_SYMBOL,
     name: "user-input",
-    description: "User-input prompting via the chat UI",
+    description: "Ask user for input",
     coreTools: ["ask_user"],
     tools: [askUserTool],
+
+    // ── System prompt ────────────────────────────────────────────────────────
+
+    onGetSystemPrompt() {
+      return [
+        "## ask_user tool — usage rules",
+        "",
+        "Always use `ask_user` when you need information from the user that you cannot infer or guess:",
+        "- The user's intent is ambiguous and the wrong choice is hard to undo",
+        "- A required parameter is missing and no default is reasonable",
+        "- The task has multiple equally valid interpretations",
+        "- You need explicit confirmation before a destructive/irreversible operation",
+        "",
+        "5 prompt types:",
+        "- **confirm** — yes/no question. Returns `\"yes\"` or signals cancellation.",
+        "- **text** — free-form answer. Use only when the response cannot be constrained.",
+        "- **select** — pick one from a fixed list. Prefer this over text when the valid answers are known.",
+        "- **multiSelect** — pick one or more options. Returns a JSON array string.",
+        "- **number** — numeric input. Specify `min`/`max`/`step` to constrain.",
+        "",
+        "Tool execution is **suspended** until the user responds. If the user cancels, the tool",
+        "returns a cancellation message — proceed with a fallback strategy rather than retrying.",
+      ].join("\n");
+    },
 
     // ── State (symbol-isolated) ──────────────────────────────────────────────
 
     onGetSymbolState(ctx: ToolSetContext) {
       const sessionKey = key(ctx);
-      const defaultShouldRender = () => store.getAll(sessionKey).length > 0;
       return {
         type: "requestUserInput" as const,
         pendingUserInputs: store.getAll(sessionKey),
@@ -216,9 +237,7 @@ export function createUserInputToolSet(
           {
             type: "inlinePrompt" as const,
             id: "user-input.prompt",
-            shouldRender: shouldRenderInlinePrompt
-              ? shouldRenderInlinePrompt(sessionKey)
-              : defaultShouldRender,
+            shouldRender: shouldRenderInlinePrompt,
           },
         ],
       };

@@ -4,14 +4,14 @@ import type { SessionEntryExtension } from '@agent-type';
 export { resolveToolSetTools } from '@agent-type';
 
 // Re-export shared constants & helpers (now defined in @agent-type)
-export { MAIN_CONVERSATION_ID, toolSetContextKey } from '@agent-type';
+export { MAIN_CONVERSATION_ID, ctxKey } from '@agent-type';
 
 // ── AgentClientLike types ──────────────────────────────────────────────────
 // AgentQueryFns and AgentClientLike are now defined in @agent-type/toolset.ts
 
 // ── ToolSet invocation context ────────────────────────────────────────────────
 
-// MAIN_CONVERSATION_ID and toolSetContextKey are now defined in @agent-type/toolset.ts
+// MAIN_CONVERSATION_ID and ctxKey are now defined in @agent-type/toolset.ts
 // and re-exported above.
 
 // ToolSetStateContext, ToolContextPatch, SystemPromptContext, CompactionNotice,

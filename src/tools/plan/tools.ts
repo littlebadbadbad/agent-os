@@ -1,13 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import { toolSetContextKey } from '@agent-sdk/tools/toolSet';
+import { ctxKey } from '@agent-sdk/tools/toolSet';
 import type { planStore as PlanStore } from './store';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function ctxKey(sessionId: string, agentName: string, conversationId: string): string {
-  return toolSetContextKey({ sessionId, agentName, conversationId });
-}
 
 // ── Tools ─────────────────────────────────────────────────────────────────────
 
@@ -22,7 +16,7 @@ export function createPlanTools(store: typeof PlanStore) {
       content: z.string().min(1).describe('Full plan as a markdown string.'),
     }),
     execute: async ({ content }, context) => {
-      const key = ctxKey(context.sessionId, context.agentName, context.conversationId);
+      const key = ctxKey(context);
       store.set(key, content);
       return { success: true };
     },
@@ -87,7 +81,7 @@ export function createPlanTools(store: typeof PlanStore) {
       'Use plan_write to capture the plan, then call plan_exit when ready to submit for approval.',
     parameters: z.object({}),
     execute: async (_, context) => {
-      const key = ctxKey(context.sessionId, context.agentName, context.conversationId);
+      const key = ctxKey(context);
       store.setPlanMode(key, true);
       return { status: 'plan_mode_entered', message: 'You are now in plan mode. Design your approach and write the plan with plan_write.' };
     },
@@ -104,7 +98,7 @@ export function createPlanTools(store: typeof PlanStore) {
       'Call this only after the plan is complete and ready for review.',
     parameters: z.object({}),
     execute: async (_, context) => {
-      const key = ctxKey(context.sessionId, context.agentName, context.conversationId);
+      const key = ctxKey(context);
       const current = store.get(key);
       store.setPlanMode(key, false);
 
@@ -158,7 +152,7 @@ export function createPlanTools(store: typeof PlanStore) {
       ),
     }),
     execute: async ({ plan }, context) => {
-      const key = ctxKey(context.sessionId, context.agentName, context.conversationId);
+      const key = ctxKey(context);
       const stored = plan ?? store.get(key);
 
       if (!stored) {

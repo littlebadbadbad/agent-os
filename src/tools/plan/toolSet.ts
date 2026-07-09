@@ -1,7 +1,7 @@
 // ── Side-effect: register module augmentation fields ─────────────────────────
 import './types';
 
-import { toolSetContextKey } from '@agent-sdk/tools/toolSet';
+import { ctxKey } from '@agent-sdk/tools/toolSet';
 import type { ToolSet, ToolSetContext } from '@agent-type';
 import type { Tool } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
@@ -53,7 +53,7 @@ export function createPlanToolSet(): ToolSet {
   const tools = createPlanTools(planStore);
 
   function key(ctx: ToolSetContext): string {
-    return toolSetContextKey(ctx);
+    return ctxKey(ctx);
   }
 
   return {

@@ -1,13 +1,17 @@
 import type { ReactElement, CSSProperties } from 'react';
 import type { ToolCallInfo } from '../types';
+import type { SlotSession } from '@agent-type';
 import { StatusBadge, getToolMeta, getCompactSummary } from './toolCards/shared';
 import { slotRegistry } from '../../../slots/registry';
 import { SlotRenderer } from '../../../slots/SlotRenderer';
 import styles from '../AgentWidget.module.scss';
 
+
 interface CompactToolCardProps {
   info: ToolCallInfo;
   onOpen: () => void;
+  /** Session for shouldRender evaluation in SlotRenderer. */
+  readonly session: SlotSession;
 }
 
 /**
@@ -21,7 +25,7 @@ interface CompactToolCardProps {
  * "open detail" via a `CompactToolCardIframeMessage` (`type: "openDetail"`),
  * which triggers `onOpen`.
  */
-export function CompactToolCard({ info, onOpen }: CompactToolCardProps): ReactElement {
+export function CompactToolCard({ info, onOpen, session }: CompactToolCardProps): ReactElement {
   // ── Plugin compactToolCard slot lookup ────────────────────────────────────
   const pluginSlot = slotRegistry
     .getByType('compactToolCard')
@@ -33,6 +37,7 @@ export function CompactToolCard({ info, onOpen }: CompactToolCardProps): ReactEl
         pluginId={pluginSlot.pluginId}
         slotType="compactToolCard"
         slotId={pluginSlot.declaration.id}
+        session={session}
         toolCallInfo={info}
         onOpenDetail={onOpen}
       />

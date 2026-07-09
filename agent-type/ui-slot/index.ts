@@ -21,6 +21,7 @@ export type {
   // ── Slot discriminant ──
   SlotType,
   // ── Slot declarations ──
+  BaseSlotDeclaration,
   PanelSlotDeclaration,
   ToolCardSlotDeclaration,
   CompactToolCardSlotDeclaration,

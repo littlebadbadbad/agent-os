@@ -280,14 +280,51 @@ function hasRecentFlushMarker(agentId: string): boolean {
   }
 }
 
-// ── MakeDebouncedSave (now direct pass-through — SDK layer handles debounce) ──
+// ── Init Gate ─────────────────────────────────────────────────────────────
+// Blocks ALL persistence writes until initSessions() completes, then drains
+// one final save of the restored data.  This is strictly more robust than a
+// data-content guard (e.g. "skip if messages.length === 0") because:
+//
+//   • Some ToolSet's onBuildSnapshot may inject fields into SessionEntryData
+//     that make the snapshot appear "non-empty" even when it's still the
+//     default template (race lost before restoreSessions).
+//   • A temporal barrier has zero false negatives — nothing leaks through.
+//
+//   ── Lifecycle ──────────────────────────────────────────────────────────
+//   Module load → createAgentClient → wireSessionPersistence
+//     → doSave / scheduleSave  → onSessionsChange → makeDebouncedSave
+//       ↓ _gate === 'closed'   → buffer the snapshot, do NOT write to disk
+//   initSessions() → loadSessions → restoreSessions → _gate = 'open'
+//     → drain buffered snapshot (carries real data from restoreSessions)
+//     → subsequent saves pass through normally
+//
+type InitGateState = { status: 'closed'; pending: Array<() => void> } | { status: 'open' };
+let _gate: InitGateState = { status: 'closed', pending: [] };
 
-function makeDebouncedSave(agentId: string, _delayMs = 200) {
-  // SDK layer handles all debouncing now (500 ms + 5 s ceiling).
-  // This outer callback is a direct pass-through.
+function makeDebouncedSave(agentId: string) {
   return (sessions: Parameters<typeof sessionStore.saveSessions>[1], _force?: boolean): void | Promise<void> => {
+    if (_gate.status === 'closed') {
+      // Only buffer saves that carry real session data (from restoreSessions).
+      // Empty-template saves from the default "New Chat" session are dropped.
+      const hasRealData = sessions.some(
+        (s) => (s.messages && s.messages.length > 0) || (s.liveHistory && s.liveHistory.length > 0),
+      );
+      if (!hasRealData) return;
+      // Buffer the real save — it will be drained once the gate opens.
+      _gate.pending.push(() => sessionStore.saveSessions(agentId, sessions));
+      return;
+    }
     return sessionStore.saveSessions(agentId, sessions);
   };
+}
+
+/** Call once after all agents have been restored to open the persistence gate. */
+function openPersistenceGate(): void {
+  if (_gate.status === 'open') return;
+  const pending = _gate.pending;
+  _gate = { status: 'open' };
+  // Drain buffered saves (they carry the data from restoreSessions).
+  for (const flush of pending) flush();
 }
 
 // ── Agents (created without initial sessions) ───────────────────────────────────
@@ -346,8 +383,14 @@ export async function initSessions(): Promise<void> {
     sessionStore.loadSessions("async-agent"),
     sessionStore.loadSessions("stream-agent"),
   ]);
+  debugger
   if (asyncSessions.length > 0) asyncAgent.restoreSessions(asyncSessions);
   if (streamSessions.length > 0) streamAgent.restoreSessions(streamSessions);
+
+  // 🛡 Open the persistence gate — any saves buffered during init (carrying
+  // real restored data) are drained NOW, and all subsequent saves pass
+  // through to the backend normally.
+  openPersistenceGate();
 
   // ── Shutdown persistence guard ──────────────────────────────────────────
   // BROWSER: beforeunload/visibilitychange/pagehide flush session data before

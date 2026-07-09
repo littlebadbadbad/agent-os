@@ -105,7 +105,7 @@ export function createPendingInputToolSet(
 
   // ── Composite store key ──────────────────────────────────────────────────
   // Uses plain sessionId for the main conversation, and `${sessionId}:${conversationId}`
-  // for sub-agent conversations — matching the toolSetContextKey pattern.
+  // for sub-agent conversations — matching the ctxKey pattern.
 
   function storeKey(ctx: ToolSetContext): string {
     return ctx.conversationId === MAIN_CONVERSATION_ID

@@ -520,25 +520,6 @@ export interface ToolCardRenderContext {
   readonly toolCallInfo: ToolCallInfo;
 }
 
-/**
- * Dual-mode tool card renderer.
- *
- * - `'template'`: plugin returns a {@link ToolCardDescriptor}; the host
- *   renders a standard card layout from it.
- * - `'custom'`: plugin receives a {@link ToolCardRenderContext} and renders
- *   its own DOM into the provided container. Returns an optional cleanup
- *   function called when the card is unmounted.
- */
-export type ToolCardRenderer =
-  | {
-    readonly mode: "template";
-    readonly render: (info: ToolCallInfo) => ToolCardDescriptor;
-  }
-  | {
-    readonly mode: "custom";
-    readonly render: (ctx: ToolCardRenderContext) => (() => void) | void;
-  };
-
 // ── Stream types ──────────────────────────────────────────────────────────────
 
 /**

@@ -70,7 +70,8 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
 
   return (
     <>
-      {/* HeaderBar slots — thin full-width bars above the tab bar. */}
+      {/* HeaderBar slots — thin full-width bars above the tab bar.
+          shouldRender is checked inside SlotRenderer via slotRegistry. */}
       {slotSession && headerBarSlots.map((entry) => (
         <SlotRenderer
           key={`${entry.pluginId}:${entry.declaration.id}`}
@@ -78,7 +79,6 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
           slotType="headerBar"
           slotId={entry.declaration.id}
           session={slotSession}
-          declaration={entry.declaration}
         />
       ))}
 
@@ -132,7 +132,8 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
           />
         ))}
 
-      {/* InlinePrompt slots — overlay iframes (pending-input prompts, etc.). */}
+      {/* InlinePrompt slots — overlay iframes (pending-input prompts, etc.).
+          shouldRender is checked inside SlotRenderer via slotRegistry. */}
       {slotSession && inlinePromptSlots.map((entry) => (
         <SlotRenderer
           key={`${entry.pluginId}:${entry.declaration.id}`}
@@ -140,7 +141,6 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
           slotType="inlinePrompt"
           slotId={entry.declaration.id}
           session={slotSession}
-          declaration={entry.declaration}
         />
       ))}
     </>
