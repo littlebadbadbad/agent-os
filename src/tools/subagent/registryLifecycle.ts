@@ -61,6 +61,7 @@ export function createLifecycleFunctions(
   notify: () => void,
   getSessionId: () => string,
   sendMessageRef: { current?: (agentName: string, convId: string, text: string, opts: SendMessageOpts) => Promise<SubAgentResult> },
+  convControllers: Map<string, AbortController>,
 ): LifecycleFunctions {
   // ── Conversation creation ─────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export function createLifecycleFunctions(
   ): ConversationHandle {
     const id = existingId ?? generateConvId();
     const convCtx = deps.subCtx(entry.name, id);
-    const conv = makeConversation(id, title, entry.name, notify, () => ({
+    const conv = makeConversation(id, getSessionId(), title, entry.name, notify, () => ({
       ...collectState(deps, convCtx, entry),
       ...collectSymbolState(deps, convCtx, entry),
     }));
@@ -87,6 +88,28 @@ export function createLifecycleFunctions(
     // Fire onInitConversation so per-conversation ToolSet state is ready before the first turn.
     for (const ts of deps.resolveToolSets()) {
       ts.onInitConversation?.(convCtx);
+    }
+    // Fire onSessionReady per conversation so ToolSets (e.g. PendingInputToolSet)
+    // receive the correct sendMessage for this specific conversation.
+    // Track the AbortController so UI-initiated cancel can abort auto-resumed sends.
+    const sessionId = getSessionId();
+    const resumeAbortKey = `resume:${entry.name}:${id}`;
+    for (const ts of deps.resolveToolSets()) {
+      ts.onSessionReady?.(convCtx, (text: string) => {
+        const fn = sendMessageRef.current;
+        if (!fn) return;
+        const controller = new AbortController();
+        convControllers.set(resumeAbortKey, controller);
+        void fn(entry.name, id, text, {
+          sessionId,
+          signal: controller.signal,
+          attachments: undefined,
+        }).finally(() => {
+          if (convControllers.get(resumeAbortKey) === controller) {
+            convControllers.delete(resumeAbortKey);
+          }
+        });
+      });
     }
     return conv;
   }
@@ -137,18 +160,6 @@ export function createLifecycleFunctions(
     const initData = { id: sessionId, title: entry.name, ...entryData } as SessionEntryData;
     for (const ts of deps.resolveToolSets()) {
       ts.onInitSession?.(ctx, initData);
-      // Fire onSessionReady so ToolSets (e.g. PendingInputToolSet) can
-      // register a sendMessage callback for auto-resuming queued messages.
-      // Uses a lazy ref to avoid circular dependency with executionFunctions.
-      ts.onSessionReady?.(ctx, (text: string) => {
-        const fn = sendMessageRef.current;
-        if (!fn) return;
-        fn(entry.name, entry.activeConversationId, text, {
-          sessionId,
-          signal: new AbortController().signal,
-          attachments: undefined,
-        });
-      });
     }
   }
 

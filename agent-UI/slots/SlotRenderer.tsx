@@ -34,6 +34,7 @@ import { type ReactElement } from "react";
 import type {
   ToolCallInfo,
   SlotSession,
+  PluginSlotDeclaration,
 } from "@agent-type";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
@@ -50,8 +51,9 @@ import { buildSlotDisplayContext } from "./context";
  * Returns `true` when the slot should render.
  *
  * Rules:
- *   - If the declaration is not found in registry → render (don't gate)
- *   - If `shouldRender` is not defined → render
+ *   - If an explicit `declaration` is provided (sub-agent path), use it directly
+ *   - Otherwise look up from the global slotRegistry (main-agent path)
+ *   - If no declaration or `shouldRender` is not defined → render
  *   - If `shouldRender` returns `false` → skip
  *   - Otherwise → render
  */
@@ -59,8 +61,9 @@ function checkShouldRender(
   pluginId: string,
   slotId: string,
   session: SlotSession,
+  declaration?: PluginSlotDeclaration,
 ): boolean {
-  const decl = slotRegistry.getSlot(pluginId, slotId);
+  const decl = declaration ?? slotRegistry.getSlot(pluginId, slotId)?.declaration;
   if (!decl?.shouldRender) return true;
   const ctx = buildSlotDisplayContext(session);
   return decl.shouldRender(ctx);
@@ -76,6 +79,8 @@ export type SlotRendererProps =
       readonly slotType: "panel";
       readonly slotId: string;
       readonly session: SlotSession;
+      readonly toolSetSymbol: symbol;
+      readonly declaration?: PluginSlotDeclaration;
       readonly className?: string;
     }
   | {
@@ -83,7 +88,9 @@ export type SlotRendererProps =
       readonly slotType: "toolCard";
       readonly slotId: string;
       readonly session: SlotSession;
+      readonly toolSetSymbol: symbol;
       readonly toolCallInfo: ToolCallInfo;
+      readonly declaration?: PluginSlotDeclaration;
       readonly className?: string;
     }
   | {
@@ -91,9 +98,11 @@ export type SlotRendererProps =
       readonly slotType: "compactToolCard";
       readonly slotId: string;
       readonly session: SlotSession;
+      readonly toolSetSymbol: symbol;
       readonly toolCallInfo: ToolCallInfo;
       /** Called when the compact card signals it should open the detail modal. */
       readonly onOpenDetail?: () => void;
+      readonly declaration?: PluginSlotDeclaration;
       readonly className?: string;
     }
   | {
@@ -101,6 +110,8 @@ export type SlotRendererProps =
       readonly slotType: "inlinePrompt";
       readonly slotId: string;
       readonly session: SlotSession;
+      readonly toolSetSymbol: symbol;
+      readonly declaration?: PluginSlotDeclaration;
       readonly className?: string;
     }
   | {
@@ -108,6 +119,8 @@ export type SlotRendererProps =
       readonly slotType: "headerBar";
       readonly slotId: string;
       readonly session: SlotSession;
+      readonly toolSetSymbol: symbol;
+      readonly declaration?: PluginSlotDeclaration;
       readonly className?: string;
     };
 
@@ -126,7 +139,7 @@ export type SlotRendererProps =
  */
 export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
   // ── shouldRender gate — evaluated before dispatch ─────────────────────────
-  if (!checkShouldRender(props.pluginId, props.slotId, props.session)) {
+  if (!checkShouldRender(props.pluginId, props.slotId, props.session, props.declaration)) {
     return null;
   }
 
@@ -138,6 +151,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           pluginId={props.pluginId}
           slotId={props.slotId}
           session={props.session}
+          toolSetSymbol={props.toolSetSymbol}
           className={props.className}
         />
       );
@@ -148,6 +162,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           pluginId={props.pluginId}
           slotId={props.slotId}
           toolCallInfo={props.toolCallInfo}
+          toolSetSymbol={props.toolSetSymbol}
           className={props.className}
         />
       );
@@ -158,6 +173,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           pluginId={props.pluginId}
           slotId={props.slotId}
           toolCallInfo={props.toolCallInfo}
+          toolSetSymbol={props.toolSetSymbol}
           onOpenDetail={props.onOpenDetail}
           className={props.className}
         />
@@ -169,6 +185,8 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           pluginId={props.pluginId}
           slotId={props.slotId}
           session={props.session}
+          toolSetSymbol={props.toolSetSymbol}
+          declaration={props.declaration}
           className={props.className}
         />
       );
@@ -179,6 +197,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
           pluginId={props.pluginId}
           slotId={props.slotId}
           session={props.session}
+          toolSetSymbol={props.toolSetSymbol}
           className={props.className}
         />
       );

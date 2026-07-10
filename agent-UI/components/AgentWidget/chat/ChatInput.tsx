@@ -181,7 +181,7 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
           type="file"
           accept={ACCEPTED_MIME_TYPES}
           multiple
-          style={{ display: 'none' }}
+          className={styles['hidden']}
           onChange={handleFileChange}
           aria-hidden="true"
           tabIndex={-1}

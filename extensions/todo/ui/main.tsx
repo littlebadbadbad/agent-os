@@ -23,7 +23,6 @@ import type {
 import { TodoPanel } from "./TodoPanel";
 import { TodoToolCard } from "./TodoToolCard";
 import { TodoCompactCard } from "./TodoCompactCard";
-import { getTodoSymbolState } from "./types";
 
 declare global {
   interface Window {
@@ -73,12 +72,12 @@ function bootApp(host: UiPluginHost): void {
 
   // ── Reactive store ────────────────────────────────────────────────────────
 
-  let todoState = getTodoSymbolState(host.getPluginState());
+  let todoState = host.getPluginState()?.[1];
   let toolCallInfo: ToolCallInfo | null = null;
   const listeners = new Set<() => void>();
 
   const emitChange = () => {
-    todoState = getTodoSymbolState(host.getPluginState());
+    todoState = host.getPluginState()?.[1];
     listeners.forEach((l) => l());
   };
 

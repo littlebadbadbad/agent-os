@@ -35,7 +35,7 @@ export function SessionContent({
     terminalAdapter,
     enableAttachments,
     toggleTool,
-    subAgentRegistries,
+    subAgentRegistry,
     experiences,
     experienceStore,
     plan,
@@ -95,7 +95,7 @@ export function SessionContent({
   const hasPluginUi = slotRegistry
     .getByType("panel")
     .some((s) => s.declaration.showTab(slotCtx));
-  const hasSubAgents = subAgentRegistries.length > 0;
+  const hasSubAgents = subAgentRegistry !== null;
   const hasCron = (cronJobs?.length ?? 0) > 0;
   const enabledCount = toolStates.filter((t) => t.enabled).length;
 
@@ -112,10 +112,11 @@ export function SessionContent({
         .getByType("headerBar")
         .map((entry) => (
           <SlotRenderer
-            key={`${entry.pluginId}:${entry.declaration.id}`}
+            key={`${entry.pluginId}:${entry.slotId}`}
             pluginId={entry.pluginId}
             slotType="headerBar"
-            slotId={entry.declaration.id}
+            slotId={entry.slotId}
+            toolSetSymbol={entry.toolSetSymbol}
             session={session}
           />
         ))}
@@ -242,14 +243,20 @@ export function SessionContent({
           onDelete={cronDeleteJob}
         />
       )}
-      {view.startsWith("plugin:") && (
-        <SlotRenderer
-          pluginId={view.slice("plugin:".length)}
-          slotType="panel"
-          slotId={`${view.slice("plugin:".length)}.main`}
-          session={session}
-        />
-      )}
+      {view.startsWith("plugin:") && (() => {
+          const pid = view.slice("plugin:".length);
+          const panelEntry = slotRegistry.getByType("panel").find((e) => e.pluginId === pid);
+          if (!panelEntry) return null;
+          return (
+            <SlotRenderer
+              pluginId={panelEntry.pluginId}
+              slotType="panel"
+              slotId={panelEntry.slotId}
+              toolSetSymbol={panelEntry.toolSetSymbol}
+              session={session}
+            />
+          );
+        })()}
 
       {view === "plan" && plan && <PlanPanel plan={plan} />}
       {/* SubAgentsPanel is always mounted when sub-agents exist so that
@@ -261,7 +268,7 @@ export function SessionContent({
             view === "subagents" ? styles["chat-panel"] : styles["hidden"]
           }
         >
-          <SubAgentsPanel registries={subAgentRegistries} sessionId={sessionStateId} />
+          <SubAgentsPanel registry={subAgentRegistry!} sessionId={sessionStateId} />
         </div>
       )}
       {view === "experience" && (
@@ -278,10 +285,11 @@ export function SessionContent({
         .getByType("inlinePrompt")
         .map((entry) => (
           <SlotRenderer
-            key={`${entry.pluginId}:${entry.declaration.id}`}
+            key={`${entry.pluginId}:${entry.slotId}`}
             pluginId={entry.pluginId}
             slotType="inlinePrompt"
-            slotId={entry.declaration.id}
+            slotId={entry.slotId}
+            toolSetSymbol={entry.toolSetSymbol}
             session={session}
           />
         ))}

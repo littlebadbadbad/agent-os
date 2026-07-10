@@ -205,7 +205,7 @@ function ItemRow({ item, onEdit, onDelete }: ItemRowProps): ReactElement {
         <span className={styles['exp-item-date']}>
           {item.createdAt}
           {item.confidence !== undefined && (
-            <span style={{ marginLeft: 6, opacity: 0.6, fontSize: '0.75em' }}>
+            <span className={styles['exp-item-conf']}>
               conf={item.confidence.toFixed(2)}
             </span>
           )}
@@ -250,14 +250,14 @@ function ItemRow({ item, onEdit, onDelete }: ItemRowProps): ReactElement {
           )}
         </div>
       </div>
-      <p className={styles['exp-item-content']} style={{ fontFamily: 'monospace', fontSize: '0.78em', opacity: 0.7 }}>
+      <p className={`${styles['exp-item-content']} ${styles['exp-item-trigger']}`}>
         TRIGGER: {item.trigger}
       </p>
       <p className={styles['exp-item-content']}>
         {item.insight}
       </p>
       {item.evidence && (
-        <p className={styles['exp-item-content']} style={{ opacity: 0.65, fontSize: '0.85em' }}>
+        <p className={`${styles['exp-item-content']} ${styles['exp-item-evidence']}`}>
           {item.evidence}
         </p>
       )}
@@ -387,7 +387,7 @@ export function ExperiencePanel({
         ref={fileInputRef}
         type="file"
         accept=".json"
-        style={{ display: 'none' }}
+        className={styles['hidden']}
         onChange={handleFileChange}
       />
       {/* Toolbar */}

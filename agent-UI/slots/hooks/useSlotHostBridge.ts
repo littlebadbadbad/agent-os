@@ -35,6 +35,8 @@ export interface UseSlotHostBridgeOptions {
   readonly slotId: string;
   /** Slot type — used for the slotContext and the message `type` field. */
   readonly slotType: SlotType;
+  /** The ToolSet symbol whose state to expose. */
+  readonly toolSetSymbol: symbol;
   /** Plugin descriptor (must have `uiEntryUrl` — caller guards this). */
   readonly uiPlugin: PluginDescriptor;
 }
@@ -68,7 +70,7 @@ export interface UseSlotHostBridgeResult {
 export function useSlotHostBridge(
   opts: UseSlotHostBridgeOptions,
 ): UseSlotHostBridgeResult {
-  const { session, pluginId, slotId, slotType, uiPlugin } = opts;
+  const { session, pluginId, slotId, slotType, toolSetSymbol, uiPlugin } = opts;
 
   const hostRef = useRef<UiPluginHostInternal | null>(null);
 
@@ -89,6 +91,7 @@ export function useSlotHostBridge(
       apiClient,
       configClient,
       session,
+      toolSetSymbol,
       slotContext: {
         slotId,
         slotType,
@@ -97,7 +100,7 @@ export function useSlotHostBridge(
         conversationId: session.getState().conversationId,
       },
     });
-  }, [pluginId, session, slotId, slotType, uiPlugin]);
+  }, [pluginId, session, slotId, slotType, toolSetSymbol, uiPlugin]);
 
   hostRef.current = host;
 

@@ -96,11 +96,11 @@ export function resolveConvId(
   if (!snap) throw new Error(`Sub-agent "${subagentName}" not found.`);
   // Auto-create a conversation if none exist (e.g. after all were deleted then re-queried).
   const active = snap.conversations.find(
-    (c) => c.id === snap.activeConversationId,
+    (c) => c.conversationId === snap.activeConversationId,
   );
   if (!active) {
     const conv = registry.createConversation(subagentName);
-    return conv.getState().id;
+    return conv.getState().conversationId;
   }
   return snap.activeConversationId;
 }

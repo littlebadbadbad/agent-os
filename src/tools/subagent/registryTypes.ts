@@ -11,8 +11,8 @@ export {};
 
 declare module '@agent-type' {
   interface AgentSessionExtension {
-    /** Sub-agent definitions visible to the UI panel. */
-    subAgentRegistries: readonly SubAgentRegistry[];
+    /** Sub-agent registry for this session — `null` when no sub-agents exist. */
+    subAgentRegistry: SubAgentRegistry | null;
   }
 }
 
@@ -83,16 +83,13 @@ export type ConversationMessageEntry = AgentMessage & { readonly index: number }
  * fully generic with no hardcoded fields.
  */
 export type SubAgentConversationState = {
-  /** Unique ID of this conversation. */
+  /** Root session ID (same for all sub-agent conversations within a session). */
   readonly id: string;
   /** Name of the sub-agent that owns this conversation. */
   readonly agentName: string;
   /**
-   * ID of this conversation — same value as `id`.
-   *
-   * Included for contract uniformity with `AgentSessionState` so plugins
-   * can read `conversationId` regardless of whether the slot is opened
-   * by the main agent or a sub-agent.
+   * Unique ID of this conversation (differs from `id` which is always
+   * the root session ID).
    */
   readonly conversationId: string;
   /** Human-readable title (auto-generated or provided at creation). */
@@ -249,7 +246,7 @@ export type SubAgentRegistry = {
    * Calls ToolSet `onInitSession` for the new conversation.
    * Throws if the sub-agent does not exist.
    */
-  createConversation(subAgentName: string, options?: { title?: string }): SubAgentConversation;
+  createConversation(subAgentName: string, options?: { title?: string; setActive?: boolean }): SubAgentConversation;
 
   /**
    * Delete a specific conversation.

@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import type { PluginUiAdapter } from '@agent-type';
+import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────
 
@@ -48,7 +48,17 @@ export type TodoPriority = 'low' | 'medium' | 'high';
  * Stored under `state[TODO_SYMBOL]` in the session state, isolating
  * todo state from the root `AgentSessionState`.
  */
-export interface TodoSymbolState extends PluginUiAdapter {
+export interface TodoSymbolState extends PluginStateExtension, PluginUiAdapter {
   readonly type: 'todo';
   readonly todos: readonly TodoItem[];
+}
+
+// ── Module augmentation — direct field access in UI ──────────────────────────
+// Single-ToolSet plugins augment PluginStateExtension so the iframe UI
+// can access fields without casts: state?.todos, state?.tokenBudget, etc.
+
+declare module "@agent-type" {
+  interface PluginStateExtension {
+    readonly todos: readonly TodoItem[];
+  }
 }

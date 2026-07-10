@@ -103,6 +103,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     deps, collectToolSetState, collectToolSetSymbolState, convSubCleanups, notify,
     () => sessionId,
     sendMessageRef,
+    convControllers,
   );
   const execution = createExecutionFunctions(deps, entries);
 
@@ -202,7 +203,12 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       const title = options?.title ?? `Conversation ${entry.conversations.size + 1}`;
       const conv = lifecycle.createConversationForEntry(title, entry);
       entry.conversations.set(conv._state.id, conv);
-      entry.activeConversationId = conv._state.id;
+      // Only switch active when explicitly requested. Default keeps the
+      // current active conversation so that send_*_message without an
+      // explicit conversation_id continues targeting the same conversation.
+      if (options?.setActive) {
+        entry.activeConversationId = conv._state.id;
+      }
       notify();
       return conv;
     },
@@ -296,6 +302,8 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     cancelConversationMessage(agentName, conversationId) {
       const key = `${agentName}:${conversationId}`;
       convControllers.get(key)?.abort();
+      // Also abort any in-flight auto-resumed send for this conversation.
+      convControllers.get(`resume:${agentName}:${conversationId}`)?.abort();
     },
 
     async editConversationMessage(agentName, conversationId, userCount, newText, attachments) {
@@ -374,6 +382,16 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
             [...sc.history],
           );
           entry.conversations.set(sc.id, conv);
+          // Restore per-conversation ToolSet state (e.g. PendingInputToolSet
+          // queues) from the conversation-level snapshot.  Uses the same hook
+          // as the agent-level restoration but with a distinct sub-context so
+          // that per-conversation keys (e.g. "${sess}:${agent}:${conv}") resolve
+          // independently of the agent-level key.
+          const convCtx = subCtx(raw.name, sc.id);
+          const convEntryData = { ...sc, id: sessionId };
+          for (const ts of resolveToolSets()) {
+            ts.onInitSession?.(convCtx, convEntryData);
+          }
         }
 
         // Finalize active conversation ID now that the map is populated.

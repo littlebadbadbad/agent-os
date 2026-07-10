@@ -69,7 +69,8 @@ export type ConversationHandle = SubAgentConversation & {
 /**
  * Create a new conversation with reactive state.
  *
- * @param id              Unique conversation ID (use `generateConvId()`).
+ * @param conversationId  Unique conversation ID (use `generateConvId()`).
+ * @param sessionId       Root session ID — becomes `id` in the state snapshot.
  * @param title           Human-readable title.
  * @param agentName       Name of the sub-agent that owns this conversation.
  * @param notifyRegistry  Callback to notify the parent registry of structural
@@ -83,14 +84,15 @@ export type ConversationHandle = SubAgentConversation & {
  *          properties for use by the registry internals.
  */
 export function makeConversation(
-  id: string,
+  conversationId: string,
+  sessionId: string,
   title: string,
   agentName: string,
   notifyRegistry: () => void,
   getExtraState?: () => Partial<SubAgentConversationState>,
 ): ConversationHandle {
   const state: MutableConvState = {
-    id,
+    id: conversationId,
     agentName,
     title,
     isLoading: false,
@@ -129,7 +131,7 @@ export function makeConversation(
     getState(): SubAgentConversationState {
       if (!convSnapshot) {
         convSnapshot = {
-          id: state.id,
+          id: sessionId,
           agentName: state.agentName,
           conversationId: state.id,
           title: state.title,

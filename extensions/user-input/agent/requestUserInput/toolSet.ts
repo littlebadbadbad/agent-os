@@ -11,19 +11,18 @@
  * KEY CHANGE: onGetState → onGetSymbolState for plugin state isolation.
  */
 
-import type {
-  ToolSet,
-  ToolSetContext,
-  ToolContextPatch,
-  SessionEntryData,
-  UserInputRequest,
-  PluginUiAdapter,
-  PluginSlotDeclaration,
-  SlotDisplayContext,
+import {
+  type ToolSet,
+  type ToolSetContext,
+  type ToolContextPatch,
+  type SessionEntryData,
+  type UserInputRequest,
+  type PluginUiAdapter,
+  type PluginSlotDeclaration,
+  ctxKey,
 } from "@agent-type";
 import { createUserInputStore } from "./store";
 import { askUserTool } from "./askUser";
-import type { UserInputStore } from "./types";
 import type { UserInputAdapter, InlinePromptEntry } from "./types";
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
@@ -115,26 +114,15 @@ function toInlinePromptEntry(
 export interface UserInputToolSetOptions {
   /** Optional adapter for external prompt handling (headless mode). */
   readonly adapter?: UserInputAdapter | undefined;
-  /**
-   * External store instance (default: factory creates its own).
-   * Pass in when you need cross-toolset composite conditions.
-   */
-  readonly store?: UserInputStore | undefined;
-  /**
-   * Override for inlinePrompt `shouldRender`.
-   * Receives sessionId → returns a () => boolean.
-   * Use to combine multiple toolset states (e.g. "show if either has content").
-   */
-  readonly shouldRenderInlinePrompt: (ctx: SlotDisplayContext) => boolean;
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export function createUserInputToolSet(
-  options: UserInputToolSetOptions = { shouldRenderInlinePrompt: () => false },
+  options: UserInputToolSetOptions = {},
 ): ToolSet {
-  const { adapter, shouldRenderInlinePrompt } = options;
-  const store = options.store ?? createUserInputStore();
+  const { adapter } = options;
+  const store = createUserInputStore();
 
   // Ghost holders for prompts restored from snapshots before sendMessage is ready.
   const ghostHolders = new Map<
@@ -142,17 +130,13 @@ export function createUserInputToolSet(
     Map<string, { fn: (value: string | null) => void }>
   >();
 
-  function key(ctx: ToolSetContext): string {
-    return ctx.sessionId;
-  }
-
   // ── onPatchToolContext (injects requestUserInput) ───────────────────────────
 
   const patchFn: ToolContextPatch = (
     ctx: ToolSetContext,
     signal: AbortSignal,
   ) => {
-    const sessionId = key(ctx);
+    const sessionId = ctxKey(ctx);
 
     return {
       requestUserInput: (
@@ -168,7 +152,6 @@ export function createUserInputToolSet(
             ctx.agentName,
           );
           store.add(sessionId, { ...prompt, resolve });
-
           signal.addEventListener(
             "abort",
             () => store.remove(sessionId, entryId, null),
@@ -228,7 +211,7 @@ export function createUserInputToolSet(
     // ── State (symbol-isolated) ──────────────────────────────────────────────
 
     onGetSymbolState(ctx: ToolSetContext) {
-      const sessionKey = key(ctx);
+      const sessionKey = ctxKey(ctx);
       return {
         type: "requestUserInput" as const,
         pendingUserInputs: store.getAll(sessionKey),
@@ -236,8 +219,7 @@ export function createUserInputToolSet(
         slots: [
           {
             type: "inlinePrompt" as const,
-            id: "user-input.prompt",
-            shouldRender: shouldRenderInlinePrompt,
+            shouldRender: (ctx) => store.getAll(ctxKey(ctx)).length > 0,
           },
         ],
       };
@@ -246,7 +228,7 @@ export function createUserInputToolSet(
     // ── Subscriptions ────────────────────────────────────────────────────────
 
     onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-      return store.subscribe(key(ctx), fn);
+      return store.subscribe(ctxKey(ctx), fn);
     },
 
     // ── onPatchToolContext ───────────────────────────────────────────────────
@@ -260,7 +242,7 @@ export function createUserInputToolSet(
       const saved = entryData.pendingUserInputs;
       if (!saved?.length) return;
 
-      const sessionId = key(ctx);
+      const sessionId = ctxKey(ctx);
       let holders = ghostHolders.get(sessionId);
       if (!holders) {
         holders = new Map();
@@ -269,7 +251,7 @@ export function createUserInputToolSet(
 
       for (const entry of saved) {
         const holder: { fn: (value: string | null) => void } = {
-          fn: () => {},
+          fn: () => { },
         };
         holders.set(entry.id, holder);
         store.addGhost(sessionId, entry, (v) => holder.fn(v));
@@ -282,7 +264,7 @@ export function createUserInputToolSet(
     ): void {
       if (adapter) return;
 
-      const sessionId = key(ctx);
+      const sessionId = ctxKey(ctx);
       const holders = ghostHolders.get(sessionId);
       if (!holders) return;
 
@@ -295,11 +277,11 @@ export function createUserInputToolSet(
     },
 
     onRemoveSession(ctx: ToolSetContext): void {
-      store.removeSession(key(ctx));
+      store.removeSession(ctxKey(ctx));
     },
 
     onResetSession(ctx: ToolSetContext): void {
-      store.resetSession(key(ctx));
+      store.resetSession(ctxKey(ctx));
     },
 
     // ── Persistence ─────────────────────────────────────────────────────────
@@ -307,7 +289,7 @@ export function createUserInputToolSet(
     onBuildSnapshot(ctx: ToolSetContext): {
       pendingUserInputs?: readonly InlinePromptEntry[];
     } {
-      const prompts = store.serialize(key(ctx));
+      const prompts = store.serialize(ctxKey(ctx));
       return prompts.length ? { pendingUserInputs: prompts } : {};
     },
   };

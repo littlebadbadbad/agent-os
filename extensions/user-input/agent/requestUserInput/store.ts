@@ -36,6 +36,7 @@ export function createUserInputStore(): UserInputStore {
   }
 
   return {
+    [Symbol('buckets')]: buckets,
     add(sessionId: string, entry: InlinePromptEntryInternal): void {
       const b = getOrCreate(sessionId);
       b.entries.set(entry.id, entry);

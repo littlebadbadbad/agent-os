@@ -53,6 +53,7 @@ export function createPendingInputStore(): PendingInputStore {
   }
 
   return {
+    [Symbol('buckets')]: buckets,
     enqueue(key: string, entry: PendingInputEntry): void {
       const b = getOrCreate(key);
       b.queue.push(entry);
@@ -77,6 +78,7 @@ export function createPendingInputStore(): PendingInputStore {
       if (!b?.queue.length) return [];
       const toInject = [...b.queue];
       b.queue = [];
+      notify(b);
       return toInject;
     },
 

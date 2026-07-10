@@ -10,8 +10,75 @@
  */
 
 import type { Tool, AgentMessage, TokenUsage, AgentHandler, ToolSet, ToolSetContext, SystemPromptContext, CompactionNotice, SectionId } from '@agent-type';
+import type { Attachment, AgentRunOutcome } from '@agent-type';
 import type { SystemPromptCache } from '@agent-sdk/tools/prompts/section';
 import { canSuppressPrompt } from './toolSet';
+import type { HistoryTracker } from './historyTracker';
+
+// ── ToolSet dispatch helpers ──────────────────────────────────────────────────
+// Iterate ToolSet hook dispatch — identical in main-agent (sessionFactory.ts)
+// and sub-agent (registryExecution.ts). Extract once to prevent drift.
+
+/**
+ * Dispatch `onInterceptMessage` across all ToolSets.
+ * Returns `true` if any ToolSet intercepted the message, stopping the chain.
+ */
+export function dispatchOnInterceptMessage(
+  toolSets: readonly ToolSet[],
+  ctx: ToolSetContext,
+  text: string,
+  attachments: readonly Attachment[] | undefined,
+  isLoading: boolean,
+): boolean {
+  for (const ts of toolSets) {
+    const r = ts.onInterceptMessage?.(ctx, { content: text, attachments }, isLoading);
+    if (r?.intercepted) return true;
+  }
+  return false;
+}
+
+/** Dispatch `onBeforeRun` across all ToolSets. */
+export function dispatchOnBeforeRun(
+  toolSets: readonly ToolSet[],
+  ctx: ToolSetContext,
+  history: readonly AgentMessage[],
+): void {
+  for (const ts of toolSets) ts.onBeforeRun?.(ctx, history);
+}
+
+/** Dispatch `onAfterRun` across all ToolSets. */
+export function dispatchOnAfterRun(
+  toolSets: readonly ToolSet[],
+  ctx: ToolSetContext,
+  outcome: AgentRunOutcome,
+): void {
+  for (const ts of toolSets) ts.onAfterRun?.(ctx, outcome);
+}
+
+/** Collect injected messages from all ToolSets' `onBeforeInvoke`. */
+export function dispatchOnBeforeInvoke(
+  toolSets: readonly ToolSet[],
+  ctx: ToolSetContext,
+): AgentMessage[] {
+  return toolSets.flatMap((ts) => ts.onBeforeInvoke?.(ctx) ?? []);
+}
+
+// ── onBeforeInvoke wrapper ────────────────────────────────────────────────────
+
+export function wrapOnBeforeInvoke(
+  rawOnBeforeInvoke: () => AgentMessage[],
+  tracker: HistoryTracker,
+  onInjected?: (injected: readonly AgentMessage[]) => void,
+): () => AgentMessage[] {
+  return () => {
+    const injected = rawOnBeforeInvoke();
+    if (injected.length > 0) {
+      tracker.injectToFull(injected);
+      onInjected?.(injected);
+    }
+    return injected;
+  };
+}
 
 // ── System-prompt assembly ────────────────────────────────────────────────────
 

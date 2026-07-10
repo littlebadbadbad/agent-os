@@ -93,7 +93,7 @@ export function createDelegateTaskTool(
         parent: `${execContext.agentName}:${execContext.conversationId}`,
       });
 
-      const conversationId = conv.getState().id;
+      const conversationId = conv.getState().conversationId;
 
       try {
         const result = await registry.sendMessage(

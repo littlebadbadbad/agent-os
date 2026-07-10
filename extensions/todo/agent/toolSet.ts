@@ -14,7 +14,7 @@
 import type { TodoItem } from './types';
 import type { ToolSet, ToolSetContext, SessionEntryExtension } from '@agent-type';
 
-export {};
+export { };
 
 declare module '@agent-type' {
   interface SessionEntryExtension {
@@ -123,7 +123,7 @@ export function createTodoTools(): ToolSet {
       notifySession(key);
     },
 
-    onGetSymbolState(ctx: ToolSetContext): TodoSymbolState {
+    onGetSymbolState(ctx: ToolSetContext) {
       const key = ctxKey(ctx);
       const items = sessionTodos.get(key) ?? [];
       return {
@@ -132,7 +132,6 @@ export function createTodoTools(): ToolSet {
         slots: [
           {
             type: 'panel',
-            id: 'todo.main',
             label: 'Todo',
             showTab: (_ctx) => items.length > 0,
             order: 30,
@@ -145,12 +144,10 @@ export function createTodoTools(): ToolSet {
           },
           {
             type: 'toolCard',
-            id: 'todo.toolCard',
             toolNames,
           },
           {
             type: 'compactToolCard',
-            id: 'todo.compactToolCard',
             toolNames,
           },
         ],

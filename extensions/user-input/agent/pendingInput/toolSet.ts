@@ -20,7 +20,7 @@ import type {
   PluginUiAdapter,
 } from "@agent-type";
 import type { Attachment } from "@agent-type";
-import { MAIN_CONVERSATION_ID } from "@agent-type";
+import { ctxKey, MAIN_CONVERSATION_ID } from "@agent-type";
 import { createPendingInputStore } from "./store";
 import type { PendingInputStore } from "./store";
 import type { PendingInputEntry } from "./types";
@@ -58,9 +58,6 @@ export interface PendingInputSymbolState extends PluginUiAdapter {
   readonly pendingInputMessages: ReadonlyArray<{ id: string; text: string }>;
   readonly cancelQueuedInput: (id: string) => void;
   readonly resumeQueuedInputs: () => void;
-  /** Intersection required by PluginStateExtension (merged across all plugin toolsets). */
-  readonly pendingUserInputs: readonly import("../requestUserInput/types").InlinePromptEntry[];
-  readonly respondUserInput: (id: string, value: string | null) => void;
   /** Slot declarations for the host to discover. */
   readonly slots: readonly PluginSlotDeclaration[];
 }
@@ -103,16 +100,6 @@ export function createPendingInputToolSet(
     return cbs;
   }
 
-  // ── Composite store key ──────────────────────────────────────────────────
-  // Uses plain sessionId for the main conversation, and `${sessionId}:${conversationId}`
-  // for sub-agent conversations — matching the ctxKey pattern.
-
-  function storeKey(ctx: ToolSetContext): string {
-    return ctx.conversationId === MAIN_CONVERSATION_ID
-      ? ctx.sessionId
-      : `${ctx.sessionId}:${ctx.conversationId}`;
-  }
-
   return {
     symbol: PENDING_INPUT_SYMBOL,
     name: "pending-input",
@@ -120,8 +107,8 @@ export function createPendingInputToolSet(
 
     // ── State (symbol-isolated for plugin iframe + flat keys for host integration) ──
 
-    onGetSymbolState(ctx: ToolSetContext): PendingInputSymbolState {
-      const key = storeKey(ctx);
+    onGetSymbolState(ctx: ToolSetContext) {
+      const key = ctxKey(ctx);
       const queue = store.getQueue(key);
       const { queueUserInput, cancelQueuedInput, resumeQueuedInputs } =
         getCallbacks(key);
@@ -133,9 +120,12 @@ export function createPendingInputToolSet(
         pendingInputMessages: queue.map((e) => ({ id: e.id, text: e.text })),
         cancelQueuedInput,
         resumeQueuedInputs,
-        pendingUserInputs: [],
-        respondUserInput: () => {},
-        slots: [],
+        slots: [
+          {
+            type: "inlinePrompt" as const,
+            shouldRender: (ctx) => store.getQueue(ctxKey(ctx)).length > 0,
+          },
+        ],
       };
     },
 
@@ -149,7 +139,7 @@ export function createPendingInputToolSet(
       isLoading: boolean,
     ) {
       if (!isLoading) return;
-      const key = storeKey(ctx);
+      const key = ctxKey(ctx);
       const cbs = getCallbacks(key);
       cbs.queueUserInput(message.content);
       return { intercepted: true as const };
@@ -158,14 +148,14 @@ export function createPendingInputToolSet(
     // ── Subscriptions ──────────────────────────────────────────────────────
 
     onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-      return store.subscribe(storeKey(ctx), fn);
+      return store.subscribe(ctxKey(ctx), fn);
     },
 
     // ── Per-invoke injection ───────────────────────────────────────────────
 
     onBeforeInvoke(ctx: ToolSetContext) {
       return store
-        .drainForInvoke(storeKey(ctx))
+        .drainForInvoke(ctxKey(ctx))
         .map((e) => ({ role: "user" as const, content: e.text }));
     },
 
@@ -173,7 +163,7 @@ export function createPendingInputToolSet(
 
     onAfterRun(ctx: ToolSetContext, outcome: AgentRunOutcome): void {
       if (outcome === "aborted" || outcome === "error") return;
-      store.resume(storeKey(ctx));
+      store.resume(ctxKey(ctx));
     },
 
     // ── Session lifecycle ──────────────────────────────────────────────────
@@ -182,15 +172,15 @@ export function createPendingInputToolSet(
       ctx: ToolSetContext,
       sendMessage: (text: string) => void,
     ): void {
-      store.setSendMessage(storeKey(ctx), sendMessage);
+      store.setSendMessage(ctxKey(ctx), sendMessage);
     },
 
     onResetSession(ctx: ToolSetContext): void {
-      store.reset(storeKey(ctx));
+      store.reset(ctxKey(ctx));
     },
 
     onRemoveSession(ctx: ToolSetContext): void {
-      store.remove(storeKey(ctx));
+      store.remove(ctxKey(ctx));
     },
 
     // ── Persistence ────────────────────────────────────────────────────────
@@ -198,13 +188,13 @@ export function createPendingInputToolSet(
     onBuildSnapshot(ctx: ToolSetContext): {
       pendingInputs?: readonly PendingInputEntry[];
     } {
-      const inputs = store.serialize(storeKey(ctx));
+      const inputs = store.serialize(ctxKey(ctx));
       return inputs?.length ? { pendingInputs: [...inputs] } : {};
     },
 
     onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
       const inputs = entryData.pendingInputs;
-      if (inputs?.length) store.restore(storeKey(ctx), inputs);
+      if (inputs?.length) store.restore(ctxKey(ctx), inputs);
     },
   };
 }

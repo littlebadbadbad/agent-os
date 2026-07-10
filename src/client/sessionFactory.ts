@@ -24,7 +24,7 @@ import type { Tool } from "@agent-type";
 import { createToolManager, type ToolManager } from "./toolManager";
 import { createAgentSession } from "./agentSession";
 import { buildHandlerContext } from "./handlerContext";
-import { composeToolSetAfterTurn } from "@agent-sdk/tools/agentRuntime";
+import { composeToolSetAfterTurn, dispatchOnInterceptMessage, dispatchOnBeforeRun, dispatchOnAfterRun, dispatchOnBeforeInvoke } from "@agent-sdk/tools/agentRuntime";
 import type { SessionEntryData } from "./sessionManager.types";
 import type { AgentHandler } from "@agent-type";
 import { createSystemPromptCache } from "@agent-sdk/tools/prompts/section";
@@ -177,15 +177,11 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
           }
           if (ts.onGetSymbolState && ts.symbol) {
             const existing = merged[ts.symbol];
-            const symbolState: Record<string, unknown> =
-              existing !== undefined
-                ? { ...existing }
-                : {};
-            for (const [k, v] of Object.entries(
+            const symbolState = Object.assign(
+              {},
+              existing !== undefined ? { ...existing } : {},
               ts.onGetSymbolState(tsCtx, stateCtx),
-            )) {
-              symbolState[k] = v;
-            }
+            );
             merged[ts.symbol] = symbolState;
           }
         }
@@ -207,25 +203,14 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
         sectionCache.invalidate();
         for (const ts of getAllToolSets()) ts.onResetSession?.(tsCtx);
       },
-      onBeforeRun: (history) => {
-        for (const ts of getAllToolSets()) ts.onBeforeRun?.(tsCtx, history);
-      },
+      onBeforeRun: (history) => dispatchOnBeforeRun(getAllToolSets(), tsCtx, history),
       onInterceptMessage: (
         text: string,
         attachments: readonly Attachment[] | undefined,
         isLoading: boolean,
-      ): boolean => {
-        for (const ts of getAllToolSets()) {
-          const r = ts.onInterceptMessage?.(tsCtx, { content: text, attachments }, isLoading);
-          if (r?.intercepted) return true;
-        }
-        return false;
-      },
-      onBeforeInvoke: () =>
-        getAllToolSets().flatMap((ts) => ts.onBeforeInvoke?.(tsCtx) ?? []),
-      onAfterRun: (outcome: AgentRunOutcome) => {
-        for (const ts of getAllToolSets()) ts.onAfterRun?.(tsCtx, outcome);
-      },
+      ): boolean => dispatchOnInterceptMessage(getAllToolSets(), tsCtx, text, attachments, isLoading),
+      onBeforeInvoke: () => dispatchOnBeforeInvoke(getAllToolSets(), tsCtx),
+      onAfterRun: (outcome: AgentRunOutcome) => dispatchOnAfterRun(getAllToolSets(), tsCtx, outcome),
     });
 
     // Fire onSessionReady for all ToolSets now that sendMessage is available.

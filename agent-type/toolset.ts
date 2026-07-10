@@ -25,12 +25,8 @@ export const MAIN_CONVERSATION_ID = "main" as const;
 export function ctxKey(ctx: ToolSetContext): string {
   return ctx.conversationId === MAIN_CONVERSATION_ID
     ? ctx.sessionId
-    : `${ctx.sessionId}:${ctx.agentName}`;
+    : `${ctx.sessionId}:${ctx.agentName}:${ctx.conversationId}`;
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  ToolSet types  (来自 src/tools/toolSet.ts — types only)
-// ═══════════════════════════════════════════════════════════════════════════════
 
 // ── AgentClientLike ───────────────────────────────────────────────────────────
 
@@ -262,7 +258,7 @@ export type InterceptResult = { readonly intercepted: true } | void;
  * Fields are merged into the live session state and surfaced to the widget UI.
  *
  * This is an open-ended record; each ToolSet adds its own keys (e.g.
- * `subAgentRegistries`) which the SDK merges into the session state object.
+ * `subAgentRegistry`) which the SDK merges into the session state object.
  */
 export type ToolSetState = Partial<AgentSessionState>;
 

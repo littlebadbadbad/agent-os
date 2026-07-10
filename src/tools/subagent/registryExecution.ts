@@ -12,11 +12,11 @@
 import type { AgentMessage, TokenUsage } from '@agent-type';
 import type { Attachment } from '@agent-type';
 import type { SubAgentResult } from './types';
-import { truncateAtUserMessage } from './historyUtils';
+import { truncateAtUserMessage } from '../historyUtils';
 import { runAgentLoop } from './loop';
 import { emptyRegistry, withTool } from '../registry';
 import { createToolCallPipeline, withErrorBoundary } from '../callToolPipeline';
-import { buildSystemPrompt, applyToolFilters, composeToolSetAfterTurn } from '../agentRuntime';
+import { buildSystemPrompt, applyToolFilters, composeToolSetAfterTurn, wrapOnBeforeInvoke, dispatchOnBeforeRun, dispatchOnAfterRun, dispatchOnBeforeInvoke, dispatchOnInterceptMessage } from '../agentRuntime';
 import type { InternalEntry, RegistryDeps } from './registryInternal';
 import type { ConversationHandle } from './registryConversation';
 
@@ -101,9 +101,7 @@ export function createExecutionFunctions(
     // Notify ToolSets so they can process the incoming user turn (e.g. the
     // variable ToolSet stores any attachments in the user message as variables,
     // making them accessible via var_read for the duration of this sub-agent turn).
-    for (const ts of deps.resolveToolSets()) {
-      ts.onBeforeRun?.(turnCtx, state.tracker.getLiveHistory());
-    }
+    dispatchOnBeforeRun(deps.resolveToolSets(), turnCtx, state.tracker.getLiveHistory());
 
     // onAfterTurn: update history after every turn (so tool calls appear
     // incrementally), then delegate token recording and optional summarisation
@@ -116,8 +114,6 @@ export function createExecutionFunctions(
     ): Promise<AgentMessage[] | void> => {
       state.streamingText = '';
 
-      // Notices are sub-agent-internal and have no dedicated UI stream here;
-      // they are intentionally dropped (the compacted history is all we need).
       const r = await composeToolSetAfterTurn(history, deps.resolveToolSets(), turnCtx, usage, signal, deps.handler);
       if (r.changed) {
         state.tracker.advanceTurn(r.history);
@@ -125,11 +121,37 @@ export function createExecutionFunctions(
         state.tracker.advanceTurn(history);
       }
 
+      // Surface compaction notices as assistant messages in the sub-agent
+      // chat — mirroring the main agent which injects them via setMessages.
+      for (const notice of r.notices ?? []) {
+        state.tracker.pushToBoth({
+          role: 'assistant' as const,
+          content: notice.content,
+          ...(notice.attachments ? { attachments: notice.attachments } : {}),
+        });
+      }
+
       conv._notifyRegistry();
       return r.changed ? r.history : undefined;
     };
 
     let outcome: import('@agent-type').AgentRunOutcome = 'error';
+
+    // ── Batched streaming text ───────────────────────────────────────
+    // Accumulate deltas per animation frame (mirrors main agent's
+    // makeBatchedAppender) so React re-renders at most once per frame
+    // instead of once per ~5-char chunk.
+    // Declared outside try so the finally block can flush & cancel.
+    let pendingTextDelta = '';
+    let rafId: ReturnType<typeof requestAnimationFrame> | undefined;
+    function flushTextDelta(): void {
+      if (pendingTextDelta) {
+        state.streamingText += pendingTextDelta;
+        pendingTextDelta = '';
+        conv._notify();
+      }
+      rafId = undefined;
+    }
 
     try {
       const fullSystemPrompt = buildSystemPrompt(entry.systemPrompt, deps.resolveToolSets(), turnCtx, message, entry.sectionCache);
@@ -158,13 +180,17 @@ export function createExecutionFunctions(
         initialHistory: priorHistory,
         attachments: opts.attachments,
         callTool: (call) => pipeline(call, opts.signal),
-        onBeforeInvoke: () =>
-          deps.resolveToolSets().flatMap((ts) => ts.onBeforeInvoke?.(turnCtx) ?? []),
+        onBeforeInvoke: wrapOnBeforeInvoke(
+          () => dispatchOnBeforeInvoke(deps.resolveToolSets(), turnCtx),
+          state.tracker,
+          () => conv._notifyRegistry(),
+        ),
         onAfterTurn,
         onTextDelta: (delta) => {
-          state.streamingText += delta;
-          // Text streaming is high-frequency; notify only conv subscribers (not registry).
-          conv._notify();
+          pendingTextDelta += delta;
+          if (rafId === undefined) {
+            rafId = requestAnimationFrame(flushTextDelta);
+          }
         },
       });
 
@@ -182,16 +208,19 @@ export function createExecutionFunctions(
       throw _err;
     } finally {
       state.tracker.reconcile();
-      // Fire post-run hooks.  Implementations (e.g. PendingInputToolSet) may
-      // call sendMessage synchronously here — isLoading is already false so
-      // the call goes through immediately and starts the next run.
-      for (const ts of deps.resolveToolSets()) {
-        ts.onAfterRun?.(turnCtx, outcome);
-      }
-      // isLoading change is structural — update the registry snapshot.
+      // Flush any batched text delta that hasn't been committed yet,
+      // then cancel the pending rAF to avoid a stale callback.
+      if (rafId !== undefined) cancelAnimationFrame(rafId);
+      flushTextDelta();
+      // Set isLoading BEFORE onAfterRun so implementations (e.g.
+      // PendingInputToolSet) can call sendMessage synchronously —
+      // onInterceptMessage sees isLoading=false and passes through
+      // immediately, starting the next run without re-queuing.
       state.streamingText = '';
       state.isLoading = false;
       conv._notifyRegistry();
+      // Fire post-run hooks after isLoading is cleared.
+      dispatchOnAfterRun(deps.resolveToolSets(), turnCtx, outcome);
     }
   }
 
@@ -220,11 +249,8 @@ export function createExecutionFunctions(
     // that programmatic sends from tools (e.g. send_async_message) also hit
     // the interceptor.
     const interceptCtx = deps.subCtx(subAgentName, conversationId);
-    for (const ts of deps.resolveToolSets()) {
-      const r = ts.onInterceptMessage?.(interceptCtx, { content: message, attachments: opts.attachments }, conv._state.isLoading);
-      if (r?.intercepted) {
-        return { output: '', turns: 0, toolCallCount: 0, history: conv._state.tracker.getLiveHistory() } satisfies SubAgentResult;
-      }
+    if (dispatchOnInterceptMessage(deps.resolveToolSets(), interceptCtx, message, opts.attachments, conv._state.isLoading)) {
+      return { output: '', turns: 0, toolCallCount: 0, history: conv._state.tracker.getLiveHistory() } satisfies SubAgentResult;
     }
 
     // Concurrency guard: prevent two parallel sends from corrupting the same

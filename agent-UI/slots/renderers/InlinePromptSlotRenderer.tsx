@@ -11,7 +11,7 @@
 import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession, InlinePromptSlotDeclaration } from "@agent-type";
+import type { SlotSession, InlinePromptSlotDeclaration, PluginSlotDeclaration } from "@agent-type";
 import { slotRegistry } from "../registry";
 import { pluginSystem } from "../../agents";
 
@@ -19,19 +19,23 @@ export interface InlinePromptSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
   readonly session: SlotSession;
+  readonly toolSetSymbol: symbol;
+  /** Direct declaration for sub-agent slots (bypasses global slotRegistry). */
+  readonly declaration?: PluginSlotDeclaration;
   readonly className?: string;
 }
 
 export function InlinePromptSlotRenderer(
   props: InlinePromptSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, className } = props;
+  const { pluginId, slotId, session, toolSetSymbol, declaration, className } = props;
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
-  // Read dimensions from slot declaration, fall back to sensible defaults.
-  const decl = slotRegistry.getSlot(pluginId, slotId) as InlinePromptSlotDeclaration | undefined;
+  // Read dimensions from explicit declaration (sub-agent path) or fall back
+  // to the global slotRegistry (main-agent path).
+  const decl = (declaration ?? slotRegistry.getSlot(pluginId, slotId)?.declaration) as InlinePromptSlotDeclaration | undefined;
   const containingWidth = decl?.containingWidth ?? "100%";
   const containingHeight = decl?.containingHeight ?? "auto";
 
@@ -40,6 +44,7 @@ export function InlinePromptSlotRenderer(
     pluginId,
     slotId,
     slotType: "inlinePrompt",
+    toolSetSymbol,
     uiPlugin,
   });
 

@@ -8,7 +8,7 @@
  * enabling isolated state injection via `onGetSymbolState`.
  */
 
-import type { PluginUiAdapter } from '@agent-type';
+import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
 import type {
   TokenBudgetState,
   TokenBudgetConfig,
@@ -35,10 +35,20 @@ export type {
  * The `slots` array declares a `headerBar` slot that renders the token
  * progress bar in the host UI.
  */
-export interface TokenBudgetSymbolState extends PluginUiAdapter {
+export interface TokenBudgetSymbolState extends PluginStateExtension, PluginUiAdapter {
   readonly type: 'tokenBudget';
   /** Current token budget state (undefined when no tracker is active). */
   readonly tokenBudget: TokenBudgetState | undefined;
+}
+
+// ── Module augmentation — direct field access in UI ──────────────────────────
+// Single-ToolSet plugins augment PluginStateExtension so the iframe UI
+// can access fields without casts: state?.tokenBudget, state?.todos, etc.
+
+declare module "@agent-type" {
+  interface PluginStateExtension {
+    readonly tokenBudget?: TokenBudgetState | undefined;
+  }
 }
 
 // ── ToolSet options ───────────────────────────────────────────────────────────

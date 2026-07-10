@@ -383,7 +383,6 @@ export async function initSessions(): Promise<void> {
     sessionStore.loadSessions("async-agent"),
     sessionStore.loadSessions("stream-agent"),
   ]);
-  debugger
   if (asyncSessions.length > 0) asyncAgent.restoreSessions(asyncSessions);
   if (streamSessions.length > 0) streamAgent.restoreSessions(streamSessions);
 

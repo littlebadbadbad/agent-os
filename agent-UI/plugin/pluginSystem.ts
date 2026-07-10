@@ -181,7 +181,7 @@ export function createPluginSystem(): PluginSystem {
       }
       const entries = discoverSlots(sessionState, state.activePlugins);
       for (const entry of entries) {
-        slotRegistry.register(entry.pluginId, entry.declaration);
+        slotRegistry.register(entry.pluginId, entry.toolSetSymbol, entry.slotIndex, entry.declaration);
       }
     },
   };

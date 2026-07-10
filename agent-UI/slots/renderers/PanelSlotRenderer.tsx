@@ -16,13 +16,14 @@ export interface PanelSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
   readonly session: SlotSession;
+  readonly toolSetSymbol: symbol;
   readonly className?: string;
 }
 
 export function PanelSlotRenderer(
   props: PanelSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, className } = props;
+  const { pluginId, slotId, session, toolSetSymbol, className } = props;
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
@@ -32,6 +33,7 @@ export function PanelSlotRenderer(
     pluginId,
     slotId,
     slotType: "panel",
+    toolSetSymbol,
     uiPlugin,
   });
 

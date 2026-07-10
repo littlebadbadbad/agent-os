@@ -38,6 +38,24 @@ function tryGetSlots(value: unknown): readonly PluginSlotDeclaration[] | undefin
 }
 
 /**
+ * Auto-generate a unique slot id from plugin + toolset symbol + index.
+ */
+function generateSlotId(pluginId: string, toolSetSymbol: symbol, slotIndex: number): string {
+  const desc = toolSetSymbol.description ?? 'toolset';
+  return `${pluginId}::${desc}::${slotIndex}`;
+}
+
+/**
+ * A raw slot entry discovered from state — before registration.
+ */
+export interface DiscoveredSlotEntry {
+  readonly pluginId: string;
+  readonly toolSetSymbol: symbol;
+  readonly slotIndex: number;
+  readonly declaration: PluginSlotDeclaration;
+}
+
+/**
  * Discover all plugin slot declarations from a session/conversation state.
  *
  * @param state   Session or conversation state snapshot.  Typed as
@@ -45,27 +63,39 @@ function tryGetSlots(value: unknown): readonly PluginSlotDeclaration[] | undefin
  *                types use incompatible index signatures; runtime guards
  *                handle both uniformly.
  * @param plugins Active plugins whose symbol-keyed state to inspect.
- * @returns Flat list of `{ pluginId, declaration }` entries.
+ * @returns Flat list of `{ pluginId, toolSetSymbol, slotIndex, declaration }` entries.
  */
 export function discoverSlots(
   state: unknown,
   plugins: readonly ActivatedPluginInfo[],
-): readonly SlotEntry[] {
+): readonly DiscoveredSlotEntry[] {
   // Guard: must be a non-null object for Reflect.get to work safely.
   if (typeof state !== 'object' || state === null) {
     return [];
   }
 
-  const entries: SlotEntry[] = [];
+  const entries: DiscoveredSlotEntry[] = [];
   for (const plugin of plugins) {
     for (const sym of plugin.symbols) {
       const slots = tryGetSlots(Reflect.get(state, sym));
       if (slots) {
-        for (const slot of slots) {
-          entries.push({ pluginId: plugin.id, declaration: slot });
+        for (let i = 0; i < slots.length; i++) {
+          entries.push({ pluginId: plugin.id, toolSetSymbol: sym, slotIndex: i, declaration: slots[i] });
         }
       }
     }
   }
   return entries;
+}
+
+/**
+ * Convert discovered entries to fully-formed SlotEntry (with auto-generated slotId).
+ */
+export function toSlotEntries(discovered: readonly DiscoveredSlotEntry[]): readonly SlotEntry[] {
+  return discovered.map((e) => ({
+    pluginId: e.pluginId,
+    toolSetSymbol: e.toolSetSymbol,
+    slotId: generateSlotId(e.pluginId, e.toolSetSymbol, e.slotIndex),
+    declaration: e.declaration,
+  }));
 }

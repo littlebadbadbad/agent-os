@@ -58,7 +58,6 @@ export async function loadSessions(agentId: string): Promise<SessionEntryData[]>
     const res = await apiTransport.get<{ sessions: SessionEntryData[] }>(
       `/api/agent-sessions/${encodeURIComponent(agentId)}`,
     );
-    debugger
     return Array.isArray(res.sessions) ? res.sessions : [];
   } catch {
     return [];

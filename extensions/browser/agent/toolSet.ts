@@ -22,19 +22,16 @@ export function createBrowserToolSet(adapter: BrowserAdapter): ToolSet {
       slots: [
         {
           type: "panel",
-          id: "browser.main",
           label: "Browser",
           showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
           order: 50,
         },
         {
           type: "compactToolCard",
-          id: "browser.compactToolCard",
           toolNames: tools.map((t) => t.name),
         },
         {
           type: "toolCard",
-          id: "browser.toolCard",
           toolNames: tools.map((t) => t.name),
         },
       ],

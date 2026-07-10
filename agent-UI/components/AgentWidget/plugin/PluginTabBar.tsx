@@ -42,7 +42,7 @@ export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
           const badgeText = declaration.badge?.(slotCtx) ?? null;
           return (
             <button
-              key={`${pluginId}:${declaration.id}`}
+              key={`${pluginId}:${entry.slotId}`}
               type="button"
               className={`${styles["tab"]}${isActive ? ` ${styles["tab--active"]}` : ""}`}
               onClick={() => onSelect(view)}

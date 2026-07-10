@@ -36,7 +36,7 @@ Pure TS, no runtime imports except `defineTool`/`buildTool` (identity+freeze / f
 
 **AgentClient** (`src/client/index.ts`): `createAgentClient(config)` → manages master tools/toolSets, session lifecycle. Exposes `registerTool()`, `registerToolSet()`, `createSession()`, `getState()`. Owns `SessionManager` + per-session `ToolManager`.
 
-**AgentSession** (`src/client/agentSession.ts`): observable state (messages, isLoading, toolStates, todos, tokenBudget, subAgentRegistries). `sendMessage()` → runs agent loop. Maintains `history` (compacted LLM context) separate from UI messages.
+**AgentSession** (`src/client/agentSession.ts`): observable state (messages, isLoading, toolStates, todos, tokenBudget, subAgentRegistry). `sendMessage()` → runs agent loop. Maintains `history` (compacted LLM context) separate from UI messages.
 
 **Agent Loop** (`src/tools/agentLoopCore.ts` + `agentLoop.ts` + `agentRuntime.ts`):
 - `runAgentLoopCore()` — turn-by-turn: invokeHandler → drain stream → execute tool calls (parallel, abortable) → append results → repeat until no tool calls or maxTurns.

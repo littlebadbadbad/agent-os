@@ -22,19 +22,21 @@ export interface HeaderBarSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
   readonly session: SlotSession;
+  readonly toolSetSymbol: symbol;
   readonly className?: string;
 }
 
 export function HeaderBarSlotRenderer(
   props: HeaderBarSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, className } = props;
+  const { pluginId, slotId, session, toolSetSymbol, className } = props;
 
   const uiPlugin = pluginSystem.getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
   // Read dimensions from slot declaration, fall back to sensible defaults.
-  const decl = slotRegistry.getSlot(pluginId, slotId) as HeaderBarSlotDeclaration | undefined;
+  const entry = slotRegistry.getSlot(pluginId, slotId);
+  const decl = entry?.declaration as HeaderBarSlotDeclaration | undefined;
   const containingWidth = decl?.containingWidth ?? "100%";
   const containingHeight = decl?.containingHeight ?? "auto";
 
@@ -43,6 +45,7 @@ export function HeaderBarSlotRenderer(
     pluginId,
     slotId,
     slotType: "headerBar",
+    toolSetSymbol,
     uiPlugin,
   });
 

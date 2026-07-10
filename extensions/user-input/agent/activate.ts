@@ -4,50 +4,19 @@
  * This is the plugin's agent-side entry point, loaded by the plugin runtime
  * when the user-input extension is activated.
  *
- * Registers TWO toolsets:
- *   1. UserInputToolSet (ask_user tool + requestUserInput injection)
- *   2. PendingInputToolSet (message queuing during agent loop)
+ * Registers TWO independent toolsets, each with its own slot:
+ *   1. UserInputToolSet (ask_user tool) — inlinePrompt for user prompts
+ *   2. PendingInputToolSet (message queuing) — inlinePrompt for queued messages
  *
- * Registration order determines getPluginState() indices:
- *   [0] = AgentSessionState (base, always first — provided by host)
- *   [1] = UserInputSymbolState  (first registered toolset)
- *   [2] = PendingInputSymbolState (second registered toolset)
- *
- * Both stores are created externally so the composite shouldRender condition
- * can check both toolset states before the inline iframe mounts.
+ * Each toolset owns its store internally. Each slot receives only its
+ * ToolSet's state via `getPluginState()` returning `[base, toolSetState]`.
  */
 
-import { ctxKey, SlotDisplayContext, type AgentPluginHost } from "@agent-type";
+import type { AgentPluginHost } from "@agent-type";
 import { createUserInputToolSet } from "./requestUserInput";
 import { createPendingInputToolSet } from "./pendingInput";
-import { createUserInputStore } from "./requestUserInput/store";
-import { createPendingInputStore } from "./pendingInput/store";
 
 export function activate(host: AgentPluginHost): void {
-  // ── Create stores externally so composite shouldRender can read both ────────
-  const userInputStore = createUserInputStore();
-  const pendingStore = createPendingInputStore();
-
-  // ── Composite shouldRender: show inline iframe if EITHER toolset has content ─
-  // Called per-session by onGetSymbolState → creates a stable closure per sessionId.
-  const shouldRenderInlinePrompt = (ctx: SlotDisplayContext) => {
-    debugger;
-    return (
-      userInputStore.getAll(ctxKey(ctx)).length > 0 ||
-      pendingStore.getQueue(ctxKey(ctx)).length > 0
-    );
-  };
-
-  // ── Register userInput FIRST → plugin.symbols[0] → getPluginState()[1] ──────
-  const userInputToolSet = createUserInputToolSet({
-    store: userInputStore,
-    shouldRenderInlinePrompt: shouldRenderInlinePrompt,
-  });
-  host.registerToolSet(userInputToolSet);
-
-  // ── Register pendingInput SECOND → plugin.symbols[1] → getPluginState()[2] ──
-  const pendingInputToolSet = createPendingInputToolSet({
-    store: pendingStore,
-  });
-  host.registerToolSet(pendingInputToolSet);
+  host.registerToolSet(createUserInputToolSet());
+  host.registerToolSet(createPendingInputToolSet());
 }

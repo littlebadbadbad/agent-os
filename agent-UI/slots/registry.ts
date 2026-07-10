@@ -22,11 +22,15 @@ import type {
 
 // ── Slot entry ────────────────────────────────────────────────────────────────
 
-/** A registered slot with its owning plugin id. */
+/** A registered slot with its owning plugin id, toolset symbol, and auto-generated slot id. */
 export interface SlotEntry<T extends PluginSlotDeclaration = PluginSlotDeclaration> {
   /** Plugin that owns this slot. */
   readonly pluginId: string;
-  /** The slot declaration. */
+  /** The ToolSet's symbol that declared this slot. */
+  readonly toolSetSymbol: symbol;
+  /** Auto-generated unique slot identifier: `"${pluginId}::${symbolDesc}::${slotIndex}"`. */
+  readonly slotId: string;
+  /** The slot declaration (no `id` — the host assigns `slotId`). */
   readonly declaration: T;
 }
 
@@ -34,10 +38,19 @@ export interface SlotEntry<T extends PluginSlotDeclaration = PluginSlotDeclarati
 
 export interface SlotRegistry {
   /**
-   * Register a slot for a plugin. Replaces any existing slot with the
-   * same pluginId + declaration.id.
+   * Register a slot for a plugin's toolset.
+   *
+   * @param pluginId       Plugin that owns this slot.
+   * @param toolSetSymbol  The ToolSet symbol that declared this slot.
+   * @param slotIndex      Zero-based index of this slot within the ToolSet's `slots` array.
+   * @param declaration    The slot declaration.
    */
-  register(pluginId: string, declaration: PluginSlotDeclaration): void;
+  register(
+    pluginId: string,
+    toolSetSymbol: symbol,
+    slotIndex: number,
+    declaration: PluginSlotDeclaration,
+  ): void;
 
   /**
    * Remove all slots registered by a plugin.
@@ -65,11 +78,12 @@ export interface SlotRegistry {
 
   /**
    * Get a specific slot by pluginId + slotId.
+   * Returns the full SlotEntry with toolSetSymbol, or undefined.
    */
   getSlot(
     pluginId: string,
     slotId: string,
-  ): PluginSlotDeclaration | undefined;
+  ): SlotEntry | undefined;
 
   /**
    * Check if any slots are registered.
@@ -77,10 +91,24 @@ export interface SlotRegistry {
   readonly isEmpty: boolean;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Auto-generate a unique slot id from plugin + toolset symbol + index.
+ *
+ * Examples:
+ *   `user-input::requestUserInput::0`
+ *   `browser::browser::2`
+ */
+function generateSlotId(pluginId: string, toolSetSymbol: symbol, slotIndex: number): string {
+  const desc = toolSetSymbol.description ?? 'toolset';
+  return `${pluginId}::${desc}::${slotIndex}`;
+}
+
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export function createSlotRegistry(): SlotRegistry {
-  // Map key: `${pluginId}::${declaration.id}`
+  // Map key: `${pluginId}::${slotId}`
   const entries = new Map<string, SlotEntry>();
 
   function key(pluginId: string, slotId: string): string {
@@ -88,8 +116,14 @@ export function createSlotRegistry(): SlotRegistry {
   }
 
   return {
-    register(pluginId: string, declaration: PluginSlotDeclaration): void {
-      entries.set(key(pluginId, declaration.id), { pluginId, declaration });
+    register(
+      pluginId: string,
+      toolSetSymbol: symbol,
+      slotIndex: number,
+      declaration: PluginSlotDeclaration,
+    ): void {
+      const slotId = generateSlotId(pluginId, toolSetSymbol, slotIndex);
+      entries.set(key(pluginId, slotId), { pluginId, toolSetSymbol, slotId, declaration });
     },
 
     unregister(pluginId: string): void {
@@ -98,12 +132,6 @@ export function createSlotRegistry(): SlotRegistry {
       }
     },
 
-    // `getByType` implementation returns `SlotEntry<PluginSlotDeclaration>`.
-    // TypeScript's overload compatibility requires the implementation to be
-    // assignable to every narrow overload (e.g. `SlotEntry<PanelSlotDeclaration>`),
-    // which is not structurally provable.  The `as SlotRegistry` assertion on
-    // the returned object bridges this gap — callers always resolve via the
-    // typed overloads on the `SlotRegistry` interface.
     getByType(type: SlotType) {
       const result: SlotEntry<PluginSlotDeclaration>[] = [];
       for (const entry of entries.values()) {
@@ -124,11 +152,8 @@ export function createSlotRegistry(): SlotRegistry {
       return result;
     },
 
-    getSlot(
-      pluginId: string,
-      slotId: string,
-    ): PluginSlotDeclaration | undefined {
-      return entries.get(key(pluginId, slotId))?.declaration;
+    getSlot(pluginId: string, slotId: string): SlotEntry | undefined {
+      return entries.get(key(pluginId, slotId));
     },
 
     get isEmpty(): boolean {

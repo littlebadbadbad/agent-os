@@ -36,7 +36,8 @@ export function CompactToolCard({ info, onOpen, session }: CompactToolCardProps)
       <SlotRenderer
         pluginId={pluginSlot.pluginId}
         slotType="compactToolCard"
-        slotId={pluginSlot.declaration.id}
+        slotId={pluginSlot.slotId}
+        toolSetSymbol={pluginSlot.toolSetSymbol}
         session={session}
         toolCallInfo={info}
         onOpenDetail={onOpen}

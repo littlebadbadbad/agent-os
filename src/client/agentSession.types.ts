@@ -9,7 +9,7 @@ export type { AgentSessionState } from '@agent-type';
 
 // ── Module augmentation ───────────────────────────────────────────────────────
 // UI-specific session state fields. Business-module fields (toolStates,
-// adapters, subAgentRegistries) are augmented by their own modules.
+// adapters, subAgentRegistry) are augmented by their own modules.
 declare module '@agent-type' {
   interface AgentSessionExtension {
     /** Conversation messages (UI Message format — richer than AgentMessage). */

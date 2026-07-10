@@ -1,7 +1,8 @@
 import type { AgentMessage, Attachment, TokenUsage, ToolResult } from '@agent-type';
 import { runAgentLoopCore } from '@agent-sdk/tools/agentLoopCore';
-import { truncateAtUserMessage } from '@agent-sdk/tools/subagent/historyUtils';
+import { truncateAtUserMessage } from '@agent-sdk/tools/historyUtils';
 import { createHistoryTracker } from '@agent-sdk/tools/historyTracker';
+import { wrapOnBeforeInvoke } from '@agent-sdk/tools/agentRuntime';
 import { createId, assistantMsg, toolMsg } from '../../agent-UI/components/AgentWidget/helpers';
 import type { AgentSessionState, AgentSessionConfig, AgentSession } from './agentSession.types';
 import type { AgentRunOutcome } from '@agent-type';
@@ -25,7 +26,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     agentId: config.agentId,
     title: config.title ?? 'New Chat',
     toolStates: [],
-    subAgentRegistries: [],
+    subAgentRegistry: null,
     terminalAdapter: undefined,
     enableAttachments: config.enableAttachments,
     ...config.getExternalState(),
@@ -189,16 +190,11 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
               ),
             );
           },
-          onBeforeInvoke: () => {
-            const injected = config.onBeforeInvoke?.() ?? [];
-            console.log('[onBeforeInvoke] injected.length =', injected.length, injected.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content.slice(0, 40) : '[non-string]' })));
-            if (injected.length > 0) {
-              // Immediately commit injected messages to fullHistory so that any
-              // debounced snapshot save that fires before onAfterTurn still
-              // captures them — closes the persistence gap that would otherwise
-              // lose queued messages on a page reload.
-              tracker.injectToFull(injected);
-
+          onBeforeInvoke: wrapOnBeforeInvoke(
+            () => config.onBeforeInvoke?.() ?? [],
+            tracker,
+            (injected) => {
+              console.log('[onBeforeInvoke] injected.length =', injected.length, injected.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content.slice(0, 40) : '[non-string]' })));
               const uiMsgs = agentMessagesToUI(injected.filter((m) => m.role === 'user'));
               console.log('[onBeforeInvoke] uiMsgs.length =', uiMsgs.length, uiMsgs.map(m => ({ role: m.role, content: m.content.slice(0, 40) })));
               if (uiMsgs.length > 0) {
@@ -220,9 +216,8 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
                   return { ...prev, messages: newMessages, ...config.getExternalState(prev) };
                 });
               }
-            }
-            return injected;
-          },
+            },
+          ),
           onAfterTurn: onAfterTurn,
         },
       });

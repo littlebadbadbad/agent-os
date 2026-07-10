@@ -55,6 +55,8 @@ export interface UiPluginHostParams {
   readonly session?: SlotSession;
   /** Slot context — tells the iframe which slot instance it is rendering. */
   readonly slotContext: SlotContext;
+  /** The ToolSet symbol whose state to expose via `getPluginState()`. */
+  readonly toolSetSymbol: symbol;
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ export interface UiPluginHostParams {
  * the `_`-prefixed methods are for host-side renderer use.
  */
 export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInternal {
-  const { plugin, apiClient, configClient, session, slotContext } = params;
+  const { plugin, apiClient, configClient, session, slotContext, toolSetSymbol } = params;
 
   // ── Host→iframe: subscribers + message buffer ───────────────────────────
   //
@@ -93,7 +95,9 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
     getPluginState() {
       if (!session) return undefined;
       const state = session.getState();
-      return [{ ...state }, ...plugin.symbols.map(s => state[s])];
+      const toolSetState = state[toolSetSymbol];
+      if (!toolSetState) return undefined;
+      return [{ ...state }, toolSetState];
     },
 
     getSlotContext() { return slotContext; },

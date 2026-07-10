@@ -315,7 +315,7 @@ export interface SlotSession {
   subscribe(fn: () => void): () => void;
 }
 
-export interface UiPluginHost {
+export interface UiPluginHost<TState extends PluginStateExtension = PluginStateExtension> {
   /**
    * API client for calling backend plugin methods (Link C).
    */
@@ -331,9 +331,12 @@ export interface UiPluginHost {
   readonly pluginVersion: string;
 
   /**
-   * Read the current session state and any plugin-specific state slices.
+   * Read the current session state and the ToolSet-specific state slice
+   * for the ToolSet that owns this slot.
+   *
+   * Returns a 2-tuple: `[SessionStateLike, TState & PluginUiAdapter]`.
    */
-  getPluginState(): [SessionStateLike, ...(PluginStateExtension & PluginUiAdapter)[]] | undefined;
+  getPluginState(): [SessionStateLike, TState & PluginUiAdapter] | undefined;
 
   /**
    * Returns the current slot context so the plugin UI knows which
@@ -395,7 +398,7 @@ export interface UiPluginHost {
  * UI code only sees the {@link UiPluginHost} surface (the internal
  * methods are prefixed with `_` to signal "private").
  */
-export interface UiPluginHostInternal extends UiPluginHost {
+export interface UiPluginHostInternal<TState extends PluginStateExtension = PluginStateExtension> extends UiPluginHost<TState> {
   /**
    * Push a host→iframe message. Called by the slot renderer when it
    * has data for the plugin UI (e.g. toolCallInfo, state update).

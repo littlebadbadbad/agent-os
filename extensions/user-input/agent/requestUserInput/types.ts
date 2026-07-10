@@ -38,14 +38,7 @@ export interface InlinePromptEntry {
   readonly ephemeral?: boolean;
 }
 
-// ── UI-facing view types (derived from symbol-state) ─────────────────────────
 
-/** UserInputPrompt component state — a subset view of {@link UserInputSymbolState}. */
-export interface UserInputPromptState {
-  readonly type: "requestUserInput";
-  readonly pendingUserInputs: ReadonlyArray<InlinePromptEntry>;
-  readonly respondUserInput: (id: string, value: string | null) => void;
-}
 // ── UserInputStore (internal) ─────────────────────────────────────────────────
 
 /** Internal bucket per session. */
@@ -95,11 +88,5 @@ declare module "@agent-type" {
   interface SessionEntryExtension {
     /** Persisted pending user-input prompts (non-ephemeral). */
     pendingUserInputs?: readonly InlinePromptEntry[];
-  }
-  interface PluginStateExtension {
-    /** Discriminant — union of all toolset types in this plugin. */
-    readonly type: "requestUserInput" | "pendingInput";
-    readonly pendingUserInputs: ReadonlyArray<InlinePromptEntry>;
-    readonly respondUserInput: (id: string, value: string | null) => void;
   }
 }

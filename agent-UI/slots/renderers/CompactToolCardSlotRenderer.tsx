@@ -30,6 +30,7 @@ export interface CompactToolCardSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
   readonly toolCallInfo: ToolCallInfo;
+  readonly toolSetSymbol: symbol;
   /** Called when the iframe signals that the user clicked the compact card. */
   readonly onOpenDetail?: () => void;
   readonly className?: string;
@@ -38,12 +39,13 @@ export interface CompactToolCardSlotRendererProps {
 export function CompactToolCardSlotRenderer(
   props: CompactToolCardSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, toolCallInfo, onOpenDetail, className } = props;
+  const { pluginId, slotId, toolCallInfo, toolSetSymbol, onOpenDetail, className } = props;
 
   const hostRef = useRef<UiPluginHostInternal | null>(null);
 
   // Read dimensions from slot declaration, fall back to sensible defaults.
-  const decl = slotRegistry.getSlot(pluginId, slotId) as CompactToolCardSlotDeclaration | undefined;
+  const entry = slotRegistry.getSlot(pluginId, slotId);
+  const decl = entry?.declaration as CompactToolCardSlotDeclaration | undefined;
   // Base-layer default: compact cards max out at 36px tall.
   // Plugins can override via containingHeight in their slot declaration.
   const containingWidth = decl?.containingWidth ?? "auto";
@@ -66,6 +68,7 @@ export function CompactToolCardSlotRenderer(
       plugin: uiPlugin,
       apiClient,
       configClient,
+      toolSetSymbol,
       slotContext: {
         slotId,
         slotType: "compactToolCard",
@@ -74,7 +77,7 @@ export function CompactToolCardSlotRenderer(
         conversationId: 'main',
       },
     });
-  }, [pluginId, slotId, uiPlugin]);
+  }, [pluginId, slotId, toolSetSymbol, uiPlugin]);
 
   hostRef.current = host;
 

@@ -1,18 +1,14 @@
 /**
  * extensions/user-input/ui/main.tsx — User Input plugin UI entry (iframe)
  *
- * Slot-driven rendering:
- *   - state[0] → AgentSessionState (base, always first — provided by host)
- *   - state[1] → UserInputPromptState (first registered toolset)
- *   - state[2] → PendingInputStripState (second registered toolset)
- *   - Receives host→iframe messages via `host.onSlotMessage()`.
- *   - Sends iframe→host messages via `host.sendSlotMessage()`.
+ * Per-toolset slot isolation:
+ *   - Each ToolSet owns its slot → independent iframe
+ *   - getPluginState() returns [SessionStateLike, toolSetState] (2-tuple)
+ *   - `type` discriminant on toolSetState determines which component to render
  *
  * Communication contract:
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
  *   `window.addEventListener("message")` directly.
- *
- * Pattern: same as extensions/browser/ui/main.tsx
  */
 
 import { StrictMode, useSyncExternalStore } from "react";
@@ -20,25 +16,35 @@ import { createRoot } from "react-dom/client";
 import type {
   UiPluginHost,
   SlotHostMessage,
-  AgentSessionState,
+  PluginStateExtension,
 } from "@agent-type";
 import { UserInputPrompt } from "./UserInputPrompt";
 import { PendingInputStrip } from "./PendingInputStrip";
-import type { UserInputPromptState, PendingInputStripState } from "./types";
+import type {
+  UserInputPromptState,
+  PendingInputStripState,
+  UserInputPluginState,
+} from "./types";
 import {
-  isAgentSessionState,
   isUserInputPromptState,
   isPendingInputStripState,
 } from "./types";
 import styles from "./main.module.scss";
 
+// ── Type-safe host boundary ───────────────────────────────────────────────────
+// window.__UAP_PLUGIN_HOST__ is injected by the host as `UiPluginHostInternal`.
+// This is the ONLY `as` cast in the entire plugin — the injection boundary
+// is inherently untyped; we narrow to our plugin's state union here.
+
+type Host = UiPluginHost<UserInputPluginState>;
+
 declare global {
   interface Window {
-    __UAP_PLUGIN_HOST__?: UiPluginHost;
+    __UAP_PLUGIN_HOST__?: Host;
   }
 }
 
-function waitForHost(timeout = 10000): Promise<UiPluginHost> {
+function waitForHost(timeout = 10000): Promise<Host> {
   return new Promise((resolve, reject) => {
     if (window.__UAP_PLUGIN_HOST__) {
       resolve(window.__UAP_PLUGIN_HOST__);
@@ -72,24 +78,17 @@ waitForHost()
     }
   });
 
-function bootApp(host: UiPluginHost): void {
+function bootApp(host: Host): void {
 
   // ── Reactive store ────────────────────────────────────────────────────────
 
-  let sessionState: AgentSessionState | null = null;
-  let userInputState: UserInputPromptState | null = null;
-  let pendingInputState: PendingInputStripState | null = null;
+  let toolSetState: UserInputPluginState | null = null;
   const listeners = new Set<() => void>();
 
   const readState = () => {
     const state = host.getPluginState();
-    if (!state) return;
-
-    // Fixed indices: [0] = session base, [1] = first toolset, [2] = second toolset
-    // Type guards verify via `type` discriminant injected by each toolset.
-    sessionState = isAgentSessionState(state[0]) ? state[0] : null;
-    userInputState = isUserInputPromptState(state[1]) ? state[1] : null;
-    pendingInputState = isPendingInputStripState(state[2]) ? state[2] : null;
+    // state is [SessionStateLike, UserInputPluginState & PluginUiAdapter]
+    toolSetState = state?.[1] ?? null;
   };
 
   readState();
@@ -108,31 +107,34 @@ function bootApp(host: UiPluginHost): void {
 
   // ── Host→iframe messages ──────────────────────────────────────────────────
 
-  host.onSlotMessage((msg: SlotHostMessage) => {
-    if (msg.type === "inlinePrompt") {
-      emitChange();
-    }
+  host.onSlotMessage((_msg: SlotHostMessage) => {
+    emitChange();
   });
 
   // ── App component ──────────────────────────────────────────────────────────
 
   function UserInputPluginApp() {
-    // Re-read from host on every render to stay in sync.
-    const _ = useSyncExternalStore(subscribe, () => userInputState);
+    const _ = useSyncExternalStore(subscribe, () => toolSetState);
 
-    const hasPrompts = (userInputState?.pendingUserInputs?.length ?? 0) > 0;
-    const hasPending = (pendingInputState?.pendingInputCount ?? 0) > 0;
+    if (!toolSetState) return null;
 
-    if (!hasPrompts && !hasPending) {
-      return null;
+    if (isUserInputPromptState(toolSetState)) {
+      return (
+        <div className={styles.wrapper}>
+          <UserInputPrompt state={toolSetState} />
+        </div>
+      );
     }
 
-    return (
-      <div className={styles.wrapper}>
-        <UserInputPrompt state={userInputState} />
-        <PendingInputStrip state={pendingInputState} />
-      </div>
-    );
+    if (isPendingInputStripState(toolSetState)) {
+      return (
+        <div className={styles.wrapper}>
+          <PendingInputStrip state={toolSetState} />
+        </div>
+      );
+    }
+
+    return null;
   }
 
   // ── Mount ──────────────────────────────────────────────────────────────────
@@ -145,7 +147,6 @@ function bootApp(host: UiPluginHost): void {
         <UserInputPluginApp />
       </StrictMode>,
     );
-
   }
 }
 

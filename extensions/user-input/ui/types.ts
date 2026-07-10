@@ -4,34 +4,30 @@
  * Re-exports canonical types from the agent layer so every UI component
  * imports from a single source.  Type guards narrow `getPluginState()` results.
  *
- * Index convention (matches activate.ts registration order):
- *   getPluginState()[0] → AgentSessionState (base, always first)
- *   getPluginState()[1] → UserInputSymbolState (first registered toolset)
- *   getPluginState()[2] → PendingInputSymbolState (second registered toolset)
+ * With per-toolset slot isolation, each iframe receives a 2-tuple:
+ *   getPluginState()[0] → SessionStateLike (base)
+ *   getPluginState()[1] → UserInputPluginState & PluginUiAdapter (single toolset)
  *
- * Each toolset injects a static `type` discriminant (e.g. `"requestUserInput"`)
- * into its onGetSymbolState return. Type guards use this for precise narrowing.
+ * The `type` discriminant determines which component to render.
  */
 
-import type { AgentSessionState } from "@agent-type";
-import type { UserInputPromptState } from "../agent/requestUserInput/types";
+import type { PluginStateExtension, PluginUiAdapter } from "@agent-type";
+import type {
+  UserInputPromptState,
+  PendingInputStripState,
+  UserInputPluginState,
+} from "../agent/types";
 
-// ── Re-exports (canonical types from agent layer) ────────────────────────────
+// ── Re-exports ────────────────────────────────────────────────────────────────
 
 export type { InlinePromptEntry } from "../agent/requestUserInput/types";
-export type { UserInputPromptState } from "../agent/requestUserInput/types";
-export type { PendingInputSymbolState } from "../agent/pendingInput";
+export type {
+  UserInputPromptState,
+  PendingInputStripState,
+  UserInputPluginState,
+};
 
 // ── UI component state types ──────────────────────────────────────────────────
-
-/** PendingInputStrip component state — subset of PendingInputSymbolState. */
-export interface PendingInputStripState {
-  readonly type: "pendingInput";
-  readonly pendingInputMessages: ReadonlyArray<{ id: string; text: string }>;
-  readonly cancelQueuedInput?: (id: string) => void;
-  readonly resumeQueuedInputs?: () => void;
-  readonly pendingInputCount: number;
-}
 
 /** Input state persisted per prompt across navigation. */
 export interface PromptInputState {
@@ -39,45 +35,13 @@ export interface PromptInputState {
   selectedOptions: ReadonlySet<string>;
 }
 
-// ── Type guards (narrow getPluginState() index results via `type` discriminant)
 
-/** Type guard: `AgentSessionState` (state[0] — always first). */
-export function isAgentSessionState(v: unknown): v is AgentSessionState {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    "messages" in v &&
-    "isLoading" in v &&
-    "id" in v
-  );
+/** Type guard: `UserInputPromptState` — has pending prompts. */
+export function isUserInputPromptState(v: UserInputPluginState | undefined): v is UserInputPromptState & PluginUiAdapter {
+  return v !== undefined && v.type === "requestUserInput";
 }
 
-/**
- * Type guard: `UserInputPromptState` (state[1] by convention).
- * Uses the `type` discriminant injected by UserInputToolSet.onGetSymbolState.
- */
-export function isUserInputPromptState(v: unknown): v is UserInputPromptState {
-  if (typeof v !== "object" || v === null) return false;
-  const r = v as Record<string, unknown>;
-  return (
-    r.type === "requestUserInput" &&
-    Array.isArray(r.pendingUserInputs) &&
-    typeof r.respondUserInput === "function"
-  );
-}
-
-/**
- * Type guard: `PendingInputStripState` (state[2] by convention).
- * Uses the `type` discriminant injected by PendingInputToolSet.onGetSymbolState.
- */
-export function isPendingInputStripState(
-  v: unknown,
-): v is PendingInputStripState {
-  if (typeof v !== "object" || v === null) return false;
-  const r = v as Record<string, unknown>;
-  return (
-    r.type === "pendingInput" &&
-    Array.isArray(r.pendingInputMessages) &&
-    typeof r.pendingInputCount === "number"
-  );
+/** Type guard: `PendingInputStripState` — has queued messages. */
+export function isPendingInputStripState(v: UserInputPluginState | undefined): v is PendingInputStripState & PluginUiAdapter {
+  return v !== undefined && v.type === "pendingInput";
 }

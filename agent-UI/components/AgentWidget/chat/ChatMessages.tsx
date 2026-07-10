@@ -193,7 +193,7 @@ export function ChatMessages({ messages, onEditMessage, session }: ChatMessagesP
         type="file"
         accept={ACCEPTED_MIME_TYPES}
         multiple
-        style={{ display: 'none' }}
+        className={styles['hidden']}
         onChange={handleEditFileChange}
         aria-hidden="true"
         tabIndex={-1}

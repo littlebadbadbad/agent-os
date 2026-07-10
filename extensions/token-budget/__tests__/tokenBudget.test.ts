@@ -159,7 +159,6 @@ describe('createTokenBudgetToolSet', () => {
     expect(state.slots).toBeDefined();
     const headerBarSlot = state.slots!.find((s) => s.type === 'headerBar');
     expect(headerBarSlot).toBeDefined();
-    expect(headerBarSlot!.id).toBe('token-budget.bar');
   });
 
   // ── onSubscribe ────────────────────────────────────────────────────────────

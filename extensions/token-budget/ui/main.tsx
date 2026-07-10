@@ -24,7 +24,6 @@ import type {
   SlotHostMessage,
 } from "@agent-type";
 import { TokenProgressBar } from "./TokenProgressBar";
-import { getTokenBudgetSymbolState } from "./types";
 
 declare global {
   interface Window {
@@ -69,11 +68,11 @@ function bootApp(host: UiPluginHost): void {
 
   // ── Reactive store ────────────────────────────────────────────────────────
 
-  let tbState = getTokenBudgetSymbolState(host.getPluginState());
+  let tbState = host.getPluginState()?.[1];
   const listeners = new Set<() => void>();
 
   const emitChange = () => {
-    tbState = getTokenBudgetSymbolState(host.getPluginState());
+    tbState = host.getPluginState()?.[1];
     listeners.forEach((l) => l());
   };
 

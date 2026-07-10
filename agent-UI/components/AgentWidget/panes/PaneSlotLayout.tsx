@@ -12,8 +12,9 @@
  */
 
 import { type ReactElement, type ReactNode, useState, useMemo } from 'react';
-import type { SlotSession, HeaderBarSlotDeclaration, PanelSlotDeclaration, InlinePromptSlotDeclaration, SlotDisplayContext } from '@agent-type';
+import type { SlotSession, SlotDisplayContext, PanelSlotDeclaration } from '@agent-type';
 import { SlotRenderer } from '../../../slots/SlotRenderer';
+import type { SlotEntry } from '../../../slots/registry';
 import styles from '../AgentWidget.module.scss';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -23,22 +24,13 @@ export interface PaneSlotLayoutProps {
   readonly slotSession: SlotSession | null;
 
   /** Filtered headerBar slots (already filtered for visibility). */
-  readonly headerBarSlots: ReadonlyArray<{
-    readonly pluginId: string;
-    readonly declaration: HeaderBarSlotDeclaration;
-  }>;
+  readonly headerBarSlots: ReadonlyArray<SlotEntry>;
 
   /** Filtered panel slots (already filtered for visibility). */
-  readonly panelSlots: ReadonlyArray<{
-    readonly pluginId: string;
-    readonly declaration: PanelSlotDeclaration;
-  }>;
+  readonly panelSlots: ReadonlyArray<SlotEntry<PanelSlotDeclaration>>;
 
   /** Filtered inlinePrompt slots (already filtered for visibility). */
-  readonly inlinePromptSlots: ReadonlyArray<{
-    readonly pluginId: string;
-    readonly declaration: InlinePromptSlotDeclaration;
-  }>;
+  readonly inlinePromptSlots: ReadonlyArray<SlotEntry>;
 
   /** Slot display context for badge / visibility callbacks. */
   readonly slotCtx: SlotDisplayContext;
@@ -74,17 +66,18 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
           shouldRender is checked inside SlotRenderer via slotRegistry. */}
       {slotSession && headerBarSlots.map((entry) => (
         <SlotRenderer
-          key={`${entry.pluginId}:${entry.declaration.id}`}
+          key={`${entry.pluginId}:${entry.slotId}`}
           pluginId={entry.pluginId}
           slotType="headerBar"
-          slotId={entry.declaration.id}
+          slotId={entry.slotId}
+          toolSetSymbol={entry.toolSetSymbol}
           session={slotSession}
         />
       ))}
 
       {/* Tab bar: Chat + one tab per visible panel slot. */}
       {panelSlots.length > 0 && (
-        <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
+        <div className={styles['tab-bar']}>
           <button
             type="button"
             className={`${styles['tab']}${effectiveView === 'chat' ? ` ${styles['tab--active']}` : ''}`}
@@ -102,7 +95,7 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
                 className={`${styles['tab']}${effectiveView === v ? ` ${styles['tab--active']}` : ''}`}
                 onClick={() => setPaneView(v)}
               >
-                {entry.declaration.icon && <span style={{ marginRight: 4 }}>{entry.declaration.icon}</span>}
+                {entry.declaration.icon && <span className={styles['tab-icon']}>{entry.declaration.icon}</span>}
                 {entry.declaration.label}
                 {badge && <span className={styles['tab-badge']}>{badge}</span>}
               </button>
@@ -127,20 +120,23 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
             key={entry.pluginId}
             pluginId={entry.pluginId}
             slotType="panel"
-            slotId={entry.declaration.id}
+            slotId={entry.slotId}
+            toolSetSymbol={entry.toolSetSymbol}
             session={slotSession}
           />
         ))}
 
       {/* InlinePrompt slots — overlay iframes (pending-input prompts, etc.).
-          shouldRender is checked inside SlotRenderer via slotRegistry. */}
+          shouldRender is checked inside SlotRenderer via declaration prop. */}
       {slotSession && inlinePromptSlots.map((entry) => (
         <SlotRenderer
-          key={`${entry.pluginId}:${entry.declaration.id}`}
+          key={`${entry.pluginId}:${entry.slotId}`}
           pluginId={entry.pluginId}
           slotType="inlinePrompt"
-          slotId={entry.declaration.id}
+          slotId={entry.slotId}
+          toolSetSymbol={entry.toolSetSymbol}
           session={slotSession}
+          declaration={entry.declaration}
         />
       ))}
     </>

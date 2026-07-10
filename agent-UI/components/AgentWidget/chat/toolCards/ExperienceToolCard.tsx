@@ -12,7 +12,7 @@ function TagChips({ tags }: { tags: readonly string[] }): ReactElement {
   return (
     <div className={styles['exp-item-tags']}>
       {tags.map((t) => (
-        <span key={t} className={styles['exp-tag']} style={{ cursor: 'default' }}>
+        <span key={t} className={`${styles['exp-tag']} ${styles['exp-tag--static']}`}>
           {t}
         </span>
       ))}

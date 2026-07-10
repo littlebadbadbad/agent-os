@@ -108,7 +108,8 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
       <SlotRenderer
         pluginId={slot.pluginId}
         slotType="toolCard"
-        slotId={slot.declaration.id}
+        slotId={slot.slotId}
+        toolSetSymbol={slot.toolSetSymbol}
         session={session}
         toolCallInfo={info}
       />

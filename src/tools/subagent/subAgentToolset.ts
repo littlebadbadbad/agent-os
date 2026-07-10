@@ -190,7 +190,7 @@ export function createSubAgentToolset(
     },
 
     onGetState: (ctx: ToolSetContext) => ({
-      subAgentRegistries: [getRegistry(ctx.sessionId)],
+      subAgentRegistry: getRegistry(ctx.sessionId),
     }),
 
     onSubscribe: (ctx: ToolSetContext, fn: () => void) =>

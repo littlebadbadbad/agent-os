@@ -164,7 +164,7 @@ function SearchFilesBody({
   const matches: ReactNode = (() => {
     if (ro == null) return null;
     const arr = ro['matches'];
-    if (!Array.isArray(arr) || arr.length === 0) return <span style={{ opacity: 0.5 }}>no matches</span>;
+    if (!Array.isArray(arr) || arr.length === 0) return <span className={styles['muted-light']}>no matches</span>;
     return (
       <ul className={styles['tc-item-list']}>
         {(arr as unknown[]).map((m, i) => (

@@ -21,13 +21,14 @@ export interface ToolCardSlotRendererProps {
   readonly pluginId: string;
   readonly slotId: string;
   readonly toolCallInfo: ToolCallInfo;
+  readonly toolSetSymbol: symbol;
   readonly className?: string;
 }
 
 export function ToolCardSlotRenderer(
   props: ToolCardSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, toolCallInfo, className } = props;
+  const { pluginId, slotId, toolCallInfo, toolSetSymbol, className } = props;
 
   const hostRef = useRef<UiPluginHostInternal | null>(null);
 
@@ -48,6 +49,7 @@ export function ToolCardSlotRenderer(
       plugin: uiPlugin,
       apiClient,
       configClient,
+      toolSetSymbol,
       slotContext: {
         slotId,
         slotType: "toolCard",
@@ -56,7 +58,7 @@ export function ToolCardSlotRenderer(
         conversationId: 'main',
       },
     });
-  }, [pluginId, slotId, uiPlugin]);
+  }, [pluginId, slotId, toolSetSymbol, uiPlugin]);
 
   hostRef.current = host;
 

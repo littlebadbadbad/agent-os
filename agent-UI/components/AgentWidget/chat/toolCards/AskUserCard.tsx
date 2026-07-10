@@ -52,7 +52,7 @@ export function AskUserCard({ info }: { info: ToolCallInfo }): ReactElement {
 
         {/* Extra metadata */}
         {askType === 'text' && placeholder && (
-          <InfoRow label="placeholder" value={<span style={{ opacity: 0.65 }}>{placeholder}</span>} />
+          <InfoRow label="placeholder" value={<span className={styles['muted']}>{placeholder}</span>} />
         )}
         {askType === 'text' && defaultVal && (
           <InfoRow label="default" value={<code>{defaultVal}</code>} />

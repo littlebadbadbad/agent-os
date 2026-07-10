@@ -1,16 +1,16 @@
 /**
- * SubAgentsPanel — UI for browsing and chatting with sub-agents managed
- * by one or more SubAgentRegistry instances.
+ * SubAgentsPanel — UI for browsing and chatting with sub-agents.
  *
- * Layout (single registry):
+ * A session has exactly one sub-agent registry.  The panel renders a
+ * {@link SubAgentsPanel} that shows the agent list on the left and the
+ * active conversation's chat on the right.
+ *
+ * Layout:
  *   ┌──────────────┬──────────────────────────────────────────────────┐
  *   │  Agent list  │  Conversation tabs  ·  Header bar  ·  Panel      │
  *   │  (sidebar)   │  ChatMessages                                    │
  *   │              │  ChatInput                                        │
  *   └──────────────┴──────────────────────────────────────────────────┘
- *
- * When multiple registries are present a top-level tab bar selects the
- * active registry before showing the above layout.
  */
 
 import { useState, useCallback, useSyncExternalStore, useMemo } from 'react';
@@ -23,7 +23,8 @@ import { ChatInput } from '../chat/ChatInput';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
 import { PaneSlotLayout } from '../panes/PaneSlotLayout';
 import { buildSlotDisplayContextFromState } from '../../../slots/context';
-import type { HeaderBarSlotDeclaration, PanelSlotDeclaration, InlinePromptSlotDeclaration, SlotDisplayContext } from '@agent-type';
+import type { SlotDisplayContext, PanelSlotDeclaration } from '@agent-type';
+import type { SlotEntry } from '../../../slots/registry';
 import styles from '../AgentWidget.module.scss';
 
 // ── ConversationPane ─────────────────────────────────────────────────────────
@@ -65,23 +66,20 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
   );
 
   // Discover plugin slots from the conversation state.
-  const headerBarSlots = useMemo<readonly { pluginId: string; declaration: HeaderBarSlotDeclaration }[]>(
+  const headerBarSlots = useMemo<readonly SlotEntry[]>(
     () => discoverSubAgentSlots(conv)
-        .filter((e): e is { pluginId: string; declaration: HeaderBarSlotDeclaration } =>
-          e.declaration.type === 'headerBar'),
+        .filter((e) => e.declaration.type === 'headerBar'),
     [conv],
   );
-  const panelSlots = useMemo<readonly { pluginId: string; declaration: PanelSlotDeclaration }[]>(
+  const panelSlots = useMemo<readonly SlotEntry[]>(
     () => discoverSubAgentSlots(conv)
-        .filter((e): e is { pluginId: string; declaration: PanelSlotDeclaration } =>
-          e.declaration.type === 'panel' && e.declaration.showTab(slotCtx)),
+        .filter((e) => e.declaration.type === 'panel' && e.declaration.showTab(slotCtx)),
     [conv],
-  );
-  const inlinePromptSlots = useMemo<readonly { pluginId: string; declaration: InlinePromptSlotDeclaration }[]>(
+  ) as readonly SlotEntry<PanelSlotDeclaration>[];
+  const inlinePromptSlots = useMemo<readonly SlotEntry[]>(
     () => discoverSubAgentSlots(conv)
-        .filter((e): e is { pluginId: string; declaration: InlinePromptSlotDeclaration } =>
-          e.declaration.type === 'inlinePrompt'),
-    [conv],
+        .filter((e) => e.declaration.type === 'inlinePrompt' && e.declaration.shouldRender?.(slotCtx) !== false),
+    [conv, slotCtx],
   );
 
   const handleSend = useCallback(
@@ -121,7 +119,7 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    <div className={styles['conversation-pane-wrap']}>
       <PaneSlotLayout
         slotSession={slotSession}
         headerBarSlots={headerBarSlots}
@@ -148,7 +146,7 @@ interface RegistryViewProps {
   sessionId: string;
 }
 
-function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement {
+export function SubAgentsPanel({ registry, sessionId }: RegistryViewProps): ReactElement {
   // Stable callbacks — memoised on `registry` identity so React's
   // useSyncExternalStore correctly re-subscribes only when the registry changes.
   const subscribe = useMemo(() => registry.subscribe.bind(registry), [registry]);
@@ -174,7 +172,7 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
   ) ?? subAgents[0];
 
   const activeConvId: string =
-    selectedConv && activeEntry.conversations.some((c) => c.id === selectedConv)
+    selectedConv && activeEntry.conversations.some((c) => c.conversationId === selectedConv)
       ? selectedConv
       : activeEntry.activeConversationId;
 
@@ -185,16 +183,9 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
   }
 
   return (
-    <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    <div className={styles['registry-view-wrap']}>
       {/* ── Agent sidebar ───────────────────────────────────────────────── */}
-      <div
-        style={{
-          width: 140,
-          flexShrink: 0,
-          borderRight: '1px solid color-mix(in srgb, currentColor 12%, transparent)',
-          overflowY: 'auto',
-          padding: '4px 0',
-        }}
+      <div className={styles['agent-sidebar']}
       >
         {subAgents.map((entry) => {
           const isActive = entry.name === activeEntry.name;
@@ -203,16 +194,13 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
             <button
               key={entry.name}
               type="button"
-              className={`${styles['tab']}${isActive ? ` ${styles['tab--active']}` : ''}`}
-              style={{ display: 'block', width: '100%', textAlign: 'left', borderRadius: 0 }}
+              className={`${styles['agent-sidebar-tab']}${isActive ? ` ${styles['agent-sidebar-tab--active']}` : ''}`}
               onClick={() => selectAgent(entry.name)}
               title={entry.description}
             >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                {entry.name}
-              </span>
+              {entry.name}
               {runningCount > 0 && (
-                <span className={styles['tab-badge']} style={{ marginLeft: 4 }}>●</span>
+                <span className={`${styles['tab-badge']} ${styles['sidebar-tab-badge']}`}>●</span>
               )}
             </button>
           );
@@ -220,22 +208,22 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
       </div>
 
       {/* ── Right pane: conversation tabs + chat ────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>
+      <div className={styles['agent-conversation-pane']}>
         {/* Conversation tab bar */}
-        {activeEntry.conversations.length > 1 && (
-          <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
+        {activeEntry.conversations.length > 0 && (
+          <div className={styles['tab-bar']}>
             {activeEntry.conversations.map((conv) => (
               <div
-                key={conv.id}
-                className={`${styles['tab']}${conv.id === activeConvId ? ` ${styles['tab--active']}` : ''}`}
+                key={conv.conversationId}
+                className={`${styles['tab']}${conv.conversationId === activeConvId ? ` ${styles['tab--active']}` : ''}`}
               >
                 <button
                   type="button"
                   className={styles['tab-label']}
-                  onClick={() => setSelectedConv(conv.id)}
+                  onClick={() => setSelectedConv(conv.conversationId)}
                   title={conv.title}
                 >
-                  <span style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                  <span className={styles['tab-label-text']}>
                     {conv.title}
                   </span>
                   {conv.isLoading && (
@@ -245,13 +233,27 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
                 <button
                   type="button"
                   className={styles['tab-close']}
-                  onClick={() => registry.deleteConversation(activeEntry.name, conv.id)}
+                  onClick={() => {
+                    if (conv.conversationId === selectedConv) setSelectedConv(null);
+                    registry.deleteConversation(activeEntry.name, conv.conversationId);
+                  }}
                   title={`Close "${conv.title}"`}
                 >
                   ×
                 </button>
               </div>
             ))}
+            <button
+              type="button"
+              className={styles['conversation-tab-new']}
+              onClick={() => {
+                const newConv = registry.createConversation(activeEntry.name);
+                setSelectedConv(newConv.getState().conversationId);
+              }}
+              title="New conversation"
+            >
+              +
+            </button>
           </div>
         )}
 
@@ -271,47 +273,8 @@ function RegistryView({ registry, sessionId }: RegistryViewProps): ReactElement 
 // ── SubAgentsPanel (public export) ───────────────────────────────────────────
 
 export interface SubAgentsPanelProps {
-  registries: readonly SubAgentRegistry[];
+  /** The single per-session sub-agent registry (never null when this is rendered). */
+  registry: SubAgentRegistry;
   sessionId: string;
 }
 
-export function SubAgentsPanel({ registries, sessionId }: SubAgentsPanelProps): ReactElement {
-  const [activeRegistryIdx, setActiveRegistryIdx] = useState(0);
-
-  if (registries.length === 0) {
-    return (
-      <div className={styles['tools-empty']}>
-        No sub-agent registries available.
-      </div>
-    );
-  }
-
-  const clampedIdx = Math.min(activeRegistryIdx, registries.length - 1);
-  const activeRegistry = registries[clampedIdx];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      {/* Registry selector — only shown when multiple registries exist */}
-      {registries.length > 1 && (
-        <div className={styles['tab-bar']} style={{ flexShrink: 0 }}>
-          {registries.map((reg, idx) => (
-            <button
-              key={idx}
-              type="button"
-              className={`${styles['tab']}${idx === clampedIdx ? ` ${styles['tab--active']}` : ''}`}
-              onClick={() => setActiveRegistryIdx(idx)}
-            >
-              {reg.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <RegistryView
-        key={clampedIdx}
-        registry={activeRegistry}
-        sessionId={sessionId}
-      />
-    </div>
-  );
-}

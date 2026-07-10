@@ -23,7 +23,7 @@ import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
 import type { SubAgentConversation, SubAgentConversationState } from "@agent-sdk";
 import type { SlotEntry } from "../slots/registry";
 import { pluginSystem } from "../agents";
-import { discoverSlots } from "./discoverSlots";
+import { discoverSlots, toSlotEntries } from "./discoverSlots";
 
 /**
  * Create a {@link SlotSession} view over a {@link SubAgentConversation}.
@@ -65,5 +65,5 @@ export function discoverSubAgentSlots(
 ): readonly SlotEntry[] {
   // Delegate to the shared discovery helper — the traversal logic is
   // identical to pluginSystem.refreshSlots(), only the output differs.
-  return discoverSlots(convState, pluginSystem.activePlugins);
+  return toSlotEntries(discoverSlots(convState, pluginSystem.activePlugins));
 }

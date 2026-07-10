@@ -417,7 +417,6 @@ export function createTokenBudgetToolSet(
         slots: [
           {
             type: 'headerBar',
-            id: 'token-budget.bar',
             containingWidth: '100%',
             containingHeight: '28px',
             shouldRender: () => state?.usageRatio != null && state.usageRatio > 0,

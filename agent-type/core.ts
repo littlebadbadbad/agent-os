@@ -132,7 +132,7 @@ export type ToolResult = {
  * }
  * ```
  */
-export interface ToolExecutionContextExtension {}
+export interface ToolExecutionContextExtension { }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  UserInputRequest — built-in type contract
@@ -147,26 +147,26 @@ export interface ToolExecutionContextExtension {}
 export type UserInputRequest = {
   readonly ephemeral?: true;
 } & (
-  | { readonly type: "confirm"; readonly message: string }
-  | {
+    | { readonly type: "confirm"; readonly message: string }
+    | {
       readonly type: "text";
       readonly message: string;
       readonly placeholder?: string;
       readonly defaultValue?: string;
     }
-  | {
+    | {
       readonly type: "select";
       readonly message: string;
       readonly options: readonly string[];
     }
-  | {
+    | {
       readonly type: "multiSelect";
       readonly message: string;
       readonly options: readonly string[];
       readonly minSelect?: number;
       readonly maxSelect?: number;
     }
-  | {
+    | {
       readonly type: "number";
       readonly message: string;
       readonly placeholder?: string;
@@ -175,7 +175,7 @@ export type UserInputRequest = {
       readonly max?: number;
       readonly step?: number;
     }
-);
+  );
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Extension interfaces for module augmentation
@@ -202,7 +202,8 @@ export type UserInputRequest = {
 export interface AgentSessionExtension extends Record<string, unknown> {
   [key: ToolSetSymbol]: PluginStateExtension & PluginUiAdapter;
 }
-export interface PluginStateExtension {}
+/** Minimum discriminant every plugin symbol state must provide. */
+export interface PluginStateExtension { }
 export type ToolSetSymbol = symbol;
 /**
  * Open extension point for ToolSet-specific persisted fields.
@@ -224,7 +225,7 @@ export type ToolSetSymbol = symbol;
  * is used — in `onInitSession`, `onBuildSnapshot`, `createSession`, etc.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface SessionEntryExtension {}
+export interface SessionEntryExtension { }
 
 /**
  * Core (always-present) fields of a serialisable session descriptor.
@@ -454,8 +455,8 @@ export type Tool<
   readonly description: string | (() => string);
   readonly parameters: TSchema | (() => TSchema);
   readonly rawParametersSchema?:
-    | Record<string, unknown>
-    | (() => Record<string, unknown>);
+  | Record<string, unknown>
+  | (() => Record<string, unknown>);
   readonly group?: string;
   readonly execute: (
     params: z.infer<TSchema>,

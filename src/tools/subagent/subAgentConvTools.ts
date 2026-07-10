@@ -159,7 +159,7 @@ export function createConvTools(deps: ConvToolDeps): Tool[] {
   const createConversation = defineTool({
     name: `create_${suffix}_conversation`,
     group: "Sub-Agents",
-    description: `Create a new conversation for a ${suffix} sub-agent. Becomes active immediately.`,
+    description: `Create a new conversation for a ${suffix} sub-agent. Does NOT switch the active conversation — use set_${suffix}_active_conversation to switch, or pass conversation_id to subsequent send_${suffix}_message calls.`,
     parameters: z.object({
       subagent_name: z.string().describe("Name of the sub-agent"),
       title: z
@@ -176,8 +176,9 @@ export function createConvTools(deps: ConvToolDeps): Tool[] {
         subAgent: subagent_name,
         title: state.title,
         message:
-          `Conversation "${state.title}" (id: ${state.id}) created for "${subagent_name}" and set as active. ` +
-          `Use send_${suffix}_message with this conversation_id to start chatting.`,
+          `Conversation "${state.title}" (id: ${state.id}) created for "${subagent_name}". ` +
+          `IMPORTANT: Use conversation_id="${state.id}" in send_${suffix}_message to chat in this conversation. ` +
+          `Call set_${suffix}_active_conversation if you want this to be the new default.`,
       };
     },
   });
