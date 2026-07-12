@@ -25,10 +25,6 @@ export function isFileTool(name: string): boolean {
   return FILE_TOOL_NAMES.has(name);
 }
 
-export function isTerminalTool(name: string): boolean {
-  return name.startsWith('terminal_');
-}
-
 export function isAskUserTool(name: string): boolean {
   return name === 'ask_user';
 }

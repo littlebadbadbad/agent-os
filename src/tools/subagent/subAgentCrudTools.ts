@@ -109,7 +109,7 @@ export function createCrudTools(deps: CrudToolDeps): Tool[] {
       const state = conv.getState();
       return {
         created: name,
-        conversationId: state.id,
+        conversationId: state.conversationId,
         message:
           `Sub-agent "${name}" created with ${suffix} handler. ` +
           `Tools: [${tool_names.join(", ")}]. maxTurns: ${max_turns ?? 8}. ` +

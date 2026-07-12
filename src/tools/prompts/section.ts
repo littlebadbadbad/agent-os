@@ -42,7 +42,6 @@ export const SECTION_IDS = [
   'git',               // Git operations
   'mcp',               // MCP server management
   'memory_graph',      // Knowledge graph / memory graph
-  'upgrade',           // Self-upgrade / build tools
 ] as const;
 
 // ── Section cache ─────────────────────────────────────────────────────────────

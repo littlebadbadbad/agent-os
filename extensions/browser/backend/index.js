@@ -83,25 +83,12 @@ export function activate(host) {
   });
 
   // ── Stream live browser frames ──────────────────────────────────────────
-  host.defineStream('browserStream', (params) => {
+  host.defineStream('browserStream', (params, io) => {
     const { id, config } = params || {};
     if (!id) throw new Error('browserStream: id is required');
 
-    let stopCleanup = null;
-    /** @type {import('../../../../agent-type/plugin.ts').StreamConnection|null} */
-    let self = null;
-
+    /** @type {import('../../../../agent-type/plugin.ts').StreamConnection} */
     const conn = {
-      callbacks: {
-        onData(_chunk) {
-          // Overridden by transport layer — writes to IPC/WS
-        },
-        onEnd() { stopCleanup?.(); },
-        onError(_err) { stopCleanup?.(); },
-      },
-      // Handle client messages sent via the stream channel.
-      // The primary path for input/config is via separate defineApi calls,
-      // but onClientMessage serves as a secondary channel.
       onClientMessage(msg) {
         if (!msg || typeof msg !== 'object') return;
         const input = /** @type {Record<string, unknown>} */ (msg);
@@ -112,20 +99,12 @@ export function activate(host) {
         }
       },
       subscribe: () => {
-        // The transport layer set conn.io before calling subscribe().
-        const io = conn.io;
-        if (io) {
-          stopCleanup = svc.startBrowserStream({ id, io, config });
-        }
-        return {
-          unsubscribe: () => {
-            if (stopCleanup) { stopCleanup(); stopCleanup = null; }
-          },
-        };
+        // io captured from handler param — no temporal coupling.
+        const cleanup = svc.startBrowserStream({ id, io, config });
+        return { unsubscribe: cleanup };
       },
     };
 
-    self = conn;
     return conn;
   });
 

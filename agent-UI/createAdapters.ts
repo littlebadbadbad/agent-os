@@ -20,16 +20,6 @@ export function createFileAdapter(): FileAdapter {
     : createHttpFileAdapter({ baseUrl: '' });
 }
 
-// ── Terminal adapter ───────────────────────────────────────────────────────────
-import { createHttpTerminalAdapter, createIpcTerminalAdapter } from '@agent-sdk';
-import type { TerminalManagerAdapter } from '@agent-sdk';
-
-export function createTerminalAdapter(): TerminalManagerAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcTerminalAdapter()
-    : createHttpTerminalAdapter({ baseUrl: '/api' });
-}
-
 // ── Cron adapter ───────────────────────────────────────────────────────────────
 import { createHttpCronAdapter, createIpcCronAdapter } from '@agent-sdk';
 import type { CronManagerAdapter } from '@agent-sdk';
@@ -70,16 +60,6 @@ export function createMcpAdapter(): McpAdapter {
     : createHttpMcpAdapter({ baseUrl: '/api' });
 }
 
-// ── Upgrade adapter ────────────────────────────────────────────────────────────
-import { createHttpUpgradeAdapter, createIpcUpgradeAdapter } from '@agent-sdk';
-import type { UpgradeAdapter } from '@agent-sdk';
-
-export function createUpgradeAdapter(): UpgradeAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcUpgradeAdapter()
-    : createHttpUpgradeAdapter({ baseUrl: '/api' });
-}
-
 // ── Session store ──────────────────────────────────────────────────────────────
 import type { SessionEntryData } from '@agent-sdk';
 import { loadSessions, saveSessions } from './api/backend';
@@ -98,10 +78,8 @@ export function createSessionStore(): SessionStore {
 // Created once at module load time, shared across all agents.
 
 export const fileAdapter = createFileAdapter();
-export const terminalAdapter = createTerminalAdapter();
 export const cronAdapter = createCronAdapter();
 export const dynamicToolAdapter = createDynamicToolAdapter();
 export const skillAdapter = createSkillAdapter();
 export const mcpAdapter = createMcpAdapter();
-export const upgradeAdapter = createUpgradeAdapter();
 export const sessionStore = createSessionStore();

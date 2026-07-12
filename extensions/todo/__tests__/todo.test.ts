@@ -306,20 +306,19 @@ describe('createTodoTools', () => {
     expect(writerResult.todos[0].title).toBe('Write task');
   });
 
-  it('all conversations of the same sub-agent share one todo list', async () => {
+  it('different conversations of the same sub-agent have isolated todo lists', async () => {
     const ts = createTodoTools();
     const writeTool = resolveToolSetTools(ts).find((t) => t.name === 'todo_write')!;
     const readTool  = resolveToolSetTools(ts).find((t) => t.name === 'todo_read')!;
 
-    // Same agent, two different conversations
+    // Same agent, two different conversations — each has its own key
     const conv1Ctx = makeSubAgentCtx('researcher_agent', 'conv-1', 'session-1');
     const conv2Ctx = makeSubAgentCtx('researcher_agent', 'conv-2', 'session-1');
 
-    await writeTool.execute({ todos: [{ id: 1, title: 'Shared task', status: 'not-started' }] }, conv1Ctx);
+    await writeTool.execute({ todos: [{ id: 1, title: 'Conv-1 task', status: 'not-started' }] }, conv1Ctx);
 
-    // Reading from a different conversation of the same agent should see the same todos
+    // Reading from a different conversation of the same agent should NOT see conv1's todos
     const result = await readTool.execute({}, conv2Ctx) as { todos: TodoItem[] };
-    expect(result.todos).toHaveLength(1);
-    expect(result.todos[0].title).toBe('Shared task');
+    expect(result.todos).toHaveLength(0);
   });
 });

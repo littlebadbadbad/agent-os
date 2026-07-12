@@ -77,16 +77,6 @@ export type IpcChannel =
   | 'files:search'
   | 'files:workspaceGet'
   | 'files:workspaceSet'
-  // ── Terminals ──
-  | 'terminals:list'
-  | 'terminals:shells'
-  | 'terminals:create'
-  | 'terminals:remove'
-  | 'terminals:sendInput'
-  | 'terminals:readOutput'
-  | 'terminals:resize'
-  | 'terminals:streamStart'
-  | 'terminals:streamStop'
   // ── Browser ──
   | 'browser:list'
   | 'browser:create'
@@ -129,9 +119,7 @@ export type IpcChannel =
   | 'git:stage'
   | 'git:unstage'
   | 'git:commit'
-  | 'git:discard'
-  // ── Upgrade ──
-  | 'upgrade:version';
+  | 'git:discard';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Type-safe invoke helper

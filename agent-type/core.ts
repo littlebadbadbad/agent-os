@@ -3,7 +3,7 @@ import type { AgentHandler } from "./handler";
 // AgentMessage needed by SessionEntryDataBase; message.ts imports from core.ts
 // (Attachment, ToolCall) — circular import type is safe in TypeScript.
 import type { AgentMessage } from "./message";
-import { PluginUiAdapter } from "./plugin";
+import type { PluginUiAdapter } from "./ui-slot";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Attachment types  (来自 src/tools/types/attachment.ts)

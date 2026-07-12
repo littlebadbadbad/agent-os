@@ -1,7 +1,7 @@
 /**
  * backend/lib/stream-registry.js — Shared stream connection lifecycle manager
  *
- * Provides a unified API for managing browser streaming, terminal output
+ * Provides a unified API for managing browser streaming, output
  * streaming, and chat streaming connections across both IPC and Network
  * transport layers.
  *
@@ -21,7 +21,7 @@
 
 /**
  * @typedef {Object} StreamEntry
- * @property {string} tag      - 'browser' | 'terminal' | 'chat'
+ * @property {string} tag      - 'browser' | 'chat'
  * @property {() => void} [cleanup]   - Tear-down function
  * @property {AbortController} [ctrl] - Abort controller for the stream
  * @property {boolean} [aborted]       - Whether this stream has been aborted
@@ -93,7 +93,7 @@ export const streamRegistry = {
 
   /**
    * Remove all streams (optionally filtered by tag), cleaning up each one.
-   * @param {string} [tag]  - Optional tag to filter ('browser' | 'terminal' | 'chat')
+   * @param {string} [tag]  - Optional tag to filter ('browser' | 'chat')
    */
   clearAll(tag) {
     for (const [id, entry] of _registry) {

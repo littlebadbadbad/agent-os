@@ -76,7 +76,6 @@ describe('SECTION_IDS', () => {
     expect(SECTION_IDS).toContain('task_tracking');
     expect(SECTION_IDS).toContain('memory_graph');
     expect(SECTION_IDS).toContain('terminal');
-    expect(SECTION_IDS).toContain('upgrade');
     expect(SECTION_IDS).toContain('experience');
     expect(Array.isArray(SECTION_IDS)).toBe(true);
   });

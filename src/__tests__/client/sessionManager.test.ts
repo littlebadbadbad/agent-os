@@ -21,7 +21,6 @@ function makeSession(id: string): AgentSession {
       isLoading: false,
       toolStates: [],
       skills: [],
-      terminalAdapter: undefined,
       enableAttachments: true,
     }),
     subscribe: (fn: () => void) => { subs.add(fn); return () => subs.delete(fn); },

@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode, CSSProperties } from 'react';
 import type { ToolCallStatus, ToolCallInfo } from '../../types';
 import {
-  isFileTool, isTerminalTool, isAskUserTool,
+  isFileTool, isAskUserTool,
   isDynamicTool, isMcpTool, isSkillTool, isSubAgentMetaTool, isExperienceTool,
 } from './identifiers';
 import styles from '../../AgentWidget.module.scss';
@@ -61,12 +61,11 @@ export function resStr(result: unknown): string | null {
 // ── Family accent colours ─────────────────────────────────────────────────────
 
 export type CardFamily =
-  | 'file' | 'terminal' | 'ask'
+  | 'file' | 'ask'
   | 'dynamic' | 'mcp' | 'skill' | 'meta-agent';
 
 const ACCENT: Record<CardFamily, string> = {
   file:          '#d97706',   // amber
-  terminal:      '#374151',   // slate
   ask:           '#ea580c',   // orange
   dynamic:       '#4f46e5',   // indigo
   mcp:           '#0d9488',   // teal
@@ -182,18 +181,6 @@ export function CodeBlock({ code, maxLines }: { code: string; maxLines?: number 
   );
 }
 
-/** Dark terminal output block — strips basic ANSI escape sequences. */
-export function TerminalBlock({ output }: { output: string }): ReactElement {
-  // Strip ANSI colour/escape codes for the compact card view.
-  // eslint-disable-next-line no-control-regex
-  const clean = output.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
-  return (
-    <div className={styles['tc-terminal-block']}>
-      <pre>{clean}</pre>
-    </div>
-  );
-}
-
 /** Inline `label: value` info row. */
 export function InfoRow({ label, value }: { label: string; value: ReactNode }): ReactElement {
   return (
@@ -227,7 +214,6 @@ export function PlainResult({ result }: { result: unknown }): ReactElement {
 /** Per-family display metadata. */
 const FAMILY_META: Record<CardFamily, { icon: string; label: string }> = {
   file:          { icon: '📄', label: 'File' },
-  terminal:      { icon: '⌨',  label: 'Terminal' },
   ask:           { icon: '💬', label: 'Ask' },
   dynamic:       { icon: '⚡', label: 'Tool' },
   mcp:           { icon: '🔌', label: 'MCP' },
@@ -248,12 +234,6 @@ const FILE_LABEL: Record<string, string> = {
   set_workspace_root: 'Set Root',
 };
 
-/** Per-operation label overrides for terminal tools. */
-function terminalLabel(name: string): string {
-  const op = name.replace(/^terminal_/, '');
-  return op.charAt(0).toUpperCase() + op.slice(1).replace(/_/g, ' ');
-}
-
 /** Returns icon, human-readable label, card family, and accent colour for any tool. */
 export function getToolMeta(name: string): { icon: string; label: string; family: CardFamily; accent: string } {
   let family: CardFamily;
@@ -262,9 +242,6 @@ export function getToolMeta(name: string): { icon: string; label: string; family
   if (isFileTool(name)) {
     family = 'file';
     label = FILE_LABEL[name] ?? name;
-  } else if (isTerminalTool(name)) {
-    family = 'terminal';
-    label = terminalLabel(name);
   } else if (isAskUserTool(name)) {
     family = 'ask';
     label = 'Ask User';
@@ -300,12 +277,6 @@ export function getCompactSummary({ name, arguments: args }: ToolCallInfo): stri
   if (path) {
     const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
     return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : path;
-  }
-
-  // Terminal: truncate the command.
-  if (isTerminalTool(name)) {
-    const cmd = argStr(args, 'command') ?? argStr(args, 'cmd');
-    if (cmd) return cmd.length > 50 ? `${cmd.slice(0, 50)}…` : cmd;
   }
 
   // Generic: use the first non-empty string argument value.

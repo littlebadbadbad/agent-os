@@ -3,11 +3,8 @@ import type { ReactElement } from "react";
 import type { Attachment, AgentSession } from "@agent-sdk";
 import { ChatMessages } from "../chat/ChatMessages";
 import { ChatInput } from "../chat/ChatInput";
-import { ToolsPanel } from "../panels/ToolsPanel";
-import { TerminalPanel } from "../panels/TerminalPanel";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
 import { ExperiencePanel } from "../panels/ExperiencePanel";
-import { PlanPanel } from "../panels/PlanPanel";
 import { CronPanel } from "../panels/CronPanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
@@ -30,15 +27,12 @@ export function SessionContent({
     id: sessionStateId,
     messages,
     isLoading,
-    toolStates,
     skills,
-    terminalAdapter,
     enableAttachments,
     toggleTool,
     subAgentRegistry,
     experiences,
     experienceStore,
-    plan,
     cronJobs,
     cronPauseJob,
     cronResumeJob,
@@ -73,17 +67,12 @@ export function SessionContent({
 
   const [view, setView] = useState<
     | "chat"
-    | "tools"
-    | "plan"
-    | "terminals"
     | "subagents"
     | "experience"
     | "cron"
     | "tasks"
     | string
   >("chat");
-  const hasPlan = !!plan;
-  const hasTerminals = terminalAdapter !== undefined;
 
   // Refresh slot registry from session state (reads PluginUiAdapter.slots).
   pluginSystem.refreshSlots(session);
@@ -97,7 +86,6 @@ export function SessionContent({
     .some((s) => s.declaration.showTab(slotCtx));
   const hasSubAgents = subAgentRegistry !== null;
   const hasCron = (cronJobs?.length ?? 0) > 0;
-  const enabledCount = toolStates.filter((t) => t.enabled).length;
 
   function handleClear() {
     session.clearHistory();
@@ -128,36 +116,6 @@ export function SessionContent({
         >
           Chat
         </button>
-        <button
-          type="button"
-          className={`${styles["tab"]}${view === "tools" ? ` ${styles["tab--active"]}` : ""}`}
-          onClick={() => setView("tools")}
-        >
-          Tools
-          {toolStates.length > 0 && (
-            <span className={styles["tab-badge"]}>
-              {enabledCount}/{toolStates.length}
-            </span>
-          )}
-        </button>
-        {hasPlan && (
-          <button
-            type="button"
-            className={`${styles["tab"]}${view === "plan" ? ` ${styles["tab--active"]}` : ""}`}
-            onClick={() => setView("plan")}
-          >
-            Plan
-          </button>
-        )}
-        {hasTerminals && (
-          <button
-            type="button"
-            className={`${styles["tab"]}${view === "terminals" ? ` ${styles["tab--active"]}` : ""}`}
-            onClick={() => setView("terminals")}
-          >
-            Terminals
-          </button>
-        )}
         {hasCron && (
           <button
             type="button"
@@ -226,15 +184,6 @@ export function SessionContent({
           skills={skills}
         />
       </div>
-      {view === "tools" && (
-        <ToolsPanel
-          toolStates={toolStates}
-          onToggle={(name) => toggleTool?.(name)}
-        />
-      )}
-      {view === "terminals" && terminalAdapter && (
-        <TerminalPanel adapter={terminalAdapter} sessionId={sessionId} />
-      )}
       {view === "cron" && (
         <CronPanel
           jobs={cronJobs ?? []}
@@ -258,7 +207,6 @@ export function SessionContent({
           );
         })()}
 
-      {view === "plan" && plan && <PlanPanel plan={plan} />}
       {/* SubAgentsPanel is always mounted when sub-agents exist so that
           RegistryView and ConversationPane stay subscribed across tab switches.
           Same display-none pattern as the chat panel above. */}

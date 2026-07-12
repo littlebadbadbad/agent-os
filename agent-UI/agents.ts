@@ -4,17 +4,13 @@ import {
   createToolSearchToolSet,
   createPermissionsToolSet,
   createFileTools,
-  createTerminalToolSet,
   createCronToolSet,
-  createToolStateToolSet,
   createDynamicToolset,
   createSkillToolset,
   createMcpToolset,
   createSubAgentToolset,
   createVariableToolSet,
   createMemoryGraphToolSet,
-  createPlanToolSet,
-  createUpgradeToolSet,
   createToolResultCompressorToolSet,
   createDelegationNudgeToolSet,
 } from "@agent-sdk";
@@ -28,12 +24,10 @@ import { providerStore } from "./store/providerStore";
 import { providerConfigStore } from "./store/providerConfigStore";
 import {
   fileAdapter,
-  terminalAdapter,
   cronAdapter,
   dynamicToolAdapter,
   skillAdapter,
   mcpAdapter,
-  upgradeAdapter,
   sessionStore,
 } from "./createAdapters";
 import { createDefaultUIRenderer } from "./defaultRenderUI";
@@ -121,18 +115,12 @@ const getCurrentTime = defineTool({
 
 const fileTools = createFileTools(fileAdapter);
 const experienceToolSet = createExperienceTools();
-const terminalToolSet = createTerminalToolSet(terminalAdapter);
 const cronToolSet = createCronToolSet(cronAdapter);
-const toolStateToolSet = createToolStateToolSet();
 
 const variableToolSet = createVariableToolSet();
 const toolResultCompressorToolSet = createToolResultCompressorToolSet({ keepRecentResults: 3 });
 const delegationNudgeToolSet = createDelegationNudgeToolSet();
 const memoryGraphToolSet = createMemoryGraphToolSet();
-const upgradeToolSet = createUpgradeToolSet({
-  adapter: upgradeAdapter,
-});
-
 const sharedTools = [getCurrentTime, ...fileTools];
 
 // Dynamic tools (create_tool / list_dynamic_tools / update_tool / delete_tool)
@@ -155,30 +143,8 @@ const streamSubAgentToolset = createSubAgentToolset("stream", {
 const toolSearchToolSet = createToolSearchToolSet();
 
 // ── Permission rules ──────────────────────────────────────────────────────────
-// Terminal: high-risk shell patterns → ask before executing.
 // Git write ops: always ask.  git_discard is additionally blocked by the
 // adapter because it is irreversible.
-
-/** Patterns in terminal_send `text` that need a confirmation prompt. */
-const DANGEROUS_TERMINAL_RE = new RegExp(
-  [
-    '\\brm\\s+-[^\\s]*[rR]',          // rm -rf / rm -r
-    '\\brm\\s+--recursive\\b',        // rm --recursive
-    '\\bdd\\b.*\\bof=',               // dd of=... (disk overwrite)
-    '\\bchmod\\s+(777|a\\+w|o\\+w)\\b', // world-writable chmod
-    '\\bchown\\b.*\\s+-[rR]\\b',      // recursive chown
-    '\\bsudo\\s+rm\\b',               // sudo rm
-    '\\bsudo\\s+dd\\b',               // sudo dd
-    '\\bcurl\\b[^|]+\\|\\s*(ba)?sh\\b', // curl | bash
-    '\\bwget\\b[^|]+\\|\\s*(ba)?sh\\b', // wget | bash
-    '\\bformat\\b|\\bmkfs\\b|\\bdiskpart\\b', // disk format
-    '\\b(drop|truncate)\\s+(table|database)\\b', // DB destructive
-    '\\bgit\\s+push\\s+(--force|-f)\\b', // force push
-    '\\bgit\\s+reset\\s+--hard\\b',   // hard reset
-    '\\bgit\\s+clean\\s+-[^-]*[fF]',  // git clean -f
-  ].join('|'),
-  'i',
-);
 
 const permissionsToolSet = createPermissionsToolSet({
   context: {
@@ -188,35 +154,14 @@ const permissionsToolSet = createPermissionsToolSet({
       'git_status': 'allow',
       'git_diff':   'allow',
       'git_log':    'allow',
-      // Terminal inspection is safe.
-      'terminal_list':  'allow',
-      'terminal_read':  'allow',
-      'terminal_wait':  'allow',
-      'terminal_sleep': 'allow',
     },
     alwaysDenyRules: {},
-    // git_discard requires a second confirmation gate on top of the in-tool prompt.
     alwaysAskRules: {
       'git_discard': 'ask',
     },
   },
   adapter: {
     async checkPermission(toolName, args, _tool, _ctx) {
-      // ── Terminal: block high-risk shell commands ──────────────────────────
-      if (toolName === 'terminal_send') {
-        const text = typeof args['text'] === 'string' ? args['text'] : '';
-        if (DANGEROUS_TERMINAL_RE.test(text)) {
-          return {
-            behavior: 'ask',
-            message:
-              `⚠️ The command appears to be potentially destructive:\n\n` +
-              `\`\`\`\n${text.slice(0, 500)}\n\`\`\`\n\n` +
-              `Do you want to allow this command to run?`,
-          };
-        }
-        return { behavior: 'allow' };
-      }
-
       // ── Git: gate discard behind an extra confirmation ────────────────────
       if (toolName === 'git_discard') {
         const paths = Array.isArray(args['paths']) ? (args['paths'] as string[]).join(', ') : '(unknown)';
@@ -226,11 +171,8 @@ const permissionsToolSet = createPermissionsToolSet({
         };
       }
 
-      // ── Read-only git & terminal tools: always allow ──────────────────────
-      const ALWAYS_ALLOW = new Set([
-        'git_status', 'git_diff', 'git_log',
-        'terminal_list', 'terminal_read', 'terminal_wait', 'terminal_sleep',
-      ]);
+      // ── Read-only git tools: always allow ─────────────────────────────────
+      const ALWAYS_ALLOW = new Set(['git_status', 'git_diff', 'git_log']);
       if (ALWAYS_ALLOW.has(toolName)) return { behavior: 'allow' };
 
       // ── Everything else: default allow ────────────────────────────────────
@@ -238,22 +180,17 @@ const permissionsToolSet = createPermissionsToolSet({
     },
   },
 });
-const planToolset = createPlanToolSet();
 const sharedToolSets = [
   toolSearchToolSet,
   permissionsToolSet,
-  toolStateToolSet,
   experienceToolSet,
-  terminalToolSet,
   cronToolSet,
   toolResultCompressorToolSet,
   variableToolSet,
-  planToolset,
   memoryGraphToolSet,
   dynamicToolset,
   skillToolset,
   mcpToolset,
-  upgradeToolSet,
   delegationNudgeToolSet,
 ];
 

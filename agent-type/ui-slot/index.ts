@@ -28,6 +28,8 @@ export type {
   InlinePromptSlotDeclaration,
   HeaderBarSlotDeclaration,
   PluginSlotDeclaration,
+  // ── Plugin UI adapter bridge ──
+  PluginUiAdapter,
   // ── Iframe context ──
   SlotContext,
 } from "./types";

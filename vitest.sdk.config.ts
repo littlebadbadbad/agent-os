@@ -13,6 +13,7 @@ export default defineConfig({
     include: ['src/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.ts', 'extensions/**/__tests__/**/*.test.ts'],
     exclude: ['extensions/browser/**'],
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     reporters: ['verbose'],
     coverage: {
       provider: 'v8',

@@ -20,7 +20,6 @@ import { handleChatLogRoutes } from './transports/network/chat-logs.js';
 import { handleProxyRoutes } from './transports/network/proxy.js';
 import { handleAdoProxyRoutes } from './transports/network/ado-proxy.js';
 import { handleFileRoutes } from './transports/network/files.js';
-import { handleTerminalRoutes } from './transports/network/terminals.js';
 import { handleCronRoutes } from './transports/network/cron.js';
 import { handleMcpRoutes } from './transports/network/mcp.js';
 import { startupReconnect } from './lib/mcp-manager/index.js';
@@ -32,7 +31,6 @@ import { handleModelRoutes } from './transports/network/models.js';
 import { handleModelConfigRoutes } from './transports/network/model-config.js';
 import { handleSessionRoutes } from './transports/network/sessions.js';
 import { handleGitRoutes } from './transports/network/git.js';
-import { handleUpgradeRoutes } from './transports/network/upgrade.js';
 import { WebSocketServer } from 'ws';
 import { pluginRouter } from './lib/plugin-router.js';
 import { createPluginScanner } from './lib/plugin-scanner.js';
@@ -185,9 +183,6 @@ async function handleRequest(req, res) {
     const fileRouteMatched = await handleFileRoutes(req, res, path);
     if (fileRouteMatched !== false) return;
 
-    const terminalRouteMatched = await handleTerminalRoutes(req, res, path);
-    if (terminalRouteMatched !== false) return;
-
     const cronRouteMatched = await handleCronRoutes(req, res, path);
     if (cronRouteMatched !== false) return;
 
@@ -208,9 +203,6 @@ async function handleRequest(req, res) {
 
     const gitRouteMatched = await handleGitRoutes(req, res, path);
     if (gitRouteMatched !== false) return;
-
-    const upgradeRouteMatched = await handleUpgradeRoutes(req, res, path);
-    if (upgradeRouteMatched !== false) return;
 
     // ── Plugin introspection ───────────────────────────────────────────────
     if (req.method === 'GET' && path === '/api/plugins') {
@@ -313,21 +305,20 @@ export async function startServer() {
 
       wss.handleUpgrade(req, socket, head, (ws) => {
         const WS_OPEN = 1;
-        const connection = pluginMatch.handler(params);
-        const { callbacks } = connection;
 
-        // Bridge: plugin pushes data → WebSocket
-        callbacks.onData = (chunk) => {
-          if (ws.readyState === WS_OPEN) {
-            if (chunk instanceof Uint8Array || chunk instanceof Buffer || chunk instanceof ArrayBuffer) {
-              ws.send(chunk, { binary: true });
-            } else {
-              ws.send(JSON.stringify(chunk));
-            }
-          }
+        // Build StreamIO first, then pass to handler — no temporal coupling.
+        const io = {
+          sendBinary: (buf) => {
+            if (ws.readyState === WS_OPEN) ws.send(buf, { binary: true });
+          },
+          sendJSON: (obj) => {
+            if (ws.readyState === WS_OPEN) ws.send(JSON.stringify(obj));
+          },
+          isConnected: () => ws.readyState === WS_OPEN,
+          onClose: (cb) => { ws.on('close', cb); },
         };
-        callbacks.onEnd = () => { try { ws.close(); } catch {} };
-        callbacks.onError = (_err) => { try { ws.close(); } catch {} };
+
+        const connection = pluginMatch.handler(params, io);
 
         // Bridge: WebSocket message → plugin onClientMessage
         ws.on('message', (data) => {

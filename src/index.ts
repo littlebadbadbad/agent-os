@@ -5,12 +5,7 @@ export const VERSION = pkg.version;
 // ── Client ────────────────────────────────────────────────────────────────────
 export { createAgentClient } from './client';
 export type { DefaultRenderUIConfig } from '../agent-UI/defaultRenderUI';
-export type { AgentClientConfig, AgentClient, ToolStateEntry } from './client';
-export {
-  createToolStateToolSet,
-  isToolStateToolSet,
-} from './tools/toolStateToolSet';
-export type { ToolStateToolSet, ToolStateControl } from './tools/toolStateToolSet';
+export type { AgentClientConfig, AgentClient } from './client';
 export { createAgentSession } from './client/agentSession';
 export type { AgentSession, AgentSessionState, AgentSessionConfig } from './client/agentSession';
 export type {
@@ -21,7 +16,6 @@ export type {
 } from './client/sessionManager.types';
 
 // ── Tool primitives ───────────────────────────────────────────────────────────
-export { createPlanToolSet } from './tools/plan/toolSet';
 export { createToolSearchToolSet } from './tools/toolSearch';
 export { createExperienceTools } from './tools/experience/experience';
 export type { ExperienceItem, ExperienceInput, ExperienceStore } from './tools/experience/experience';
@@ -117,38 +111,6 @@ export type {
   PermissionRules,
   ToolPermissionContext,
 } from './tools/permissions';
-
-// ── Upgrade management ────────────────────────────────────────────────────────
-export {
-  createUpgradeToolSet,
-  createHttpUpgradeAdapter,
-  createIpcUpgradeAdapter,
-  defaultBrowserConfirm,
-  defaultTerminalConfirm,
-  autoConfirm,
-} from './tools/upgrade';
-export type {
-  UpgradeOptions,
-  UpgradeAdapter,
-  VersionInfo,
-  BuildResult,
-  UpgradeConfirmFn,
-  HttpUpgradeAdapterConfig,
-  IpcUpgradeAdapterConfig,
-} from './tools/upgrade';
-
-// ── Terminal management ───────────────────────────────────────────────────────
-export { createHttpTerminalAdapter, createIpcTerminalAdapter, createTerminalTools, createTerminalToolSet } from './tools/terminal';
-export type {
-  TerminalEntry,
-  TerminalOutput,
-  TerminalManagerAdapter,
-  HttpTerminalAdapterConfig,
-  IpcTerminalAdapterConfig,
-  AvailableShell,
-  ShellFamily,
-  TerminalToolSet,
-} from './tools/terminal';
 
 // ── Cron job scheduling ───────────────────────────────────────────────────────
 export { createHttpCronAdapter, createIpcCronAdapter, createCronToolSet } from './tools/cron';

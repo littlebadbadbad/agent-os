@@ -3,7 +3,6 @@ import type { ReactElement } from "react";
 import type { ToolCallInfo } from "../types";
 import type { SlotSession } from "@agent-type";
 import { FileToolCard } from "./toolCards/FileToolCard";
-import { TerminalToolCard } from "./toolCards/TerminalToolCard";
 import { AskUserCard } from "./toolCards/AskUserCard";
 import { DynamicToolCard } from "./toolCards/DynamicToolCard";
 import { McpToolCard } from "./toolCards/McpToolCard";
@@ -22,7 +21,6 @@ import {
 } from "./toolCards/shared";
 import {
   isFileTool,
-  isTerminalTool,
   isAskUserTool,
   isDynamicTool,
   isMcpTool,
@@ -90,7 +88,6 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
 function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSession }): ReactElement {
   const { name } = info;
   if (isFileTool(name)) return <FileToolCard info={info} />;
-  if (isTerminalTool(name)) return <TerminalToolCard info={info} />;
   if (isAskUserTool(name)) return <AskUserCard info={info} />;
   if (isDynamicTool(name)) return <DynamicToolCard info={info} />;
   if (isMcpTool(name)) return <McpToolCard info={info} />;

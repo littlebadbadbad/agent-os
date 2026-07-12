@@ -190,3 +190,29 @@ export interface SlotContext {
   /** The conversation id — `"main"` for the primary conversation. */
   readonly conversationId: string;
 }
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Plugin UI adapter (ToolSet → host slot declaration bridge)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Marker interface for plugin adapters injected into session state.
+ *
+ * Plugins that provide UI capabilities inject their adapter into
+ * `AgentSessionState` via `onGetSymbolState`. The host UI iterates
+ * declared slot declarations to dynamically render injection points —
+ * no plugin name is hardcoded in the host UI.
+ *
+ * Concrete adapters (e.g. `BrowserAdapter`) extend this interface with
+ * their plugin-specific methods.
+ */
+export interface PluginUiAdapter {
+  /**
+   * UI injection points declared by this plugin's ToolSets.
+   *
+   * Each slot declares a type ("panel", "toolCard", etc.) and an id.
+   * The host reads this array to determine where and how to render
+   * the plugin's UI.  Multiple ToolSets from the same plugin can
+   * contribute different slots — the host merges them.
+   */
+  readonly slots?: readonly PluginSlotDeclaration[];
+}

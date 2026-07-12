@@ -91,12 +91,12 @@ export function createBrowserPluginAdapter(apiClient: PluginApiClient): BrowserA
       // Establish a bidirectional stream connection via the plugin API client.
       // The transport layer (IPC or HTTP/WS) is fully encapsulated — this code
       // only uses the abstract PluginApiClient interface.
-      const stream = apiClient.connectStream('browserStream', { id, config });
+      const client = apiClient.connectStream('browserStream', { id, config });
 
       let connected = false;
 
       // Bridge: backend pushes frames/messages → BrowserLiveView callbacks.
-      stream.callbacks.onData = (chunk: unknown) => {
+      client.callbacks.onData = (chunk: unknown) => {
         if (!connected) {
           connected = true;
           callbacks.onStateChange(true);
@@ -108,11 +108,11 @@ export function createBrowserPluginAdapter(apiClient: PluginApiClient): BrowserA
           callbacks.onMessage(chunk as Parameters<BrowserStreamCallbacks['onMessage']>[0]);
         }
       };
-      stream.callbacks.onEnd = () => callbacks.onStateChange(false);
-      stream.callbacks.onError = () => callbacks.onStateChange(false);
+      client.callbacks.onEnd = () => callbacks.onStateChange(false);
+      client.callbacks.onError = () => callbacks.onStateChange(false);
 
       // Start the stream.
-      const sub = stream.subscribe();
+      const sub = client.subscribe();
 
       return {
         send(event) {

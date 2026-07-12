@@ -102,18 +102,15 @@ export function registerPluginIpcHandlers(ipcMain, router) {
     for (const streamName of streams) {
       const prefix = `plugin:${pluginId}:${streamName}`;
 
-      // ── Connect: client → ipcMain.handle → StreamConnection.io ──────
+      // ── Connect: client → ipcMain.handle → StreamConnection ─────────
       const connectChannel = `${prefix}:connect`;
       if (!_registeredChannels.has(connectChannel)) {
         ipcMain.handle(connectChannel, async (event, params) => {
           const handler = router.getStreamHandler(pluginId, streamName);
           if (!handler) throw new Error(`Stream "${streamName}" not found for plugin "${pluginId}"`);
 
-          const connection = handler(params ?? {});
-          const connId = `${connectChannel}:${event.sender.id ?? Date.now()}`;
-
-          // Create a StreamIO from the IPC sender context.
-          connection.io = {
+          // Build StreamIO first, then pass to handler — no temporal coupling.
+          const io = {
             sendBinary: (buf) => {
               if (!event.sender.isDestroyed()) {
                 event.sender.send(`${prefix}:frame`, buf);
@@ -129,6 +126,9 @@ export function registerPluginIpcHandlers(ipcMain, router) {
               event.sender.on('destroyed', () => cb());
             },
           };
+
+          const connection = handler(params ?? {}, io);
+          const connId = `${connectChannel}:${event.sender.id ?? Date.now()}`;
 
           // Subscribe to start the streaming loop.
           const sub = connection.subscribe();

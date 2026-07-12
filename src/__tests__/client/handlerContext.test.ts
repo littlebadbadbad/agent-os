@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { buildHandlerContext } from '../../client/handlerContext';
 import { createToolManager } from '../../client/toolManager';
-import { createToolStateToolSet } from '../../tools/toolStateToolSet';
 import { createToolCallPipeline } from '../../tools/callToolPipeline';
 import type { Tool } from '@agent-type';
 import type { ToolSet, ToolSetContext, SystemPromptContext } from '@agent-type';
@@ -22,7 +21,6 @@ function makeTool(name: string, group?: string): Tool {
 
 /** Create a minimal ToolSet that injects a fixed system-prompt fragment. */
 function makePromptToolSet(name: string, fragment: string, options?: {
-  /** If provided, inject only when userMessage contains this substring. */
   keyword?: string;
 }): ToolSet {
   return {
@@ -33,6 +31,17 @@ function makePromptToolSet(name: string, fragment: string, options?: {
         return undefined;
       }
       return fragment;
+    },
+  };
+}
+
+/** Create a minimal ToolSet that filters out specific tools by name. */
+function makeFilterToolSet(disabledNames: ReadonlySet<string>): ToolSet {
+  return {
+    name: 'mockFilter',
+    tools: [],
+    onFilterTools(_ctx: ToolSetContext, tools: readonly Tool[]): readonly Tool[] {
+      return tools.filter((t) => !disabledNames.has(t.name));
     },
   };
 }
@@ -71,12 +80,11 @@ describe('buildHandlerContext', () => {
     expect(ctx.tools.map((t) => t.name)).toContain('ping');
   });
 
-  it('excludes disabled tools from the descriptor list via ToolStateToolSet', () => {
+  it('excludes disabled tools from the descriptor list via onFilterTools', () => {
     const tm = createToolManager();
     tm.registerTool(makeTool('echo'));
     tm.registerTool(makeTool('ping'));
-    const ts = createToolStateToolSet();
-    ts.disableNames({ sessionId: 'session-1', agentName: 'main', conversationId: MAIN_CONVERSATION_ID }, new Set(['echo']));
+    const ts = makeFilterToolSet(new Set(['echo']));
 
     const ctx = build(tm, undefined, undefined, undefined, [ts]);
     expect(ctx.tools.map((t) => t.name)).not.toContain('echo');

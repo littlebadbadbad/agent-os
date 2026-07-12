@@ -102,14 +102,13 @@ export type {
   SlotSession,
   UiPluginHost,
   UiPluginHostInternal,
-  PluginUiAdapter,
   ToolCallStatus,
   ToolCallInfo,
   ToolCardDescriptor,
   ToolCardRenderContext,
   StreamHandler,
   StreamConnection,
-  StreamCallbacks,
+  PluginStreamClient,
   StreamSubscription,
   PluginApiClient,
   ActivatedBackendPlugin,
@@ -118,6 +117,7 @@ export type {
 
 // ── UI Slot types (plugin injection points) ───────────────────────────────────
 export type {
+  PluginUiAdapter,
   SlotType,
   PanelSlotDeclaration,
   ToolCardSlotDeclaration,

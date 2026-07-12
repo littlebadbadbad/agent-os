@@ -103,7 +103,7 @@ function createHttpChatTransport(): ChatTransport {
                     : line.trim();
                   if (payload === '[DONE]') continue;
                   try { controller.enqueue(JSON.parse(payload)); }
-                  catch { /* skip malformed */ }
+                  catch { console.warn('[chatTransport] SSE skip malformed JSON:', payload?.slice(0, 120)); }
                 }
               }
               controller.close();
@@ -126,7 +126,7 @@ function createHttpChatTransport(): ChatTransport {
               try {
                 controller.enqueue(JSON.parse(payload));
               } catch {
-                // Skip malformed JSON lines
+                console.warn('[chatTransport] SSE skip malformed JSON:', payload?.slice(0, 120));
               }
             }
           }
@@ -155,8 +155,16 @@ function createIpcChatTransport(): ChatTransport {
 
     sendStream(params: ChatParams): ReadableStream<AgentStreamChunk> {
       const { signal } = params;
-      let cleanup: (() => void) | null = null;
-      let sessionId: string | null = null;
+
+      // Eagerly-initialized no-op — guarantees cancel() is always safe
+      // even if called before start() completes (race-condition guard).
+      let cleanup: () => void = () => {};
+      // Promise-based sessionId: cancel() waits for resolution before
+      // sending the stop IPC, preventing backend stream leaks.
+      let resolveSessionId: (id: string) => void;
+      const sessionIdPromise = new Promise<string>((resolve) => {
+        resolveSessionId = resolve;
+      });
 
       return new ReadableStream<AgentStreamChunk>({
         // CHANNEL ISOLATION: Each streaming session gets its own IPC channel
@@ -177,7 +185,8 @@ function createIpcChatTransport(): ChatTransport {
 
           // 1. Start the stream and get the session-scoped channel prefix.
           const result = (await electronAPI.invoke('chat:stream:start', params)) as { sessionId: string };
-          sessionId = result.sessionId;
+          const sessionId = result.sessionId;
+          resolveSessionId(sessionId);
           const ch = (name: string) => `chat:stream:${sessionId}:${name}`;
 
           // 2. Subscribe to the session-scoped channels.
@@ -216,15 +225,19 @@ function createIpcChatTransport(): ChatTransport {
 
           if (signal) {
             signal.addEventListener('abort', () => {
-              if (sessionId) electronAPI.invoke('chat:stream:stop', { sessionId });
-              cleanup?.();
+              sessionIdPromise.then((id) => {
+                electronAPI.invoke('chat:stream:stop', { sessionId: id });
+              });
+              cleanup();
             });
           }
         },
 
         cancel() {
-          if (sessionId) electronAPI.invoke('chat:stream:stop', { sessionId });
-          cleanup?.();
+          sessionIdPromise.then((id) => {
+            electronAPI.invoke('chat:stream:stop', { sessionId: id });
+          });
+          cleanup();
         },
       });
     },

@@ -13,7 +13,6 @@
 import { ipcMain } from 'electron';
 import { createLogger } from '../../lib/logger.js';
 import { registerFileHandlers } from './files.js';
-import { registerTerminalHandlers } from './terminals.js';
 import { registerCronHandlers } from './cron.js';
 import { registerToolHandlers } from './tools.js';
 import { registerSkillHandlers } from './skills.js';
@@ -21,7 +20,6 @@ import { registerMcpHandlers } from './mcp.js';
 import { registerGitHandlers } from './git.js';
 import { registerSessionHandlers } from './sessions.js';
 import { registerSystemHandlers } from './system.js';
-import { registerUpgradeHandlers } from './upgrade.js';
 import { registerChatHandlers } from './chat.js';
 import { registerApiHandlers } from './api.js';
 import { registerPluginIpcHandlers } from './plugin.js';
@@ -32,7 +30,6 @@ export function registerIpcHandlers(pluginRouter) {
   log.info('Registering IPC handlers…');
 
   registerFileHandlers(ipcMain);
-  registerTerminalHandlers(ipcMain);
   registerCronHandlers(ipcMain);
   registerToolHandlers(ipcMain);
   registerSkillHandlers(ipcMain);
@@ -40,7 +37,6 @@ export function registerIpcHandlers(pluginRouter) {
   registerGitHandlers(ipcMain);
   registerSessionHandlers(ipcMain);
   registerSystemHandlers(ipcMain);
-  registerUpgradeHandlers(ipcMain);
   registerChatHandlers(ipcMain);
   registerApiHandlers(ipcMain);
 

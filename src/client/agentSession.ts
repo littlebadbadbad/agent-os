@@ -27,7 +27,6 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     title: config.title ?? 'New Chat',
     toolStates: [],
     subAgentRegistry: null,
-    terminalAdapter: undefined,
     enableAttachments: config.enableAttachments,
     ...config.getExternalState(),
   };

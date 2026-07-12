@@ -79,7 +79,7 @@ export function buildRunToolCall(
       setMessages((prev) =>
         prev.map((m) =>
           m.id === call.id
-            ? { ...m, toolCall: { ...m.toolCall!, status: 'done', result: res.result, ...(res.attachments?.length ? { attachments: res.attachments } : {}) } }
+            ? { ...m, toolCall: { ...m.toolCall!, status: 'done', result: res.result, ...(res.attachments?.length ? { attachments: [...res.attachments] } : {}) } }
             : m,
         ),
       );

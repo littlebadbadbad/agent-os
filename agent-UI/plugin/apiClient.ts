@@ -13,7 +13,7 @@
  * testability (R4).  No classes — pure factory function.
  */
 
-import type { PluginApiClient, StreamConnection } from '@agent-type';
+import type { PluginApiClient, PluginStreamClient } from '@agent-type';
 import { IS_ELECTRON_IPC } from '../env';
 
 // ── Error type ────────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
       }
     },
 
-    connectStream(streamName: string, params?: Record<string, unknown>): StreamConnection {
+    connectStream(streamName: string, params?: Record<string, unknown>): PluginStreamClient {
       // WebSocket URL: ws://host/api/plugin/<id>/<streamName>?key=val&key2=val2
       const queryString = params
         ? Object.entries(params)
@@ -119,9 +119,8 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
       const wsUrl = `${protocol}//${location.host}/api/plugin/${encodeURIComponent(pluginId)}/${encodeURIComponent(streamName)}${queryString ? '?' + queryString : ''}`;
 
       let ws: WebSocket | null = null;
-      let unsubClose: (() => void) | null = null;
 
-      const conn: StreamConnection = {
+      const client: PluginStreamClient = {
         callbacks: {
           onData(_chunk) { /* overridden by consumer */ },
           onEnd() { },
@@ -134,21 +133,21 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
           ws.onmessage = (event) => {
             if (event.data instanceof Blob) {
               // Binary frame (JPEG)
-              event.data.arrayBuffer().then(buf => conn.callbacks.onData(buf));
+              event.data.arrayBuffer().then(buf => client.callbacks.onData(buf));
             } else {
               // JSON message (page info)
               try {
                 const obj = JSON.parse(event.data);
-                conn.callbacks.onData(obj);
+                client.callbacks.onData(obj);
               } catch { /* ignore parse errors */ }
             }
           };
           ws.onclose = () => {
-            conn.callbacks.onEnd();
+            client.callbacks.onEnd();
             ws = null;
           };
           ws.onerror = () => {
-            conn.callbacks.onError(new Error('WebSocket error'));
+            client.callbacks.onError(new Error('WebSocket error'));
           };
 
           return {
@@ -157,13 +156,12 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
                 ws.close();
                 ws = null;
               }
-              if (unsubClose) { unsubClose(); unsubClose = null; }
             },
           };
         },
       };
 
-      return conn;
+      return client;
     },
   };
 }
@@ -205,19 +203,17 @@ function createIpcPluginApiClient(
       }
     },
 
-    connectStream(streamName: string, params?: Record<string, unknown>): StreamConnection {
+    connectStream(streamName: string, params?: Record<string, unknown>): PluginStreamClient {
       const prefix = `plugin:${pluginId}:${streamName}`;
-      let connectionId: string | null = null;
+      let resolveConnId: (id: string) => void;
+      let rejectConnId: (err: unknown) => void;
+      const connIdPromise = new Promise<string>((resolve, reject) => {
+        resolveConnId = resolve;
+        rejectConnId = reject;
+      });
       let cleanupFns: (() => void)[] = [];
 
-      // Start the connection asynchronously.
-      doInvoke(`${prefix}:connect`, params ?? {}).then((result) => {
-        connectionId = (result as { connectionId: string }).connectionId;
-      }).catch((err) => {
-        conn.callbacks.onError(err instanceof Error ? err : new Error(String(err)));
-      });
-
-      const conn: StreamConnection = {
+      const client: PluginStreamClient = {
         callbacks: {
           onData(_chunk) { /* overridden by consumer */ },
           onEnd() { },
@@ -226,13 +222,13 @@ function createIpcPluginApiClient(
         subscribe: () => {
           // Listen for data pushed from the backend.
           const unsubFrame = doOn(`${prefix}:frame`, (chunk: unknown) => {
-            conn.callbacks.onData(chunk);
+            client.callbacks.onData(chunk);
           });
           const unsubData = doOn(`${prefix}:data`, (chunk: unknown) => {
-            conn.callbacks.onData(chunk);
+            client.callbacks.onData(chunk);
           });
           const unsubEnd = doOn(`${prefix}:end`, () => {
-            conn.callbacks.onEnd();
+            client.callbacks.onEnd();
           });
           cleanupFns = [unsubFrame, unsubData, unsubEnd];
 
@@ -240,16 +236,25 @@ function createIpcPluginApiClient(
             unsubscribe: () => {
               cleanupFns.forEach(fn => fn());
               cleanupFns = [];
-              if (connectionId) {
-                doInvoke(`${prefix}:disconnect`, { connectionId }).catch(() => {});
-                connectionId = null;
-              }
+              // Await connectionId resolution — if the connect call hasn't
+              // completed yet, wait for it so the disconnect IPC fires.
+              connIdPromise.then((connId) => {
+                doInvoke(`${prefix}:disconnect`, { connectionId: connId }).catch(() => {});
+              }).catch(() => {});
             },
           };
         },
       };
 
-      return conn;
+      // Start the connection asynchronously.
+      doInvoke(`${prefix}:connect`, params ?? {}).then((result) => {
+        resolveConnId((result as { connectionId: string }).connectionId);
+      }).catch((err) => {
+        rejectConnId(err);
+        client.callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+      });
+
+      return client;
     },
   };
 }

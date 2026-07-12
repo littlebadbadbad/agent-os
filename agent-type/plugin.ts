@@ -1,8 +1,7 @@
 import type { ToolSet } from "./toolset";
-import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool } from "./core";
-import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, SlotIframeMessage } from "./ui-slot";
+import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool, Attachment } from "./core";
+import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, SlotIframeMessage, PluginUiAdapter } from "./ui-slot";
 import type { ModelMeta } from "./model";
-import { AgentSessionExtension } from "@agent-type";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Plugin manifest & lifecycle types
@@ -430,31 +429,6 @@ export interface UiPluginHostInternal<TState extends PluginStateExtension = Plug
 export type PluginRecieveMessage =
   | { readonly type: "stateUpdate"; readonly payload: AgentSessionState }
   | { readonly type: "toolCallInfo"; readonly payload: ToolCallInfo };
-// ── Plugin UI adapter (generic session-state injection) ───────────────────────
-
-/**
- * Marker interface for plugin adapters injected into session state.
- *
- * Plugins that provide UI capabilities inject their adapter into
- * `AgentSessionState` via `onGetSymbolState`. The host UI iterates
- * declared slot declarations to dynamically render injection points —
- * no plugin name is hardcoded in the host UI.
- *
- * Concrete adapters (e.g. `BrowserAdapter`) extend this interface with
- * their plugin-specific methods.
- */
-export interface PluginUiAdapter {
-  /**
-   * UI injection points declared by this plugin's ToolSets.
-   *
-   * Each slot declares a type ("panel", "toolCard", etc.) and an id.
-   * The host reads this array to determine where and how to render
-   * the plugin's UI.  Multiple ToolSets from the same plugin can
-   * contribute different slots — the host merges them.
-   */
-  readonly slots?: readonly PluginSlotDeclaration[];
-}
-
 // ── Tool card rendering (dual-mode) ───────────────────────────────────────────
 
 /**
@@ -468,17 +442,22 @@ export type ToolCallStatus = "running" | "done" | "error";
  * Moved from `agent-UI` to `@agent-type` so that plugin tool-card
  * renderers (defined in `agent-type`) can reference it without
  * depending on host UI internals.
+ *
+ * @typeParam TResult — The tool's result type.  Defaults to `unknown`
+ * for host-side storage and transport.  Each plugin narrows this to
+ * its own per-tool result union (e.g. `PlanToolResult`) at the UI
+ * boundary for type-safe field access without `as` casts.
  */
-export interface ToolCallInfo {
+export interface ToolCallInfo<TResult = unknown> {
   readonly toolCallId: string;
   readonly name: string;
   readonly arguments: Record<string, unknown>;
   readonly status: ToolCallStatus;
   /** Serialised result shown in the bubble after execution completes. */
-  readonly result?: unknown;
+  readonly result?: TResult;
   readonly error?: string;
   /** Binary/image attachments produced by the tool (e.g. screenshots). */
-  readonly attachments?: readonly import("./core").Attachment[];
+  readonly attachments?: Attachment[];
 }
 
 /**
@@ -529,53 +508,37 @@ export interface ToolCardRenderContext {
  * Factory that creates a `StreamConnection` for each client that connects
  * to a plugin's streaming endpoint.
  *
+ * The transport layer constructs the `StreamIO` from its specific context
+ * (WebSocket or Electron IPC) and passes it as the second argument.
+ * The plugin captures `io` in the closure of `subscribe()` — no temporal
+ * coupling, no field-mutation-after-creation.
+ *
  * @param params  Optional connect-time parameters sent by the client at
  *                connection time. For example, the browser plugin passes
  *                `{ id: 'b1', config: { fps: 24 } }` to identify the
  *                browser session and initial stream config.
+ * @param io      Transport-provided I/O interface for pushing data to
+ *                the connected client. Created and passed by the transport
+ *                layer at call time — the plugin captures it in its
+ *                `subscribe()` closure.
  */
 export type StreamHandler = (
-  params?: Record<string, unknown>,
+  params: Record<string, unknown> | undefined,
+  io: StreamIO,
 ) => StreamConnection;
 
 /**
- * Callbacks that a plugin's stream implementation receives.
- * The plugin calls these to push data to the connected client.
- * The transport layer (IPC/WS/HTTP) provides the actual implementations
- * that write to the underlying connection.
- */
-export type StreamCallbacks = {
-  /** Send a data chunk to the client. */
-  onData: (chunk: unknown) => void;
-  /** Signal that the stream has ended successfully. */
-  onEnd: () => void;
-  /** Signal that an error occurred and the stream should be terminated. */
-  onError: (error: Error) => void;
-};
-
-/**
- * A bidirectional streaming connection between a plugin and a client.
+ * A bidirectional streaming connection created by a backend plugin.
  *
- * The plugin receives `callbacks` to push data to the client, and returns
- * a `StreamSubscription` so the host can manage the connection lifecycle.
+ * The `io` interface is injected as a parameter to `StreamHandler` and
+ * captured in the `subscribe()` closure — there is no `io` field on this
+ * object, so no "create then mutate" pattern is needed.
  *
  * For bidirectional streaming (e.g. browser live view), the plugin can
  * set `onClientMessage` to receive messages from the connected client
  * (like mouse/keyboard input events or config updates).
- *
- * The `io` field is set by the transport layer before `subscribe()` is
- * called.  It provides the plugin's subscribe handler with the transport's
- * StreamIO implementation (writing to WebSocket or IPC channel).
  */
 export type StreamConnection = {
-  /** Callbacks the plugin uses to communicate with the client. */
-  callbacks: StreamCallbacks;
-  /**
-   * Transport-provided StreamIO context — set by the transport layer
-   * BEFORE `subscribe()` is called.  The plugin's subscribe handler
-   * reads this to create a transport-agnostic I/O bridge.
-   */
-  io?: StreamIO;
   /**
    * Optional handler for messages FROM the client TO the plugin.
    * Set by the plugin's stream implementation when bidirectional
@@ -584,7 +547,28 @@ export type StreamConnection = {
    * a message.
    */
   onClientMessage?: (data: unknown) => void;
-  /** Return a subscription for lifecycle management. */
+  /** Start the streaming loop. The plugin pushes data via io (captured in closure). */
+  subscribe: () => StreamSubscription;
+};
+
+/**
+ * Consumer-facing stream client returned by {@link PluginApiClient.connectStream}.
+ *
+ * The consumer sets callbacks to receive data pushed from the backend plugin,
+ * then calls `subscribe()` to start the stream.  Data is received exclusively
+ * through `callbacks` — no `io` or transport details leak to the consumer.
+ */
+export type PluginStreamClient = {
+  /** Callbacks for receiving data pushed from the backend plugin. */
+  readonly callbacks: {
+    onData: (chunk: unknown) => void;
+    onEnd: () => void;
+    onError: (error: Error) => void;
+  };
+  /**
+   * Subscribe to start receiving data.  Call AFTER setting callbacks.
+   * Returns a subscription for lifecycle management.
+   */
   subscribe: () => StreamSubscription;
 };
 
@@ -602,11 +586,13 @@ export type StreamSubscription = {
  * Transport-agnostic I/O interface for streaming data.
  *
  * The transport layer (IPC or WebSocket) creates a StreamIO from its
- * specific context (Electron WebContents or WS object) and sets it on
- * the `StreamConnection.io` field before calling `subscribe()`.
+ * specific context (Electron WebContents or WS object) and injects it
+ * as the second parameter to `StreamHandler` — the plugin captures it
+ * in the closure and passes it to its streaming engine
+ * (e.g. BrowserInstance#startStreamingIO).
  *
- * The plugin's subscribe handler reads `connection.io` and passes it
- * to the streaming engine (e.g. BrowserInstance#startStreamingIO).
+ * This interface is NOT part of `StreamConnection` — it is a parameter
+ * of `StreamHandler`, ensuring zero temporal coupling.
  */
 export type StreamIO = {
   /** Push a binary data chunk (typically a JPEG frame) to the client. */
@@ -676,14 +662,14 @@ export interface PluginApiClient {
    * @param params      Optional connect-time parameters forwarded to the
    *                    backend plugin's stream handler (e.g. browser session
    *                    id and initial config).
-   * @returns  A `StreamConnection` for bidirectional communication.
-   *           Use `callbacks.onData` to receive data from the plugin,
-   *           and `onClientMessage` (if set) to send data to the plugin.
+   * @returns  A `PluginStreamClient` for receiving data and managing
+   *           the stream lifecycle.  Set `callbacks.onData/onEnd/onError`
+   *           before calling `subscribe()`.
    */
   connectStream(
     streamName: string,
     params?: Record<string, unknown>,
-  ): StreamConnection;
+  ): PluginStreamClient;
 }
 
 // ── Activated plugin ─────────────────────────────────────────────────────────

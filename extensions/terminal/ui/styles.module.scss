@@ -1,0 +1,159 @@
+/* ── Tool call card ─────────────────────────────────────────────────────────── */
+.tool-call {
+  border-left: 3px solid var(--tc-accent, #06b6d4);
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--tc-accent, #06b6d4) 6%, transparent);
+  border-radius: 0 4px 4px 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+/* ── Card header ────────────────────────────────────────────────────────────── */
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.tool-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tool-name {
+  font-weight: 600;
+  color: var(--asdk-text, #cccccc);
+  flex: 1;
+}
+
+.tool-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+
+  &--running {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+  }
+  &--done {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+  }
+  &--error {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* ── Info row ───────────────────────────────────────────────────────────────── */
+.tc-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.tc-info-label {
+  color: color-mix(in srgb, var(--asdk-text, #cccccc) 55%, transparent);
+  flex-shrink: 0;
+  min-width: 40px;
+  font-weight: 500;
+}
+
+.tc-info-value {
+  color: var(--asdk-text, #cccccc);
+  word-break: break-all;
+
+  code {
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 10.5px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
+/* ── Chip ───────────────────────────────────────────────────────────────────── */
+.tc-chip {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--chip-color, #6b7280) 18%, transparent);
+  color: var(--chip-color, #6b7280);
+
+  &[data-mono] {
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 10px;
+  }
+}
+
+/* ── Result blocks ──────────────────────────────────────────────────────────── */
+.tool-result {
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  max-height: 180px;
+  overflow-y: auto;
+
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 10.5px;
+    color: var(--asdk-text, #cccccc);
+  }
+
+  &--error {
+    background: rgba(239, 68, 68, 0.08);
+    pre { color: #fca5a5; }
+  }
+}
+
+/* ── Terminal output block ──────────────────────────────────────────────────── */
+.tc-terminal-block {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: #0d1117;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: #c9d1d9;
+  }
+}
+
+/* ── Command line display ───────────────────────────────────────────────────── */
+:global {
+  .tc-cmd-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+  }
+  .tc-cmd-prompt {
+    color: #22c55e;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .tc-cmd-text {
+    color: var(--asdk-text, #cccccc);
+    word-break: break-all;
+  }
+}

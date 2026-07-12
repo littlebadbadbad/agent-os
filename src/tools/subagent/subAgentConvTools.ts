@@ -172,12 +172,12 @@ export function createConvTools(deps: ConvToolDeps): Tool[] {
       const conv = registry.createConversation(subagent_name, { title });
       const state = conv.getState();
       return {
-        created: state.id,
+        created: state.conversationId,
         subAgent: subagent_name,
         title: state.title,
         message:
-          `Conversation "${state.title}" (id: ${state.id}) created for "${subagent_name}". ` +
-          `IMPORTANT: Use conversation_id="${state.id}" in send_${suffix}_message to chat in this conversation. ` +
+          `Conversation "${state.title}" (id: ${state.conversationId}) created for "${subagent_name}". ` +
+          `IMPORTANT: Use conversation_id="${state.conversationId}" in send_${suffix}_message to chat in this conversation. ` +
           `Call set_${suffix}_active_conversation if you want this to be the new default.`,
       };
     },

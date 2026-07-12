@@ -10,6 +10,7 @@
  * still resolve through `@agent-type` (which re-exports from ui-slot/index.ts).
  */
 export type {
+  PluginUiAdapter,
   SlotDisplayContext,
   SlotType,
   PanelSlotDeclaration,

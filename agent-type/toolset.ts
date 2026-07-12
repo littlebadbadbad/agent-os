@@ -1,7 +1,7 @@
 import type { Tool, TokenUsage, Attachment, ToolResult, ToolExecutionContext, AnyRecord, AgentSessionState, SessionEntryData, SessionEntryExtension, PluginStateExtension } from './core';
 import type { AgentMessage } from './message';
 import type { AgentHandler } from './handler';
-import { PluginUiAdapter } from './plugin';
+import type { PluginUiAdapter } from './ui-slot';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Shared constants & helpers (used by both core and extensions)
@@ -17,7 +17,7 @@ export const MAIN_CONVERSATION_ID = "main" as const;
  * Derive the canonical Map key for a `ToolSetContext`.
  *
  * - Main agent:  `sessionId`
- * - Sub-agent:   `"${sessionId}:${agentName}"`
+ * - Sub-agent:   `"${sessionId}:${agentName}:${conversationId}"`
  *
  * This matches the key format used before `ToolSetContext` was introduced,
  * so persisted data (e.g. toolStates) remains compatible.
