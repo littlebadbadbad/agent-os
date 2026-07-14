@@ -5,7 +5,6 @@
  *   - Reads `slotContext` from `window.__UAP_PLUGIN_HOST__` to know
  *     which slot instance it's rendering.
  *   - Receives host→iframe messages via `host.onSlotMessage()`.
- *   - Sends iframe→host messages via `host.sendSlotMessage()`.
  *
  * Communication contract:
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
@@ -22,7 +21,6 @@ import type {
 } from "@agent-type";
 import { TodoPanel } from "./TodoPanel";
 import { TodoToolCard } from "./TodoToolCard";
-import { TodoCompactCard } from "./TodoCompactCard";
 
 declare global {
   interface Window {
@@ -65,11 +63,6 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // In compact mode, allow the body to shrink-wrap its content.
-  if (slotCtx.slotType === "compactToolCard") {
-    document.body.classList.add("compact-mode");
-  }
-
   // ── Reactive store ────────────────────────────────────────────────────────
 
   let todoState = host.getPluginState()?.[1];
@@ -96,7 +89,6 @@ function bootApp(host: UiPluginHost): void {
         emitChange();
         break;
       case "toolCard":
-      case "compactToolCard":
         toolCallInfo = msg.payload.toolCallInfo ?? null;
         listeners.forEach((l) => l());
         break;
@@ -108,11 +100,6 @@ function bootApp(host: UiPluginHost): void {
   function TodoPluginApp() {
     const state = useSyncExternalStore(subscribe, getSnapshot);
     const todos = state?.todos ?? [];
-
-    if (slotCtx.slotType === "compactToolCard") {
-      if (toolCallInfo) return <TodoCompactCard info={toolCallInfo} />;
-      return null;
-    }
 
     if (slotCtx.slotType === "toolCard") {
       if (toolCallInfo) return <TodoToolCard info={toolCallInfo} />;

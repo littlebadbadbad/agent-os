@@ -5,7 +5,6 @@
  *   - Reads `slotContext` from `window.__UAP_PLUGIN_HOST__` to know
  *     which slot instance it's rendering.
  *   - Receives host→iframe messages via `host.onSlotMessage()`.
- *   - Sends iframe→host messages via `host.sendSlotMessage()`.
  *
  * Communication contract:
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
@@ -21,7 +20,6 @@ import type {
 } from "@agent-type";
 import { PlanPanel } from "./PlanPanel";
 import { PlanToolCard } from "./PlanToolCard";
-import { PlanCompactCard } from "./PlanCompactCard";
 import type { PlanSymbolState, PlanToolResult } from "../agent/types";
 import { PLAN_TOOL_NAMES } from "../agent/types";
 
@@ -89,11 +87,6 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // In compact mode, allow the body to shrink-wrap its content.
-  if (slotCtx.slotType === "compactToolCard") {
-    document.body.classList.add("compact-mode");
-  }
-
   // ── Reactive store ────────────────────────────────────────────────────────
 
   let planState: PlanSymbolState | null = null;
@@ -124,8 +117,7 @@ function bootApp(host: UiPluginHost): void {
       case "panel":
         emitChange();
         break;
-      case "toolCard":
-      case "compactToolCard": {
+      case "toolCard": {
         const raw = msg.payload.toolCallInfo ?? null;
         // Narrow from ToolCallInfo<unknown> → ToolCallInfo<PlanToolResult>
         // via runtime name validation — zero `as` casts.
@@ -138,12 +130,6 @@ function bootApp(host: UiPluginHost): void {
 
   function PlanApp(): React.ReactElement {
     readState();
-
-    // ── compactToolCard ───────────────────────────────────────────────────
-    if (slotCtx.slotType === "compactToolCard") {
-      if (toolCallInfo) return <PlanCompactCard info={toolCallInfo} />;
-      return <></>;
-    }
 
     // ── toolCard ──────────────────────────────────────────────────────────
     if (slotCtx.slotType === "toolCard") {

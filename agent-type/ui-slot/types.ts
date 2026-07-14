@@ -10,6 +10,8 @@
  * passed to display-control functions, and the SlotContext injected into iframes.
  */
 
+import type { ToolCallInfo } from "../plugin";
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot display context — passed to visibility / badge / render decision fns
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -37,33 +39,38 @@ export interface SlotDisplayContext {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * Slot types that render inline (no iframe) — pure data or host-rendered.
+ */
+export type InlineSlotType = "compactToolCard" | "autocomplete";
+
+/**
+ * Slot types that render inside a sandboxed iframe.
+ */
+export type IframeSlotType =
+  | "panel"
+  | "toolCard"
+  | "inlinePrompt"
+  | "headerBar"
+  | "toolButton";
+
+/**
  * Discriminant for all plugin UI injection points.
  * Add new values here when introducing new slot types.
  */
-export type SlotType =
-  | "panel"
-  | "toolCard"
-  | "compactToolCard"
-  | "inlinePrompt"
-  | "headerBar"
-  | "toolButton"
-  | "autocomplete";
+export type SlotType = InlineSlotType | IframeSlotType;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Base slot declaration — common fields shared by all slot types
+//  IframeConfig — shared config fields for all iframe-based slot types
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Base interface that all slot declarations extend.
+ * Shared configuration fields for iframe-rendered slot types.
  *
- * Every declaration carries:
- *   - `type` — discriminant for the slot kind
- *   - `id` — unique slot identifier within the plugin
- *   - `shouldRender` (optional) — render-gating callback
+ * Every iframe slot carries:
+ *   - `shouldRender` (optional) — render-gating callback, checked per slot type
  *   - `containingWidth` / `containingHeight` (optional) — iframe sizing hints
  */
-export interface BaseSlotDeclaration {
-  readonly type: SlotType;
+export interface IframeConfig {
   /**
    * Whether this slot should render.
    * Called on every session state change. Return `false` to hide the iframe.
@@ -93,7 +100,7 @@ export interface BaseSlotDeclaration {
  * The host creates a sandboxed iframe, subscribes to session state,
  * and pushes state updates via {@link PanelHostMessage}.
  */
-export interface PanelSlotDeclaration extends BaseSlotDeclaration {
+export interface PanelSlotDeclaration extends IframeConfig {
   readonly type: "panel";
   /** Tab label shown in the sidebar tab bar. */
   readonly label: string;
@@ -118,10 +125,25 @@ export interface PanelSlotDeclaration extends BaseSlotDeclaration {
  * The host creates a sandboxed iframe and pushes
  * {@link ToolCardHostMessage} when a matching tool is invoked.
  */
-export interface ToolCardSlotDeclaration extends BaseSlotDeclaration {
+export interface ToolCardSlotDeclaration extends IframeConfig {
   readonly type: "toolCard";
   /** Tool names this slot handles. */
   readonly toolNames: readonly string[];
+}
+
+/**
+ * Structured descriptor returned by a compactToolCard slot's
+ * `getDescriptor` factory — the UI renders this as a single-row pill.
+ */
+export interface CompactToolCardDescriptor {
+  /** Emoji / icon character. */
+  readonly icon: string;
+  /** Short label (e.g. "Install Skill"). */
+  readonly label: string;
+  /** One-line dynamic summary (e.g. "Installed foo-skill"). */
+  readonly summary: string;
+  /** Current tool call status. */
+  readonly status: "running" | "done" | "error";
 }
 
 /**
@@ -129,19 +151,28 @@ export interface ToolCardSlotDeclaration extends BaseSlotDeclaration {
  * tool call — the collapsed form shown in the chat stream before the user
  * clicks to open the full detail modal.
  *
- * The host creates a sandboxed iframe and pushes
- * {@link CompactToolCardHostMessage} when a matching tool is invoked.
- * When the user clicks the compact card, the iframe sends
- * {@link CompactToolCardIframeMessage} with `type: "openDetail"` so the
- * host can open the detail modal (which may itself use a `toolCard` slot).
+ * Unlike other slot types, compactToolCard is rendered inline by the host
+ * using the descriptor returned by `getDescriptor`, never via iframe.
  */
-export interface CompactToolCardSlotDeclaration extends BaseSlotDeclaration {
+export interface CompactToolCardSlotDeclaration {
   readonly type: "compactToolCard";
   /** Tool names this slot handles. */
   readonly toolNames: readonly string[];
+  /**
+   * Build the descriptor used by the host to render the inline pill.
+   * Receives the full ToolCallInfo so the plugin can derive icon, label
+   * and summary from the tool name, arguments, result, and status.
+   */
+  readonly getDescriptor: (info: ToolCallInfo) => CompactToolCardDescriptor;
+  /**
+   * Optional imperative render function for embedded same-process mode.
+   * When provided, the host creates a `<div>` and calls this function
+   * with the DOM element and the ToolCallInfo.
+   */
+  readonly render?: (dom: HTMLElement, info: ToolCallInfo) => void;
 }
 
-export interface InlinePromptSlotDeclaration extends BaseSlotDeclaration {
+export interface InlinePromptSlotDeclaration extends IframeConfig {
   readonly type: "inlinePrompt";
 }
 
@@ -151,7 +182,7 @@ export interface InlinePromptSlotDeclaration extends BaseSlotDeclaration {
  * The host creates a sandboxed iframe, subscribes to session state,
  * and pushes state updates via {@link HeaderBarHostMessage}.
  */
-export interface HeaderBarSlotDeclaration extends BaseSlotDeclaration {
+export interface HeaderBarSlotDeclaration extends IframeConfig {
   readonly type: "headerBar";
 }
 
@@ -165,13 +196,8 @@ export interface HeaderBarSlotDeclaration extends BaseSlotDeclaration {
  * Clicking the button opens a DropdownPanel containing the plugin's iframe
  * management panel.  The iframe receives state updates via
  * {@link ToolButtonHostMessage}.
- *
- * NOTE: This declaration does NOT extend {@link BaseSlotDeclaration} because
- * toolButton has no `shouldRender` / `containingWidth` / `containingHeight`
- * — button visibility is controlled by `showTab`, and iframe sizing is
- * configured inside {@link ToolButtonSlotPanel}.
  */
-export interface ToolButtonSlotDeclaration {
+export interface ToolButtonSlotDeclaration extends IframeConfig {
   readonly type: "toolButton";
   /** Button label shown in the AIControlBar. */
   readonly label: string;
@@ -213,7 +239,7 @@ export interface AutocompleteItem {
  * the autocomplete dropdown natively and calls `getItems(ctx)` to
  * retrieve the current item list on each state change.
  *
- * NOTE: This declaration does NOT extend {@link BaseSlotDeclaration} because
+ * NOTE: This declaration does NOT extend {@link IframeConfig} because
  * autocomplete has no iframe — no `shouldRender`, no `containingWidth`, no
  * `containingHeight`.  The trigger condition is expressed via `prefix`.
  */
@@ -231,19 +257,34 @@ export interface AutocompleteSlotDeclaration {
   readonly getItems: (ctx: SlotDisplayContext) => readonly AutocompleteItem[];
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Category-level discriminated unions
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Slot types that do NOT use an iframe — rendered inline by the host
+ * using descriptor data or native UI components.
+ */
+export type InlineSlotDeclaration =
+  | CompactToolCardSlotDeclaration
+  | AutocompleteSlotDeclaration;
+
+/**
+ * Slot types that render inside a sandboxed iframe.
+ */
+export type IframeSlotDeclaration =
+  | PanelSlotDeclaration
+  | ToolCardSlotDeclaration
+  | InlinePromptSlotDeclaration
+  | HeaderBarSlotDeclaration
+  | ToolButtonSlotDeclaration;
+
 /**
  * Discriminated union of all slot declarations.
  *
  * A plugin's ToolSet returns this array via `PluginUiAdapter.slots`.
  */
-export type PluginSlotDeclaration =
-  | PanelSlotDeclaration
-  | ToolCardSlotDeclaration
-  | CompactToolCardSlotDeclaration
-  | InlinePromptSlotDeclaration
-  | HeaderBarSlotDeclaration
-  | ToolButtonSlotDeclaration
-  | AutocompleteSlotDeclaration;
+export type PluginSlotDeclaration = InlineSlotDeclaration | IframeSlotDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot context (iframe reads this to know which slot it's rendering)
@@ -261,8 +302,13 @@ export type PluginSlotDeclaration =
 export interface SlotContext {
   /** The slot's unique id, auto-generated by the host from plugin + toolset + index. */
   readonly slotId: string;
-  /** The type of slot being rendered. */
-  readonly slotType: SlotType;
+  /**
+   * The type of slot being rendered.
+   * Only iframe-based slots call `getSlotContext()` — inline slots
+   * like `compactToolCard` / `autocomplete` are rendered natively and
+   * never receive a SlotContext.
+   */
+  readonly slotType: IframeSlotType;
   /** The owning session id. */
   readonly sessionId: string;
   /** The agent name — `"main"` for the primary agent. */

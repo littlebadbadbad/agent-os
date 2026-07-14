@@ -20,8 +20,11 @@ export type {
   SlotDisplayContext,
   // ── Slot discriminant ──
   SlotType,
+  InlineSlotType,
+  IframeSlotType,
+  // ── Iframe shared config ──
+  IframeConfig,
   // ── Slot declarations ──
-  BaseSlotDeclaration,
   PanelSlotDeclaration,
   ToolCardSlotDeclaration,
   CompactToolCardSlotDeclaration,
@@ -30,6 +33,10 @@ export type {
   ToolButtonSlotDeclaration,
   AutocompleteSlotDeclaration,
   AutocompleteItem,
+  CompactToolCardDescriptor,
+  // ── Category-level unions ──
+  InlineSlotDeclaration,
+  IframeSlotDeclaration,
   PluginSlotDeclaration,
   // ── Plugin UI adapter bridge ──
   PluginUiAdapter,
@@ -41,14 +48,10 @@ export type {
   // ── Host → Iframe messages ──
   PanelHostMessage,
   ToolCardHostMessage,
-  CompactToolCardHostMessage,
   InlinePromptHostMessage,
   HeaderBarHostMessage,
   ToolButtonHostMessage,
   SlotHostMessage,
-  // ── Iframe → Host messages ──
-  CompactToolCardIframeMessage,
-  SlotIframeMessage,
   // ── Helpers ──
   FilterSlots,
 } from "./protocol";

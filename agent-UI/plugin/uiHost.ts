@@ -7,16 +7,15 @@
  * The host provides the iframe with a complete capability surface:
  *   - **getPluginState()** — reads session state + symbol-keyed plugin slices
  *   - **getSlotContext()** — tells the iframe which slot it's rendering
- *   - **sendSlotMessage(msg)** / **onSlotMessage(cb)** — typed host↔iframe messaging
+ *   - **onSlotMessage(cb)** — receive host→iframe messages
  *   - **apiClient** — pre-bound backend API client
  *   - **getConfig / onConfigChanged** — plugin configuration
  *
  * ## Communication model
  *
- * `sendSlotMessage` / `onSlotMessage` are the ONLY way plugins communicate
- * with the host. They abstract away all transport details so plugins
- * never touch `window.parent.postMessage` or `window.addEventListener`
- * directly.
+ * `onSlotMessage` is the ONLY way plugin UI code receives messages
+ * from the host. The host pushes data (tool call info, state snapshots)
+ * to the iframe via `_pushToIframe`.
  *
  * Because the host is injected as a same-realm reference (D6, requires
  * `allow-same-origin`), messages are delivered via **direct method
@@ -26,8 +25,8 @@
  * `onSlotMessage` subscription.
  *
  * The returned object implements {@link UiPluginHostInternal}, which
- * extends the public {@link UiPluginHost} with `_pushToIframe` and
- * `_onIframeMessage` for host-side renderer use.
+ * extends the public {@link UiPluginHost} with `_pushToIframe`
+ * for host-side renderer use.
  */
 
 import type {
@@ -35,7 +34,6 @@ import type {
   UiPluginHostInternal,
   SlotContext,
   SlotHostMessage,
-  SlotIframeMessage,
   SlotSession,
 } from "@agent-type";
 import type { PluginConfigClient } from "./configClient";
@@ -82,10 +80,6 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
   const iframeSubs = new Set<(msg: SlotHostMessage) => void>();
   const pendingHostToIframe: SlotHostMessage[] = [];
 
-  // ── Iframe→host: subscribers ────────────────────────────────────────────
-
-  const hostSubs = new Set<(msg: SlotIframeMessage) => void>();
-
   return {
     get apiClient(): PluginApiClient { return apiClient; },
     get pluginId(): string { return plugin.id; },
@@ -101,17 +95,6 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
     },
 
     getSlotContext() { return slotContext; },
-
-    // ── Iframe → Host (plugin UI calls this) ──────────────────────────────
-
-    sendSlotMessage(msg: SlotIframeMessage): void {
-      // Deliver directly to host-side subscribers (same-realm, no postMessage).
-      hostSubs.forEach((cb) => {
-        try { cb(msg); } catch (err) {
-          console.warn("[UiPluginHost] Host subscriber error:", err);
-        }
-      });
-    },
 
     // ── Host → Iframe (plugin UI subscribes to this) ──────────────────────
 
@@ -152,11 +135,6 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
           console.warn("[UiPluginHost] Delivery error:", err);
         }
       });
-    },
-
-    _onIframeMessage(cb: (msg: SlotIframeMessage) => void): () => void {
-      hostSubs.add(cb);
-      return () => { hostSubs.delete(cb); };
     },
   };
 }

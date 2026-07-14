@@ -2,7 +2,7 @@
 import './types';
 
 import { ctxKey } from '@agent-type';
-import type { ToolSet, ToolSetContext, Tool } from '@agent-type';
+import type { ToolSet, ToolSetContext, Tool, CompactToolCardDescriptor, ToolCallInfo } from '@agent-type';
 import type { SessionEntryData, PluginSlotDeclaration } from '@agent-type';
 import { planStore } from './store';
 import { createPlanTools } from './tools';
@@ -31,6 +31,35 @@ const PLAN_MODE_ALLOWED = new Set([
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
 export const PLAN_SYMBOL = Symbol('plan');
+
+// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+
+const TOOL_META: Record<string, { icon: string; label: string }> = {
+  plan_write:      { icon: '📝', label: 'Plan' },
+  plan_checkpoint: { icon: '⏸', label: 'Checkpoint' },
+  plan_enter:      { icon: '🎯', label: 'Plan Mode' },
+  plan_exit:       { icon: '✅', label: 'Exit Plan' },
+  plan_verify:     { icon: '🔍', label: 'Verify' },
+};
+
+function planBadge(result: unknown): string {
+  if (result && typeof result === 'object' && 'status' in result) {
+    const s = String((result as Record<string, unknown>).status);
+    if (s === 'approved') return '✓';
+    if (s === 'rejected') return '✗';
+    if (s === 'cancelled') return '⊘';
+    if (s === 'changes_requested') return '↩';
+    if (s === 'plan_mode_entered') return '⚡';
+    if (s === 'no_plan') return '∅';
+  }
+  return '';
+}
+
+function planDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const meta = TOOL_META[info.name] ?? { icon: '📋', label: info.name };
+  const badge = planBadge(info.result);
+  return { icon: meta.icon, label: meta.label, summary: badge, status: info.status };
+}
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +138,7 @@ export function createPlanToolSet(): ToolSet {
           {
             type: 'compactToolCard' as const,
             toolNames: tools.map((t) => t.name),
+            getDescriptor: planDescriptor,
           },
         ] satisfies readonly PluginSlotDeclaration[],
       };

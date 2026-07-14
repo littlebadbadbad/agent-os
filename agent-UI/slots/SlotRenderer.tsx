@@ -4,13 +4,17 @@
  * Dispatches to the correct renderer based on `slotType`.
  * All slot declarations are read from the global `slotRegistry` only.
  *
+ * Only iframe-based slot types (IframeSlotType) are dispatched here —
+ * inline slot types like compactToolCard / autocomplete are rendered
+ * natively by their respective host components.
+ *
  * `shouldRender` check happens at the top — before any renderer is invoked:
  *   - declaration not found in registry → render (no gating)
  *   - `shouldRender` undefined → render
  *   - `shouldRender` returns `false` → skip
  *   - otherwise → render
  *
- * ALL slot types receive a `session` prop so `shouldRender` can evaluate
+ * ALL variants carry `session: SlotSession` so `shouldRender` can evaluate
  * the correct conversation context (main agent vs sub-agent).
  *
  * Usage:
@@ -38,16 +42,16 @@ import type {
 } from "@agent-type";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
-import { CompactToolCardSlotRenderer } from "./renderers/CompactToolCardSlotRenderer";
 import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
 import { HeaderBarSlotRenderer } from "./renderers/HeaderBarSlotRenderer";
+import { ToolButtonSlotPanel } from "./renderers/ToolButtonSlotPanel";
 import { slotRegistry } from "./registry";
 import { buildSlotDisplayContext } from "./context";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Unified shouldRender check.
+ * Unified shouldRender check for iframe-based slots.
  * Returns `true` when the slot should render.
  *
  * Rules:
@@ -56,6 +60,11 @@ import { buildSlotDisplayContext } from "./context";
  *   - If no declaration or `shouldRender` is not defined → render
  *   - If `shouldRender` returns `false` → skip
  *   - Otherwise → render
+ *
+ * Inline slot types (compactToolCard, autocomplete) are filtered out at
+ * runtime — they never reach the iframe dispatch. This keeps the public
+ * registry API simple (all slots in one map) while maintaining type safety
+ * inside the renderer.
  */
 function checkShouldRender(
   pluginId: string,
@@ -64,64 +73,42 @@ function checkShouldRender(
   declaration?: PluginSlotDeclaration,
 ): boolean {
   const decl = declaration ?? slotRegistry.getSlot(pluginId, slotId)?.declaration;
-  if (!decl?.shouldRender) return true;
+  // Inline slot types never use the iframe dispatch — skip silently.
+  if (!decl || decl.type === "compactToolCard" || decl.type === "autocomplete") return true;
+  if (!decl.shouldRender) return true;
   const ctx = buildSlotDisplayContext(session);
   return decl.shouldRender(ctx);
 }
 
-// ── Discriminated props union ─────────────────────────────────────────────────
-// All variants carry `session: SlotSession` so `shouldRender` can always
-// be evaluated with the correct conversation context.
+// ── Base fields shared by every iframe slot renderer ──────────────────────────
+
+interface IframeSlotRendererBase {
+  readonly pluginId: string;
+  readonly slotId: string;
+  readonly session: SlotSession;
+  readonly toolSetSymbol: symbol;
+  readonly declaration?: PluginSlotDeclaration;
+  readonly className?: string;
+}
+
+// ── Discriminated props union (intersection with base) ────────────────────────
 
 export type SlotRendererProps =
-  | {
-      readonly pluginId: string;
+  | IframeSlotRendererBase & {
       readonly slotType: "panel";
-      readonly slotId: string;
-      readonly session: SlotSession;
-      readonly toolSetSymbol: symbol;
-      readonly declaration?: PluginSlotDeclaration;
-      readonly className?: string;
     }
-  | {
-      readonly pluginId: string;
+  | IframeSlotRendererBase & {
       readonly slotType: "toolCard";
-      readonly slotId: string;
-      readonly session: SlotSession;
-      readonly toolSetSymbol: symbol;
       readonly toolCallInfo: ToolCallInfo;
-      readonly declaration?: PluginSlotDeclaration;
-      readonly className?: string;
     }
-  | {
-      readonly pluginId: string;
-      readonly slotType: "compactToolCard";
-      readonly slotId: string;
-      readonly session: SlotSession;
-      readonly toolSetSymbol: symbol;
-      readonly toolCallInfo: ToolCallInfo;
-      /** Called when the compact card signals it should open the detail modal. */
-      readonly onOpenDetail?: () => void;
-      readonly declaration?: PluginSlotDeclaration;
-      readonly className?: string;
-    }
-  | {
-      readonly pluginId: string;
+  | IframeSlotRendererBase & {
       readonly slotType: "inlinePrompt";
-      readonly slotId: string;
-      readonly session: SlotSession;
-      readonly toolSetSymbol: symbol;
-      readonly declaration?: PluginSlotDeclaration;
-      readonly className?: string;
     }
-  | {
-      readonly pluginId: string;
+  | IframeSlotRendererBase & {
       readonly slotType: "headerBar";
-      readonly slotId: string;
-      readonly session: SlotSession;
-      readonly toolSetSymbol: symbol;
-      readonly declaration?: PluginSlotDeclaration;
-      readonly className?: string;
+    }
+  | IframeSlotRendererBase & {
+      readonly slotType: "toolButton";
     };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -129,9 +116,10 @@ export type SlotRendererProps =
 /**
  * Render a plugin slot by type.
  *
- * Type-safe dispatch: the props union ensures that `session` is
- * required for all slot types, with slot-specific props (`toolCallInfo`,
- * `onOpenDetail`) gated behind the `slotType` discriminant.
+ * Type-safe dispatch: the intersection pattern ensures that common fields
+ * (`pluginId`, `slotId`, `session`, `toolSetSymbol`) are shared across all
+ * variants, while slot-specific props (`toolCallInfo`) are gated behind
+ * the `slotType` discriminant.
  *
  * `shouldRender` is always evaluated upfront. Sub-agent slots that are
  * not registered globally (see discoverSubAgentSlots) will pass through
@@ -161,20 +149,9 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
         <ToolCardSlotRenderer
           pluginId={props.pluginId}
           slotId={props.slotId}
+          session={props.session}
           toolCallInfo={props.toolCallInfo}
           toolSetSymbol={props.toolSetSymbol}
-          className={props.className}
-        />
-      );
-
-    case "compactToolCard":
-      return (
-        <CompactToolCardSlotRenderer
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          toolCallInfo={props.toolCallInfo}
-          toolSetSymbol={props.toolSetSymbol}
-          onOpenDetail={props.onOpenDetail}
           className={props.className}
         />
       );
@@ -194,6 +171,17 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
     case "headerBar":
       return (
         <HeaderBarSlotRenderer
+          pluginId={props.pluginId}
+          slotId={props.slotId}
+          session={props.session}
+          toolSetSymbol={props.toolSetSymbol}
+          className={props.className}
+        />
+      );
+
+    case "toolButton":
+      return (
+        <ToolButtonSlotPanel
           pluginId={props.pluginId}
           slotId={props.slotId}
           session={props.session}

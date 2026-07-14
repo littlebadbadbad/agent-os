@@ -5,7 +5,6 @@
  *   - Reads `slotContext` from `window.__UAP_PLUGIN_HOST__` to know
  *     which slot instance it's rendering.
  *   - Receives host→iframe messages via `host.onSlotMessage()`.
- *   - Sends iframe→host messages via `host.sendSlotMessage()`.
  *
  * Communication contract:
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
@@ -22,7 +21,6 @@ import type {
 } from "@agent-type";
 import { McpManagerPanel } from "./McpManagerPanel";
 import { McpToolCard } from "./McpToolCard";
-import { McpCompactToolCard } from "./McpCompactToolCard";
 
 declare global {
   interface Window {
@@ -65,12 +63,6 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // In compact mode, allow the body to shrink-wrap its content so the
-  // iframe can report the actual content height to the host.
-  if (slotCtx.slotType === "compactToolCard") {
-    document.body.classList.add("compact-mode");
-  }
-
   // ── Reactive store ────────────────────────────────────────────────────────
 
   let sessionState = host.getPluginState()?.[0] ?? null;
@@ -107,7 +99,6 @@ function bootApp(host: UiPluginHost): void {
         emitChange();
         break;
       case "toolCard":
-      case "compactToolCard":
         toolCallInfo = msg.payload.toolCallInfo ?? null;
         listeners.forEach((l) => l());
         break;
@@ -124,11 +115,6 @@ function bootApp(host: UiPluginHost): void {
     const remove = state?.remove;
     const addServer = state?.addServer;
     const sync = state?.sync;
-
-    if (slotCtx.slotType === "compactToolCard") {
-      if (toolCallInfo) return <McpCompactToolCard info={toolCallInfo} host={host} />;
-      return null;
-    }
 
     if (slotCtx.slotType === "toolCard") {
       if (toolCallInfo) return <McpToolCard info={toolCallInfo} />;

@@ -16,9 +16,7 @@
  *
  * Communication:
  *   The host is injected as a direct same-realm object reference.
- *   All host↔iframe communication flows through the host's
- *   `sendSlotMessage` / `onSlotMessage` (iframe side) and
- *   `_pushToIframe` / `_onIframeMessage` (host side) methods.
+ *   Host→iframe communication flows through `_pushToIframe` / `onSlotMessage`.
  *   No raw `postMessage` or `addEventListener('message')` is used.
  */
 

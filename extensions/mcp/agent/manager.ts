@@ -30,6 +30,8 @@ import type {
   ToolButtonSlotDeclaration,
   ToolCardSlotDeclaration,
   CompactToolCardSlotDeclaration,
+  CompactToolCardDescriptor,
+  ToolCallInfo,
 } from "@agent-type";
 import { MAIN_CONVERSATION_ID } from "@agent-type";
 import type { McpAdapter, McpServerEntry, McpToolDef } from "./types";
@@ -38,6 +40,74 @@ import { createMcpStore } from "./store";
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
 export const MCP_MANAGER_SYMBOL = Symbol("mcp-manager");
+
+// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+
+function str(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+function arrLen(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+
+const COMPACT_LABEL: Record<string, string> = {
+  list_mcp_servers:   "List MCP Servers",
+  add_mcp_server:     "Add MCP Server",
+  remove_mcp_server:  "Remove MCP Server",
+  connect_mcp_server: "Connect MCP Server",
+  disable_mcp_server: "Disable MCP Server",
+};
+
+function mcpDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const { name, arguments: args, status, result, error } = info;
+
+  const icon = "🔌";
+  const label = COMPACT_LABEL[name] ?? name;
+
+  if (status === "error" && error) {
+    const short = error.split("\n")[0];
+    const summary = short.length > 60 ? `${short.slice(0, 60)}…` : short;
+    return { icon, label, summary, status: "error" };
+  }
+
+  let summary = label;
+
+  switch (name) {
+    case "list_mcp_servers": {
+      if (status === "running") { summary = "Listing MCP servers…"; break; }
+      const count = arrLen(result);
+      summary = `${count} MCP server${count !== 1 ? "s" : ""}`;
+      break;
+    }
+    case "add_mcp_server": {
+      const serverName = str(args?.name);
+      if (status === "running") { summary = `Adding ${serverName ?? "server"}…`; break; }
+      summary = `${serverName ?? "Server"} added`;
+      break;
+    }
+    case "remove_mcp_server": {
+      const serverName = str(args?.name);
+      if (status === "running") { summary = `Removing ${serverName ?? "server"}…`; break; }
+      summary = `${serverName ?? "Server"} removed`;
+      break;
+    }
+    case "connect_mcp_server": {
+      const serverName = str(args?.name);
+      if (status === "running") { summary = `Connecting ${serverName ?? "server"}…`; break; }
+      summary = `${serverName ?? "Server"} connected`;
+      break;
+    }
+    case "disable_mcp_server": {
+      const serverName = str(args?.name);
+      if (status === "running") { summary = `Disabling ${serverName ?? "server"}…`; break; }
+      summary = `${serverName ?? "Server"} disabled`;
+      break;
+    }
+  }
+
+  return { icon, label, summary, status };
+}
 
 // ── Proxy tool factory ────────────────────────────────────────────────────────
 
@@ -472,6 +542,7 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
           "connect_mcp_server",
           "disable_mcp_server",
         ],
+        getDescriptor: mcpDescriptor,
       };
       return {
         type: "mcpManager" as const,

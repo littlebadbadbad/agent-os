@@ -1,6 +1,6 @@
 import type { ToolSet } from "./toolset";
 import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool, Attachment } from "./core";
-import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, SlotIframeMessage, PluginUiAdapter } from "./ui-slot";
+import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, PluginUiAdapter } from "./ui-slot";
 import type { ModelMeta } from "./model";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -353,18 +353,6 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
   getSlotContext(): SlotContext;
 
   /**
-   * Send a message from the iframe to the host (e.g. resize report).
-   *
-   * This is the ONLY way plugin UI code sends messages to the host.
-   * It abstracts away all transport details — the host handles
-   * routing internally via the wired {@link UiPluginHostInternal._onIframeMessage}
-   * callback chain.
-   *
-   * Plugin UI code MUST NOT use `window.parent.postMessage()` directly.
-   */
-  sendSlotMessage(msg: SlotIframeMessage): void;
-
-  /**
    * Subscribe to messages from the host to the iframe.
    *
    * This is the ONLY way plugin UI code receives messages from the host.
@@ -374,8 +362,6 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
    * Messages received before the subscription is registered are buffered
    * by the host and replayed on first subscription, so the plugin UI
    * never misses the initial slot data (e.g. `toolCallInfo`).
-   *
-   * Plugin UI code MUST NOT use `window.addEventListener('message')` directly.
    *
    * Returns an unsubscribe function.
    */
@@ -397,14 +383,13 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
 
 /**
  * Internal extension of {@link UiPluginHost} used by the host-side
- * slot renderers. These methods are NOT part of the public plugin API —
- * they exist so the renderer can push messages to the iframe and
- * receive messages from the iframe without the plugin UI touching
- * any transport API.
+ * slot renderers. This method is NOT part of the public plugin API —
+ * it exists so the renderer can push messages to the iframe without
+ * the plugin UI touching any transport API.
  *
  * The host injects a `UiPluginHostInternal` into the iframe, but plugin
  * UI code only sees the {@link UiPluginHost} surface (the internal
- * methods are prefixed with `_` to signal "private").
+ * method is prefixed with `_` to signal "private").
  */
 export interface UiPluginHostInternal<TState extends PluginStateExtension = PluginStateExtension> extends UiPluginHost<TState> {
   /**
@@ -417,15 +402,6 @@ export interface UiPluginHostInternal<TState extends PluginStateExtension = Plug
    * sends data before the iframe's module script has booted.
    */
   _pushToIframe(msg: SlotHostMessage): void;
-
-  /**
-   * Register a callback for messages sent from the iframe to the host
-   * via `sendSlotMessage`. Called by the slot renderer to receive
-   * resize reports, openDetail requests, etc.
-   *
-   * Returns an unsubscribe function.
-   */
-  _onIframeMessage(cb: (msg: SlotIframeMessage) => void): () => void;
 }
 
 // ── UI plugin message protocol (legacy, kept only for backward-compat type refs) ─

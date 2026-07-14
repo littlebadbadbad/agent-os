@@ -32,6 +32,8 @@ import type {
   AutocompleteSlotDeclaration,
   ToolCardSlotDeclaration,
   CompactToolCardSlotDeclaration,
+  CompactToolCardDescriptor,
+  ToolCallInfo,
 } from "@agent-type";
 import { defineSkill } from "./skill";
 import { resolveSkillTools } from "./skill";
@@ -62,6 +64,73 @@ export const SKILL_MANAGER_SYMBOL = Symbol("skill-manager");
  */
 function parseSlashMentions(text: string): readonly string[] {
   return [...text.matchAll(/\/([\w-]+)/g)].map((m) => m[1]);
+}
+
+// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+
+function str(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+function arrLen(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+
+const COMPACT_LABEL: Record<string, string> = {
+  install_skill:    "Install Skill",
+  list_skills:      "List Skills",
+  remove_skill:     "Remove Skill",
+  read_skill_file:  "Read File",
+};
+
+function skillDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const { name, arguments: args, status, result, error } = info;
+
+  const fromError =
+    status === "error" && error
+      ? error.split("\n")[0].slice(0, 60)
+      : undefined;
+  if (fromError) {
+    return { icon: "🔧", label: COMPACT_LABEL[name] ?? name, summary: fromError, status: "error" };
+  }
+
+  const label = COMPACT_LABEL[name] ?? name;
+  let summary = label;
+
+  switch (name) {
+    case "install_skill": {
+      const url = str(args?.url);
+      const skillName = str(args?.name);
+      const target = url ?? skillName ?? "?";
+      if (status === "running") { summary = `Installing ${target}…`; break; }
+      const installed = typeof result === "object" && result !== null
+        ? String(Reflect.get(result, "installed") ?? "")
+        : undefined;
+      summary = installed ? `Installed ${installed}` : `Installed ${target}`;
+      break;
+    }
+    case "list_skills": {
+      if (status === "running") { summary = "Listing skills…"; break; }
+      const count = arrLen(result);
+      summary = `${count} skill${count !== 1 ? "s" : ""} installed`;
+      break;
+    }
+    case "remove_skill": {
+      const skillName = str(args?.name);
+      if (status === "running") { summary = `Removing ${skillName ?? "skill"}…`; break; }
+      summary = `${skillName ?? "Skill"} removed`;
+      break;
+    }
+    case "read_skill_file": {
+      const skill = str(args?.skill);
+      const path = str(args?.path);
+      if (status === "running") { summary = `Reading ${skill}/${path}…`; break; }
+      summary = `${skill}/${path}`;
+      break;
+    }
+  }
+
+  return { icon: "🔧", label, summary, status };
 }
 
 // -- SDK Skill converter ------------------------------------------------------
@@ -377,6 +446,7 @@ export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
           "remove_skill",
           "read_skill_file",
         ],
+        getDescriptor: skillDescriptor,
       };
       return {
         type: "skillManager" as const,

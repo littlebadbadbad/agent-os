@@ -3,7 +3,7 @@ import type { SlotDisplayContext, SlotSession } from '@agent-type';
 import { ProxyButton } from '../ProxyManager/ProxyButton';
 import { ProviderSelector } from '../ProviderSelector/ProviderSelector';
 import { slotRegistry } from '../../slots/registry';
-import { ToolButtonSlotPanel } from '../../slots/renderers/ToolButtonSlotPanel';
+import { SlotRenderer } from '../../slots/SlotRenderer';
 import { DropdownPanel } from '../DropdownPanel';
 import styles from './AIControlBar.module.scss';
 
@@ -67,7 +67,8 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
           >
             {activeSession
               ? () => (
-                  <ToolButtonSlotPanel
+                  <SlotRenderer
+                    slotType="toolButton"
                     pluginId={entry.pluginId}
                     slotId={entry.slotId}
                     session={activeSession}

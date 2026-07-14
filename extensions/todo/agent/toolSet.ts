@@ -24,6 +24,7 @@ declare module '@agent-type' {
 }
 
 import { ctxKey } from '@agent-type';
+import type { CompactToolCardDescriptor, ToolCallInfo } from '@agent-type';
 import { createTodoWriteTool, createTodoReadTool } from './tools';
 import { buildTaskTrackingSectionContent, SECTION_ID } from './prompt';
 import type { TodoSymbolState } from './types';
@@ -31,6 +32,26 @@ import type { TodoSymbolState } from './types';
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
 export const TODO_SYMBOL = Symbol('todo');
+
+// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+
+function argArr(args: Record<string, unknown>, key: string): unknown[] {
+  const v = args[key];
+  return Array.isArray(v) ? v : [];
+}
+
+function todoDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const isWrite = info.name === "todo_write";
+  const label = isWrite ? "Tasks" : "Read";
+  const rawTodos = isWrite ? argArr(info.arguments, "todos") : [];
+  const todos = rawTodos.filter(
+    (v): v is { status: string } =>
+      v !== null && typeof v === "object" && typeof (v as Record<string, unknown>).status === "string",
+  ) as { status: string }[];
+  const done = todos.filter((t) => t.status === "completed").length;
+  const summary = todos.length > 0 ? `${done}/${todos.length}` : "";
+  return { icon: "☑", label, summary, status: info.status };
+}
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
@@ -149,6 +170,7 @@ export function createTodoTools(): ToolSet {
           {
             type: 'compactToolCard',
             toolNames,
+            getDescriptor: todoDescriptor,
           },
         ],
       };

@@ -8,7 +8,7 @@
  * Moved from agent/toolSet.ts during plugin restructuring (Phase 1).
  */
 
-import type { ToolSet, ToolSetContext, PluginSlotDeclaration } from '@agent-type';
+import type { ToolSet, ToolSetContext, PluginSlotDeclaration, CompactToolCardDescriptor, ToolCallInfo } from '@agent-type';
 import { MAIN_CONVERSATION_ID } from '@agent-type';
 import type { TerminalManagerAdapter } from './types';
 import { createTerminalTools } from './tools';
@@ -16,6 +16,13 @@ import { createTerminalTools } from './tools';
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
 export const TERMINAL_SYMBOL = Symbol('terminal');
+
+// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+
+function terminalDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const summary = info.status === "running" ? `${info.name}…` : info.name;
+  return { icon: "💻", label: "Terminal", summary, status: info.status };
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -70,6 +77,7 @@ export function createTerminalToolSet(
         {
           type: 'compactToolCard' as const,
           toolNames: tools.map((t) => t.name),
+          getDescriptor: terminalDescriptor,
         },
       ] satisfies readonly PluginSlotDeclaration[],
     }),

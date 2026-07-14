@@ -1,15 +1,14 @@
 /**
- * agent-type/ui-slot/protocol.ts — Host ↔ Iframe message protocols
+ * agent-type/ui-slot/protocol.ts — Host → Iframe message protocols
  *
  * Three-layer architecture:
  *   1. ToolSet declares slots via `PluginUiAdapter.slots` — "what capabilities"
  *   2. Plugin UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
  *   3. Host renders slots via `SlotRenderer` + `SlotRegistry` — "where it goes"
  *
- * This file contains all typed message interfaces for host→iframe and
- * iframe→host communication.  Each slot type has its own host message
- * shape, collected into the `SlotHostMessage` / `SlotIframeMessage`
- * discriminated unions.
+ * This file contains typed message interfaces for host→iframe communication.
+ * Each slot type has its own host message shape, collected into the
+ * `SlotHostMessage` discriminated union.
  */
 
 import type { SessionStateLike } from "../core";
@@ -43,24 +42,6 @@ export interface PanelHostMessage {
 export interface ToolCardHostMessage {
   readonly version: 1;
   readonly type: "toolCard";
-  /** The slot being targeted. */
-  readonly slotId: string;
-  /** Tool call information to render. */
-  readonly payload: {
-    readonly toolCallInfo: ToolCallInfo;
-  };
-}
-
-/**
- * Host pushes tool-call information to a compactToolCard iframe.
- *
- * Same payload shape as {@link ToolCardHostMessage} — the compact card
- * receives the same tool-call info but is expected to render only a
- * single-row summary, not the full detail.
- */
-export interface CompactToolCardHostMessage {
-  readonly version: 1;
-  readonly type: "compactToolCard";
   /** The slot being targeted. */
   readonly slotId: string;
   /** Tool call information to render. */
@@ -135,37 +116,9 @@ export interface ToolButtonHostMessage {
 export type SlotHostMessage =
   | PanelHostMessage
   | ToolCardHostMessage
-  | CompactToolCardHostMessage
   | InlinePromptHostMessage
   | HeaderBarHostMessage
   | ToolButtonHostMessage;
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Iframe → Host message protocol (per slot type)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * CompactToolCard iframe messages.
- *
- * - `openDetail`: the user clicked the compact card; the host should open
- *   the full detail modal (which may itself render a `toolCard` slot).
- *   The `payload.toolCallId` identifies which tool call to show details for.
- */
-export interface CompactToolCardIframeMessage {
-  readonly version: 1;
-  /** Slot type that sent this message — used for host-side routing. */
-  readonly source: "compactToolCard";
-  readonly type: "openDetail";
-  /** Identifies the tool call the host should show details for. */
-  readonly payload: {
-    readonly toolCallId: string;
-  };
-}
-
-/**
- * Discriminated union of all iframe → host messages.
- */
-export type SlotIframeMessage = CompactToolCardIframeMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers: extract slot declarations by type

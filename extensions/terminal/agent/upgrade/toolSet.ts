@@ -20,6 +20,8 @@ import type {
   Tool,
   SessionEntryData,
   PluginSlotDeclaration,
+  CompactToolCardDescriptor,
+  ToolCallInfo,
 } from "@agent-type";
 import type { UpgradePluginAdapter, VersionInfo } from "./types";
 import { upgradeStore } from "./store";
@@ -29,6 +31,13 @@ import { WORKFLOW_GUIDANCE, FREEZE_BANNER } from "./prompt";
 // ── Symbol ────────────────────────────────────────────────────────────────
 
 export const UPGRADE_SYMBOL = Symbol("upgrade");
+
+// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+
+function upgradeDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const summary = info.status === "running" ? `${info.name}…` : info.name;
+  return { icon: "🔄", label: "Upgrade", summary, status: info.status };
+}
 
 // ── Options ────────────────────────────────────────────────────────────────
 
@@ -118,6 +127,7 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
           {
             type: "compactToolCard" as const,
             toolNames: tools.map((t) => t.name),
+            getDescriptor: upgradeDescriptor,
           },
         ] satisfies readonly PluginSlotDeclaration[],
       };

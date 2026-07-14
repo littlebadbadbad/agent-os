@@ -5,7 +5,6 @@
  *   - Reads `slotContext` from `window.__UAP_PLUGIN_HOST__` to know
  *     which slot instance it's rendering.
  *   - Receives host→iframe messages via `host.onSlotMessage()`.
- *   - Sends iframe→host messages via `host.sendSlotMessage()`.
  *
  * For the `headerBar` slot type, the host pushes `HeaderBarHostMessage`
  * on every state change. The iframe re-reads `host.getPluginState()`

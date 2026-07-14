@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useMemo, useCallback, type RefObject } from 'react';
-import type { SlotHostMessage, UiPluginHostInternal, SlotSession, SlotType } from '@agent-type';
+import type { SlotHostMessage, UiPluginHostInternal, SlotSession, IframeSlotType } from '@agent-type';
 import type { PluginManifest } from '@agent-type';
 import { createUiPluginHost } from '../../plugin/uiHost';
 import { createPluginApiClient } from '../../plugin/apiClient';
@@ -34,7 +34,7 @@ export interface UseSlotHostBridgeOptions {
   /** Slot identifier (matches the declaration's `id`). */
   readonly slotId: string;
   /** Slot type — used for the slotContext and the message `type` field. */
-  readonly slotType: SlotType;
+  readonly slotType: IframeSlotType;
   /** The ToolSet symbol whose state to expose. */
   readonly toolSetSymbol: symbol;
   /** Plugin descriptor (must have `uiEntryUrl` — caller guards this). */

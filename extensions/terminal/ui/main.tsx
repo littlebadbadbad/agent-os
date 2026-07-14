@@ -75,10 +75,6 @@ waitForHost()
 function bootApp(host: Host): void {
   const slotCtx = host.getSlotContext();
 
-  if (slotCtx.slotType === "compactToolCard") {
-    document.body.classList.add("compact-mode");
-  }
-
   // ── Reactive store ──────────────────────────────────────────────────────
 
   let terminalState: (TerminalPluginState & PluginUiAdapter) | null = null;
@@ -115,7 +111,6 @@ function bootApp(host: Host): void {
         emitChange();
         break;
       case "toolCard":
-      case "compactToolCard":
         toolCallInfo = msg.payload.toolCallInfo ?? null;
         listeners.forEach((l) => l());
         break;
