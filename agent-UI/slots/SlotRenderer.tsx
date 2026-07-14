@@ -126,8 +126,17 @@ export type SlotRendererProps =
  * since `checkShouldRender` defaults to `true` when no declaration found.
  */
 export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
+  const {
+    pluginId,
+    slotId,
+    session,
+    toolSetSymbol,
+    declaration,
+    className,
+  } = props;
+
   // ── shouldRender gate — evaluated before dispatch ─────────────────────────
-  if (!checkShouldRender(props.pluginId, props.slotId, props.session, props.declaration)) {
+  if (!checkShouldRender(pluginId, slotId, session, declaration)) {
     return null;
   }
 
@@ -136,57 +145,57 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
     case "panel":
       return (
         <PanelSlotRenderer
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          session={props.session}
-          toolSetSymbol={props.toolSetSymbol}
-          className={props.className}
+          pluginId={pluginId}
+          slotId={slotId}
+          session={session}
+          toolSetSymbol={toolSetSymbol}
+          className={className}
         />
       );
 
     case "toolCard":
       return (
         <ToolCardSlotRenderer
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          session={props.session}
+          pluginId={pluginId}
+          slotId={slotId}
+          session={session}
           toolCallInfo={props.toolCallInfo}
-          toolSetSymbol={props.toolSetSymbol}
-          className={props.className}
+          toolSetSymbol={toolSetSymbol}
+          className={className}
         />
       );
 
     case "inlinePrompt":
       return (
         <InlinePromptSlotRenderer
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          session={props.session}
-          toolSetSymbol={props.toolSetSymbol}
-          declaration={props.declaration}
-          className={props.className}
+          pluginId={pluginId}
+          slotId={slotId}
+          session={session}
+          toolSetSymbol={toolSetSymbol}
+          declaration={declaration}
+          className={className}
         />
       );
 
     case "headerBar":
       return (
         <HeaderBarSlotRenderer
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          session={props.session}
-          toolSetSymbol={props.toolSetSymbol}
-          className={props.className}
+          pluginId={pluginId}
+          slotId={slotId}
+          session={session}
+          toolSetSymbol={toolSetSymbol}
+          className={className}
         />
       );
 
     case "toolButton":
       return (
         <ToolButtonSlotPanel
-          pluginId={props.pluginId}
-          slotId={props.slotId}
-          session={props.session}
-          toolSetSymbol={props.toolSetSymbol}
-          className={props.className}
+          pluginId={pluginId}
+          slotId={slotId}
+          session={session}
+          toolSetSymbol={toolSetSymbol}
+          className={className}
         />
       );
 
