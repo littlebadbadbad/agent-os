@@ -2,17 +2,15 @@
  * extensions/user-input/ui/main.module.scss
  *
  * SCSS module for the main entry component (error state + wrapper).
+ * Uses the host's :root CSS custom properties for theming.
  */
-
-$color-error: #f87171;
-$font-stack: system-ui, -apple-system, sans-serif;
 
 // ── Error state ───────────────────────────────────────────────────────────────
 
 .error {
   padding: 16px;
-  color: $color-error;
-  font-family: $font-stack;
+  color: var(--red-light);
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -21,5 +19,5 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .wrapper {
   width: 100%;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 }

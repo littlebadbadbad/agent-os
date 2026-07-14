@@ -17,13 +17,13 @@ function themeToAccentVars(theme: WidgetTheme): CSSProperties {
   const { primaryColor: p, primaryDarkColor: pd, primaryDeepColor: pde, primaryLightColor: pl } = theme;
 
   if (p) {
-    vars['--asdk-primary'] = p;
+    vars['--primary'] = p;
     const gradientEnd = pd ?? pde ?? p;
-    vars['--asdk-gradient'] = `linear-gradient(135deg, ${p} 0%, ${gradientEnd} 100%)`;
+    vars['--gradient-primary'] = `linear-gradient(135deg, ${p} 0%, ${gradientEnd} 100%)`;
   }
-  if (pd)  vars['--asdk-primary-dark'] = pd;
-  if (pde) vars['--asdk-primary-deep'] = pde;
-  if (pl)  vars['--asdk-primary-light'] = pl;
+  if (pd)  vars['--primary-dark'] = pd;
+  if (pde) vars['--primary-deep'] = pde;
+  if (pl)  vars['--primary-light'] = pl;
 
   return vars as CSSProperties;
 }

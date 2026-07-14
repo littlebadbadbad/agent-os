@@ -2,16 +2,8 @@
  * extensions/user-input/ui/PendingInputStrip.module.scss
  *
  * SCSS module for pending (queued) input ghost message strip.
+ * Uses the host's :root CSS custom properties for theming.
  */
-
-$color-bg:          #252525;
-$color-border:      #444;
-$color-text-muted:  #858585;
-$color-text:        #d4d4d4;
-$color-primary:     #0e639c;
-$color-primary-hover: #1177bb;
-
-$font-stack: system-ui, -apple-system, sans-serif;
 
 // ── Strip container ───────────────────────────────────────────────────────────
 
@@ -19,11 +11,11 @@ $font-stack: system-ui, -apple-system, sans-serif;
   width: 100%;
   box-sizing: border-box;
   padding: 8px 16px;
-  background: $color-bg;
-  font-family: $font-stack;
+  background: var(--bg-primary);
+  font-family: system-ui, -apple-system, sans-serif;
 
   &HasBorder {
-    border-top: 1px solid $color-border;
+    border-top: 1px solid var(--border);
   }
 }
 
@@ -37,14 +29,14 @@ $font-stack: system-ui, -apple-system, sans-serif;
 }
 
 .entryIcon {
-  color: $color-text-muted;
+  color: var(--text-muted);
   font-size: 13px;
   flex-shrink: 0;
 }
 
 .entryText {
   flex: 1;
-  color: $color-text-muted;
+  color: var(--text-muted);
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,16 +48,16 @@ $font-stack: system-ui, -apple-system, sans-serif;
 .cancelBtn {
   border: none;
   background: none;
-  color: $color-text-muted;
+  color: var(--text-muted);
   font-size: 16px;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
   border-radius: 2px;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 
   &:hover {
-    color: $color-text;
+    color: var(--text-primary);
   }
 }
 
@@ -76,14 +68,14 @@ $font-stack: system-ui, -apple-system, sans-serif;
   padding: 5px 12px;
   border: none;
   border-radius: 4px;
-  background: $color-primary;
-  color: #fff;
+  background: var(--primary);
+  color: var(--text-inverse);
   font-size: 13px;
   cursor: pointer;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   transition: background 0.15s;
 
   &:hover {
-    background: $color-primary-hover;
+    background: var(--primary-dark);
   }
 }

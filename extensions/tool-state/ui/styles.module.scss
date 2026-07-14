@@ -7,7 +7,7 @@
 
 .tools-empty {
   padding: 16px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .tool-group {
@@ -20,7 +20,7 @@
   justify-content: space-between;
   padding: 4px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--text-inverse) 4%, transparent);
 }
 
 .tool-group-collapse-btn {
@@ -29,7 +29,7 @@
   gap: 6px;
   background: none;
   border: none;
-  color: #d4d4d4;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 12px;
   padding: 0;
@@ -47,7 +47,7 @@
 }
 
 .tool-group-count {
-  color: #888;
+  color: var(--text-muted);
   font-size: 11px;
 }
 
@@ -62,7 +62,7 @@
   padding: 6px 8px;
   border-radius: 4px;
   &--disabled { opacity: 0.5; }
-  &:hover { background: rgba(255, 255, 255, 0.03); }
+  &:hover { background: color-mix(in srgb, var(--text-inverse) 3%, transparent); }
 }
 
 .tool-item-info {
@@ -73,12 +73,12 @@
 .tool-item-name {
   font-size: 12px;
   font-weight: 500;
-  color: #d4d4d4;
+  color: var(--text-primary);
 }
 
 .tool-item-desc {
   font-size: 11px;
-  color: #888;
+  color: var(--text-muted);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -89,13 +89,13 @@
   position: relative;
   width: 32px;
   height: 18px;
-  background: #555;
+  background: var(--bg-elevated);
   border: none;
   border-radius: 9px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.2s;
-  &--on { background: #4a9eff; }
+  &--on { background: var(--primary-light); }
 }
 
 .toggle-thumb {
@@ -104,7 +104,7 @@
   left: 2px;
   width: 14px;
   height: 14px;
-  background: #fff;
+  background: var(--text-inverse);
   border-radius: 50%;
   transition: transform 0.2s;
   .toggle--on & { transform: translateX(14px); }

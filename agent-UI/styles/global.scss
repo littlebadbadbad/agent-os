@@ -1,45 +1,52 @@
 /* Azure DevOps – global CSS custom properties & base reset */
 
 :root {
-  /* ── Background ── */
-  --bg-primary: #1f2228;
-  --bg-secondary: #161b22;
-  --bg-tertiary: #0d1017;
-  --bg-elevated: #262c36;
-  --bg-hover: #2d3340;
-  --bg-active: #1f4068;
+  /* ── Background / surface layers ────────────────────────────────────────────
+     Unified VSCode-inspired dark palette (sidebar theme is canonical).          */
+  --bg-primary:   #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary:  #2d2d30;
+  --bg-elevated:  #383838;
+  --bg-hover:     #2d3340;
+  --bg-active:    #1f4068;
 
   /* ── Border ── */
-  --border: #30363d;
+  --border:        #3e3e42;
   --border-subtle: #21262d;
 
   /* ── Text ── */
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-muted: #6e7681;
-  --text-inverse: #ffffff;
+  --text-primary:   #cccccc;
+  --text-secondary: #858585;
+  --text-muted:     #6e7681;
+  --text-inverse:   #ffffff;
 
-  /* ── Accent ── */
-  --blue: #0078d4;
-  --blue-hover: #106ebe;
-  --blue-light: #58a6ff;
-  --blue-subtle: #182535;
+  /* ── Accent / primary ── */
+  --primary:       #0078d4;
+  --primary-dark:  #005fa3;
+  --primary-deep:  #003a6e;
+  --primary-light: #58a6ff;
 
-  --green: #3fb950;
-  --green-subtle: #12261e;
-  --green-light: #56d364;
+  /* ── Semantic colour (legacy compat — prefer --primary above) ── */
+  --blue:           #0078d4;
+  --blue-hover:     #106ebe;
+  --blue-light:     #58a6ff;
+  --blue-subtle:    #182535;
 
-  --red: #f85149;
-  --red-subtle: #2d1117;
-  --red-light: #ff7b72;
+  --green:          #3fb950;
+  --green-subtle:   #12261e;
+  --green-light:    #56d364;
 
-  --yellow: #d29922;
-  --yellow-subtle: #272115;
-  --yellow-light: #e3b341;
+  --red:            #f85149;
+  --red-subtle:     #2d1117;
+  --red-light:      #ff7b72;
 
-  --orange: #db6d28;
-  --purple: #bc8cff;
-  --purple-subtle: #1e1637;
+  --yellow:         #d29922;
+  --yellow-subtle:  #272115;
+  --yellow-light:   #e3b341;
+
+  --orange:         #db6d28;
+  --purple:         #bc8cff;
+  --purple-subtle:  #1e1637;
 
   /* ── Spacing ── */
   --sp-1: 4px;
@@ -51,19 +58,19 @@
   --sp-8: 32px;
 
   /* ── Radius ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   10px;
   --radius-full: 9999px;
 
   /* ── Typography ── */
-  --font-xs: 11px;
-  --font-sm: 12px;
+  --font-xs:   11px;
+  --font-sm:   12px;
   --font-base: 13px;
-  --font-md: 14px;
-  --font-lg: 16px;
-  --font-xl: 20px;
-  --font-2xl: 24px;
+  --font-md:   14px;
+  --font-lg:   16px;
+  --font-xl:   20px;
+  --font-2xl:  24px;
 
   /* ── Layout ── */
   --sidebar-width: 236px;

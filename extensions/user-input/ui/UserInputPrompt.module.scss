@@ -1,33 +1,9 @@
 /**
  * extensions/user-input/ui/UserInputPrompt.module.scss
  *
- * Self-contained SCSS module for all prompt UI components.
- * Theme variables are inlined (consistent with browser plugin convention).
+ * Prompt UI components — uses the host's `:root` CSS custom properties
+ * (unprefixed) for theming.  No inlined theme variables needed.
  */
-
-// ── Theme variables ───────────────────────────────────────────────────────────
-
-$color-bg:          #1e1e1e;
-$color-surface:     #252526;
-$color-surface-2:   #2d2d30;
-$color-surface-3:   #383838;
-
-$color-border:      #3e3e42;
-$color-border-subtle: #333;
-
-$color-text:        #d4d4d4;
-$color-text-muted:  #858585;
-$color-text-bright: #ffffff;
-
-$color-primary:     #0e639c;
-$color-primary-hover: #1177bb;
-
-$color-btn-bg:      #3c3c3c;
-$color-btn-hover:   #4a4a4a;
-
-$color-selected-bg: #264f78;
-
-$font-stack: system-ui, -apple-system, sans-serif;
 
 // ── Prompt container ──────────────────────────────────────────────────────────
 
@@ -35,9 +11,9 @@ $font-stack: system-ui, -apple-system, sans-serif;
   width: 100%;
   box-sizing: border-box;
   padding: 12px 16px;
-  border-top: 1px solid $color-border-subtle;
-  background: $color-bg;
-  font-family: $font-stack;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 // ── Navigation bar ────────────────────────────────────────────────────────────
@@ -47,14 +23,14 @@ $font-stack: system-ui, -apple-system, sans-serif;
   align-items: center;
   gap: 6px;
   padding-bottom: 10px;
-  border-bottom: 1px solid $color-border-subtle;
+  border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 10px;
   user-select: none;
 }
 
 .promptNavLabel {
   flex: 1;
-  color: $color-text-muted;
+  color: var(--text-secondary);
   font-size: 12px;
   text-align: center;
   white-space: nowrap;
@@ -62,8 +38,8 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .promptNavBtn {
   border: none;
-  background: $color-btn-bg;
-  color: $color-text;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   border-radius: 4px;
@@ -72,7 +48,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
   transition: background 0.15s;
 
   &:hover:not(:disabled) {
-    background: $color-btn-hover;
+    background: var(--bg-hover);
   }
 
   &:disabled {
@@ -84,7 +60,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
 .promptNavCancel {
   border: none;
   background: none;
-  color: $color-text-muted;
+  color: var(--text-secondary);
   font-size: 16px;
   cursor: pointer;
   padding: 2px 6px;
@@ -92,8 +68,8 @@ $font-stack: system-ui, -apple-system, sans-serif;
   line-height: 1;
 
   &:hover {
-    color: $color-text;
-    background: $color-btn-bg;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
   }
 }
 
@@ -110,18 +86,18 @@ $font-stack: system-ui, -apple-system, sans-serif;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: $color-surface-3;
+  background: var(--bg-elevated);
   border: none;
   cursor: pointer;
   padding: 0;
   transition: background 0.15s;
 
   &:hover {
-    background: $color-text-muted;
+    background: var(--text-secondary);
   }
 
   &Active {
-    background: $color-primary;
+    background: var(--primary);
   }
 }
 
@@ -136,7 +112,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .promptMessage {
   margin: 0 0 8px;
-  color: $color-text;
+  color: var(--text-primary);
   font-size: 14px;
   word-break: break-word;
   white-space: pre-wrap;
@@ -149,18 +125,18 @@ $font-stack: system-ui, -apple-system, sans-serif;
   padding: 6px 14px;
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-inverse);
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   transition: background 0.15s;
 
   &Primary {
-    background: $color-primary;
+    background: var(--primary);
 
     &:hover:not(:disabled) {
-      background: $color-primary-hover;
+      background: var(--primary-dark);
     }
 
     &:disabled {
@@ -170,10 +146,10 @@ $font-stack: system-ui, -apple-system, sans-serif;
   }
 
   &Default {
-    background: $color-btn-bg;
+    background: var(--bg-elevated);
 
     &:hover {
-      background: $color-btn-hover;
+      background: var(--bg-hover);
     }
   }
 }
@@ -197,16 +173,16 @@ $font-stack: system-ui, -apple-system, sans-serif;
 .promptInput {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid $color-btn-bg;
+  border: 1px solid var(--bg-elevated);
   border-radius: 4px;
-  background: $color-surface-2;
-  color: $color-text;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 13px;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   outline: none;
 
   &:focus {
-    border-color: $color-primary;
+    border-color: var(--primary);
   }
 }
 
@@ -226,16 +202,16 @@ $font-stack: system-ui, -apple-system, sans-serif;
   padding: 6px 10px;
   border: none;
   border-radius: 4px;
-  background: $color-btn-bg;
-  color: $color-text;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
   font-size: 14px;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
 
   &:hover {
-    background: $color-btn-hover;
+    background: var(--bg-hover);
   }
 }
 
@@ -243,7 +219,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .promptMultiHint {
   margin: 0 0 4px;
-  color: $color-text-muted;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -261,28 +237,28 @@ $font-stack: system-ui, -apple-system, sans-serif;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: $color-surface-2;
+  background: var(--bg-secondary);
   border-radius: 4px;
   cursor: pointer;
-  color: $color-text;
+  color: var(--text-primary);
   font-size: 14px;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   transition: background 0.15s;
 
   &:hover {
-    background: $color-surface-3;
+    background: var(--bg-tertiary);
   }
 
   &Selected {
-    background: $color-selected-bg;
+    background: var(--bg-active);
 
     &:hover {
-      background: $color-selected-bg;
+      background: var(--bg-active);
     }
   }
 
   input[type="checkbox"] {
-    accent-color: $color-primary;
+    accent-color: var(--primary);
   }
 }
 
@@ -295,6 +271,6 @@ $font-stack: system-ui, -apple-system, sans-serif;
 }
 
 .promptSubmitCount {
-  color: $color-text-muted;
+  color: var(--text-muted);
   font-size: 12px;
 }

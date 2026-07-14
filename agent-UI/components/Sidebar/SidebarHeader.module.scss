@@ -1,5 +1,3 @@
-@use '../../styles/theme' as t;
-
 // ── Header bar ────────────────────────────────────────────────────────────────
 
 .header {
@@ -7,10 +5,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 6px 0 12px;
-  height: t.$sidebar-header-height;
+  height: 40px;
   flex-shrink: 0;
-  background: #{t.$color-surface};
-  border-bottom: 1px solid #{t.$color-border};
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
   user-select: none;
 }
 
@@ -28,7 +26,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #{t.$color-text};
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -78,15 +76,15 @@
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  color: #{t.$color-text-muted};
+  color: var(--text-secondary);
   transition: color 0.15s, background 0.15s;
 
   &:hover {
-    color: #{t.$color-text};
-    background: #{t.$color-surface-2};
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
   }
 
   &:active {
-    background: #{t.$color-surface-3};
+    background: var(--bg-elevated);
   }
 }

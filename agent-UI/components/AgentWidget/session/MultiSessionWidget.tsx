@@ -7,6 +7,7 @@ import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
 import { SessionTabTitle } from './SessionTabTitle';
 import styles from '../AgentWidget.module.scss';
+import { pluginSystem } from '@agent-UI/agents';
 
 export function MultiSessionWidget({
   icon,
@@ -26,7 +27,7 @@ export function MultiSessionWidget({
   );
 
   const activeEntry = sessions.find((s) => s.id === activeSessionId);
-  const activeSession: SlotSession | undefined = activeEntry?.session;
+  const activeSession = activeEntry?.session;
 
   // agentId is stable (set once from config.id) — all sessions share the same value.
   const agentId = sessions[0]?.session.getState().agentId;
@@ -34,9 +35,11 @@ export function MultiSessionWidget({
   // ── Session-bar collapse/expand ───────────────────────────────────────────
   const [collapsed, setCollapsed] = useState(false);
 
+  if (activeSession) pluginSystem.refreshSlots(activeSession); // Refresh slot registry from session state (reads PluginUiAdapter.slots).
+
   return (
     <Widget id={agentId} icon={icon} theme={theme} initialWidth={initialWidth}
-      controlBar={<AIControlBar activeSession={activeSession} />}
+      controlBar={activeSession && <AIControlBar activeSession={activeSession} />}
     >
       <div className={styles['chat']}>
         {/* Session sidebar (left vertical tab list) */}

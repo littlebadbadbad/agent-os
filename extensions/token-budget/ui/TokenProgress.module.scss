@@ -1,11 +1,9 @@
 /**
  * extensions/token-budget/ui/TokenProgress.module.scss — Token progress bar styles
  *
- * Moved from agent-UI/components/AgentWidget/panels/TokenProgress.module.scss.
- * Uses the same theme import pattern as the todo extension.
+ * Uses the host's `:root` CSS custom properties (unprefixed) for theming.
+ * No SCSS theme import needed.
  */
-
-@use '../../../agent-UI/styles/theme' as t;
 
 .token-progress {
   display: flex;
@@ -13,15 +11,15 @@
   gap: 6px;
   padding: 4px 10px;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--asdk-primary-pale, #{t.$zima-blue-pale}) 40%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 10%, transparent);
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .token-bar {
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 12%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   overflow: hidden;
 }
 
@@ -32,34 +30,34 @@
 }
 
 .token-fill--normal {
-  background: var(--asdk-primary, #{t.$zima-blue});
+  background: var(--primary);
 }
 
 .token-fill--warning {
-  background: #e6a700;
+  background: var(--yellow);
 }
 
 .token-fill--critical {
-  background: #d63031;
+  background: var(--red);
 }
 
 .token-label {
   font-size: 10px;
   font-weight: 600;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   min-width: 32px;
   text-align: right;
   line-height: 1;
 }
 
 .token-label--normal {
-  color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
+  color: var(--primary-dark);
 }
 
 .token-label--warning {
-  color: #b58300;
+  color: var(--yellow);
 }
 
 .token-label--critical {
-  color: #d63031;
+  color: var(--red);
 }

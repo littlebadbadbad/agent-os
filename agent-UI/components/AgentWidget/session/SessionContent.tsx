@@ -73,9 +73,6 @@ export function SessionContent({
     | string
   >("chat");
 
-  // Refresh slot registry from session state (reads PluginUiAdapter.slots).
-  pluginSystem.refreshSlots(session);
-
   // Build SlotDisplayContext from session state for slot visibility decisions.
   const slotCtx = buildSlotDisplayContextFromState({ id: sessionStateId, agentName, conversationId });
 

@@ -9,7 +9,7 @@ import styles from './AIControlBar.module.scss';
 
 export interface AIControlBarProps {
   /** Active session for plugin slot panels, or undefined when no session exists. */
-  readonly activeSession?: SlotSession;
+  readonly activeSession: SlotSession;
 }
 
 /**
@@ -23,16 +23,16 @@ export interface AIControlBarProps {
 export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement {
   // Derive slot display context from the active session reactively.
   const sessionState = useSyncExternalStore(
-    (cb: () => void) => activeSession ? activeSession.subscribe(cb) : () => {},
-    () => activeSession?.getState(),
+    activeSession.subscribe,
+    activeSession.getState,
   );
   const slotCtx: SlotDisplayContext = useMemo(
     () => sessionState
       ? {
-          sessionId: sessionState.id,
-          agentName: sessionState.agentName,
-          conversationId: sessionState.conversationId,
-        }
+        sessionId: sessionState.id,
+        agentName: sessionState.agentName,
+        conversationId: sessionState.conversationId,
+      }
       : { sessionId: '', agentName: '', conversationId: '' },
     [sessionState],
   );
@@ -67,14 +67,14 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
           >
             {activeSession
               ? () => (
-                  <SlotRenderer
-                    slotType="toolButton"
-                    pluginId={entry.pluginId}
-                    slotId={entry.slotId}
-                    session={activeSession}
-                    toolSetSymbol={entry.toolSetSymbol}
-                  />
-                )
+                <SlotRenderer
+                  slotType="toolButton"
+                  pluginId={entry.pluginId}
+                  slotId={entry.slotId}
+                  session={activeSession}
+                  toolSetSymbol={entry.toolSetSymbol}
+                />
+              )
               : undefined}
           </DropdownPanel>
         );

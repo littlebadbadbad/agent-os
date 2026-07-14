@@ -24,40 +24,7 @@ import { useEffect, useRef, useCallback, type ReactElement } from "react";
 import type {
   UiPluginHostInternal,
 } from "@agent-type";
-
-// ── CSS variable injection ────────────────────────────────────────────────────
-
-/**
- * Copy all CSS custom properties (`--var-name`) from the host document's
- * root element into the iframe's document root.
- *
- * CSS custom properties do **not** cross iframe boundaries, even with
- * `allow-same-origin`.  Without this every plugin iframe sees `undefined`
- * for every `var(--sp-3)`, `var(--text-primary)`, etc. in its styles.
- */
-function injectHostCssVars(iframe: HTMLIFrameElement): void {
-  const iframeDoc = iframe.contentDocument ?? iframe.contentWindow?.document;
-  if (!iframeDoc?.documentElement) return;
-
-  const hostRoot = document.documentElement;
-  const hostStyles = getComputedStyle(hostRoot);
-
-  const vars: string[] = [];
-  // Iterate all computed property names — CSS custom properties are
-  // enumerated alongside standard properties in getComputedStyle.
-  for (let i = 0; i < hostStyles.length; i++) {
-    const name = hostStyles[i];
-    if (name.startsWith('--')) {
-      const value = hostStyles.getPropertyValue(name);
-      if (value) vars.push(`${name}:${value}`);
-    }
-  }
-  if (vars.length === 0) return;
-
-  const styleEl = iframeDoc.createElement('style');
-  styleEl.textContent = `:root{${vars.join(';')}}`;
-  iframeDoc.head.appendChild(styleEl);
-}
+import { injectIframeCssVars } from "@agent-UI/styles/cssVariables";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -161,11 +128,11 @@ export function IframeSandbox(
             win.__UAP_PLUGIN_HOST__ = host;
           }
 
-          // Inject the host's CSS custom properties into the iframe's document.
-          // CSS custom properties are NOT inherited across iframe boundaries,
-          // even with `allow-same-origin`.  Without this step every plugin
-          // iframe sees undefined `var(--sp-3)`, `var(--text-primary)`, etc.
-          injectHostCssVars(iframe);
+          // Inject the canonical CSS custom properties into the iframe's
+          // document root.  CSS custom properties do NOT cross iframe
+          // boundaries — without this every `var(--sp-3)` inside the plugin
+          // would resolve to `undefined`.
+          injectIframeCssVars(iframe);
 
           iframeRef.current = iframe;
           onReady(iframe);

@@ -2,56 +2,26 @@
  * extensions/browser/ui/styles.module.scss
  *
  * Self-contained SCSS module for the browser plugin's UI.
- * Includes tool-card classes extracted from the host's
- * AgentWidget.module.scss, plus the theme variables they depend on.
- *
- * This file lives INSIDE the browser plugin — R7 (zero "browser" in
- * agent-UI/) does not apply here.
+ * Uses the host's `:root` CSS custom properties (unprefixed) for theming.
+ * No SCSS theme import needed — all values cascade from the host page.
  */
 
 @use 'sass:color';
 
-// ── Theme variables (inlined from agent-UI/styles/_theme.scss) ────────────────
-
-$color-bg:        #1e1e1e;
-$color-surface:   #252526;
-$color-surface-2: #2d2d30;
-$color-surface-3: #383838;
-
-$color-border:   #3e3e42;
-$color-border-2: #4e4e54;
-
-$color-text:        #cccccc;
-$color-text-muted:  #858585;
-$color-text-bright: #ffffff;
-
-$color-accent:      #0078d4;
-$color-accent-dark: #005fa3;
-
-$color-success:    #4ec9a0;
-$color-success-bg: rgba(78, 201, 160, 0.12);
-$color-error:      #f87171;
-$color-error-bg:   rgba(248, 113, 113, 0.12);
-
-$zima-blue:       $color-accent;
-$zima-blue-dark:  $color-accent-dark;
-
-$font-stack: system-ui, -apple-system, sans-serif;
-
 // ── Tool call card ───────────────────────────────────────────────────────────
 
 .tool-call {
-  border: 1px solid var(--asdk-border, #{$color-border});
-  border-left: 3px solid var(--asdk-primary, #{$zima-blue});
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
   border-radius: 7px;
-  background: var(--asdk-surface-2, #{$color-surface-2});
-  font-family: $font-stack;
+  background: var(--bg-tertiary);
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   overflow: auto;
   align-self: stretch;
 
   // Left-border accent driven by --tc-accent (set by CardShell)
-  border-left-color: var(--tc-accent, var(--asdk-primary, #{$zima-blue}));
+  border-left-color: var(--tc-accent, var(--primary));
 }
 
 .tool-header {
@@ -59,8 +29,8 @@ $font-stack: system-ui, -apple-system, sans-serif;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: color-mix(in srgb, var(--asdk-primary, #{$zima-blue}) 10%, var(--asdk-surface-2, #{$color-surface-2}));
-  border-bottom: 1px solid var(--asdk-border, #{$color-border});
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg-tertiary));
+  border-bottom: 1px solid var(--border);
 }
 
 .tool-icon {
@@ -70,7 +40,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .tool-name {
   font-weight: 600;
-  color: var(--asdk-text, #{$color-text});
+  color: var(--text-primary);
   letter-spacing: 0.01em;
   flex: 1;
 }
@@ -82,17 +52,17 @@ $font-stack: system-ui, -apple-system, sans-serif;
   font-weight: 500;
 
   &--running {
-    background: color-mix(in srgb, var(--asdk-primary, #{$zima-blue}) 15%, transparent);
-    color: var(--asdk-primary-dark, #{$zima-blue-dark});
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary-dark);
     animation: pulse 1.4s ease-in-out infinite;
   }
   &--done {
-    background: #{$color-success-bg};
-    color: #{$color-success};
+    background: var(--green-subtle);
+    color: var(--green);
   }
   &--error {
-    background: #{$color-error-bg};
-    color: #{$color-error};
+    background: var(--red-subtle);
+    color: var(--red);
   }
 }
 
@@ -103,20 +73,20 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .tool-result {
   padding: 2px 10px 6px;
-  border-top: 1px dashed var(--asdk-border, #{$color-border});
+  border-top: 1px dashed var(--border);
   margin-top: 4px;
 
   pre {
     margin: 0;
     font-size: 11px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    color: var(--asdk-text, #{$color-text});
+    color: var(--text-primary);
     white-space: pre-wrap;
     word-break: break-all;
   }
 
   &--error pre {
-    color: #{$color-error};
+    color: var(--red-light);
   }
 }
 
@@ -133,14 +103,14 @@ $font-stack: system-ui, -apple-system, sans-serif;
   gap: 6px;
   padding: 3px 10px;
   font-size: 11px;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 
   &:first-child { padding-top: 5px; }
   &:last-child  { padding-bottom: 4px; }
 }
 
 .tc-info-label {
-  color: var(--asdk-text-muted, #{$color-text-muted});
+  color: var(--text-secondary);
   flex-shrink: 0;
   min-width: 60px;
 
@@ -148,13 +118,13 @@ $font-stack: system-ui, -apple-system, sans-serif;
 }
 
 .tc-info-value {
-  color: var(--asdk-text, #{$color-text});
+  color: var(--text-primary);
   word-break: break-all;
 
   code {
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
     font-size: 10.5px;
-    color: var(--tc-accent, var(--asdk-primary, #{$zima-blue}));
+    color: var(--tc-accent, var(--primary));
   }
 }
 
@@ -167,7 +137,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
   background: color-mix(in srgb, var(--chip-color, #6b7280) 12%, transparent);
   color: color-mix(in srgb, var(--chip-color, #6b7280) 80%, #000);
   border: 1px solid color-mix(in srgb, var(--chip-color, #6b7280) 20%, transparent);
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   white-space: nowrap;
 
   &[data-mono] {
@@ -179,7 +149,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
 .tc-section {
   border-top: 1px solid color-mix(in srgb, var(--tc-accent, #6b7280) 14%, transparent);
   font-size: 11px;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 
   &[open] > .tc-section-summary { opacity: 1; }
 }
@@ -211,8 +181,8 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .tc-code {
   margin: 0 10px 6px;
-  background: var(--asdk-surface-3, #{$color-surface-3});
-  border: 1px solid var(--asdk-border, #{$color-border});
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 4px;
   overflow: auto;
 
@@ -221,7 +191,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
     padding: 6px 8px;
     font-size: 10.5px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    color: var(--asdk-text, #{$color-text});
+    color: var(--text-primary);
     white-space: pre;
     line-height: 1.5;
   }
@@ -231,14 +201,14 @@ $font-stack: system-ui, -apple-system, sans-serif;
   display: block;
   padding: 2px 8px 4px;
   font-size: 10px;
-  color: var(--asdk-text-muted, #{$color-text-muted});
-  font-family: $font-stack;
-  border-top: 1px dashed var(--asdk-border, #{$color-border});
+  color: var(--text-secondary);
+  font-family: system-ui, -apple-system, sans-serif;
+  border-top: 1px dashed var(--border);
 }
 
 .tc-terminal-block {
   margin: 0 10px 6px;
-  background: #0d1117;
+  background: var(--bg-primary);
   border-radius: 4px;
   overflow: auto;
   max-height: 200px;
@@ -248,7 +218,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
     padding: 7px 10px;
     font-size: 11px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    color: #c9d1d9;
+    color: var(--text-primary);
     white-space: pre-wrap;
     word-break: break-all;
     line-height: 1.55;
@@ -261,8 +231,8 @@ $font-stack: system-ui, -apple-system, sans-serif;
   margin: 4px 10px 6px;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, #0ea5e9 25%, transparent);
-  background: #0a1929;
+  border: 1px solid color-mix(in srgb, var(--primary-light) 25%, transparent);
+  background: var(--bg-primary);
 }
 
 .tc-screenshot-meta {
@@ -270,14 +240,14 @@ $font-stack: system-ui, -apple-system, sans-serif;
   flex-direction: column;
   gap: 1px;
   padding: 5px 8px;
-  background: color-mix(in srgb, #0ea5e9 8%, #0a1929);
-  border-bottom: 1px solid color-mix(in srgb, #0ea5e9 18%, transparent);
+  background: color-mix(in srgb, var(--primary-light) 8%, var(--bg-primary));
+  border-bottom: 1px solid color-mix(in srgb, var(--primary-light) 18%, transparent);
 }
 
 .tc-screenshot-title {
   font-size: 11px;
-  font-family: $font-stack;
-  color: #e2f0f8;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--primary-light);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -287,7 +257,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
 .tc-screenshot-url {
   font-size: 10px;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  color: color-mix(in srgb, #0ea5e9 85%, #fff);
+  color: color-mix(in srgb, var(--primary-light) 85%, var(--text-inverse));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -299,7 +269,7 @@ $font-stack: system-ui, -apple-system, sans-serif;
   max-height: 260px;
   object-fit: contain;
   object-position: top;
-  background: #fff;
+  background: var(--text-inverse);
 }
 
 // ── Compact tool card (single-line, zero chrome) ──────────────────────────────
@@ -312,10 +282,10 @@ $font-stack: system-ui, -apple-system, sans-serif;
   margin: 0;
   border: none;
   background: none;
-  font-family: $font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   line-height: 1.4;
-  color: var(--asdk-text-muted, #{$color-text-muted});
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -324,15 +294,15 @@ $font-stack: system-ui, -apple-system, sans-serif;
   max-width: 100%;
 
   &:hover {
-    color: var(--asdk-text, #{$color-text});
+    color: var(--text-primary);
 
     .compact-tool-card__label {
-      color: var(--asdk-primary, #{$zima-blue});
+      color: var(--primary);
     }
   }
 
   &:focus-visible {
-    outline: 1px solid var(--asdk-primary, #{$zima-blue});
+    outline: 1px solid var(--primary);
     outline-offset: 2px;
     border-radius: 2px;
   }
@@ -340,13 +310,13 @@ $font-stack: system-ui, -apple-system, sans-serif;
 
 .compact-tool-card__label {
   font-weight: 600;
-  color: color-mix(in srgb, var(--asdk-primary, #{$zima-blue}) 85%, var(--asdk-text, #{$color-text}));
+  color: color-mix(in srgb, var(--primary) 85%, var(--text-primary));
   flex-shrink: 0;
   transition: color 0.12s;
 }
 
 .compact-tool-card__summary {
-  color: var(--asdk-text-muted, #{$color-text-muted});
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
 

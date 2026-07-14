@@ -1,6 +1,8 @@
 import type { ReactElement } from "react";
+import { useEffect } from "react";
 import type { WidgetIcon, WidgetTheme, SessionManager } from "@agent-sdk";
 import { MultiSessionWidget } from "./session/MultiSessionWidget";
+import { injectHostCssVars } from "../../styles/cssVariables";
 
 export type AgentWidgetProps = {
   /** Custom icon shown in the sidebar header. */
@@ -19,6 +21,11 @@ export type AgentWidgetProps = {
 
 export default function AgentWidget(props: AgentWidgetProps): ReactElement {
   const { icon, theme, initialWidth } = props;
+
+  // Inject prefixed CSS vars (--agent-sdk-*) on :root so that sandboxed
+  // plugin iframes and external consumers can consume the same design tokens.
+  useEffect(() => { injectHostCssVars(); }, []);
+
   return (
     <MultiSessionWidget
       icon={icon}

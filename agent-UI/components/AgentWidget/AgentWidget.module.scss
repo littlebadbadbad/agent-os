@@ -1,6 +1,4 @@
-﻿@use '../../styles/theme' as t;
-
-// ── Chat container ────────────────────────────────────────────────────────────
+﻿// ── Chat container ────────────────────────────────────────────────────────────
 
 .chat {
   display: flex;
@@ -16,8 +14,8 @@
   flex-direction: column;
   width: 160px;
   flex-shrink: 0;
-  border-right: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface, #{t.$color-surface});
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
   overflow: hidden;
   transition: width 0.2s ease;
 
@@ -51,12 +49,12 @@
   flex-shrink: 0;
   padding: 0 6px 0 10px;
   font-size: 12px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  border-bottom: 1px solid var(--border, var(--border));
   border-left: 2px solid transparent;
   cursor: pointer;
   transition: background 0.14s, color 0.14s;
@@ -64,15 +62,15 @@
   box-sizing: border-box;
 
   &:hover {
-    background: var(--asdk-surface-2, #{t.$color-surface-2});
-    color: var(--asdk-text, #{t.$color-text});
+    background: var(--bg-tertiary, var(--bg-tertiary));
+    color: var(--text-primary, var(--text-primary));
   }
 
   &--active {
-    background: var(--asdk-bg, #{t.$color-bg});
-    color: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--bg-primary, var(--bg-primary));
+    color: var(--primary, var(--primary));
     font-weight: 600;
-    border-left-color: var(--asdk-primary, #{t.$zima-blue});
+    border-left-color: var(--primary, var(--primary));
   }
 }
 
@@ -105,7 +103,7 @@
   font-size: 11px;
   opacity: 0;
   transition: opacity 0.14s;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   margin-left: auto;
 }
 
@@ -115,11 +113,11 @@
   height: 22px;
   padding: 0 4px;
   font-size: 12px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
-  color: var(--asdk-text, #{t.$color-text});
-  background: var(--asdk-bg, #{t.$color-bg});
-  border: 1px solid var(--asdk-primary, #{t.$zima-blue});
+  color: var(--text-primary, var(--text-primary));
+  background: var(--bg-primary, var(--bg-primary));
+  border: 1px solid var(--primary, var(--primary));
   border-radius: 4px;
   outline: none;
   box-sizing: border-box;
@@ -145,7 +143,7 @@
 
   &:hover {
     opacity: 1 !important;
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
+    background: var(--bg-elevated, var(--bg-elevated));
   }
 }
 
@@ -154,18 +152,18 @@
   width: 100%;
   height: 32px;
   font-size: 16px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   line-height: 1;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
-  border-top: 1px solid var(--asdk-border, #{t.$color-border});
+  border-top: 1px solid var(--border, var(--border));
   cursor: pointer;
   transition: color 0.14s, background 0.14s;
 
   &:hover {
-    color: var(--asdk-primary, #{t.$zima-blue});
-    background: var(--asdk-surface-2, #{t.$color-surface-2});
+    color: var(--primary, var(--primary));
+    background: var(--bg-tertiary, var(--bg-tertiary));
   }
 }
 
@@ -174,11 +172,11 @@
   width: 100%;
   height: 28px;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
-  border-top: 1px solid var(--asdk-border, #{t.$color-border});
+  border-top: 1px solid var(--border, var(--border));
   cursor: pointer;
   transition: color 0.14s, background 0.14s;
   display: flex;
@@ -186,8 +184,8 @@
   justify-content: center;
 
   &:hover {
-    color: var(--asdk-primary, #{t.$zima-blue});
-    background: var(--asdk-surface-2, #{t.$color-surface-2});
+    color: var(--primary, var(--primary));
+    background: var(--bg-tertiary, var(--bg-tertiary));
   }
 
   .session-bar--collapsed & {
@@ -213,8 +211,8 @@
 .tab-bar {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface, #{t.$color-surface});
+  border-bottom: 1px solid var(--border, var(--border));
+  background: var(--bg-secondary, var(--bg-secondary));
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -246,9 +244,9 @@
   padding: 0 10px;
   height: 36px;
   font-size: 12px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -257,13 +255,13 @@
   transition: color 0.15s, border-color 0.15s;
 
   &:hover {
-    color: var(--asdk-text, #{t.$color-text});
+    color: var(--text-primary, var(--text-primary));
     .tab-close { opacity: 0.65; }
   }
 
   &--active {
-    color: var(--asdk-primary, #{t.$zima-blue});
-    border-bottom-color: var(--asdk-primary, #{t.$zima-blue});
+    color: var(--primary, var(--primary));
+    border-bottom-color: var(--primary, var(--primary));
     font-weight: 600;
     .tab-close { opacity: 0.65; }
   }
@@ -305,8 +303,8 @@
   border-radius: 10px;
   font-size: 10px;
   font-weight: 600;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
-  color: var(--asdk-primary, #{t.$zima-blue});
+  background: color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
+  color: var(--primary, var(--primary));
   line-height: 1.4;
   min-width: 20px;
 }
@@ -319,9 +317,9 @@
   height: 36px;
   padding: 0 10px;
   font-size: 12px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
   border-left: 2px solid transparent;
@@ -334,14 +332,14 @@
   transition: color 0.15s, border-color 0.15s;
 
   &:hover {
-    color: var(--asdk-text, #{t.$color-text});
+    color: var(--text-primary, var(--text-primary));
   }
 
   &--active {
-    color: var(--asdk-primary, #{t.$zima-blue});
-    border-left-color: var(--asdk-primary, #{t.$zima-blue});
+    color: var(--primary, var(--primary));
+    border-left-color: var(--primary, var(--primary));
     font-weight: 600;
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 8%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 8%, transparent);
   }
 }
 
@@ -355,7 +353,7 @@
   height: 36px;
   font-size: 16px;
   font-weight: 300;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -364,8 +362,8 @@
   transition: color 0.15s, background 0.15s;
 
   &:hover {
-    color: var(--asdk-primary, #{t.$zima-blue});
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 8%, transparent);
+    color: var(--primary, var(--primary));
+    background: color-mix(in srgb, var(--primary, var(--primary)) 8%, transparent);
   }
 }
 
@@ -473,7 +471,7 @@
   flex-direction: column;
   gap: 6px;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 25%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--primary, var(--primary)) 25%, transparent) transparent;
 }
 
 .tools-empty {
@@ -482,8 +480,8 @@
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   text-align: center;
 }
 
@@ -493,8 +491,8 @@
   gap: 10px;
   padding: 9px 11px;
   border-radius: 8px;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
+  border: 1px solid var(--border, var(--border));
+  background: var(--bg-tertiary, var(--bg-tertiary));
   transition: opacity 0.15s, border-color 0.15s;
 
   &--disabled {
@@ -502,7 +500,7 @@
   }
 
   &:hover {
-    border-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 50%, transparent);
+    border-color: color-mix(in srgb, var(--primary, var(--primary)) 50%, transparent);
   }
 }
 
@@ -515,15 +513,15 @@
   font-size: 12px;
   font-weight: 600;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  color: var(--asdk-primary, #{t.$zima-blue});
+  color: var(--primary, var(--primary));
   word-break: break-all;
 }
 
 .tool-item-desc {
   margin-top: 3px;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   line-height: 1.45;
   word-break: break-word;
 }
@@ -544,7 +542,7 @@
   transition: background 0.15s;
 
   &:hover {
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 8%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 8%, transparent);
   }
 }
 
@@ -557,12 +555,12 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   text-align: left;
   min-width: 0;
 
   &:focus-visible {
-    outline: 2px solid var(--asdk-primary, #{t.$zima-blue});
+    outline: 2px solid var(--primary, var(--primary));
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -570,7 +568,7 @@
 
 .tool-group-arrow {
   font-size: 12px;
-  color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 70%, transparent);
+  color: color-mix(in srgb, var(--primary, var(--primary)) 70%, transparent);
   display: inline-block;
   width: 12px;
   flex-shrink: 0;
@@ -587,7 +585,7 @@
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .tool-group-count {
@@ -595,8 +593,8 @@
   font-weight: 600;
   padding: 1px 5px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 12%, transparent);
-  color: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 70%, transparent);
+  background: color-mix(in srgb, var(--primary, var(--primary)) 12%, transparent);
+  color: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 70%, transparent);
   line-height: 1.4;
   min-width: 20px;
   text-align: center;
@@ -618,7 +616,7 @@
   width: 30px;
   height: 17px;
   border-radius: 9px;
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
+  background: var(--bg-elevated, var(--bg-elevated));
   border: none;
   cursor: pointer;
   padding: 0;
@@ -626,11 +624,11 @@
   margin-top: 1px;
 
   &--on {
-    background: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--primary, var(--primary));
   }
 
   &:focus-visible {
-    outline: 2px solid var(--asdk-primary, #{t.$zima-blue});
+    outline: 2px solid var(--primary, var(--primary));
     outline-offset: 2px;
   }
 }
@@ -655,11 +653,11 @@
 // ── Tool call card ───────────────────────────────────────────────────────────
 
 .tool-call {
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  border-left: 3px solid var(--asdk-primary, #{t.$zima-blue});
+  border: 1px solid var(--border, var(--border));
+  border-left: 3px solid var(--primary, var(--primary));
   border-radius: 7px;
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
-  font-family: t.$font-stack;
+  background: var(--bg-tertiary, var(--bg-tertiary));
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   overflow: auto;
   align-self: stretch;
@@ -670,8 +668,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 10%, var(--asdk-surface-2, #{t.$color-surface-2}));
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  background: color-mix(in srgb, var(--primary, var(--primary)) 10%, var(--bg-tertiary, var(--bg-tertiary)));
+  border-bottom: 1px solid var(--border, var(--border));
 }
 
 .tool-icon {
@@ -681,7 +679,7 @@
 
 .tool-name {
   font-weight: 600;
-  color: var(--asdk-text, #{t.$color-text});
+  color: var(--text-primary, var(--text-primary));
   letter-spacing: 0.01em;
   flex: 1;
 }
@@ -693,17 +691,17 @@
   font-weight: 500;
 
   &--running {
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 15%, transparent);
-    color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
+    background: color-mix(in srgb, var(--primary, var(--primary)) 15%, transparent);
+    color: var(--primary-dark, var(--primary-dark));
     animation: pulse 1.4s ease-in-out infinite;
   }
   &--done {
-    background: #{t.$color-success-bg};
-    color: #{t.$color-success};
+    background: var(--green-subtle);
+    color: var(--green);
   }
   &--error {
-    background: #{t.$color-error-bg};
-    color: #{t.$color-error};
+    background: var(--red-subtle);
+    color: var(--red);
   }
 }
 
@@ -719,7 +717,7 @@
     margin: 0;
     font-size: 11px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    color: var(--asdk-text-muted, #{t.$color-text-muted});
+    color: var(--text-secondary, var(--text-secondary));
     white-space: pre-wrap;
     word-break: break-all;
   }
@@ -727,28 +725,28 @@
 
 .tool-result {
   padding: 2px 10px 6px;
-  border-top: 1px dashed var(--asdk-border, #{t.$color-border});
+  border-top: 1px dashed var(--border, var(--border));
   margin-top: 4px;
 
   pre {
     margin: 0;
     font-size: 11px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    color: var(--asdk-text, #{t.$color-text});
+    color: var(--text-primary, var(--text-primary));
     white-space: pre-wrap;
     word-break: break-all;
   }
 
   &--error pre {
-    color: #{t.$color-error};
+    color: var(--red);
   }
 
   // Sub-agent summary result — green tint to signal success
   &--summary {
-    background: #{t.$color-success-bg};
-    border-top-color: color-mix(in srgb, #{t.$color-success} 30%, transparent);
+    background: var(--green-subtle);
+    border-top-color: color-mix(in srgb, var(--green) 30%, transparent);
 
-    pre { color: #{t.$color-success}; }
+    pre { color: var(--green); }
   }
 }
 
@@ -761,14 +759,14 @@
   font-size: 10px;
   padding: 1px 5px;
   border-radius: 3px;
-  color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
+  color: var(--primary-dark, var(--primary-dark));
   opacity: 0.65;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   white-space: nowrap;
 
   &:hover {
     opacity: 1;
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 10%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 10%, transparent);
   }
 }
 
@@ -777,8 +775,8 @@
 .tool-task-desc {
   padding: 5px 10px 5px;
   font-size: 11.5px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  color: var(--text-secondary, var(--text-secondary));
+  border-bottom: 1px solid var(--border, var(--border));
   line-height: 1.5;
   font-style: italic;
 }
@@ -789,8 +787,8 @@
   margin: 0;
   padding: 4px 10px 5px 26px;
   font-size: 11px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  color: var(--text-secondary, var(--text-secondary));
+  border-bottom: 1px solid var(--border, var(--border));
 
   li {
     padding: 1px 0;
@@ -801,9 +799,9 @@
 // ── Sub-agent progress panel ──────────────────────────────────────────────────
 
 .subagent-panel {
-  border-top: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 14%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--primary, var(--primary)) 14%, transparent);
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .subagent-panel-toggle {
@@ -812,16 +810,16 @@
   gap: 5px;
   width: 100%;
   padding: 5px 10px;
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
+  background: var(--bg-tertiary, var(--bg-tertiary));
   border: none;
   cursor: pointer;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   text-align: left;
 
   &:hover {
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
+    background: var(--bg-elevated, var(--bg-elevated));
   }
 }
 
@@ -843,7 +841,7 @@
 }
 
 .subagent-lane {
-  border-top: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 8%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--primary, var(--primary)) 8%, transparent);
 }
 
 .subagent-lane-header {
@@ -856,11 +854,11 @@
   border: none;
   cursor: pointer;
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   text-align: left;
 
   &:hover {
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 7%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 7%, transparent);
   }
 }
 
@@ -871,7 +869,7 @@
   flex-shrink: 0;
 
   &--running {
-    background: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--primary, var(--primary));
     animation: pulse 1.4s ease-in-out infinite;
   }
 
@@ -882,7 +880,7 @@
 
 .subagent-lane-name {
   font-weight: 600;
-  color: var(--asdk-text, #{t.$color-text});
+  color: var(--text-primary, var(--text-primary));
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -891,7 +889,7 @@
 
 .subagent-lane-status {
   font-size: 10px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   flex-shrink: 0;
 }
 
@@ -906,22 +904,22 @@
   width: 52px;
   height: 4px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 15%, transparent);
+  background: color-mix(in srgb, var(--primary, var(--primary)) 15%, transparent);
   overflow: hidden;
 }
 
 .subagent-token-fill {
   height: 100%;
   border-radius: 2px;
-  background: var(--asdk-primary, #{t.$zima-blue});
+  background: var(--primary, var(--primary));
   transition: width 0.3s ease;
 }
 
 .subagent-token-label {
   font-size: 9px;
   font-weight: 600;
-  font-family: t.$font-stack;
-  color: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 70%, transparent);
+  font-family: system-ui, -apple-system, sans-serif;
+  color: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 70%, transparent);
   min-width: 36px;
   text-align: right;
   line-height: 1;
@@ -942,11 +940,11 @@
 .subagent-event {
   font-size: 10px;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   padding: 1px 0;
 
   &--tool_call {
-    color: var(--asdk-primary, #{t.$zima-blue});
+    color: var(--primary, var(--primary));
   }
 
   &--tool_result {
@@ -954,12 +952,12 @@
   }
 
   &--complete {
-    color: #{t.$color-success};
+    color: var(--green);
     font-weight: 600;
   }
 
   &--turn_start {
-    color: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 50%, transparent);
+    color: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 50%, transparent);
     font-style: italic;
   }
 }
@@ -984,15 +982,15 @@
   flex-direction: column;
 
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 25%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--primary, var(--primary)) 25%, transparent) transparent;
 }
 
 .empty {
   margin: auto;
   font-size: 13px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   text-align: center;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   padding: 0;
 }
 
@@ -1008,7 +1006,7 @@
     align-items: flex-end;
 
     .bubble {
-      background: var(--asdk-primary, #{t.$zima-blue});
+      background: var(--primary, var(--primary));
       color: #fff;
       border-bottom-right-radius: 3px;
     }
@@ -1018,8 +1016,8 @@
     align-items: flex-start;
 
     .bubble {
-      background: var(--asdk-surface-2, #{t.$color-surface-2});
-      color: var(--asdk-text, #{t.$color-text});
+      background: var(--bg-tertiary, var(--bg-tertiary));
+      color: var(--text-primary, var(--text-primary));
       border-bottom-left-radius: 3px;
     }
   }
@@ -1028,9 +1026,9 @@
   &--editing {
     .bubble {
       max-width: 90%;
-      background: var(--asdk-surface-2, #{t.$color-surface-2});
-      color: var(--asdk-text, #{t.$color-text});
-      border: 1px solid var(--asdk-primary, #{t.$zima-blue});
+      background: var(--bg-tertiary, var(--bg-tertiary));
+      color: var(--text-primary, var(--text-primary));
+      border: 1px solid var(--primary, var(--primary));
     }
   }
 }
@@ -1043,7 +1041,7 @@
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 // ── Edit button (pencil icon, shown on hover for user messages) ──────────────
@@ -1058,9 +1056,9 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-bg, #{t.$color-bg});
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  border: 1px solid var(--border, var(--border));
+  background: var(--bg-primary, var(--bg-primary));
+  color: var(--text-secondary, var(--text-secondary));
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.14s, color 0.14s, border-color 0.14s;
@@ -1072,8 +1070,8 @@
   }
 
   &:hover {
-    color: var(--asdk-primary, #{t.$zima-blue});
-    border-color: var(--asdk-primary, #{t.$zima-blue});
+    color: var(--primary, var(--primary));
+    border-color: var(--primary, var(--primary));
   }
 }
 
@@ -1090,19 +1088,19 @@
   width: 100%;
   padding: 6px 8px;
   font-size: 13px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.5;
-  color: var(--asdk-text, #{t.$color-text});
-  background: var(--asdk-bg, #{t.$color-bg});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  color: var(--text-primary, var(--text-primary));
+  background: var(--bg-primary, var(--bg-primary));
+  border: 1px solid var(--border, var(--border));
   border-radius: 6px;
   resize: vertical;
   outline: none;
   box-sizing: border-box;
 
   &:focus {
-    border-color: var(--asdk-primary, #{t.$zima-blue});
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
+    border-color: var(--primary, var(--primary));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
   }
 }
 
@@ -1116,7 +1114,7 @@
 .edit-save-btn {
   padding: 4px 12px;
   font-size: 12px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
   border-radius: 6px;
   border: none;
@@ -1125,17 +1123,17 @@
 }
 
 .edit-cancel-btn {
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  background: var(--bg-elevated, var(--bg-elevated));
+  color: var(--text-secondary, var(--text-secondary));
 
   &:hover {
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
-    color: var(--asdk-text, #{t.$color-text});
+    background: var(--bg-elevated, var(--bg-elevated));
+    color: var(--text-primary, var(--text-primary));
   }
 }
 
 .edit-save-btn {
-  background: var(--asdk-primary, #{t.$zima-blue});
+  background: var(--primary, var(--primary));
   color: #fff;
 
   &:hover {
@@ -1148,10 +1146,10 @@
 .thinking-block {
   align-self: flex-start;
   max-width: 82%;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  border: 1px solid var(--border, var(--border));
   border-radius: 8px;
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
-  font-family: t.$font-stack;
+  background: var(--bg-tertiary, var(--bg-tertiary));
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   overflow: hidden;
 }
@@ -1166,16 +1164,16 @@
   border: none;
   cursor: pointer;
   text-align: left;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
 
   &:hover {
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
+    background: var(--bg-elevated, var(--bg-elevated));
   }
 }
 
 .thinking-arrow {
   font-size: 9px;
-  color: var(--asdk-primary, #{t.$zima-blue});
+  color: var(--primary, var(--primary));
   transition: transform 0.18s ease;
   display: inline-block;
 
@@ -1187,7 +1185,7 @@
 .thinking-title {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--asdk-text, #{t.$color-text});
+  color: var(--text-primary, var(--text-primary));
   flex: 1;
 }
 
@@ -1201,7 +1199,7 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--primary, var(--primary));
     animation: bounce 1.2s ease-in-out infinite;
     &:nth-child(2) { animation-delay: 0.2s; }
     &:nth-child(3) { animation-delay: 0.4s; }
@@ -1210,16 +1208,16 @@
 
 .thinking-body {
   padding: 4px 10px 8px;
-  border-top: 1px solid var(--asdk-border, #{t.$color-border});
+  border-top: 1px solid var(--border, var(--border));
   font-size: 11.5px;
   line-height: 1.6;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 320px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--asdk-border, #{t.$color-border}) transparent;
+  scrollbar-color: var(--border, var(--border)) transparent;
 }
 
 // ── Thinking dots ─────────────────────────────────────────────────────────────
@@ -1235,7 +1233,7 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--primary, var(--primary));
     animation: bounce 1.2s ease-in-out infinite;
 
     &:nth-child(2) { animation-delay: 0.2s; }
@@ -1278,8 +1276,8 @@
   display: flex;
   flex-direction: column;
   padding: 10px 12px;
-  border-top: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface, #{t.$color-surface});
+  border-top: 1px solid var(--border, var(--border));
+  background: var(--bg-secondary, var(--bg-secondary));
   flex-shrink: 0;
   gap: 6px;
 }
@@ -1307,11 +1305,11 @@
   max-width: 160px;
   padding: 3px 6px 3px 4px;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 25%, transparent);
-  background: color-mix(in srgb, var(--asdk-primary-pale, #{t.$zima-blue-pale}) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, var(--primary)) 25%, transparent);
+  background: color-mix(in srgb, var(--primary-pale, color-mix(in srgb, var(--primary) 12%, var(--bg-tertiary))) 50%, transparent);
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-primary-deep, #{t.$zima-blue-deep});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--primary-deep, var(--primary-deep));
 }
 
 .attach-thumb {
@@ -1342,7 +1340,7 @@
   border: none;
   background: none;
   cursor: pointer;
-  color: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 60%, transparent);
+  color: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 60%, transparent);
   font-size: 14px;
   line-height: 1;
   padding: 0;
@@ -1360,7 +1358,7 @@
 
 .attach-error {
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   color: #b91c1c;
   background: rgba(239, 68, 68, 0.08);
   border-radius: 5px;
@@ -1373,10 +1371,10 @@
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  border: 1.5px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 30%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--primary, var(--primary)) 30%, transparent);
   border-radius: 7px;
   background: none;
-  color: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 70%, transparent);
+  color: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 70%, transparent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1384,9 +1382,9 @@
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 
   &:hover:not(:disabled) {
-    border-color: var(--asdk-primary, #{t.$zima-blue});
-    color: var(--asdk-primary, #{t.$zima-blue});
-    background: color-mix(in srgb, var(--asdk-primary-pale, #{t.$zima-blue-pale}) 50%, transparent);
+    border-color: var(--primary, var(--primary));
+    color: var(--primary, var(--primary));
+    background: color-mix(in srgb, var(--primary-pale, color-mix(in srgb, var(--primary) 12%, var(--bg-tertiary))) 50%, transparent);
   }
 
   &:disabled {
@@ -1427,17 +1425,17 @@
   gap: 5px;
   padding: 5px 9px;
   border-radius: 7px;
-  border: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 25%, transparent);
-  background: color-mix(in srgb, var(--asdk-primary-pale, #{t.$zima-blue-pale}) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, var(--primary)) 25%, transparent);
+  background: color-mix(in srgb, var(--primary-pale, color-mix(in srgb, var(--primary) 12%, var(--bg-tertiary))) 55%, transparent);
   font-size: 11.5px;
-  font-family: t.$font-stack;
-  color: var(--asdk-primary-deep, #{t.$zima-blue-deep});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--primary-deep, var(--primary-deep));
   text-decoration: none;
   transition: background 0.15s;
   max-width: 200px;
 
   &:hover {
-    background: color-mix(in srgb, var(--asdk-primary-pale, #{t.$zima-blue-pale}) 80%, transparent);
+    background: color-mix(in srgb, var(--primary-pale, color-mix(in srgb, var(--primary) 12%, var(--bg-tertiary))) 80%, transparent);
   }
 }
 
@@ -1499,7 +1497,7 @@
   blockquote.md-blockquote {
     margin: 0.4em 0;
     padding: 0.2em 0.8em;
-    border-left: 3px solid color-mix(in srgb, var(--asdk-primary, #4a9eff) 40%, transparent);
+    border-left: 3px solid color-mix(in srgb, var(--primary, #4a9eff) 40%, transparent);
     opacity: 0.85;
     font-style: italic;
   }
@@ -1549,7 +1547,7 @@
 
   .md-th {
     font-weight: 600;
-    background: color-mix(in srgb, var(--asdk-primary, #4a9eff) 10%, transparent);
+    background: color-mix(in srgb, var(--primary, #4a9eff) 10%, transparent);
   }
 
   .md-tbody .md-tr:nth-child(even) {
@@ -1563,7 +1561,7 @@
   flex-shrink: 0;
   margin: 0;
   cursor: default;
-  accent-color: var(--asdk-primary, #4a9eff);
+  accent-color: var(--primary, #4a9eff);
   width: 13px;
   height: 13px;
   position: relative;
@@ -1607,13 +1605,13 @@
 .input {
   flex: 1;
   resize: none;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  border: 1px solid var(--border, var(--border));
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
+  background: var(--bg-elevated, var(--bg-elevated));
   outline: none;
   line-height: 1.5;
   max-height: 120px;
@@ -1621,11 +1619,11 @@
   transition: border-color 0.15s;
 
   &::placeholder {
-    color: var(--asdk-text-muted, #{t.$color-text-muted});
+    color: var(--text-secondary, var(--text-secondary));
   }
 
   &:focus {
-    border-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 60%, transparent);
+    border-color: color-mix(in srgb, var(--primary, var(--primary)) 60%, transparent);
   }
 
   &:disabled {
@@ -1640,7 +1638,7 @@
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: var(--asdk-gradient, #{t.$gradient-primary});
+  background: var(--gradient-primary, linear-gradient(135deg, var(--primary), var(--primary-dark)));
   color: #fff;
   cursor: pointer;
   display: flex;
@@ -1695,15 +1693,15 @@
   background: none;
   cursor: pointer;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   transition: color 0.15s;
   display: flex;
   align-items: center;
   white-space: nowrap;
 
   &:hover {
-    color: var(--asdk-text, #{t.$color-text});
+    color: var(--text-primary, var(--text-primary));
   }
 }
 
@@ -1714,8 +1712,8 @@
   align-items: flex-start;
   gap: 10px;
   padding: 10px 14px 12px;
-  border-top: 2px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 50%, transparent);
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 8%, var(--asdk-surface, #{t.$color-surface}));
+  border-top: 2px solid color-mix(in srgb, var(--primary, var(--primary)) 50%, transparent);
+  background: color-mix(in srgb, var(--primary, var(--primary)) 8%, var(--bg-secondary, var(--bg-secondary)));
   flex-shrink: 0;
   animation: prompt-in 0.18s ease both;
 }
@@ -1743,9 +1741,9 @@
 .user-input-prompt-message {
   margin: 0;
   font-size: 13px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
-  color: var(--asdk-primary-deep, #{t.$zima-blue-deep});
+  color: var(--primary-deep, var(--primary-deep));
   line-height: 1.5;
 }
 
@@ -1765,22 +1763,22 @@
 .user-input-text {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  border: 1px solid var(--border, var(--border));
   border-radius: 7px;
   padding: 6px 9px;
   font-size: 13px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
+  background: var(--bg-elevated, var(--bg-elevated));
   outline: none;
   transition: border-color 0.15s;
 
   &:focus {
-    border-color: var(--asdk-primary, #{t.$zima-blue});
+    border-color: var(--primary, var(--primary));
   }
 
   &::placeholder {
-    color: var(--asdk-text-muted, #{t.$color-text-muted});
+    color: var(--text-secondary, var(--text-secondary));
   }
 }
 
@@ -1792,7 +1790,7 @@
   padding: 0 13px;
   border-radius: 6px;
   font-size: 12.5px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
   cursor: pointer;
   border: none;
@@ -1804,7 +1802,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--asdk-primary, #{t.$zima-blue});
+    outline: 2px solid var(--primary, var(--primary));
     outline-offset: 2px;
   }
 
@@ -1815,7 +1813,7 @@
 
   // Primary — gradient fill (matches send button)
   &--primary {
-    background: var(--asdk-gradient, #{t.$gradient-primary});
+    background: var(--gradient-primary, linear-gradient(135deg, var(--primary), var(--primary-dark)));
     color: #fff;
 
     &:hover:not(:disabled) {
@@ -1825,25 +1823,25 @@
 
   // Ghost — subtle secondary action
   &--ghost {
-    background: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 10%, transparent);
-    color: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 70%, transparent);
+    background: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 10%, transparent);
+    color: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 70%, transparent);
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--asdk-primary-dark, #{t.$zima-blue-dark}) 16%, transparent);
-      color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
+      background: color-mix(in srgb, var(--primary-dark, var(--primary-dark)) 16%, transparent);
+      color: var(--primary-dark, var(--primary-dark));
     }
   }
 
   // Option — pill-style choice button for select prompts
   &--option {
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 11%, transparent);
-    color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
-    border: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 26%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 11%, transparent);
+    color: var(--primary-dark, var(--primary-dark));
+    border: 1px solid color-mix(in srgb, var(--primary, var(--primary)) 26%, transparent);
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
-      border-color: var(--asdk-primary, #{t.$zima-blue});
-      color: var(--asdk-primary-deep, #{t.$zima-blue-deep});
+      background: color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
+      border-color: var(--primary, var(--primary));
+      color: var(--primary-deep, var(--primary-deep));
     }
   }
 }
@@ -1867,13 +1865,13 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   cursor: pointer;
   user-select: none;
 
   input[type='checkbox'] {
-    accent-color: var(--asdk-primary, #{t.$zima-blue});
+    accent-color: var(--primary, var(--primary));
     width: 14px;
     height: 14px;
     cursor: pointer;
@@ -1893,7 +1891,7 @@
 .user-input-multi-hint {
   margin: 0;
   font-size: 11.5px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 // ── Cron panel ────────────────────────────────────────────────────────────────
@@ -1911,13 +1909,13 @@
   gap: 4px;
   padding: 8px 10px;
   border-radius: 7px;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
+  border: 1px solid var(--border, var(--border));
+  background: var(--bg-tertiary, var(--bg-tertiary));
   transition: border-color 0.2s, background 0.2s;
 
   &--active {
-    border-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 55%, transparent);
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 6%, var(--asdk-surface-2, #{t.$color-surface-2}));
+    border-color: color-mix(in srgb, var(--primary, var(--primary)) 55%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 6%, var(--bg-tertiary, var(--bg-tertiary)));
   }
 
   &--paused {
@@ -1943,17 +1941,17 @@
   width: 14px;
   text-align: center;
 
-  .cron-job--active &   { color: var(--asdk-primary, #{t.$zima-blue}); }
-  .cron-job--paused &   { color: var(--asdk-text-muted, #{t.$color-text-muted}); }
-  .cron-job--completed & { color: #{t.$color-success}; }
+  .cron-job--active &   { color: var(--primary, var(--primary)); }
+  .cron-job--paused &   { color: var(--text-secondary, var(--text-secondary)); }
+  .cron-job--completed & { color: var(--green); }
 }
 
 .cron-job-label {
   flex: 1;
   font-size: 12px;
   font-weight: 600;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -1964,8 +1962,8 @@
   flex-shrink: 0;
   font-size: 11px;
   font-family: monospace;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
+  color: var(--text-secondary, var(--text-secondary));
+  background: var(--bg-elevated, var(--bg-elevated));
   padding: 1px 5px;
   border-radius: 4px;
 }
@@ -1973,11 +1971,11 @@
 .cron-job-tag {
   flex-shrink: 0;
   font-size: 10px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 15%, transparent);
+  color: var(--primary-dark, var(--primary-dark));
+  background: color-mix(in srgb, var(--primary, var(--primary)) 15%, transparent);
   padding: 1px 5px;
   border-radius: 4px;
   text-transform: uppercase;
@@ -1989,17 +1987,17 @@
   gap: 6px;
   flex-wrap: wrap;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .cron-job-prompt {
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   line-height: 1.4;
   padding: 4px 6px;
-  border-left: 2px solid var(--asdk-border, #{t.$color-border});
+  border-left: 2px solid var(--border, var(--border));
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 60px;
@@ -2019,16 +2017,16 @@
   padding: 2px 8px;
   border-radius: 3px;
   font-size: 11px;
-  font-family: t.$font-stack;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  border: 1px solid var(--border, var(--border));
+  color: var(--text-secondary, var(--text-secondary));
   background: transparent;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 
   &:hover:not(:disabled) {
-    background: var(--asdk-bg-hover, rgba(0,0,0,0.06));
-    color: var(--asdk-text, #{t.$color-text});
-    border-color: var(--asdk-text-muted, #{t.$color-text-muted});
+    background: var(--bg-primary-hover, rgba(0,0,0,0.06));
+    color: var(--text-primary, var(--text-primary));
+    border-color: var(--text-secondary, var(--text-secondary));
   }
 
   &:disabled {
@@ -2037,11 +2035,11 @@
   }
 
   &--danger {
-    color: var(--asdk-danger, #d44);
-    border-color: var(--asdk-danger, #d44);
+    color: var(--red, #d44);
+    border-color: var(--red, #d44);
 
     &:hover:not(:disabled) {
-      background: var(--asdk-danger, #d44);
+      background: var(--red, #d44);
       color: #fff;
     }
   }
@@ -2053,7 +2051,7 @@
 // CardShell in shared.tsx; it falls back to the primary theme colour.
 
 .tool-call {
-  border-left-color: var(--tc-accent, var(--asdk-primary, #{t.$zima-blue}));
+  border-left-color: var(--tc-accent, var(--primary, var(--primary)));
 }
 
 // Body wrapper for per-operation content.
@@ -2069,14 +2067,14 @@
   gap: 6px;
   padding: 3px 10px;
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 
   &:first-child { padding-top: 5px; }
   &:last-child  { padding-bottom: 4px; }
 }
 
 .tc-info-label {
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   flex-shrink: 0;
   min-width: 60px;
 
@@ -2084,13 +2082,13 @@
 }
 
 .tc-info-value {
-  color: var(--asdk-text, #{t.$color-text});
+  color: var(--text-primary, var(--text-primary));
   word-break: break-all;
 
   code {
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
     font-size: 10.5px;
-    color: var(--tc-accent, var(--asdk-primary, #{t.$zima-blue}));
+    color: var(--tc-accent, var(--primary, var(--primary)));
   }
 }
 
@@ -2104,7 +2102,7 @@
   background: color-mix(in srgb, var(--chip-color, #6b7280) 12%, transparent);
   color: color-mix(in srgb, var(--chip-color, #6b7280) 80%, #000);
   border: 1px solid color-mix(in srgb, var(--chip-color, #6b7280) 20%, transparent);
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   white-space: nowrap;
 
   &[data-mono] {
@@ -2124,7 +2122,7 @@
 .tc-section {
   border-top: 1px solid color-mix(in srgb, var(--tc-accent, #6b7280) 14%, transparent);
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
 
   &[open] > .tc-section-summary { opacity: 1; }
 }
@@ -2157,8 +2155,8 @@
 // Code block (source code, JSON schema, etc.)
 .tc-code {
   margin: 0 10px 6px;
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  background: var(--bg-elevated, var(--bg-elevated));
+  border: 1px solid var(--border, var(--border));
   border-radius: 4px;
   overflow: auto;
 
@@ -2167,7 +2165,7 @@
     padding: 6px 8px;
     font-size: 10.5px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    color: var(--asdk-text, #{t.$color-text});
+    color: var(--text-primary, var(--text-primary));
     white-space: pre;
     line-height: 1.5;
   }
@@ -2177,9 +2175,9 @@
   display: block;
   padding: 2px 8px 4px;
   font-size: 10px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
-  font-family: t.$font-stack;
-  border-top: 1px dashed var(--asdk-border, #{t.$color-border});
+  color: var(--text-secondary, var(--text-secondary));
+  font-family: system-ui, -apple-system, sans-serif;
+  border-top: 1px dashed var(--border, var(--border));
 }
 
 // Diff blocks (str_replace)
@@ -2205,17 +2203,17 @@
 }
 
 .tc-diff-old {
-  background: color-mix(in srgb, #{t.$color-error} 15%, var(--asdk-surface-2, #{t.$color-surface-2}));
-  border: 1px solid color-mix(in srgb, #{t.$color-error} 30%, transparent);
+  background: color-mix(in srgb, var(--red) 15%, var(--bg-tertiary, var(--bg-tertiary)));
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
 
-  pre { color: #{t.$color-error}; }
+  pre { color: var(--red); }
 }
 
 .tc-diff-new {
-  background: color-mix(in srgb, #{t.$color-success} 10%, var(--asdk-surface-2, #{t.$color-surface-2}));
-  border: 1px solid color-mix(in srgb, #{t.$color-success} 30%, transparent);
+  background: color-mix(in srgb, var(--green) 10%, var(--bg-tertiary, var(--bg-tertiary)));
+  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
 
-  pre { color: #{t.$color-success}; }
+  pre { color: var(--green); }
 }
 
 .tc-diff-label {
@@ -2233,8 +2231,8 @@
 .tc-ask-question {
   padding: 6px 10px 4px;
   font-size: 12.5px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   font-weight: 500;
   line-height: 1.5;
 }
@@ -2250,7 +2248,7 @@
   padding: 2px 9px;
   border-radius: 20px;
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   border: 1px solid color-mix(in srgb, #ea580c 25%, transparent);
   color: #9a3412;
   background: color-mix(in srgb, #ea580c 6%, transparent);
@@ -2276,13 +2274,13 @@
     color: #9ca3af;
     font-style: italic;
     font-size: 11px;
-    font-family: t.$font-stack;
+    font-family: system-ui, -apple-system, sans-serif;
   }
 
   &--error {
     color: #b91c1c;
     font-size: 11px;
-    font-family: t.$font-stack;
+    font-family: system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -2297,8 +2295,8 @@
 
 .tc-ask-answer-value {
   font-size: 11.5px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   font-weight: 500;
 }
 
@@ -2306,8 +2304,8 @@
 .tc-description {
   padding: 4px 10px 2px;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   font-style: italic;
   line-height: 1.5;
 }
@@ -2323,37 +2321,37 @@
 
   li {
     font-size: 11px;
-    font-family: t.$font-stack;
-    color: var(--asdk-text, #{t.$color-text});
+    font-family: system-ui, -apple-system, sans-serif;
+    color: var(--text-primary, var(--text-primary));
     padding: 1px 0;
 
     code {
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
       font-size: 10.5px;
-      color: var(--asdk-primary, #{t.$zima-blue});
+      color: var(--primary, var(--primary));
     }
   }
 }
 
 .slash-menu {
-  background: var(--asdk-surface, #{t.$color-surface});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  background: var(--bg-secondary, var(--bg-secondary));
+  border: 1px solid var(--border, var(--border));
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   max-height: 200px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--asdk-border, #{t.$color-border}) transparent;
+  scrollbar-color: var(--border, var(--border)) transparent;
 }
 
 .slash-menu-header {
   padding: 6px 12px 4px;
   font-size: 10px;
   font-weight: 600;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .slash-item {
@@ -2365,7 +2363,7 @@
   transition: background 0.1s;
 
   &--active {
-    background: var(--asdk-surface-2, #{t.$color-surface-2});
+    background: var(--bg-tertiary, var(--bg-tertiary));
   }
 
   &:last-child {
@@ -2378,7 +2376,7 @@
   font-size: 12px;
   font-weight: 600;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  color: var(--asdk-primary, #{t.$zima-blue});
+  color: var(--primary, var(--primary));
   white-space: nowrap;
 }
 
@@ -2390,8 +2388,8 @@
 
 .slash-item-desc {
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2401,11 +2399,11 @@
   flex-shrink: 0;
   font-size: 9px;
   font-weight: 700;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   padding: 1px 5px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 14%, transparent);
-  color: var(--asdk-primary, #{t.$zima-blue});
+  background: color-mix(in srgb, var(--primary, var(--primary)) 14%, transparent);
+  color: var(--primary, var(--primary));
 }
 
 // ── Experience Panel ──────────────────────────────────────────────────────────
@@ -2417,7 +2415,7 @@
   flex-direction: column;
   gap: 0;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 25%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--primary, var(--primary)) 25%, transparent) transparent;
 }
 
 .exp-toolbar {
@@ -2426,15 +2424,15 @@
   justify-content: space-between;
   padding: 8px 12px 6px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface, #{t.$color-surface});
+  border-bottom: 1px solid var(--border, var(--border));
+  background: var(--bg-secondary, var(--bg-secondary));
 }
 
 .exp-toolbar-title {
   font-size: 12px;
   font-weight: 700;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2445,9 +2443,9 @@
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
-  color: var(--asdk-primary, #{t.$zima-blue});
-  font-family: t.$font-stack;
+  background: color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
+  color: var(--primary, var(--primary));
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .exp-toolbar-actions {
@@ -2458,11 +2456,11 @@
 
 .exp-toolbar-feedback {
   font-size: 10px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   padding: 1px 7px;
   border-radius: 10px;
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
+  background: var(--bg-tertiary, var(--bg-tertiary));
   white-space: nowrap;
   margin-right: 4px;
 }
@@ -2473,15 +2471,15 @@
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  border-bottom: 1px solid var(--border, var(--border));
   flex-shrink: 0;
-  background: var(--asdk-surface, #{t.$color-surface});
+  background: var(--bg-secondary, var(--bg-secondary));
 }
 
 .exp-filter-clear {
   font-size: 10px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   background: none;
   border: none;
   cursor: pointer;
@@ -2501,13 +2499,13 @@
 .exp-item {
   padding: 9px 10px 8px;
   border-radius: 8px;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
+  border: 1px solid var(--border, var(--border));
+  background: var(--bg-tertiary, var(--bg-tertiary));
   margin-top: 6px;
   transition: border-color 0.15s;
 
   &:first-child { margin-top: 0; }
-  &:hover { border-color: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 50%, transparent); }
+  &:hover { border-color: color-mix(in srgb, var(--primary, var(--primary)) 50%, transparent); }
 }
 
 .exp-item-header {
@@ -2519,8 +2517,8 @@
 
 .exp-item-date {
   font-size: 10px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .exp-item-actions {
@@ -2535,8 +2533,8 @@
 
 .exp-item-content {
   font-size: 12px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   line-height: 1.6;
   margin: 0 0 5px;
   word-break: break-word;
@@ -2557,21 +2555,21 @@
   border-radius: 10px;
   font-size: 10px;
   font-weight: 500;
-  font-family: t.$font-stack;
-  background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 10%, transparent);
-  color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
-  border: 1px solid color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
+  font-family: system-ui, -apple-system, sans-serif;
+  background: color-mix(in srgb, var(--primary, var(--primary)) 10%, transparent);
+  color: var(--primary-dark, var(--primary-dark));
+  border: 1px solid color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 
   &:hover {
-    background: color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 18%, transparent);
+    background: color-mix(in srgb, var(--primary, var(--primary)) 18%, transparent);
   }
 
   &--active {
-    background: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--primary, var(--primary));
     color: #fff;
-    border-color: var(--asdk-primary-dark, #{t.$zima-blue-dark});
+    border-color: var(--primary-dark, var(--primary-dark));
   }
 }
 
@@ -2580,8 +2578,8 @@
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px 10px;
-  background: var(--asdk-surface, #{t.$color-surface});
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  background: var(--bg-secondary, var(--bg-secondary));
+  border-bottom: 1px solid var(--border, var(--border));
 }
 
 .exp-form-textarea {
@@ -2589,19 +2587,19 @@
   min-height: 68px;
   padding: 7px 9px;
   border-radius: 6px;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
+  border: 1px solid var(--border, var(--border));
+  background: var(--bg-elevated, var(--bg-elevated));
   font-size: 12px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   resize: vertical;
   outline: none;
   box-sizing: border-box;
   line-height: 1.5;
 
   &:focus {
-    border-color: var(--asdk-primary, #{t.$zima-blue});
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
+    border-color: var(--primary, var(--primary));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
   }
 }
 
@@ -2609,20 +2607,20 @@
   width: 100%;
   padding: 5px 9px;
   border-radius: 6px;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  background: var(--asdk-surface-3, #{t.$color-surface-3});
+  border: 1px solid var(--border, var(--border));
+  background: var(--bg-elevated, var(--bg-elevated));
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text, #{t.$color-text});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
   outline: none;
   box-sizing: border-box;
 
   &:focus {
-    border-color: var(--asdk-primary, #{t.$zima-blue});
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--asdk-primary, #{t.$zima-blue}) 20%, transparent);
+    border-color: var(--primary, var(--primary));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, var(--primary)) 20%, transparent);
   }
 
-  &::placeholder { color: var(--asdk-text-muted, #{t.$color-text-muted}); }
+  &::placeholder { color: var(--text-secondary, var(--text-secondary)); }
 }
 
 .exp-form-actions {
@@ -2637,11 +2635,11 @@
   padding: 4px 12px;
   border-radius: 6px;
   border: none;
-  background: var(--asdk-primary, #{t.$zima-blue});
+  background: var(--primary, var(--primary));
   color: #fff;
   font-size: 11px;
   font-weight: 600;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   cursor: pointer;
   transition: opacity 0.15s;
 
@@ -2652,15 +2650,15 @@
 .exp-btn-ghost {
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  border: 1px solid var(--border, var(--border));
   background: transparent;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   cursor: pointer;
   transition: background 0.15s;
 
-  &:hover { background: var(--asdk-surface-2, #{t.$color-surface-2}); color: var(--asdk-text, #{t.$color-text}); }
+  &:hover { background: var(--bg-tertiary, var(--bg-tertiary)); color: var(--text-primary, var(--text-primary)); }
 }
 
 .exp-btn-ghost-sm {
@@ -2668,15 +2666,15 @@
   border-radius: 4px;
   border: none;
   background: transparent;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   font-size: 11px;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   cursor: pointer;
   line-height: 1.4;
 
   &:hover {
-    background: var(--asdk-surface-2, #{t.$color-surface-2});
-    color: var(--asdk-text, #{t.$color-text});
+    background: var(--bg-tertiary, var(--bg-tertiary));
+    color: var(--text-primary, var(--text-primary));
   }
 }
 
@@ -2688,7 +2686,7 @@
   color: #b91c1c;
   font-size: 10.5px;
   font-weight: 600;
-  font-family: t.$font-stack;
+  font-family: system-ui, -apple-system, sans-serif;
   cursor: pointer;
 
   &:hover { background: color-mix(in srgb, #ef4444 16%, transparent); }
@@ -2716,21 +2714,21 @@
   width: 100%;
   padding: 5px 10px;
 
-  border: 1px solid var(--asdk-border, #{t.$color-border});
-  border-left: 3px solid var(--tc-accent, var(--asdk-primary, #{t.$zima-blue}));
+  border: 1px solid var(--border, var(--border));
+  border-left: 3px solid var(--tc-accent, var(--primary, var(--primary)));
   border-radius: 7px;
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
-  font-family: t.$font-stack;
+  background: var(--bg-tertiary, var(--bg-tertiary));
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   cursor: pointer;
   transition: background 0.12s;
 
   &:hover {
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
+    background: var(--bg-elevated, var(--bg-elevated));
   }
 
   &:focus-visible {
-    outline: 2px solid var(--asdk-primary, #{t.$zima-blue});
+    outline: 2px solid var(--primary, var(--primary));
     outline-offset: 1px;
   }
 }
@@ -2743,7 +2741,7 @@
 
 .tool-call-compact-label {
   font-weight: 600;
-  color: var(--asdk-text, #{t.$color-text});
+  color: var(--text-primary, var(--text-primary));
   flex-shrink: 0;
   letter-spacing: 0.01em;
 }
@@ -2754,7 +2752,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 10.5px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
@@ -2773,8 +2771,8 @@
 }
 
 .tc-modal-panel {
-  background: var(--asdk-surface, #{t.$color-surface});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  background: var(--bg-secondary, var(--bg-secondary));
+  border: 1px solid var(--border, var(--border));
   border-radius: 10px;
   max-width: 640px;
   width: calc(100% - 32px);
@@ -2784,7 +2782,7 @@
   animation: tcSlideUp 0.14s ease;
 
   scrollbar-width: thin;
-  scrollbar-color: var(--asdk-border, #{t.$color-border}) transparent;
+  scrollbar-color: var(--border, var(--border)) transparent;
 }
 
 .tc-modal-header {
@@ -2792,10 +2790,10 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--asdk-border, #{t.$color-border});
+  border-bottom: 1px solid var(--border, var(--border));
   position: sticky;
   top: 0;
-  background: var(--asdk-surface, #{t.$color-surface});
+  background: var(--bg-secondary, var(--bg-secondary));
   z-index: 1;
 }
 
@@ -2803,8 +2801,8 @@
   flex: 1;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--asdk-text, #{t.$color-text});
-  font-family: t.$font-stack;
+  color: var(--text-primary, var(--text-primary));
+  font-family: system-ui, -apple-system, sans-serif;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2820,18 +2818,18 @@
   height: 24px;
   border-radius: 50%;
   font-size: 12px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
 
   &:hover {
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
-    color: var(--asdk-text, #{t.$color-text});
+    background: var(--bg-elevated, var(--bg-elevated));
+    color: var(--text-primary, var(--text-primary));
   }
 
   &:focus-visible {
-    outline: 2px solid var(--asdk-primary, #{t.$zima-blue});
+    outline: 2px solid var(--primary, var(--primary));
     outline-offset: 1px;
   }
 }
@@ -2868,25 +2866,25 @@
   align-items: center;
   gap: 5px;
   padding: 5px 14px;
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  background: var(--bg-tertiary, var(--bg-tertiary));
+  border: 1px solid var(--border, var(--border));
   border-radius: 20px;
   font-size: 11px;
-  font-family: t.$font-stack;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   animation: tcFadeIn 0.15s ease;
 
   &:hover {
-    background: var(--asdk-surface-3, #{t.$color-surface-3});
-    color: var(--asdk-text, #{t.$color-text});
-    border-color: var(--asdk-primary, #{t.$zima-blue});
+    background: var(--bg-elevated, var(--bg-elevated));
+    color: var(--text-primary, var(--text-primary));
+    border-color: var(--primary, var(--primary));
   }
 
   &:focus-visible {
-    outline: 2px solid var(--asdk-primary, #{t.$zima-blue});
+    outline: 2px solid var(--primary, var(--primary));
     outline-offset: 2px;
   }
 }
@@ -2903,18 +2901,18 @@
 }
 
 .task-card {
-  background: var(--asdk-surface-2, #{t.$color-surface-2});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  background: var(--bg-tertiary, var(--bg-tertiary));
+  border: 1px solid var(--border, var(--border));
   border-radius: 6px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 
-  &--running   { border-left: 3px solid var(--asdk-primary, #{t.$zima-blue}); }
-  &--completed { border-left: 3px solid #{t.$color-success}; }
-  &--failed    { border-left: 3px solid #{t.$color-error}; }
-  &--cancelled { border-left: 3px solid var(--asdk-text-muted, #{t.$color-text-muted}); }
+  &--running   { border-left: 3px solid var(--primary, var(--primary)); }
+  &--completed { border-left: 3px solid var(--green); }
+  &--failed    { border-left: 3px solid var(--red); }
+  &--cancelled { border-left: 3px solid var(--text-secondary, var(--text-secondary)); }
 }
 
 .task-card-header {
@@ -2927,16 +2925,16 @@
   font-size: 11px;
   flex-shrink: 0;
 
-  .task-card--running &   { color: var(--asdk-primary, #{t.$zima-blue}); }
-  .task-card--completed & { color: #{t.$color-success}; }
-  .task-card--failed &    { color: #{t.$color-error}; }
-  .task-card--cancelled & { color: var(--asdk-text-muted, #{t.$color-text-muted}); }
+  .task-card--running &   { color: var(--primary, var(--primary)); }
+  .task-card--completed & { color: var(--green); }
+  .task-card--failed &    { color: var(--red); }
+  .task-card--cancelled & { color: var(--text-secondary, var(--text-secondary)); }
 }
 
 .task-card-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--asdk-text, #{t.$color-text});
+  color: var(--text-primary, var(--text-primary));
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -2950,18 +2948,18 @@
   padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
-  border: 1px solid var(--asdk-border, #{t.$color-border});
+  color: var(--text-secondary, var(--text-secondary));
+  border: 1px solid var(--border, var(--border));
 
   &:hover {
-    color: #{t.$color-error};
-    border-color: #{t.$color-error};
+    color: var(--red);
+    border-color: var(--red);
   }
 }
 
 .task-card-meta {
   font-size: 11px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
+  color: var(--text-secondary, var(--text-secondary));
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -2969,23 +2967,23 @@
 
 .task-card-snippet {
   font-size: 11.5px;
-  color: var(--asdk-text-muted, #{t.$color-text-muted});
-  font-family: t.$font-mono;
+  color: var(--text-secondary, var(--text-secondary));
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 60px;
   overflow: hidden;
-  border-top: 1px solid var(--asdk-border, #{t.$color-border});
+  border-top: 1px solid var(--border, var(--border));
   padding-top: 4px;
   margin-top: 2px;
 }
 
 .task-card-error {
   font-size: 11.5px;
-  color: #{t.$color-error};
+  color: var(--red);
   white-space: pre-wrap;
   word-break: break-word;
-  border-top: 1px solid var(--asdk-border, #{t.$color-border});
+  border-top: 1px solid var(--border, var(--border));
   padding-top: 4px;
   margin-top: 2px;
 }

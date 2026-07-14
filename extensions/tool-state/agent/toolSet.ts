@@ -99,6 +99,12 @@ export function createToolStateToolSet(): ToolStateToolSet {
           label: 'Tools',
           showTab: () => true,
           shouldRender: () => true,
+          badge: () => {
+            const total = toolStates.length;
+            if (total === 0) return null;
+            const enabled = toolStates.filter((t) => t.enabled).length;
+            return enabled < total ? `${enabled}/${total}` : `${total}`;
+          },
         },
       ] satisfies readonly PluginSlotDeclaration[],
     };
