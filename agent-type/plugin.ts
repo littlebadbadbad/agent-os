@@ -197,6 +197,15 @@ export interface BackendPluginHost {
   getPluginDataDir(): string;
 
   /**
+   * Absolute path to the `.agent/` directory for the current project.
+   *
+   * Plugins use this to access per-project state files.
+   *
+   * @returns The `.agent/` directory path, or `null` if not available.
+   */
+  getAgentDir(): string | null;
+
+  /**
    * Access a backend system configuration value by key.
    *
    * This replaces direct imports of backend modules with a controlled

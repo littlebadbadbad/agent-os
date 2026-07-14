@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { WidgetIcon } from "@agent-sdk";
 import styles from "./SidebarHeader.module.scss";
-import { AIControlBar } from "./AIControlBar";
 import { SidebarSide } from "../../hooks/useSidebarState";
 
 // ── Icon renderer (framework-agnostic: emoji string | URL | DOM/SVG node) ─────
@@ -58,6 +57,8 @@ interface SidebarHeaderProps {
   side: SidebarSide;
   onToggleSide: () => void;
   onToggleOpen: () => void;
+  /** Optional control bar rendered in the header identity area. */
+  controlBar?: ReactNode;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export function SidebarHeader({
   side,
   onToggleSide,
   onToggleOpen,
+  controlBar,
 }: SidebarHeaderProps): ReactElement {
   const collapseTitle = side === "right" ? "Collapse right" : "Collapse left";
   const collapseIcon = side === "right" ? "›" : "‹";
@@ -79,7 +81,7 @@ export function SidebarHeader({
       <div className={styles["identity"]}>
         {icon && <IconNode icon={icon} />}
         <span className={styles["title"]}>Agent</span>
-        <AIControlBar />
+        {controlBar}
       </div>
       <div className={styles["controls"]}>
         <button

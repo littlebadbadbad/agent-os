@@ -15,8 +15,6 @@ import { createLogger } from '../../lib/logger.js';
 import { registerFileHandlers } from './files.js';
 import { registerCronHandlers } from './cron.js';
 import { registerToolHandlers } from './tools.js';
-import { registerSkillHandlers } from './skills.js';
-import { registerMcpHandlers } from './mcp.js';
 import { registerGitHandlers } from './git.js';
 import { registerSessionHandlers } from './sessions.js';
 import { registerSystemHandlers } from './system.js';
@@ -32,8 +30,6 @@ export function registerIpcHandlers(pluginRouter) {
   registerFileHandlers(ipcMain);
   registerCronHandlers(ipcMain);
   registerToolHandlers(ipcMain);
-  registerSkillHandlers(ipcMain);
-  registerMcpHandlers(ipcMain);
   registerGitHandlers(ipcMain);
   registerSessionHandlers(ipcMain);
   registerSystemHandlers(ipcMain);

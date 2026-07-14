@@ -20,7 +20,6 @@ function makeSession(id: string): AgentSession {
       messages: [],
       isLoading: false,
       toolStates: [],
-      skills: [],
       enableAttachments: true,
     }),
     subscribe: (fn: () => void) => { subs.add(fn); return () => subs.delete(fn); },

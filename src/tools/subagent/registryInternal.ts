@@ -34,7 +34,7 @@ export type InternalEntry = {
 export type CreateSubAgentRegistryOptions = {
   /**
    * Lazy getter for ToolSets whose session lifecycle hooks run once per agent
-   * (not per conversation).  Using a getter ensures skills and ToolSets
+   * (not per conversation).  Using a getter ensures ToolSets
    * registered after registry creation are still visible at send time.
    */
   getToolSets?: () => readonly ToolSet[];

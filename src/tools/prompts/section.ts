@@ -40,7 +40,6 @@ export const SECTION_IDS = [
   'browser',           // Browser automation tools
   'variable',          // Variable store tools
   'git',               // Git operations
-  'mcp',               // MCP server management
   'memory_graph',      // Knowledge graph / memory graph
 ] as const;
 

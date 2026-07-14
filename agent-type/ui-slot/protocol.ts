@@ -103,6 +103,29 @@ export interface HeaderBarHostMessage {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ToolButton — DropdownPanel iframe state
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Host pushes full session state to a toolButton iframe on every change.
+ *
+ * Same payload shape as {@link PanelHostMessage} — the toolButton iframe
+ * re-reads `host.getPluginState()` when notified, but uses a separate
+ * message type so the iframe can distinguish dropdown-panel rendering
+ * from sidebar-panel rendering.
+ */
+export interface ToolButtonHostMessage {
+  readonly version: 1;
+  readonly type: "toolButton";
+  /** The slot being targeted. */
+  readonly slotId: string;
+  /** Current session state snapshot. */
+  readonly payload: {
+    readonly state: SessionStateLike;
+  };
+}
+
 /**
  * Discriminated union of all host → iframe messages.
  *
@@ -114,7 +137,8 @@ export type SlotHostMessage =
   | ToolCardHostMessage
   | CompactToolCardHostMessage
   | InlinePromptHostMessage
-  | HeaderBarHostMessage;
+  | HeaderBarHostMessage
+  | ToolButtonHostMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Iframe → Host message protocol (per slot type)
@@ -125,10 +149,17 @@ export type SlotHostMessage =
  *
  * - `openDetail`: the user clicked the compact card; the host should open
  *   the full detail modal (which may itself render a `toolCard` slot).
+ *   The `payload.toolCallId` identifies which tool call to show details for.
  */
 export interface CompactToolCardIframeMessage {
   readonly version: 1;
+  /** Slot type that sent this message — used for host-side routing. */
+  readonly source: "compactToolCard";
   readonly type: "openDetail";
+  /** Identifies the tool call the host should show details for. */
+  readonly payload: {
+    readonly toolCallId: string;
+  };
 }
 
 /**

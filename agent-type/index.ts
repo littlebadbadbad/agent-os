@@ -117,6 +117,9 @@ export type {
 
 // ── UI Slot types (plugin injection points) ───────────────────────────────────
 export type {
+  ToolButtonSlotDeclaration,
+  AutocompleteSlotDeclaration,
+  AutocompleteItem,
   PluginUiAdapter,
   SlotType,
   PanelSlotDeclaration,

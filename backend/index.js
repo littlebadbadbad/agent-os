@@ -15,16 +15,13 @@ import { setCORS, send, readBody } from './lib/http.js';
 import './lib/proxy.js';   // side-effect: initialises global dispatcher
 import { handleChatAsync, handleChatStream } from './transports/network/chat.js';
 import { handleToolRoutes } from './transports/network/tools.js';
-import { handleSkillRoutes } from './transports/network/skills.js';
 import { handleChatLogRoutes } from './transports/network/chat-logs.js';
 import { handleProxyRoutes } from './transports/network/proxy.js';
 import { handleAdoProxyRoutes } from './transports/network/ado-proxy.js';
 import { handleFileRoutes } from './transports/network/files.js';
 import { handleCronRoutes } from './transports/network/cron.js';
-import { handleMcpRoutes } from './transports/network/mcp.js';
-import { startupReconnect } from './lib/mcp-manager/index.js';
 import { createLogger } from './lib/logger.js';
-import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT } from './lib/paths.js';
+import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
 import * as systemService from './services/system.js';
 import { handleApiKeyRoutes } from './transports/network/api-keys.js';
 import { handleModelRoutes } from './transports/network/models.js';
@@ -174,9 +171,6 @@ async function handleRequest(req, res) {
     const toolRouteMatched = await handleToolRoutes(req, res, path);
     if (toolRouteMatched !== false) return;
 
-    const skillRouteMatched = await handleSkillRoutes(req, res, path);
-    if (skillRouteMatched !== false) return;
-
     const chatLogRouteMatched = await handleChatLogRoutes(req, res, path);
     if (chatLogRouteMatched !== false) return;
 
@@ -185,9 +179,6 @@ async function handleRequest(req, res) {
 
     const cronRouteMatched = await handleCronRoutes(req, res, path);
     if (cronRouteMatched !== false) return;
-
-    const mcpRouteMatched = await handleMcpRoutes(req, res, path);
-    if (mcpRouteMatched !== false) return;
 
     const apiKeyRouteMatched = await handleApiKeyRoutes(req, res, path);
     if (apiKeyRouteMatched !== false) return;
@@ -276,14 +267,12 @@ async function handleRequest(req, res) {
 // ── Plugin system (singleton, created once) ────────────────────────────────
 export const pluginScanner = createPluginScanner(pluginRouter, PLUGINS_DIR, DATA_ROOT, {
   proxy: getProxyConfig,
-});
+}, AGENT_DIR);
 export const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
 
 export async function startServer() {
   // Bootstrap plugins before starting the HTTP server (R7).
   await pluginScanner.bootstrap();
-
-  startupReconnect().catch((err) => log.warn('MCP startup reconnect error', err.message));
 
   // ── WebSocket server (noServer — piggybacks on the HTTP server) ────────────
   const wss = new WebSocketServer({ noServer: true });

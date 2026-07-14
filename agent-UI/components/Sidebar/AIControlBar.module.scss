@@ -12,3 +12,30 @@
     height: 0;
   }
 }
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: var(--font-xs, 11px);
+  font-weight: 500;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.2));
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-elevated, transparent);
+  color: var(--text-muted, #888);
+  transition: opacity 0.1s, filter 0.1s;
+
+  &:hover {
+    filter: brightness(1.15);
+  }
+}
+
+.badge {
+  font-size: var(--font-xs, 11px);
+  font-weight: 600;
+  opacity: 0.9;
+  margin-left: 1px;
+}

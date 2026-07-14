@@ -1,8 +1,10 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import type { Attachment, DataAttachment, SkillState } from '@agent-sdk';
+import type { Attachment, DataAttachment } from '@agent-sdk';
+import type { AutocompleteItem } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { SendIcon, StopIcon, AttachIcon } from './ChatInputIcons';
+import { slotRegistry } from '../../../slots/registry';
 import styles from '../AgentWidget.module.scss';
 
 interface ChatInputProps {
@@ -17,52 +19,63 @@ interface ChatInputProps {
   onCancel?: () => void;
   /** When false, hides the attach-file button entirely. Defaults to true. */
   enableAttachments?: boolean;
-  /** Currently loaded skills — displayed in the "/" slash-command menu. */
-  skills?: readonly SkillState[];
 }
 
-export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachments = true, skills = [] }: ChatInputProps): ReactElement {
+export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachments = true }: ChatInputProps): ReactElement {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<DataAttachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Slash-command state ─────────────────────────────────────────────────
-  const [slashOpen, setSlashOpen] = useState(false);
-  const [slashFilter, setSlashFilter] = useState('');
-  const [slashIndex, setSlashIndex] = useState(0);
+  // ── Autocomplete state ──────────────────────────────────────────────────
+  const [acOpen, setAcOpen] = useState(false);
+  const [acItems, setAcItems] = useState<AutocompleteItem[]>([]);
+  const [acIndex, setAcIndex] = useState(0);
+  const [acPrefix, setAcPrefix] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const hasSkills = skills.length > 0;
-  const filteredSkills = hasSkills
-    ? skills.filter((s) =>
-        s.name.toLowerCase().includes(slashFilter.toLowerCase()) ||
-        s.description.toLowerCase().includes(slashFilter.toLowerCase()),
-      )
-    : [];
+  // Build prefix → items map from all autocomplete slots.
+  // Read directly from slotRegistry on each render so plugin slots registered
+  // after mount (via pluginSystem.refreshSlots) are picked up reactively.
+  const prefixItemsMap = (() => {
+    const map = new Map<string, AutocompleteItem[]>();
+    for (const slot of slotRegistry.getByType('autocomplete')) {
+      const prefix = slot.declaration.prefix;
+      const items = slot.declaration.getItems({
+        sessionId: '',
+        agentName: 'main',
+        conversationId: 'main',
+      });
+      if (items.length > 0) {
+        const existing = map.get(prefix);
+        map.set(prefix, existing ? [...existing, ...items] : [...items]);
+      }
+    }
+    return map;
+  })();
 
-  // Keep selected index in range when filter changes
+  const hasAcSlots = prefixItemsMap.size > 0;
+
+  // Keep selected index in range when items change
   useEffect(() => {
-    setSlashIndex((prev) => Math.min(prev, Math.max(0, filteredSkills.length - 1)));
-  }, [filteredSkills.length]);
+    setAcIndex((prev) => Math.min(prev, Math.max(0, acItems.length - 1)));
+  }, [acItems.length]);
 
   // Scroll selected item into view
   useEffect(() => {
-    if (slashOpen && menuRef.current) {
-      const items = menuRef.current.querySelectorAll('[data-slash-item]');
-      items[slashIndex]?.scrollIntoView({ block: 'nearest' });
+    if (acOpen && menuRef.current) {
+      const items = menuRef.current.querySelectorAll('[data-ac-item]');
+      items[acIndex]?.scrollIntoView({ block: 'nearest' });
     }
-  }, [slashIndex, slashOpen]);
+  }, [acIndex, acOpen]);
 
-  /** Insert the selected skill name into the input (autocomplete hint only). */
-  const selectSkill = useCallback((skill: SkillState) => {
-    // Replace input with "/<skillName> " so user can continue typing after it.
-    // Skill activation is deferred to submit() so the slash-command menu acts
-    // purely as an autocomplete helper with no premature side-effects.
-    setValue(`/${skill.name} `);
-    setSlashOpen(false);
-    setSlashFilter('');
+  /** Insert the selected autocomplete item into the input. */
+  const selectItem = useCallback((item: AutocompleteItem) => {
+    setValue(item.insertText);
+    setAcOpen(false);
+    setAcItems([]);
+    setAcPrefix('');
     // Re-focus and place cursor at end
     requestAnimationFrame(() => {
       const ta = textareaRef.current;
@@ -88,30 +101,29 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>): void => {
-      // ── Slash-command navigation ──────────────────────────────────────
-      if (slashOpen && filteredSkills.length > 0) {
+      // ── Autocomplete navigation ────────────────────────────────────────
+      if (acOpen && acItems.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setSlashIndex((i) => (i + 1) % filteredSkills.length);
+          setAcIndex((i) => (i + 1) % acItems.length);
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          setSlashIndex((i) => (i - 1 + filteredSkills.length) % filteredSkills.length);
+          setAcIndex((i) => (i - 1 + acItems.length) % acItems.length);
           return;
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
           e.preventDefault();
-          const skill = filteredSkills[slashIndex];
-          if (skill) {
-            selectSkill(skill);
-          }
+          const item = acItems[acIndex];
+          if (item) selectItem(item);
           return;
         }
         if (e.key === 'Escape') {
           e.preventDefault();
-          setSlashOpen(false);
-          setSlashFilter('');
+          setAcOpen(false);
+          setAcItems([]);
+          setAcPrefix('');
           setValue('');
           return;
         }
@@ -122,7 +134,7 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
         submit();
       }
     },
-    [submit, slashOpen, filteredSkills, slashIndex, selectSkill],
+    [submit, acOpen, acItems, acIndex, selectItem],
   );
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>): void => {
@@ -132,18 +144,32 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
     ta.style.height = 'auto';
     ta.style.height = `${ta.scrollHeight}px`;
 
-    // Detect slash-command: starts with "/" and no space before the cursor
-    if (hasSkills && newValue.startsWith('/')) {
-      setSlashOpen(true);
-      setSlashFilter(newValue.slice(1));
-      setSlashIndex(0);
-    } else {
-      if (slashOpen) {
-        setSlashOpen(false);
-        setSlashFilter('');
+    // Multi-prefix autocomplete detection
+    if (hasAcSlots) {
+      const matchedPrefix = Array.from(prefixItemsMap.keys())
+        .filter((p) => newValue.startsWith(p))
+        .sort((a, b) => b.length - a.length)[0]; // longest prefix wins
+
+      if (matchedPrefix) {
+        const filterText = newValue.slice(matchedPrefix.length);
+        const allItems = prefixItemsMap.get(matchedPrefix)!;
+        const filtered = allItems.filter(
+          (item) => item.label.toLowerCase().includes(filterText.toLowerCase()),
+        );
+        setAcOpen(true);
+        setAcItems(filtered);
+        setAcPrefix(matchedPrefix);
+        setAcIndex(0);
+        return;
       }
     }
-  }, [hasSkills, slashOpen]);
+
+    if (acOpen) {
+      setAcOpen(false);
+      setAcItems([]);
+      setAcPrefix('');
+    }
+  }, [hasAcSlots, prefixItemsMap, acOpen]);
 
   const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const files = Array.from(e.target.files ?? []);
@@ -221,23 +247,23 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
         <div className={styles['attach-error']} role="alert">{attachError}</div>
       )}
 
-      {/* Slash-command skill menu */}
-      {slashOpen && filteredSkills.length > 0 && (
-        <div ref={menuRef} className={styles['slash-menu']} role="listbox" aria-label="Select a skill">
-          <div className={styles['slash-menu-header']}>Skills — type to filter</div>
-          {filteredSkills.map((skill, i) => (
+      {/* Autocomplete menu (multi-prefix) */}
+      {acOpen && acItems.length > 0 && (
+        <div ref={menuRef} className={styles['slash-menu']} role="listbox" aria-label="Autocomplete">
+          <div className={styles['slash-menu-header']}>Autocomplete — type to filter</div>
+          {acItems.map((item, i) => (
             <div
-              key={skill.name}
-              data-slash-item
+              key={item.id}
+              data-ac-item
               role="option"
-              aria-selected={i === slashIndex}
-              className={`${styles['slash-item']}${i === slashIndex ? ` ${styles['slash-item--active']}` : ''}`}
-              onMouseEnter={() => setSlashIndex(i)}
-              onClick={() => selectSkill(skill)}
+              aria-selected={i === acIndex}
+              className={`${styles['slash-item']}${i === acIndex ? ` ${styles['slash-item--active']}` : ''}`}
+              onMouseEnter={() => setAcIndex(i)}
+              onClick={() => selectItem(item)}
             >
-              <span className={styles['slash-item-prefix']}>/{skill.name}</span>
+              <span className={styles['slash-item-prefix']}>{item.label}</span>
               <div className={styles['slash-item-content']}>
-                <span className={styles['slash-item-desc']}>{skill.description}</span>
+                <span className={styles['slash-item-desc']}>{item.description}</span>
               </div>
             </div>
           ))}

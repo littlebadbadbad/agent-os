@@ -60,12 +60,6 @@ export type IpcChannel =
   // ── Sessions ──
   | 'sessions:load'
   | 'sessions:save'
-  // ── Skills ──
-  | 'skills:list'
-  | 'skills:install'
-  | 'skills:remove'
-  | 'skills:readFile'
-  | 'skills:refresh'
   // ── Files ──
   | 'files:read'
   | 'files:write'
@@ -106,12 +100,6 @@ export type IpcChannel =
   | 'tools:update'
   | 'tools:delete'
   | 'tools:execute'
-  // ── MCP ──
-  | 'mcp:list'
-  | 'mcp:add'
-  | 'mcp:remove'
-  | 'mcp:reconnect'
-  | 'mcp:disconnect'
   // ── Git ──
   | 'git:status'
   | 'git:diff'

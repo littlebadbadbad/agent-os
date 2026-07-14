@@ -92,7 +92,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
 
       // Fire onAttach before initialising existing sessions so any tools
       // injected via registerTool/registerToolSet inside onAttach (e.g. proxy
-      // or skill tools) are present when onInitSession runs.
+      // or proxy tools) are present when onInitSession runs.
       const detach = ts.onAttach?.(getAgentClient());
 
       // Per-session unsubscribe functions returned by ts.onSubscribe.

@@ -5,8 +5,6 @@ import type { SlotSession } from "@agent-type";
 import { FileToolCard } from "./toolCards/FileToolCard";
 import { AskUserCard } from "./toolCards/AskUserCard";
 import { DynamicToolCard } from "./toolCards/DynamicToolCard";
-import { McpToolCard } from "./toolCards/McpToolCard";
-import { SkillToolCard } from "./toolCards/SkillToolCard";
 import { SubAgentMetaCard } from "./toolCards/SubAgentMetaCard";
 import { ExperienceToolCard } from "./toolCards/ExperienceToolCard";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
@@ -23,8 +21,6 @@ import {
   isFileTool,
   isAskUserTool,
   isDynamicTool,
-  isMcpTool,
-  isSkillTool,
   isSubAgentMetaTool,
   isExperienceTool,
 } from "./toolCards/identifiers";
@@ -90,8 +86,6 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
   if (isFileTool(name)) return <FileToolCard info={info} />;
   if (isAskUserTool(name)) return <AskUserCard info={info} />;
   if (isDynamicTool(name)) return <DynamicToolCard info={info} />;
-  if (isMcpTool(name)) return <McpToolCard info={info} />;
-  if (isSkillTool(name)) return <SkillToolCard info={info} />;
   if (isSubAgentMetaTool(name)) return <SubAgentMetaCard info={info} />;
   if (isExperienceTool(name)) return <ExperienceToolCard info={info} />;
 

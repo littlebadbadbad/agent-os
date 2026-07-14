@@ -35,12 +35,6 @@ export async function deleteApiKey(providerId: string): Promise<void> {
   return apiTransport.del(`/api/api-keys/${providerId}`);
 }
 
-// ── Skills ────────────────────────────────────────────────────────────────────
-
-export async function listSkills(): Promise<{ skills: Array<{ name: string; description: string }> }> {
-  return apiTransport.get<{ skills: Array<{ name: string; description: string }> }>('/api/skills');
-}
-
 // ── Proxy ─────────────────────────────────────────────────────────────────────
 
 export async function getProxyConfig(): Promise<{ config: Record<string, unknown> }> {

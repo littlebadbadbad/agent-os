@@ -39,9 +39,10 @@ const log = createLogger('plugin-host');
  * @param {string} pluginsDir   - Absolute path to the plugins directory.
  * @param {string} dataRoot     - Absolute path to the data root directory (for plugin data dirs).
  * @param {BackendServices} [backendServices]  - Optional map of backend service accessors.
+ * @param {string} [agentDir]   - Absolute path to the `.agent/` directory.
  * @returns {import('../../agent-type/plugin.ts').BackendPluginHost}
  */
-export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoot, backendServices = {}) {
+export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
   const pluginDataDir = join(dataRoot, 'plugin-data', pluginId);
 
   // Ensure the plugin's data directory exists.
@@ -80,6 +81,10 @@ export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoo
 
     getPluginDataDir() {
       return pluginDataDir;
+    },
+
+    getAgentDir() {
+      return agentDir;
     },
 
     getBackendConfig(key) {

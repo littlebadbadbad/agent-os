@@ -24,7 +24,7 @@ vi.mock('../transport/apiTransport', () => ({
 }));
 
 import { fetchMergedModelConfig, fetchBuiltInModelConfig, fetchCustomModelConfig, saveCustomModelConfig, addCustomModelProvider, removeCustomModelProvider, updateCustomModelProvider } from '../api/providerConfigApi';
-import { fetchPublicKey, fetchApiKeys, saveApiKey, deleteApiKey, listSkills, getProxyConfig, updateProxyConfig, loadSessions, saveSessions } from '../api/backend';
+import { fetchPublicKey, fetchApiKeys, saveApiKey, deleteApiKey, getProxyConfig, updateProxyConfig, loadSessions, saveSessions } from '../api/backend';
 import type { ProviderEntry } from '../store/providerConfigStore';
 
 const SAMPLE_CONFIG: ProviderEntry[] = [
@@ -152,15 +152,6 @@ describe('backend', () => {
       mockDel.mockResolvedValue(undefined);
       await deleteApiKey('DeepSeek');
       expect(mockDel).toHaveBeenCalledWith('/api/api-keys/DeepSeek');
-    });
-  });
-
-  describe('listSkills', () => {
-    it('GETs skills endpoint', async () => {
-      mockGet.mockResolvedValue({ skills: [{ name: 'test', description: 'A test skill' }] });
-      const result = await listSkills();
-      expect(result).toEqual({ skills: [{ name: 'test', description: 'A test skill' }] });
-      expect(mockGet).toHaveBeenCalledWith('/api/skills');
     });
   });
 

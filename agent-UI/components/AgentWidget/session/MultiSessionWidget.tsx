@@ -1,7 +1,9 @@
 import { useSyncExternalStore, useState } from 'react';
 import type { ReactElement } from 'react';
+import type { SlotSession } from '@agent-type';
 import type { WidgetIcon, WidgetTheme, SessionManager } from '@agent-sdk';
 import { Widget } from '../../Widget';
+import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
 import { SessionTabTitle } from './SessionTabTitle';
 import styles from '../AgentWidget.module.scss';
@@ -24,6 +26,8 @@ export function MultiSessionWidget({
   );
 
   const activeEntry = sessions.find((s) => s.id === activeSessionId);
+  const activeSession: SlotSession | undefined = activeEntry?.session;
+
   // agentId is stable (set once from config.id) — all sessions share the same value.
   const agentId = sessions[0]?.session.getState().agentId;
 
@@ -31,7 +35,9 @@ export function MultiSessionWidget({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <Widget id={agentId} icon={icon} theme={theme} initialWidth={initialWidth}>
+    <Widget id={agentId} icon={icon} theme={theme} initialWidth={initialWidth}
+      controlBar={<AIControlBar activeSession={activeSession} />}
+    >
       <div className={styles['chat']}>
         {/* Session sidebar (left vertical tab list) */}
         <div className={`${styles['session-bar']}${collapsed ? ` ${styles['session-bar--collapsed']}` : ''}`}>

@@ -6,8 +6,6 @@ import {
   createFileTools,
   createCronToolSet,
   createDynamicToolset,
-  createSkillToolset,
-  createMcpToolset,
   createSubAgentToolset,
   createVariableToolSet,
   createMemoryGraphToolSet,
@@ -26,8 +24,6 @@ import {
   fileAdapter,
   cronAdapter,
   dynamicToolAdapter,
-  skillAdapter,
-  mcpAdapter,
   sessionStore,
 } from "./createAdapters";
 import { createDefaultUIRenderer } from "./defaultRenderUI";
@@ -126,12 +122,6 @@ const sharedTools = [getCurrentTime, ...fileTools];
 // Dynamic tools (create_tool / list_dynamic_tools / update_tool / delete_tool)
 export const dynamicToolset = createDynamicToolset(dynamicToolAdapter);
 
-// Skills (install_skill / list_skills / remove_skill / read_skill_file)
-export const skillToolset = createSkillToolset(skillAdapter);
-
-// MCP servers (list / add / remove / enable / disable / reload)
-export const mcpToolset = createMcpToolset(mcpAdapter);
-
 // Sub-agent meta-tools — each handler variant gets its own set.
 // The tool pool is derived lazily from each agent's live registered tools.
 const asyncSubAgentToolset = createSubAgentToolset("async", {
@@ -189,8 +179,6 @@ const sharedToolSets = [
   variableToolSet,
   memoryGraphToolSet,
   dynamicToolset,
-  skillToolset,
-  mcpToolset,
   delegationNudgeToolSet,
 ];
 

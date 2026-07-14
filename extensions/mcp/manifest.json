@@ -1,0 +1,10 @@
+{
+  "id": "mcp",
+  "name": "MCP",
+  "version": "0.1.0",
+  "description": "MCP server management with list_mcp_servers, add_mcp_server, remove_mcp_server, connect_mcp_server, disable_mcp_server tools. Provides a dropdown button panel and tool cards.",
+  "agentEntry": "activate.js",
+  "backendEntry": "backend.cjs",
+  "uiEntry": "ui/index.html",
+  "tools": ["mcp"]
+}

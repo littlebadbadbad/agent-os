@@ -8,7 +8,6 @@ const SIDEBAR_STRIP_WIDTH = 32;
 import type { WidgetIcon, WidgetTheme } from '@agent-sdk';
 import { useSidebarState } from '../../hooks/useSidebarState';
 import { SidebarHeader } from './SidebarHeader';
-import { AIControlBar } from './AIControlBar';
 import styles from './Sidebar.module.scss';
 
 // ── Theme → CSS custom props ──────────────────────────────────────────────────
@@ -38,12 +37,14 @@ export interface SidebarProps {
   theme?: WidgetTheme;
   /** Initial sidebar width (px). Overridden by any stored value. */
   initialWidth?: number;
+  /** Optional control bar rendered in the sidebar header. */
+  controlBar?: ReactNode;
   children?: ReactNode;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function Sidebar({ id, icon, theme, initialWidth, children }: SidebarProps): ReactElement {
+export function Sidebar({ id, icon, theme, initialWidth, controlBar, children }: SidebarProps): ReactElement {
   const defaultWidth = initialWidth ?? SIDEBAR_DEFAULT_WIDTH;
   const { side, width, open, setSide, setWidth, setOpen } = useSidebarState(id, defaultWidth);
   const accentVars = theme ? themeToAccentVars(theme) : undefined;
@@ -135,6 +136,7 @@ export function Sidebar({ id, icon, theme, initialWidth, children }: SidebarProp
             side={side}
             onToggleSide={handleToggleSide}
             onToggleOpen={handleToggleOpen}
+            controlBar={controlBar}
           />
           <div className={styles['content']}>{children}</div>
         </>

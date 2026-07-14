@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skill Plugin UI</title>
+  <style>
+    /* Minimal reset — the plugin components bring their own scoped styles */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body, #root {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      width: 100%;
+      background: var(--asdk-surface-2, #2d2d30);
+      color: var(--asdk-text, #cccccc);
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      overflow: hidden;
+    }
+    /* In compact mode the body should shrink-wrap its content so the
+       iframe can report the actual content height to the host. */
+    body.compact-mode, body.compact-mode #root {
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./main.tsx"></script>
+</body>
+</html>

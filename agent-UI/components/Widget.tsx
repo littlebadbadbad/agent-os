@@ -11,6 +11,8 @@ export interface WidgetProps {
   icon?: WidgetIcon;
   /** Accent color theme overrides. */
   theme?: WidgetTheme;
+  /** Optional control bar rendered in the sidebar header. */
+  controlBar?: ReactNode;
   children?: ReactNode;
 }
 
@@ -18,9 +20,9 @@ export interface WidgetProps {
  * Root widget wrapper — renders the fixed sidebar that houses the agent UI.
  * State (side, width, open) is persisted per `id` in localStorage.
  */
-export function Widget({ id, initialWidth, icon, theme, children }: WidgetProps): ReactElement {
+export function Widget({ id, initialWidth, icon, theme, controlBar, children }: WidgetProps): ReactElement {
   return (
-    <Sidebar id={id} icon={icon} theme={theme} initialWidth={initialWidth}>
+    <Sidebar id={id} icon={icon} theme={theme} initialWidth={initialWidth} controlBar={controlBar}>
       {children}
     </Sidebar>
   );

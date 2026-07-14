@@ -1,0 +1,218 @@
+// ── Panel layout ──────────────────────────────────────────────────────────────
+
+.panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panel-count {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 0 8px;
+  font-size: var(--font-xs, 11px);
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.panel-empty {
+  padding: var(--sp-4);
+  text-align: center;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+
+  code {
+    background: var(--bg-secondary);
+    padding: 1px 4px;
+    border-radius: var(--radius-sm, 4px);
+    font-family: monospace;
+    font-size: var(--font-xs, 11px);
+  }
+}
+
+.panel-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-1) 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1, 4px);
+}
+
+// ── Skill item ────────────────────────────────────────────────────────────────
+
+.skill-item {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--sp-2) var(--sp-3);
+
+  &:last-child {
+    border-bottom: none;
+  }
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.skill-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: 2px;
+}
+
+.skill-item-name {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.skill-item-version {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 0 6px;
+  border-radius: var(--radius-sm, 4px);
+  line-height: 18px;
+}
+
+.skill-item-desc {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.skill-item-meta {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.skill-item-tools {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+}
+
+.skill-item-tool-names {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+// ── Tool card ─────────────────────────────────────────────────────────────────
+
+.tc-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 8px);
+  overflow: hidden;
+  background: var(--bg-primary);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: var(--font-sm);
+}
+
+.tc-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tc-icon {
+  font-size: 16px;
+}
+
+.tc-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.tc-status {
+  font-size: var(--font-xs, 11px);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+
+  &--running {
+    background: #0ea5e933;
+    color: #38bdf8;
+  }
+
+  &--done {
+    background: #22c55e22;
+    color: #4ade80;
+  }
+
+  &--error {
+    background: #ef444422;
+    color: #f87171;
+  }
+}
+
+.tc-section {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.tc-section-title {
+  font-size: var(--font-xs, 11px);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.tc-args,
+.tc-result-body,
+.tc-error-body {
+  font-family: "Cascadia Code", "Fira Code", monospace;
+  font-size: var(--font-xs, 11px);
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tc-result {
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tc-error {
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+  background: #ef444410;
+}
+
+.tc-error-title {
+  font-size: var(--font-xs, 11px);
+  font-weight: 600;
+  color: #f87171;
+  margin-bottom: 4px;
+}
+
+.tc-error-body {
+  color: #f87171;
+}

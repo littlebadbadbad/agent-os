@@ -54,8 +54,8 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
   // ── Shared infrastructure ─────────────────────────────────────────────────
   // These are shared across all sessions.
 
-  // ── Master tool/skill registry ────────────────────────────────────────────
-  // Tracks what tools and skills every session should have.
+  // ── Master tool registry ──────────────────────────────────────────────────
+  // Tracks what tools every session should have.
 
   const masterTools: Tool[] = [];
   const masterToolSets: ToolSet[] = [];
@@ -109,7 +109,7 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
 
   // Build an early AgentClientLike proxy and fire onAttach for config-time
   // ToolSets now — before any session is created — so tools injected by
-  // onAttach (e.g. proxy / skill tools) are present when onInitSession runs.
+  // onAttach (e.g. proxy tools) are present when onInitSession runs.
   agentRef = { ...toolsLifeCycle, handler };
   for (const ts of toolSets) {
     ts.onAttach?.(agentRef);

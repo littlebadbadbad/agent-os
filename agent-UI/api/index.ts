@@ -3,7 +3,6 @@ export {
   fetchApiKeys,
   saveApiKey,
   deleteApiKey,
-  listSkills,
   getProxyConfig,
   updateProxyConfig,
   loadSessions,

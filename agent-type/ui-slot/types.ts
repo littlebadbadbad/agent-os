@@ -45,7 +45,9 @@ export type SlotType =
   | "toolCard"
   | "compactToolCard"
   | "inlinePrompt"
-  | "headerBar";
+  | "headerBar"
+  | "toolButton"
+  | "autocomplete";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Base slot declaration — common fields shared by all slot types
@@ -153,6 +155,82 @@ export interface HeaderBarSlotDeclaration extends BaseSlotDeclaration {
   readonly type: "headerBar";
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ToolButton slot — AIControlBar top-bar button
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * A toolButton slot renders a button in the AIControlBar header bar.
+ *
+ * Clicking the button opens a DropdownPanel containing the plugin's iframe
+ * management panel.  The iframe receives state updates via
+ * {@link ToolButtonHostMessage}.
+ *
+ * NOTE: This declaration does NOT extend {@link BaseSlotDeclaration} because
+ * toolButton has no `shouldRender` / `containingWidth` / `containingHeight`
+ * — button visibility is controlled by `showTab`, and iframe sizing is
+ * configured inside {@link ToolButtonSlotPanel}.
+ */
+export interface ToolButtonSlotDeclaration {
+  readonly type: "toolButton";
+  /** Button label shown in the AIControlBar. */
+  readonly label: string;
+  /** Optional emoji/icon for the button. */
+  readonly icon?: string;
+  /** Sort order in the AIControlBar (lower = first). Default 100. */
+  readonly order?: number;
+  /** Whether to show this button. Called on every state update. */
+  readonly showBtn: (ctx: SlotDisplayContext) => boolean;
+  /**
+   * Optional badge text shown next to the button label.
+   * Return `null` to hide the badge. Called on every state update.
+   */
+  readonly badge?: (ctx: SlotDisplayContext) => string | null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Autocomplete slot — ChatInput native autocomplete (no iframe)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * An item shown in the autocomplete dropdown.
+ */
+export interface AutocompleteItem {
+  /** Unique identifier for this item. */
+  readonly id: string;
+  /** Display label (e.g. `"/command-name"`). */
+  readonly label: string;
+  /** Short description shown below or beside the label. */
+  readonly description: string;
+  /** Text inserted into the input when selected (e.g. `"/command-name "`). */
+  readonly insertText: string;
+}
+
+/**
+ * An autocomplete slot provides items for the ChatInput autocomplete menu.
+ *
+ * This slot has NO iframe — it is a pure data slot.  The host renders
+ * the autocomplete dropdown natively and calls `getItems(ctx)` to
+ * retrieve the current item list on each state change.
+ *
+ * NOTE: This declaration does NOT extend {@link BaseSlotDeclaration} because
+ * autocomplete has no iframe — no `shouldRender`, no `containingWidth`, no
+ * `containingHeight`.  The trigger condition is expressed via `prefix`.
+ */
+export interface AutocompleteSlotDeclaration {
+  readonly type: "autocomplete";
+  /**
+   * Trigger prefix, e.g. `"/"` for command name completion.
+   * When the user types this prefix, the autocomplete dropdown opens.
+   */
+  readonly prefix: string;
+  /**
+   * Return autocomplete items for the current routing context.
+   * Called on every state change so items stay in sync.
+   */
+  readonly getItems: (ctx: SlotDisplayContext) => readonly AutocompleteItem[];
+}
+
 /**
  * Discriminated union of all slot declarations.
  *
@@ -163,7 +241,9 @@ export type PluginSlotDeclaration =
   | ToolCardSlotDeclaration
   | CompactToolCardSlotDeclaration
   | InlinePromptSlotDeclaration
-  | HeaderBarSlotDeclaration;
+  | HeaderBarSlotDeclaration
+  | ToolButtonSlotDeclaration
+  | AutocompleteSlotDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot context (iframe reads this to know which slot it's rendering)

@@ -26,7 +26,7 @@ import { pathToFileURL } from 'url';
 import { createLogger } from './logger.js';
 import { createPluginHost } from './plugin-host.js';
 import { createPluginStateStore } from './plugin-state-store.js';
-import { DATA_ROOT } from './paths.js';
+import { DATA_ROOT, PROJECT_ROOT } from './paths.js';
 import { readFileSync as _readFileSync } from 'fs';
 import { join as _join, dirname as _dirname } from 'path';
 import { fileURLToPath as _fileURLToPath } from 'url';
@@ -80,6 +80,7 @@ const STATE_DISABLED = 'disabled';
  * @param {string} pluginsDir  - Absolute path to the plugins/ directory.
  * @param {string} dataRoot    - Absolute path to the data/ directory.
  * @param {import('./plugin-host.js').BackendServices} [backendServices]  - Optional backend service accessors.
+ * @param {string} [agentDir]  - Optional `.agent/` directory path (passed through to BackendPluginHost.getAgentDir).
  * @returns {{
  *   bootstrap: () => Promise<void>,
  *   scan: () => Promise<import('../../agent-type/plugin.ts').PluginManifest[]>,
@@ -90,7 +91,7 @@ const STATE_DISABLED = 'disabled';
  *   getPluginManifest: (id: string) => import('../../agent-type/plugin.ts').PluginManifest | undefined,
  * }}
  */
-export function createPluginScanner(router, pluginsDir, dataRoot, backendServices = {}) {
+export function createPluginScanner(router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
   /** @type {Map<string, { manifest: import('../../agent-type/plugin.ts').PluginManifest, state: string }>} */
   const _plugins = new Map();
 
@@ -266,7 +267,7 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
         }
 
         // Create sandboxed host.
-        const host = createPluginHost(name, manifest, router, pluginsDir, dataRoot, backendServices);
+        const host = createPluginHost(name, manifest, router, pluginsDir, dataRoot, backendServices, agentDir);
 
         // Call activate with the host (R1: error-isolated).
         await Promise.resolve(mod.activate(host));

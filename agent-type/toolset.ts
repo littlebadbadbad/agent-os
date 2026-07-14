@@ -50,8 +50,8 @@ export type AgentQueryFns = {
 
 /**
  * Full agent interface exposed to ToolSets that need to mutate the agent
- * (e.g. dynamic-tool and skill-manager toolsets that call `registerTool` inside
- * `onAttach` to inject proxies/skill tools).
+ * (e.g. dynamic-tool toolsets that call `registerTool` inside
+ * `onAttach` to inject proxy tools).
  *
  * The full `AgentClient` type satisfies this interface — no casting required.
  */
@@ -368,7 +368,7 @@ export type ToolSet = {
    *
    * Use to capture the agent reference for callbacks that need live access to
    * the tool list, handler, or other ToolSets at execution time (e.g.
-   * dynamic-tool and skill-manager ToolSets call `registerTool` here to inject
+   * dynamic-tool ToolSets call `registerTool` here to inject
    * proxy tools).
    *
    * For ToolSets registered on multiple agents, `onAttach` fires once per

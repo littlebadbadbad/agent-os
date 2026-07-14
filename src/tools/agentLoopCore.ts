@@ -112,7 +112,7 @@ export type AgentLoopCoreConfig = {
   /**
    * Invoke the LLM for one turn.
    * Receives a snapshot of the full history and the active signal.
-   * May rebuild HandlerContext on each call to pick up tool/skill changes
+   * May rebuild HandlerContext on each call to pick up tool changes
    * since the previous turn.
    */
   invokeHandler(

@@ -27,7 +27,6 @@ export function SessionContent({
     id: sessionStateId,
     messages,
     isLoading,
-    skills,
     enableAttachments,
     toggleTool,
     subAgentRegistry,
@@ -181,7 +180,6 @@ export function SessionContent({
           onCancel={session.cancelMessage}
           isLoading={isLoading}
           enableAttachments={enableAttachments}
-          skills={skills}
         />
       </div>
       {view === "cron" && (

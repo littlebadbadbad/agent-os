@@ -40,8 +40,6 @@ export type {
 export { defaultHttpFileAdapter as createHttpFileAdapter } from './tools/file';
 export { createIpcFileAdapter } from './tools/file';
 export type { IpcFileAdapterConfig } from './tools/file';
-export { defineSkill } from './tools/skill';
-export type { Skill, SkillState } from './tools/skill';
 export {
   toOpenAIMessages,
   toAnthropicMessages,
@@ -76,30 +74,6 @@ export type {
   HttpDynamicToolAdapterConfig,
   IpcDynamicToolAdapterConfig,
 } from './tools/dynamicTool';
-
-// ── Skill management ──────────────────────────────────────────────────────────
-export { createSkillToolset, createHttpSkillAdapter, createIpcSkillAdapter } from './tools/skillManager';
-export type {
-  SkillToolset,
-  BackendSkill,
-  SkillManagerAdapter,
-  HttpSkillAdapterConfig,
-  IpcSkillAdapterConfig,
-} from './tools/skillManager';
-
-// ── MCP server management ─────────────────────────────────────────────────────
-export { createMcpToolset, createHttpMcpAdapter, createIpcMcpAdapter } from './tools/mcp';
-export type {
-  McpTransport,
-  McpServerStatus,
-  McpToolDef,
-  McpServerEntry,
-  McpAdapter,
-  HttpMcpAdapterConfig,
-  IpcMcpAdapterConfig,
-  McpStore,
-  McpToolset,
-} from './tools/mcp';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 export { createPermissionsToolSet } from './tools/permissions';

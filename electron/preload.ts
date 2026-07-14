@@ -28,8 +28,6 @@ import { contextBridge, ipcRenderer } from 'electron';
  * tools:      list, create, update, delete, execute
  * toolModules: list, get, create, update, delete
  * toolDeps:   list, install, remove
- * skills:     list, install, remove, readFile
- * mcp:        list, add, remove, reconnect, disconnect, execute
  * sessions:   load, save
  * git:        status, diff, log, stage, unstage, commit, discard
  * health:     check

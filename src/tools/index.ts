@@ -22,8 +22,6 @@ export { isAgentTurnResponse, isAgentStreamChunk } from './types';
 
 export { defineTool, buildTool } from '@agent-type/defineTool';
 export type { ToolDef } from '@agent-type/defineTool';
-export { defineSkill, resolveSkillTools } from './skill';
-export type { Skill, SkillState } from './skill';
 // ── Registry (functional, immutable) ─────────────────────────────────────────
 export {
   emptyRegistry,

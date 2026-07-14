@@ -101,10 +101,10 @@ describe('buildHandlerContext', () => {
 
   it('appends ToolSet system prompts after the base prompt', () => {
     const tm = createToolManager();
-    const ts = makePromptToolSet('web', 'Web skill prompt');
+    const ts = makePromptToolSet('web', 'Web prompt');
     const ctx = build(tm, 'Base', undefined, undefined, [ts]);
     expect(ctx.systemPrompt).toContain('Base');
-    expect(ctx.systemPrompt).toContain('Web skill prompt');
+    expect(ctx.systemPrompt).toContain('Web prompt');
   });
 
   it('returns undefined systemPrompt when base and all ToolSets return nothing', () => {
@@ -127,9 +127,9 @@ describe('buildHandlerContext', () => {
 
   it('headless call (userMessage=undefined) — ToolSet always injects', () => {
     const tm = createToolManager();
-    const ts = makePromptToolSet('web', 'Web skill prompt');
+    const ts = makePromptToolSet('web', 'Web prompt');
     const ctx = build(tm, 'Base', undefined, undefined, [ts]);
-    expect(ctx.systemPrompt).toContain('Web skill prompt');
+    expect(ctx.systemPrompt).toContain('Web prompt');
   });
 
   // ── toolChoice ────────────────────────────────────────────────────────────

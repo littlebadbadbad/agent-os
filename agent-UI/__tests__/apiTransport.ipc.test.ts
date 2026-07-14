@@ -72,23 +72,6 @@ describe('GET /api/public-key', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Skills
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe('GET /api/skills', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('calls skills:list with empty params', async () => {
-    mockInvoke.mockResolvedValue({ skills: [{ name: 'test', description: 'A skill' }] });
-
-    const result = await apiTransport.get<{ skills: Array<{ name: string; description: string }> }>('/api/skills');
-
-    expect(mockInvoke).toHaveBeenCalledWith('skills:list', {});
-    expect(result.skills).toHaveLength(1);
-  });
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
 // Proxy
 // ═════════════════════════════════════════════════════════════════════════════
 

@@ -27,6 +27,9 @@ export type {
   CompactToolCardSlotDeclaration,
   InlinePromptSlotDeclaration,
   HeaderBarSlotDeclaration,
+  ToolButtonSlotDeclaration,
+  AutocompleteSlotDeclaration,
+  AutocompleteItem,
   PluginSlotDeclaration,
   // ── Plugin UI adapter bridge ──
   PluginUiAdapter,
@@ -41,6 +44,7 @@ export type {
   CompactToolCardHostMessage,
   InlinePromptHostMessage,
   HeaderBarHostMessage,
+  ToolButtonHostMessage,
   SlotHostMessage,
   // ── Iframe → Host messages ──
   CompactToolCardIframeMessage,

@@ -1,0 +1,18 @@
+/**
+ * agent-UI/slots/renderers/ToolButtonSlotPanel.module.scss
+ *
+ * The iframe panel inside a DropdownPanel — gives the sandboxed iframe a
+ * definite size reference so `height: 100%` resolves correctly inside.
+ *
+ * DropdownPanel uses `position: fixed; overflow: hidden` with no explicit
+ * height, which causes `sizing="fill"` iframes to collapse because the
+ * flexible container has no definite height.  Giving this wrapper a fixed
+ * outer dimension breaks the circular dependency.
+ */
+
+.panel {
+  width: 380px;
+  height: 480px;
+  overflow: hidden;
+  border-radius: 8px;
+}

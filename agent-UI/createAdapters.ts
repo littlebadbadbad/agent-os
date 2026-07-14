@@ -40,26 +40,6 @@ export function createDynamicToolAdapter(): DynamicToolAdapter {
     : createHttpDynamicToolAdapter({ baseUrl: '/api' });
 }
 
-// ── Skill adapter ──────────────────────────────────────────────────────────────
-import { createHttpSkillAdapter, createIpcSkillAdapter } from '@agent-sdk';
-import type { SkillManagerAdapter } from '@agent-sdk';
-
-export function createSkillAdapter(): SkillManagerAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcSkillAdapter()
-    : createHttpSkillAdapter({ baseUrl: '/api' });
-}
-
-// ── MCP adapter ────────────────────────────────────────────────────────────────
-import { createHttpMcpAdapter, createIpcMcpAdapter } from '@agent-sdk';
-import type { McpAdapter } from '@agent-sdk';
-
-export function createMcpAdapter(): McpAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcMcpAdapter()
-    : createHttpMcpAdapter({ baseUrl: '/api' });
-}
-
 // ── Session store ──────────────────────────────────────────────────────────────
 import type { SessionEntryData } from '@agent-sdk';
 import { loadSessions, saveSessions } from './api/backend';
@@ -80,6 +60,4 @@ export function createSessionStore(): SessionStore {
 export const fileAdapter = createFileAdapter();
 export const cronAdapter = createCronAdapter();
 export const dynamicToolAdapter = createDynamicToolAdapter();
-export const skillAdapter = createSkillAdapter();
-export const mcpAdapter = createMcpAdapter();
 export const sessionStore = createSessionStore();

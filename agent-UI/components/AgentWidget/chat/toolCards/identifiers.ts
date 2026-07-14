@@ -12,14 +12,6 @@ const DYNAMIC_TOOL_NAMES = new Set([
   'create_tool', 'update_tool', 'delete_tool', 'list_dynamic_tools',
 ]);
 
-const MCP_TOOL_NAMES = new Set([
-  'list_mcp_servers', 'add_mcp_server', 'remove_mcp_server',
-  'connect_mcp_server', 'disable_mcp_server',
-]);
-
-const SKILL_TOOL_NAMES = new Set([
-  'install_skill', 'list_skills', 'remove_skill', 'read_skill_file',
-]);
 
 export function isFileTool(name: string): boolean {
   return FILE_TOOL_NAMES.has(name);
@@ -33,13 +25,6 @@ export function isDynamicTool(name: string): boolean {
   return DYNAMIC_TOOL_NAMES.has(name);
 }
 
-export function isMcpTool(name: string): boolean {
-  return MCP_TOOL_NAMES.has(name);
-}
-
-export function isSkillTool(name: string): boolean {
-  return SKILL_TOOL_NAMES.has(name);
-}
 
 export function isSubAgentMetaTool(name: string): boolean {
   return name.endsWith('_subagent') || name.endsWith('_subagents');

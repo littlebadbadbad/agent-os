@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode, CSSProperties } from 'react';
 import type { ToolCallStatus, ToolCallInfo } from '../../types';
 import {
   isFileTool, isAskUserTool,
-  isDynamicTool, isMcpTool, isSkillTool, isSubAgentMetaTool, isExperienceTool,
+  isDynamicTool, isSubAgentMetaTool, isExperienceTool,
 } from './identifiers';
 import styles from '../../AgentWidget.module.scss';
 
@@ -62,14 +62,12 @@ export function resStr(result: unknown): string | null {
 
 export type CardFamily =
   | 'file' | 'ask'
-  | 'dynamic' | 'mcp' | 'skill' | 'meta-agent';
+  | 'dynamic' | 'meta-agent';
 
 const ACCENT: Record<CardFamily, string> = {
   file:          '#d97706',   // amber
   ask:           '#ea580c',   // orange
   dynamic:       '#4f46e5',   // indigo
-  mcp:           '#0d9488',   // teal
-  skill:         '#16a34a',   // green
   'meta-agent':  '#6d28d9',   // purple
 };
 
@@ -216,8 +214,6 @@ const FAMILY_META: Record<CardFamily, { icon: string; label: string }> = {
   file:          { icon: '📄', label: 'File' },
   ask:           { icon: '💬', label: 'Ask' },
   dynamic:       { icon: '⚡', label: 'Tool' },
-  mcp:           { icon: '🔌', label: 'MCP' },
-  skill:         { icon: '📦', label: 'Skill' },
   'meta-agent':  { icon: '🤖', label: 'Agent' },
 };
 
@@ -247,12 +243,6 @@ export function getToolMeta(name: string): { icon: string; label: string; family
     label = 'Ask User';
   } else if (isDynamicTool(name)) {
     family = 'dynamic';
-    label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  } else if (isMcpTool(name)) {
-    family = 'mcp';
-    label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  } else if (isSkillTool(name)) {
-    family = 'skill';
     label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   } else if (isSubAgentMetaTool(name)) {
     family = 'meta-agent';
