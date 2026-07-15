@@ -35,7 +35,7 @@ interface McpManagerPanelProps {
     includeTools?: string[];
     enabled?: boolean;
   }) => Promise<McpServerEntry>;
-  onSync: () => Promise<void>;
+  onSync: () => Promise<McpServerEntry[]>;
 }
 
 // ── Status dot ────────────────────────────────────────────────────────────────

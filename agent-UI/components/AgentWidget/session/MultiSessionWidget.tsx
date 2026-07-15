@@ -7,7 +7,7 @@ import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
 import { SessionTabTitle } from './SessionTabTitle';
 import styles from '../AgentWidget.module.scss';
-import { pluginSystem } from '@agent-UI/agents';
+import { PluginProvider } from '../../../plugin/PluginContext';
 
 export function MultiSessionWidget({
   icon,
@@ -35,9 +35,8 @@ export function MultiSessionWidget({
   // ── Session-bar collapse/expand ───────────────────────────────────────────
   const [collapsed, setCollapsed] = useState(false);
 
-  if (activeSession) pluginSystem.refreshSlots(activeSession); // Refresh slot registry from session state (reads PluginUiAdapter.slots).
-
   return (
+    <PluginProvider session={activeSession}>
     <Widget id={agentId} icon={icon} theme={theme} initialWidth={initialWidth}
       controlBar={activeSession && <AIControlBar activeSession={activeSession} />}
     >
@@ -130,5 +129,6 @@ export function MultiSessionWidget({
         </div>
       </div>
     </Widget>
+    </PluginProvider>
   );
 }

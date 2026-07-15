@@ -22,22 +22,9 @@
 import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
 import type { SubAgentConversation, SubAgentConversationState } from "@agent-sdk";
 import type { SlotEntry } from "../slots/registry";
-import { pluginSystem } from "../agents";
+import type { ActivatedPluginInfo } from "./pluginSystem";
 import { discoverSlots, toSlotEntries } from "./discoverSlots";
 
-/**
- * Create a {@link SlotSession} view over a {@link SubAgentConversation}.
- *
- * The returned object delegates `getState()` and `subscribe()` directly to
- * the conversation handle — no copying, no caching, no extra allocations.
- *
- * The conversion is type-safe without casts because:
- *   1. `SubAgentConversationState` is structurally assignable to
- *      `SessionStateLike` (has `id`, `isLoading`, `agentName`,
- *      `conversationId`, and `[key: symbol]`).
- *   2. `SlotSession.getState()` returns `SessionStateLike` — a minimal
- *      interface that captures only what slot renderers need.
- */
 export function createSubAgentSlotSession(
   conv: SubAgentConversation,
 ): SlotSession {
@@ -47,23 +34,9 @@ export function createSubAgentSlotSession(
   };
 }
 
-// ── Slot discovery ────────────────────────────────────────────────────────────
-
-/**
- * Discover all plugin slots declared in a sub-agent conversation's state.
- *
- * Mirrors {@link PluginSystem.refreshSlots} but reads from a
- * {@link SubAgentConversationState} instead of `AgentSessionState`.
- * Returns slot entries directly (does not mutate the global `slotRegistry`).
- *
- * @param convState The sub-agent conversation state to read slots from.
- * @returns Flat list of `{ pluginId, declaration }` entries for all slots
- *          found across all active plugins' symbol-keyed state slices.
- */
 export function discoverSubAgentSlots(
   convState: SubAgentConversationState,
+  activePlugins: readonly ActivatedPluginInfo[],
 ): readonly SlotEntry[] {
-  // Delegate to the shared discovery helper — the traversal logic is
-  // identical to pluginSystem.refreshSlots(), only the output differs.
-  return toSlotEntries(discoverSlots(convState, pluginSystem.activePlugins));
+  return toSlotEntries(discoverSlots(convState, activePlugins));
 }

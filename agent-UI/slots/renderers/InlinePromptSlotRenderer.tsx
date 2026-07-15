@@ -12,8 +12,7 @@ import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import type { SlotSession, InlinePromptSlotDeclaration, PluginSlotDeclaration } from "@agent-type";
-import { slotRegistry } from "../registry";
-import { pluginSystem } from "../../agents";
+import { useSlotRegistry, usePluginSystem } from "../../plugin/PluginContext";
 
 export interface InlinePromptSlotRendererProps {
   readonly pluginId: string;
@@ -30,12 +29,14 @@ export function InlinePromptSlotRenderer(
 ): ReactElement | null {
   const { pluginId, slotId, session, toolSetSymbol, declaration, className } = props;
 
-  const uiPlugin = pluginSystem.getPlugin(pluginId);
+  const { getPlugin } = usePluginSystem();
+  const { getSlot } = useSlotRegistry();
+  const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
   // Read dimensions from explicit declaration (sub-agent path) or fall back
-  // to the global slotRegistry (main-agent path).
-  const decl = (declaration ?? slotRegistry.getSlot(pluginId, slotId)?.declaration) as InlinePromptSlotDeclaration | undefined;
+  // to the slotRegistry (main-agent path).
+  const decl = (declaration ?? getSlot(pluginId, slotId)?.declaration) as InlinePromptSlotDeclaration | undefined;
   const containingWidth = decl?.containingWidth ?? "100%";
   const containingHeight = decl?.containingHeight ?? "auto";
 

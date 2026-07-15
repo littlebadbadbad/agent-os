@@ -4,7 +4,7 @@ import type { Attachment, DataAttachment } from '@agent-sdk';
 import type { AutocompleteItem } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { SendIcon, StopIcon, AttachIcon } from './ChatInputIcons';
-import { slotRegistry } from '../../../slots/registry';
+import { useSlotRegistry } from '../../../plugin/PluginContext';
 import styles from '../AgentWidget.module.scss';
 
 interface ChatInputProps {
@@ -36,11 +36,10 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Build prefix → items map from all autocomplete slots.
-  // Read directly from slotRegistry on each render so plugin slots registered
-  // after mount (via pluginSystem.refreshSlots) are picked up reactively.
+  const { getByType } = useSlotRegistry();
   const prefixItemsMap = (() => {
     const map = new Map<string, AutocompleteItem[]>();
-    for (const slot of slotRegistry.getByType('autocomplete')) {
+    for (const slot of getByType('autocomplete')) {
       const prefix = slot.declaration.prefix;
       const items = slot.declaration.getItems({
         sessionId: '',

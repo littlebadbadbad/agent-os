@@ -13,7 +13,7 @@ import type { ToolCardHostMessage, SlotSession, UiPluginHostInternal } from "@ag
 import type { ToolCallInfo } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import { pluginSystem } from "../../agents";
+import { usePluginSystem } from "../../plugin/PluginContext";
 
 export interface ToolCardSlotRendererProps {
   readonly pluginId: string;
@@ -31,7 +31,8 @@ export function ToolCardSlotRenderer(
 
   const hostRef = useRef<UiPluginHostInternal | null>(null);
 
-  const uiPlugin = pluginSystem.getPlugin(pluginId);
+  const { getPlugin } = usePluginSystem();
+  const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
   const { host } = useSlotHostBridge({

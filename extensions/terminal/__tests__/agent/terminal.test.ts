@@ -177,26 +177,42 @@ describe('terminal_wait', () => {
 // ── resizePty (plugin adapter) ────────────────────────────────────────────────
 
 describe('createTerminalPluginAdapter — resizePty', () => {
-  it('calls the RPC endpoint with cols and rows', async () => {
+  /**
+   * Build a minimal PluginApiClient with a mocked call method.
+   * Must use an object with a `.call()` method — passing a bare vi.fn()
+   * would trigger Function.prototype.call and eat the first argument.
+   */
+  function mockApiClient() {
     const call = vi.fn().mockResolvedValue({ ok: true });
-    const adapter = createTerminalPluginAdapter(call);
+    return {
+      call,
+      connectStream: () => ({
+        callbacks: { onData: () => {}, onEnd: () => {}, onError: () => {} },
+        subscribe: () => ({ unsubscribe: () => {} }),
+      }),
+    };
+  }
+
+  it('calls the RPC endpoint with cols and rows', async () => {
+    const apiClient = mockApiClient();
+    const adapter = createTerminalPluginAdapter(apiClient);
     await adapter.resizePty('term_abc', 120, 30, 'sess-1');
 
-    expect(call).toHaveBeenCalledOnce();
-    expect(call).toHaveBeenCalledWith('resize', { id: 'term_abc', cols: 120, rows: 30 });
+    expect(apiClient.call).toHaveBeenCalledOnce();
+    expect(apiClient.call).toHaveBeenCalledWith('resize', { id: 'term_abc', cols: 120, rows: 30 });
   });
 
   it('properly encodes special terminal ids', async () => {
-    const call = vi.fn().mockResolvedValue({ ok: true });
-    const adapter = createTerminalPluginAdapter(call);
+    const apiClient = mockApiClient();
+    const adapter = createTerminalPluginAdapter(apiClient);
     await adapter.resizePty('term a/b', 80, 24, 'sess-1');
 
-    expect(call).toHaveBeenCalledWith('resize', { id: 'term a/b', cols: 80, rows: 24 });
+    expect(apiClient.call).toHaveBeenCalledWith('resize', { id: 'term a/b', cols: 80, rows: 24 });
   });
 
   it('throws when the call rejects', async () => {
     const call = vi.fn().mockRejectedValue(new Error('Terminal "x" not found'));
-    const adapter = createTerminalPluginAdapter(call);
+    const adapter = createTerminalPluginAdapter({ call, connectStream: () => ({ callbacks: { onData: () => {}, onEnd: () => {}, onError: () => {} }, subscribe: () => ({ unsubscribe: () => {} }) }) });
     await expect(adapter.resizePty('x', 80, 24, 'sess-1')).rejects.toThrow(/not found/i);
   });
 });

@@ -2,7 +2,7 @@ import { type ReactElement, type CSSProperties, useRef, useEffect, useCallback }
 import type { ToolCallInfo, CompactToolCardDescriptor } from '@agent-type';
 import type { SlotSession } from '@agent-type';
 import { StatusBadge, getToolMeta, getCompactSummary } from './toolCards/shared';
-import { slotRegistry } from '../../../slots/registry';
+import { useSlotRegistry } from '../../../plugin/PluginContext';
 import styles from '../AgentWidget.module.scss';
 
 
@@ -27,9 +27,10 @@ interface CompactToolCardProps {
 export function CompactToolCard({ info, onOpen }: CompactToolCardProps): ReactElement {
   const renderRef = useRef<HTMLDivElement>(null);
 
+  const { getByType } = useSlotRegistry();
+
   // ── Plugin compactToolCard slot lookup ────────────────────────────────────
-  const pluginSlot = slotRegistry
-    .getByType('compactToolCard')
+  const pluginSlot = getByType('compactToolCard')
     .find((entry) => entry.declaration.toolNames.includes(info.name));
 
   // ── Imperative render (embedded same-process) ─────────────────────────────

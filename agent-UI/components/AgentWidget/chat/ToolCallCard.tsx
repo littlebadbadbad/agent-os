@@ -24,11 +24,10 @@ import {
   isSubAgentMetaTool,
   isExperienceTool,
 } from "./toolCards/identifiers";
-import { pluginSystem } from "../../../agents";
 import { CompactToolCard } from "./CompactToolCard";
 import { ToolCardModal } from "./ToolCardModal";
 import styles from "../AgentWidget.module.scss";
-import { slotRegistry } from "@agent-UI/slots/registry";
+import { useSlotRegistry } from "../../../plugin/PluginContext";
 
 export { formatResult };
 
@@ -82,6 +81,7 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
 // Renders the full specialized card for display inside the modal.
 
 function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSession }): ReactElement {
+  const { getByType } = useSlotRegistry();
   const { name } = info;
   if (isFileTool(name)) return <FileToolCard info={info} />;
   if (isAskUserTool(name)) return <AskUserCard info={info} />;
@@ -91,8 +91,7 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
 
   // Generic plugin tool-card path: match tool name to plugin.
 
-  const slot = slotRegistry
-      .getByType('toolCard')
+  const slot = getByType('toolCard')
       .find((entry) => entry.declaration.toolNames.includes(info.name));
   if (slot) {
     return (

@@ -40,26 +40,6 @@ export interface SlotEntry<T extends PluginSlotDeclaration = PluginSlotDeclarati
 
 export interface SlotRegistry {
   /**
-   * Register a slot for a plugin's toolset.
-   *
-   * @param pluginId       Plugin that owns this slot.
-   * @param toolSetSymbol  The ToolSet symbol that declared this slot.
-   * @param slotIndex      Zero-based index of this slot within the ToolSet's `slots` array.
-   * @param declaration    The slot declaration.
-   */
-  register(
-    pluginId: string,
-    toolSetSymbol: symbol,
-    slotIndex: number,
-    declaration: PluginSlotDeclaration,
-  ): void;
-
-  /**
-   * Remove all slots registered by a plugin.
-   */
-  unregister(pluginId: string): void;
-
-  /**
    * Get all slots of a specific type across all plugins.
    *
    * Overloads ensure callers get precisely narrowed return types:
@@ -111,7 +91,7 @@ function generateSlotId(pluginId: string, toolSetSymbol: symbol, slotIndex: numb
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-export function createSlotRegistry(): SlotRegistry {
+export function createSlotRegistry(slotEntries?: readonly SlotEntry[]): SlotRegistry {
   // Map key: `${pluginId}::${slotId}`
   const entries = new Map<string, SlotEntry>();
 
@@ -119,23 +99,14 @@ export function createSlotRegistry(): SlotRegistry {
     return `${pluginId}::${slotId}`;
   }
 
+  // Pre-populate from initial entries (if provided).
+  if (slotEntries) {
+    for (const entry of slotEntries) {
+      entries.set(key(entry.pluginId, entry.slotId), entry);
+    }
+  }
+
   return {
-    register(
-      pluginId: string,
-      toolSetSymbol: symbol,
-      slotIndex: number,
-      declaration: PluginSlotDeclaration,
-    ): void {
-      const slotId = generateSlotId(pluginId, toolSetSymbol, slotIndex);
-      entries.set(key(pluginId, slotId), { pluginId, toolSetSymbol, slotId, declaration });
-    },
-
-    unregister(pluginId: string): void {
-      for (const [k, v] of entries) {
-        if (v.pluginId === pluginId) entries.delete(k);
-      }
-    },
-
     getByType(type: SlotType) {
       const result: SlotEntry<PluginSlotDeclaration>[] = [];
       for (const entry of entries.values()) {
@@ -165,8 +136,3 @@ export function createSlotRegistry(): SlotRegistry {
     },
   } as SlotRegistry;
 }
-
-// ── Singleton ─────────────────────────────────────────────────────────────────
-
-/** Global slot registry instance. */
-export const slotRegistry: SlotRegistry = createSlotRegistry();

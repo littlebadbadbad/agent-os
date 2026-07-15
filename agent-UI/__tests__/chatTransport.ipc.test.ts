@@ -239,6 +239,8 @@ describe('sendStream (IPC) — abort / cancel', () => {
     const stream = chatTransport.sendStream(DEFAULT_PARAMS);
     await new Promise((resolve) => setTimeout(resolve, 10));
     stream.cancel();
+    // Flush microtasks so the sessionIdPromise.then() in cancel() fires.
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockInvoke).toHaveBeenCalledWith('chat:stream:stop', { sessionId: SID });
     expect(mockInvoke).not.toHaveBeenCalledWith('chat:stream-abort', expect.anything());
@@ -253,6 +255,8 @@ describe('sendStream (IPC) — abort / cancel', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     abortController.abort();
+    // Flush microtasks so the sessionIdPromise.then() in the abort listener fires.
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockInvoke).toHaveBeenCalledWith('chat:stream:stop', { sessionId: SID });
   });

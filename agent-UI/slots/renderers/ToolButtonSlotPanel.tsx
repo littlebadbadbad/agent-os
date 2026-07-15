@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import type { SlotSession } from "@agent-type";
-import { pluginSystem } from "../../agents";
+import { usePluginSystem } from "../../plugin/PluginContext";
 import styles from "./ToolButtonSlotPanel.module.scss";
 
 export interface ToolButtonSlotPanelProps {
@@ -29,7 +29,8 @@ export function ToolButtonSlotPanel(
 ): ReactElement | null {
   const { pluginId, slotId, session, toolSetSymbol, className } = props;
 
-  const uiPlugin = pluginSystem.getPlugin(pluginId);
+  const { getPlugin } = usePluginSystem();
+  const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
   const { host, handleReady } = useSlotHostBridge({

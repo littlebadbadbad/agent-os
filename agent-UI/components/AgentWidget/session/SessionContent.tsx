@@ -8,10 +8,9 @@ import { ExperiencePanel } from "../panels/ExperiencePanel";
 import { CronPanel } from "../panels/CronPanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
-import { slotRegistry } from "../../../slots/registry";
 import { buildSlotDisplayContextFromState } from "../../../slots/context";
 import styles from "../AgentWidget.module.scss";
-import { pluginSystem } from "@agent-UI/agents";
+import { useSlotRegistry } from "../../../plugin/PluginContext";
 
 // ── Session content (chat/tools/terminals) ────────────────────────────────────
 // Keyed by session ID so React resets local view state when switching sessions.
@@ -73,12 +72,13 @@ export function SessionContent({
     | string
   >("chat");
 
+  const { getByType } = useSlotRegistry();
+
   // Build SlotDisplayContext from session state for slot visibility decisions.
   const slotCtx = buildSlotDisplayContextFromState({ id: sessionStateId, agentName, conversationId });
 
   // Check if any plugin panel slots are visible.
-  const hasPluginUi = slotRegistry
-    .getByType("panel")
+  const hasPluginUi = getByType("panel")
     .some((s) => s.declaration.showTab(slotCtx));
   const hasSubAgents = subAgentRegistry !== null;
   const hasCron = (cronJobs?.length ?? 0) > 0;
@@ -92,8 +92,7 @@ export function SessionContent({
       {/* HeaderBar slots — thin full-width bars above the tab bar.
           Each slot is a sandboxed iframe that subscribes to session
           state changes. */}
-      {slotRegistry
-        .getByType("headerBar")
+      {getByType("headerBar")
         .map((entry) => (
           <SlotRenderer
             key={`${entry.pluginId}:${entry.slotId}`}
@@ -189,7 +188,7 @@ export function SessionContent({
       )}
       {view.startsWith("plugin:") && (() => {
           const pid = view.slice("plugin:".length);
-          const panelEntry = slotRegistry.getByType("panel").find((e) => e.pluginId === pid);
+          const panelEntry = getByType("panel").find((e) => e.pluginId === pid);
           if (!panelEntry) return null;
           return (
             <SlotRenderer
@@ -224,8 +223,7 @@ export function SessionContent({
           Each slot creates a sandboxed iframe that receives prompt state
           via InlinePromptHostMessage and calls the plugin's responder.
           Shown in all views so pending prompts never silently block execution. */}
-      {slotRegistry
-        .getByType("inlinePrompt")
+      {getByType("inlinePrompt")
         .map((entry) => (
           <SlotRenderer
             key={`${entry.pluginId}:${entry.slotId}`}

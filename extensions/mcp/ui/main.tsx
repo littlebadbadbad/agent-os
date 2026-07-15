@@ -125,7 +125,7 @@ function bootApp(host: UiPluginHost): void {
       );
     }
 
-    if (!servers) {
+    if (!servers || !connect || !disconnect || !remove || !addServer || !sync) {
       return (
         <div style={{ padding: 16, color: "#858585", fontFamily: "system-ui" }}>
           MCP state not available in this session.

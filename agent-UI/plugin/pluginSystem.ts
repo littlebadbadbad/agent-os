@@ -24,10 +24,7 @@ import { createPluginApiClient } from "./apiClient";
 import { createPluginConfigClient } from "./configClient";
 import { loadPluginAgentEntry, type PluginAgentModule } from "./loader";
 import { createAgentPluginHost, type AgentPluginContext } from "./host";
-import { slotRegistry } from "../slots/registry";
 import { providerStore } from "../store/providerStore";
-import type { AgentSession } from "@agent-sdk/client";
-import { discoverSlots } from "./discoverSlots";
 
 // ── Compile-time built-in plugin registry ────────────────────────────────────
 // Baked into the bundle at build time by Vite.  Same source of truth as
@@ -102,15 +99,6 @@ export interface PluginSystem {
    * @param pluginId The ID of the plugin to retrieve.
    */
   getPlugin(pluginId: string): PluginDescriptor | undefined;
-
-  /**
-   * Refresh the SlotRegistry from session state.
-   *
-   * Reads all active plugins' symbol-keyed state from the session
-   * and registers any slot declarations found in {@link PluginUiAdapter.slots}.
-   * Call this before rendering plugin UI components.
-   */
-  refreshSlots(session: AgentSession): void;
 }
 
 export interface ActivatedPluginInfo extends PluginDescriptor {
@@ -171,22 +159,8 @@ export function createPluginSystem(): PluginSystem {
     getPlugin(pluginId: string): PluginDescriptor | undefined {
       return state.allPlugins.find((p) => p.id === pluginId);
     },
-
-    refreshSlots(session: AgentSession): void {
-      const sessionState = session.getState();
-      // Clear all existing entries first — slots are fully recomputed from
-      // the current session state on each call.
-      for (const plugin of state.activePlugins) {
-        slotRegistry.unregister(plugin.id);
-      }
-      const entries = discoverSlots(sessionState, state.activePlugins);
-      for (const entry of entries) {
-        slotRegistry.register(entry.pluginId, entry.toolSetSymbol, entry.slotIndex, entry.declaration);
-      }
-    },
   };
 }
-
 // ── Internal ───────────────────────────────────────────────────────────────────
 
 /**

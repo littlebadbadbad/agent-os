@@ -2,8 +2,8 @@ import { type ReactElement, useMemo, useSyncExternalStore } from 'react';
 import type { SlotDisplayContext, SlotSession } from '@agent-type';
 import { ProxyButton } from '../ProxyManager/ProxyButton';
 import { ProviderSelector } from '../ProviderSelector/ProviderSelector';
-import { slotRegistry } from '../../slots/registry';
 import { SlotRenderer } from '../../slots/SlotRenderer';
+import { useSlotRegistry } from '../../plugin/PluginContext';
 import { DropdownPanel } from '../DropdownPanel';
 import styles from './AIControlBar.module.scss';
 
@@ -37,7 +37,9 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
     [sessionState],
   );
 
-  const toolButtonSlots = slotRegistry.getByType('toolButton')
+  const { getByType } = useSlotRegistry();
+
+  const toolButtonSlots = getByType('toolButton')
     .slice()
     .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100));
 

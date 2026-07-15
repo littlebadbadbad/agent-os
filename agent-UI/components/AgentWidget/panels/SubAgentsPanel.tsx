@@ -25,6 +25,7 @@ import { PaneSlotLayout } from '../panes/PaneSlotLayout';
 import { buildSlotDisplayContextFromState } from '../../../slots/context';
 import type { SlotDisplayContext, PanelSlotDeclaration } from '@agent-type';
 import type { SlotEntry } from '../../../slots/registry';
+import { usePluginSystem } from '../../../plugin/PluginContext';
 import styles from '../AgentWidget.module.scss';
 
 // ── ConversationPane ─────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ interface ConversationPaneProps {
 }
 
 function ConversationPane({ registry, agentName, convId, sessionId }: ConversationPaneProps): ReactElement | null {
+  const { activePlugins } = usePluginSystem();
   const rawConv = registry.getConversation(agentName, convId);
   // If the conversation doesn't exist, render nothing.
   if (!rawConv) return null;
@@ -67,19 +69,19 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
 
   // Discover plugin slots from the conversation state.
   const headerBarSlots = useMemo<readonly SlotEntry[]>(
-    () => discoverSubAgentSlots(conv)
+    () => discoverSubAgentSlots(conv, activePlugins)
         .filter((e) => e.declaration.type === 'headerBar'),
-    [conv],
+    [conv, activePlugins],
   );
   const panelSlots = useMemo<readonly SlotEntry[]>(
-    () => discoverSubAgentSlots(conv)
+    () => discoverSubAgentSlots(conv, activePlugins)
         .filter((e) => e.declaration.type === 'panel' && e.declaration.showTab(slotCtx)),
-    [conv],
+    [conv, activePlugins],
   ) as readonly SlotEntry<PanelSlotDeclaration>[];
   const inlinePromptSlots = useMemo<readonly SlotEntry[]>(
-    () => discoverSubAgentSlots(conv)
+    () => discoverSubAgentSlots(conv, activePlugins)
         .filter((e) => e.declaration.type === 'inlinePrompt' && e.declaration.shouldRender?.(slotCtx) !== false),
-    [conv, slotCtx],
+    [conv, activePlugins, slotCtx],
   );
 
   const handleSend = useCallback(

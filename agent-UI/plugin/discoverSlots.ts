@@ -11,27 +11,27 @@
  *
  * This function lives here so both callers delegate to a single implementation.
  *
- * ## Why `state` is typed as `unknown`
+ * Why `state` is typed as `object`:
  *
- * `AgentSessionState` (main agent) provides symbol-keyed access via
- * `AgentSessionExtension extends Record<string, unknown>` while
- * `SubAgentConversationState` (sub-agent) has `readonly [key: symbol]:
- * PluginStateExtension & PluginUiAdapter`.  These two index-signature
- * shapes are not statically compatible, so this function accepts `unknown`
- * and validates at runtime — no type assertions required at call sites.
+ * The function only needs `Reflect.get` access on the state to read
+ * symbol-keyed plugin slices. Both `AgentSessionState` and
+ * `SubAgentConversationState` are objects at runtime, and `object` is
+ * the most precise static type that both satisfy without type assertions.
  */
 
-import type { PluginSlotDeclaration } from '@agent-type';
-import type { SlotEntry } from '../slots/registry';
-import type { ActivatedPluginInfo } from './pluginSystem';
+import type { PluginSlotDeclaration } from "@agent-type";
+import type { SlotEntry } from "../slots/registry";
+import type { ActivatedPluginInfo } from "./pluginSystem";
 
 /**
  * Runtime check: does the value look like it has a `slots` array?
  * @returns The `slots` array, or `undefined`.
  */
-function tryGetSlots(value: unknown): readonly PluginSlotDeclaration[] | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  if (!('slots' in value)) return undefined;
+function tryGetSlots(
+  value: unknown,
+): readonly PluginSlotDeclaration[] | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  if (!("slots" in value)) return undefined;
   const obj = value as { readonly slots: unknown };
   if (!Array.isArray(obj.slots)) return undefined;
   return obj.slots as readonly PluginSlotDeclaration[];
@@ -40,8 +40,12 @@ function tryGetSlots(value: unknown): readonly PluginSlotDeclaration[] | undefin
 /**
  * Auto-generate a unique slot id from plugin + toolset symbol + index.
  */
-function generateSlotId(pluginId: string, toolSetSymbol: symbol, slotIndex: number): string {
-  const desc = toolSetSymbol.description ?? 'toolset';
+function generateSlotId(
+  pluginId: string,
+  toolSetSymbol: symbol,
+  slotIndex: number,
+): string {
+  const desc = toolSetSymbol.description ?? "toolset";
   return `${pluginId}::${desc}::${slotIndex}`;
 }
 
@@ -66,11 +70,11 @@ export interface DiscoveredSlotEntry {
  * @returns Flat list of `{ pluginId, toolSetSymbol, slotIndex, declaration }` entries.
  */
 export function discoverSlots(
-  state: unknown,
+  state: object,
   plugins: readonly ActivatedPluginInfo[],
 ): readonly DiscoveredSlotEntry[] {
   // Guard: must be a non-null object for Reflect.get to work safely.
-  if (typeof state !== 'object' || state === null) {
+  if (typeof state !== "object" || state === null) {
     return [];
   }
 
@@ -80,7 +84,12 @@ export function discoverSlots(
       const slots = tryGetSlots(Reflect.get(state, sym));
       if (slots) {
         for (let i = 0; i < slots.length; i++) {
-          entries.push({ pluginId: plugin.id, toolSetSymbol: sym, slotIndex: i, declaration: slots[i] });
+          entries.push({
+            pluginId: plugin.id,
+            toolSetSymbol: sym,
+            slotIndex: i,
+            declaration: slots[i],
+          });
         }
       }
     }
@@ -91,7 +100,9 @@ export function discoverSlots(
 /**
  * Convert discovered entries to fully-formed SlotEntry (with auto-generated slotId).
  */
-export function toSlotEntries(discovered: readonly DiscoveredSlotEntry[]): readonly SlotEntry[] {
+export function toSlotEntries(
+  discovered: readonly DiscoveredSlotEntry[],
+): readonly SlotEntry[] {
   return discovered.map((e) => ({
     pluginId: e.pluginId,
     toolSetSymbol: e.toolSetSymbol,

@@ -40,13 +40,14 @@ import type {
   SlotSession,
   PluginSlotDeclaration,
 } from "@agent-type";
+import type { SlotRegistry } from "./registry";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
 import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
 import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
 import { HeaderBarSlotRenderer } from "./renderers/HeaderBarSlotRenderer";
 import { ToolButtonSlotPanel } from "./renderers/ToolButtonSlotPanel";
-import { slotRegistry } from "./registry";
 import { buildSlotDisplayContext } from "./context";
+import { useSlotRegistry } from "../plugin/PluginContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,9 +71,10 @@ function checkShouldRender(
   pluginId: string,
   slotId: string,
   session: SlotSession,
+  getSlot: SlotRegistry["getSlot"],
   declaration?: PluginSlotDeclaration,
 ): boolean {
-  const decl = declaration ?? slotRegistry.getSlot(pluginId, slotId)?.declaration;
+  const decl = declaration ?? getSlot(pluginId, slotId)?.declaration;
   // Inline slot types never use the iframe dispatch — skip silently.
   if (!decl || decl.type === "compactToolCard" || decl.type === "autocomplete") return true;
   if (!decl.shouldRender) return true;
@@ -136,7 +138,8 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
   } = props;
 
   // ── shouldRender gate — evaluated before dispatch ─────────────────────────
-  if (!checkShouldRender(pluginId, slotId, session, declaration)) {
+  const { getSlot } = useSlotRegistry();
+  if (!checkShouldRender(pluginId, slotId, session, getSlot, declaration)) {
     return null;
   }
 

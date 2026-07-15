@@ -15,8 +15,7 @@ import { type ReactElement } from "react";
 import type { HeaderBarSlotDeclaration, SlotSession } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import { slotRegistry } from "../registry";
-import { pluginSystem } from "../../agents";
+import { useSlotRegistry, usePluginSystem } from "../../plugin/PluginContext";
 
 export interface HeaderBarSlotRendererProps {
   readonly pluginId: string;
@@ -31,12 +30,14 @@ export function HeaderBarSlotRenderer(
 ): ReactElement | null {
   const { pluginId, slotId, session, toolSetSymbol, className } = props;
 
-  const uiPlugin = pluginSystem.getPlugin(pluginId);
+  const { getPlugin } = usePluginSystem();
+  const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
   // Read dimensions from slot declaration, fall back to sensible defaults.
-  const entry = slotRegistry.getSlot(pluginId, slotId);
-  const decl = entry?.declaration as HeaderBarSlotDeclaration | undefined;
+  const { getSlot } = useSlotRegistry();
+  const slotEntry = getSlot(pluginId, slotId);
+  const decl = slotEntry?.declaration as HeaderBarSlotDeclaration | undefined;
   const containingWidth = decl?.containingWidth ?? "100%";
   const containingHeight = decl?.containingHeight ?? "auto";
 

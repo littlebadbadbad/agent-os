@@ -12,7 +12,8 @@
 import { type ReactElement } from "react";
 import type { PanelSlotDeclaration, SlotDisplayContext } from "@agent-type";
 import styles from "../AgentWidget.module.scss";
-import { slotRegistry, type SlotEntry } from "../../../slots/registry";
+import type { SlotEntry } from "../../../slots/registry";
+import { useSlotRegistry } from "../../../plugin/PluginContext";
 
 export interface PluginTabBarProps {
   readonly activePluginView: string | null;
@@ -23,8 +24,10 @@ export interface PluginTabBarProps {
 export function PluginTabBar(props: PluginTabBarProps): ReactElement | null {
   const { activePluginView, onSelect, slotCtx } = props;
 
+  const { getByType } = useSlotRegistry();
+
   const panelSlots: ReadonlyArray<SlotEntry<PanelSlotDeclaration>> =
-    slotRegistry.getByType("panel");
+    getByType("panel");
 
   if (panelSlots.length === 0) return null;
 
