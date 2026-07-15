@@ -174,4 +174,13 @@ export type AgentSession = {
    * `liveHistory` field always reflects the current context-window state.
    */
   getLiveHistory(): AgentMessage[];
+  /**
+   * Inject a synthetic tool-call + tool-result pair into the conversation
+   * and start a new agent turn so the LLM can react to the result.
+   *
+   * Used by the user-input extension to restore tool-bound prompts after
+   * session persistence reload — the answer becomes a `role: 'tool'` message
+   * rather than a new user message.
+   */
+  injectToolResult(toolCallId: string, name: string, result: unknown): Promise<void>;
 };

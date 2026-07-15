@@ -146,6 +146,16 @@ export interface ToolExecutionContextExtension { }
  */
 export type UserInputRequest = {
   readonly ephemeral?: true;
+  /**
+   * When true (default), the user's answer produces a `role: 'tool'` result
+   * message. When false, the answer is forwarded as a new `role: 'user'`
+   * message. Persisted and restored across session reloads.
+   */
+  readonly boundToTool?: boolean;
+  /** Stable identifier for the originating tool call (persisted for restore). */
+  readonly toolCallId?: string;
+  /** Name of the originating tool (e.g. `'ask_user'`). */
+  readonly toolName?: string;
 } & (
     | { readonly type: "confirm"; readonly message: string }
     | {
@@ -417,6 +427,16 @@ export interface ToolExecutionContext extends ToolExecutionContextExtension {
    * `undefined` when the user-input plugin is not installed.
    */
   readonly cancelUserInput?: (id: string) => void;
+  /**
+   * Send a message into the conversation as if the user typed it.
+   *
+   * When the agent is currently processing (`isLoading`), the message is
+   * queued and delivered on the next available LLM turn (via the
+   * PendingInputToolSet interceptor).
+   *
+   * `undefined` when the session is not yet ready for message sending.
+   */
+  readonly sendMessage?: (text: string) => void;
 }
 
 // ── Resolvable helper ─────────────────────────────────────────────────────────

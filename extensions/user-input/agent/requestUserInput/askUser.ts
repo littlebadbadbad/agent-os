@@ -2,21 +2,27 @@
  * extensions/user-input/agent/askUser.ts — ask_user tool definition
  *
  * The core tool that agents call to request structured input from the user.
- * Supports 5 prompt types: text, confirm, select, multiSelect, number.
+ * Supports 5 prompt types + bound/unbound dual mode.
  *
- * Ported from plugins/user-input/index.js with full TypeScript typing.
+ * Detailed usage rules live in the ToolSet's `onGetSystemPrompt`, not here.
  */
 
 import { z } from "zod";
-import { defineTool } from "@agent-type";
+import { defineTool, type UserInputRequest } from "@agent-type";
 
-const askUserSchema = z.object({
+export const CANCEL_MSG =
+  "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
+
+export const UNBOUND_OK_MSG =
+  "[User responded — their answer has been submitted as a new message. Proceed accordingly.]";
+
+export const askUserSchema = z.object({
   type: z
     .enum(["text", "confirm", "select", "multiSelect", "number"])
     .describe(
-      'Prompt type: "text" (free-form), "confirm" (yes/no → returns "yes"), ' +
-        '"select" (pick one), "multiSelect" (pick many → JSON array string), ' +
-        '"number" (numeric → string).',
+      'Prompt type: "text" (free-form), "confirm" (yes/no), ' +
+        '"select" (pick one), "multiSelect" (pick many), ' +
+        '"number" (numeric).',
     ),
   question: z.string().min(1).describe("The question shown to the user."),
   placeholder: z
@@ -50,110 +56,89 @@ const askUserSchema = z.object({
   min: z.number().optional().describe("(number) Minimum allowed value."),
   max: z.number().optional().describe("(number) Maximum allowed value."),
   step: z.number().optional().describe("(number) Increment step."),
+  bind_to_tool: z
+    .boolean()
+    .default(true)
+    .describe(
+      "When true (default), the answer becomes the tool result the LLM sees. " +
+        "When false, the answer is submitted as a new user message.",
+    ),
 });
 
-const DESCRIPTION = `Ask the user for input. Suspend tool execution until the user responds. Never guess or assume missing required information — always use this tool.`;
+// ── Build a UserInputRequest from the Zod-parsed params ───────────────────────
+
+export function toRequest(params: z.infer<typeof askUserSchema>): UserInputRequest {
+  switch (params.type) {
+    case "text":
+      return {
+        type: "text",
+        message: params.question,
+        placeholder: params.placeholder,
+        defaultValue: params.default_value,
+      };
+    case "confirm":
+      return { type: "confirm", message: params.question };
+    case "multiSelect":
+      return {
+        type: "multiSelect",
+        message: params.question,
+        options: params.options ?? [],
+        minSelect: params.min_select,
+        maxSelect: params.max_select,
+      };
+    case "number":
+      return {
+        type: "number",
+        message: params.question,
+        placeholder: params.placeholder,
+        defaultValue: params.default_number,
+        min: params.min,
+        max: params.max,
+        step: params.step,
+      };
+    case "select":
+      return {
+        type: "select",
+        message: params.question,
+        options: params.options ?? [],
+      };
+  }
+}
+
+// ── Tool definition ───────────────────────────────────────────────────────────
 
 export const askUserTool = defineTool({
   name: "ask_user",
-  description: DESCRIPTION,
+  description: "Ask the user for input. Suspend tool execution until the user responds.",
   parameters: askUserSchema,
   group: "interaction",
   execute: async (params, context) => {
     if (!context.requestUserInput) {
-      return '[ask_user] requestUserInput is not available. The User Input extension may not be installed.';
+      return "[ask_user] requestUserInput is not available. The User Input extension may not be installed.";
     }
 
-    const abortSignal = context.signal;
-
-    if (params.type === "text") {
-      const result = await context.requestUserInput(
-        {
-          type: "text",
-          message: params.question,
-          placeholder: params.placeholder,
-          defaultValue: params.default_value,
-        },
-        undefined,
-      );
-      if (result === null) {
-        return "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
-      }
-      return result;
+    // Validate select/multiSelect have enough options.
+    if (
+      (params.type === "select" || params.type === "multiSelect") &&
+      (!params.options || params.options.length < 2)
+    ) {
+      return `[ask_user] type "${params.type}" requires at least 2 options. Please retry with a valid options array.`;
     }
 
-    if (params.type === "confirm") {
-      const result = await context.requestUserInput(
-        {
-          type: "confirm",
-          message: params.question,
-        },
-        undefined,
-      );
-      if (result === null) {
-        return "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
-      }
-      return result;
+    const request = toRequest(params);
+    const result = await context.requestUserInput(request, undefined);
+
+    if (result === null) {
+      return CANCEL_MSG;
     }
 
-    if (params.type === "multiSelect") {
-      const options = params.options;
-      if (!options || options.length < 2) {
-        return '[ask_user] type "multiSelect" requires at least 2 options. Please retry with a valid options array.';
-      }
-      const result = await context.requestUserInput(
-        {
-          type: "multiSelect",
-          message: params.question,
-          options,
-          minSelect: params.min_select,
-          maxSelect: params.max_select,
-        },
-        undefined,
-      );
-      if (result === null) {
-        return "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
-      }
-      return result;
+    // Unbound mode: forward the answer as a new user message, return a marker.
+    if (params.bind_to_tool === false) {
+      context.sendMessage?.(result);
+      return UNBOUND_OK_MSG;
     }
 
-    if (params.type === "number") {
-      const result = await context.requestUserInput(
-        {
-          type: "number",
-          message: params.question,
-          placeholder: params.placeholder,
-          defaultValue: params.default_number,
-          min: params.min,
-          max: params.max,
-          step: params.step,
-        },
-        undefined,
-      );
-      if (result === null) {
-        return "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
-      }
-      return result;
-    }
-
-    // "select"
-    {
-      const options = params.options;
-      if (!options || options.length < 2) {
-        return '[ask_user] type "select" requires at least 2 options. Please retry with a valid options array.';
-      }
-      const result = await context.requestUserInput(
-        {
-          type: "select",
-          message: params.question,
-          options,
-        },
-        undefined,
-      );
-      if (result === null) {
-        return "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
-      }
-      return result;
-    }
+    // Bound mode (default): return the value as the tool result.
+    return result;
   },
 });

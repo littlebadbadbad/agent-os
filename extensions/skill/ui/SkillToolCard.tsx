@@ -43,14 +43,14 @@ export function SkillToolCard({ info }: { info: ToolCallInfo }): ReactElement {
       </div>
 
       {/* Result or Error */}
-      {status === 'error' && error && (
+      {status === 'error' && !!error && (
         <div className={styles["tc-error"]}>
           <div className={styles["tc-error-title"]}>Error</div>
-          <pre className={styles["tc-error-body"]}>{error}</pre>
+          <pre className={styles["tc-error-body"]}>{String(error)}</pre>
         </div>
       )}
 
-      {status === 'done' && result && (
+      {status === 'done' && !!result && (
         <div className={styles["tc-result"]}>
           <div className={styles["tc-section-title"]}>Result</div>
           <pre className={styles["tc-result-body"]}>

@@ -1,6 +1,7 @@
 import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
 import type { ToolButtonSlotDeclaration, AutocompleteSlotDeclaration, ToolCardSlotDeclaration, CompactToolCardSlotDeclaration } from '@agent-type';
 import type { SkillState } from './skill';
+export type { SkillState };
 
 // ── Backend skill entry ───────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 // ── Side-effect: register module augmentation fields ─────────────────────────
 import './types';
 
-import type { ToolSet, ToolSetContext } from '@agent-type';
+import type { ToolSet, ToolSetContext, SessionReadyHelpers } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
 import type { CronManagerAdapter } from './types';
 import { createCronTools } from './tools';
@@ -59,10 +59,10 @@ export function createCronToolSet(adapter: CronManagerAdapter): ToolSet {
       }
     },
 
-    onSessionReady(ctx: ToolSetContext, sendMessage: (text: string) => void): void {
+    onSessionReady(ctx: ToolSetContext, helpers: SessionReadyHelpers): void {
       // Wire SSE so fired-job prompts become user messages.
       const stopFn = adapter.startListening(ctx.sessionId, (_jobId, prompt) => {
-        sendMessage(prompt);
+        helpers.sendMessage(prompt);
         // Refresh local job list after a fire so status / nextFireAt stay current.
         adapter.listJobs({ sessionId: ctx.sessionId })
           .then((jobs) => {

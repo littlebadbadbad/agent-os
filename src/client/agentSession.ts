@@ -347,6 +347,46 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   }
 
 
+  // ── injectToolResult ───────────────────────────────────────────────────────
+  // Creates a synthetic tool-call + tool-result pair, pushes them into the
+  // conversation history, and starts the agent loop so the LLM can react.
+
+  async function injectToolResult(
+    toolCallId: string,
+    name: string,
+    result: unknown,
+  ): Promise<void> {
+    if (isLoadingFlag) return;
+
+    const assistant: AgentMessage = {
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: toolCallId, name, arguments: {} }],
+    };
+    const toolResult: AgentMessage = {
+      role: 'tool',
+      toolCallId,
+      name,
+      content: JSON.stringify(result),
+    };
+
+    // Push to both full and live history.
+    tracker.pushToBoth(assistant);
+    tracker.pushToBoth(toolResult);
+
+    // Push to UI messages.
+    setMessages((prev) => [
+      ...prev,
+      { id: createId(), role: 'assistant' as const, content: '', isStreaming: false },
+      toolMsg({ toolCallId, name, arguments: {}, status: 'done' as const, result }),
+    ]);
+
+    // Start the agent loop with an empty user message — the LLM sees the
+    // tool result and generates a response.
+    await runInternalAgentLoop('', { role: 'user', content: '' });
+  }
+
+
   // ── cancelMessage ─────────────────────────────────────────────────────────
 
   function cancelMessage(): void {
@@ -379,6 +419,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   return {
     sendMessage,
     editAndSendMessage,
+    injectToolResult,
     cancelMessage,
     clearHistory,
     getState,

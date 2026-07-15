@@ -34,7 +34,7 @@ describe('createBrowserToolSet', () => {
 
   it('exposes the adapter via .adapter property', () => {
     const adapter = makeBrowserAdapter();
-    const ts = createBrowserToolSet(adapter);
+    const ts = createBrowserToolSet(adapter) as any;
     expect(ts.adapter).toBe(adapter);
   });
 

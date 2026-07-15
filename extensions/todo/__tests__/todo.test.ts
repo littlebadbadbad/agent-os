@@ -6,7 +6,7 @@ import type { ToolSetContext } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeCtx(sessionId = 'session-1') {
+function makeCtx(sessionId = 'session-1'): any {
   return {
     sessionId,
     agentName: 'main',
@@ -32,7 +32,7 @@ function makeSubAgentCtx(
   agentName: string,
   convId: string,
   sessionId = 'session-1',
-) {
+): any {
   return {
     sessionId,
     agentName,
@@ -183,7 +183,7 @@ describe('createTodoTools', () => {
     const ts = createTodoTools();
     const todos: TodoItem[] = [{ id: 1, title: 'T', status: 'not-started' }];
     await writeTodos(ts, todos, 'session-state');
-    const state = ts.onGetSymbolState!(makeTsCtx('session-state'));
+    const state: any = ts.onGetSymbolState!(makeTsCtx('session-state'));
     expect(state.todos).toEqual(todos);
     expect(state.type).toBe('todo');
   });

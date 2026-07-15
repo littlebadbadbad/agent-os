@@ -213,9 +213,12 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
       onAfterRun: (outcome: AgentRunOutcome) => dispatchOnAfterRun(getAllToolSets(), tsCtx, outcome),
     });
 
-    // Fire onSessionReady for all ToolSets now that sendMessage is available.
+    // Fire onSessionReady for all ToolSets now that the session is fully wired.
     for (const ts of getAllToolSets()) {
-      ts.onSessionReady?.(tsCtx, (t) => session.sendMessage(t));
+      ts.onSessionReady?.(tsCtx, {
+        sendMessage: (t) => session.sendMessage(t),
+        injectToolResult: (id, name, result) => session.injectToolResult(id, name, result),
+      });
     }
 
     return session;

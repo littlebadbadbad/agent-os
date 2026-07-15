@@ -2,13 +2,13 @@
  * extensions/user-input/agent/toolSet.ts — UserInput ToolSet
  *
  * Lifecycle hooks that:
- *   1. Inject `requestUserInput`/`cancelUserInput` into ToolExecutionContext (onPatchToolContext)
+ *   1. Inject `requestUserInput`/`cancelUserInput`/`sendMessage` into
+ *      ToolExecutionContext (onPatchToolContext)
  *   2. Expose prompt state + responder via `onGetSymbolState` (symbol-isolated)
  *   3. Declare inlinePrompt slot for UI injection
  *   4. Handle session lifecycle (init/ready/remove/reset) and persistence
- *
- * Ported from plugins/user-input/index.js with full TypeScript typing.
- * KEY CHANGE: onGetState → onGetSymbolState for plugin state isolation.
+ *   5. Differentiate bound prompts (answer → tool result) from unbound prompts
+ *      (answer → new user message) for correct snapshot/restore behaviour
  */
 
 import {
@@ -17,6 +17,8 @@ import {
   type ToolContextPatch,
   type SessionEntryData,
   type UserInputRequest,
+  type SessionReadyHelpers,
+  type Attachment,
   type PluginUiAdapter,
   type PluginSlotDeclaration,
   ctxKey,
@@ -31,13 +33,6 @@ export const USER_INPUT_SYMBOL: unique symbol = Symbol("user-input");
 
 // ── Symbol-state shape ────────────────────────────────────────────────────────
 
-/**
- * Shape exposed via `onGetSymbolState`.
- * Host reads from `sessionState[USER_INPUT_SYMBOL]`.
- *
- * Extends {@link PluginUiAdapter} so the host's `SlotRegistry` discovers
- * the `inlinePrompt` slot declaration.
- */
 export interface UserInputSymbolState extends PluginUiAdapter {
   readonly type: "requestUserInput";
   readonly pendingUserInputs: ReadonlyArray<InlinePromptEntry>;
@@ -47,25 +42,33 @@ export interface UserInputSymbolState extends PluginUiAdapter {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/**
+ * Build an `InlinePromptEntry` from a `UserInputRequest`, carrying the bind
+ * metadata through so `onBuildSnapshot` / `onInitSession` can distinguish
+ * bound prompts from unbound ones.
+ */
 function toInlinePromptEntry(
   id: string,
   request: UserInputRequest,
   conversationId: string,
   agentName: string,
 ): InlinePromptEntry {
-  const base: Pick<InlinePromptEntry, "id" | "conversationId" | "agentName"> = {
+  const base = {
     id,
     conversationId,
     agentName,
+    boundToTool: request.boundToTool ?? true,
+    toolCallId: request.toolCallId ?? id,
+    toolName: request.toolName ?? "ask_user",
   };
 
   switch (request.type) {
     case "confirm":
-      return { ...base, kind: "confirm", message: request.message };
+      return { ...base, kind: "confirm" as const, message: request.message };
     case "text":
       return {
         ...base,
-        kind: "text",
+        kind: "text" as const,
         message: request.message,
         placeholder: request.placeholder,
         defaultValue:
@@ -76,14 +79,14 @@ function toInlinePromptEntry(
     case "select":
       return {
         ...base,
-        kind: "select",
+        kind: "select" as const,
         message: request.message,
         options: request.options,
       };
     case "multiSelect":
       return {
         ...base,
-        kind: "multiSelect",
+        kind: "multiSelect" as const,
         message: request.message,
         options: request.options,
         minSelect: request.minSelect,
@@ -92,7 +95,7 @@ function toInlinePromptEntry(
     case "number":
       return {
         ...base,
-        kind: "number",
+        kind: "number" as const,
         message: request.message,
         placeholder: request.placeholder,
         defaultValue:
@@ -104,15 +107,13 @@ function toInlinePromptEntry(
         step: request.step,
       };
     default:
-      // @ts-expect-error: exhaustive check
-      return { ...base, kind: "text", message: request.message };
+      return { ...base, kind: "text" as const, message: (request as { message?: string }).message ?? "" };
   }
 }
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
 export interface UserInputToolSetOptions {
-  /** Optional adapter for external prompt handling (headless mode). */
   readonly adapter?: UserInputAdapter | undefined;
 }
 
@@ -124,13 +125,15 @@ export function createUserInputToolSet(
   const { adapter } = options;
   const store = createUserInputStore();
 
-  // Ghost holders for prompts restored from snapshots before sendMessage is ready.
-  const ghostHolders = new Map<
-    string,
-    Map<string, { fn: (value: string | null) => void }>
-  >();
+  // Persisted entries that need to be wired once sendMessage is ready.
+  // Keyed by sessionId → array of saved InlinePromptEntry.
+  const pendingRestore = new Map<string, readonly InlinePromptEntry[]>();
 
-  // ── onPatchToolContext (injects requestUserInput) ───────────────────────────
+  // `sendMessage` refs injected into onPatchToolContext.
+  // Keyed by sessionId.
+  const sendMessageByKey = new Map<string, (text: string) => void>();
+
+  // ── onPatchToolContext (injects requestUserInput / sendMessage) ────────────
 
   const patchFn: ToolContextPatch = (
     ctx: ToolSetContext,
@@ -139,15 +142,23 @@ export function createUserInputToolSet(
     const sessionId = ctxKey(ctx);
 
     return {
+      sendMessage: sendMessageByKey.get(sessionId),
+
       requestUserInput: (
         req: UserInputRequest,
         id?: string,
       ): Promise<string | null> =>
         new Promise<string | null>((resolve) => {
           const entryId = id ?? crypto.randomUUID();
+          const enriched: UserInputRequest = {
+            ...req,
+            boundToTool: req.boundToTool ?? true,
+            toolCallId: req.toolCallId ?? entryId,
+            toolName: req.toolName ?? "ask_user",
+          };
           const prompt = toInlinePromptEntry(
             entryId,
-            req,
+            enriched,
             ctx.conversationId,
             ctx.agentName,
           );
@@ -172,10 +183,10 @@ export function createUserInputToolSet(
     };
   };
 
-  // Attach the comment property used by AI tool search.
   patchFn.comment =
-    "`context.requestUserInput(request, id?)` → `Promise<string | null>` — suspend tool execution until the user responds to a chat prompt.\n" +
-    "`context.cancelUserInput?(id)` — cancel a pending prompt programmatically.";
+    "`context.requestUserInput(request, id?)` → `Promise<string | null>` — suspend tool execution until the user responds.\n" +
+    "`context.cancelUserInput?(id)` — cancel a pending prompt programmatically.\n" +
+    "`context.sendMessage?(text)` — send a user message into the conversation.";
 
   return {
     symbol: USER_INPUT_SYMBOL,
@@ -197,11 +208,16 @@ export function createUserInputToolSet(
         "- You need explicit confirmation before a destructive/irreversible operation",
         "",
         "5 prompt types:",
-        "- **confirm** — yes/no question. Returns `\"yes\"` or signals cancellation.",
+        '- **confirm** — yes/no question. Returns `"yes"` or signals cancellation.',
         "- **text** — free-form answer. Use only when the response cannot be constrained.",
         "- **select** — pick one from a fixed list. Prefer this over text when the valid answers are known.",
         "- **multiSelect** — pick one or more options. Returns a JSON array string.",
         "- **number** — numeric input. Specify `min`/`max`/`step` to constrain.",
+        "",
+        "Two modes via `bind_to_tool`:",
+        '- **bind_to_tool=true** (default): the answer becomes the tool result — the LLM sees it as a `tool` message.',
+        '- **bind_to_tool=false**: the answer is submitted as a new user message — the LLM sees it as a `user` message.',
+        "  Use this when the user's answer should feel like the user speaking, not a tool returning data.",
         "",
         "Tool execution is **suspended** until the user responds. If the user cancels, the tool",
         "returns a cancellation message — proceed with a fallback strategy rather than retrying.",
@@ -235,6 +251,25 @@ export function createUserInputToolSet(
 
     onPatchToolContext: patchFn,
 
+    // ── Message interception ──────────────────────────────────────────────
+    // When the user types a new message in the chat input instead of
+    // answering a pending prompt, cancel all pending prompts so the tool
+    // resolves with null and the agent loop can proceed.
+
+    onInterceptMessage(
+      ctx: ToolSetContext,
+      _message: { readonly content: string; readonly attachments?: readonly Attachment[] },
+      _isLoading: boolean,
+    ): void {
+      const key = ctxKey(ctx);
+      if (store.getAll(key).length > 0) {
+        store.cancelAll(key);
+      }
+      // Return undefined — do NOT intercept the message. Let other
+      // ToolSets (e.g. PendingInputToolSet) or the normal send path
+      // handle it.
+    },
+
     // ── Session lifecycle ───────────────────────────────────────────────────
 
     onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
@@ -243,41 +278,53 @@ export function createUserInputToolSet(
       if (!saved?.length) return;
 
       const sessionId = ctxKey(ctx);
-      let holders = ghostHolders.get(sessionId);
-      if (!holders) {
-        holders = new Map();
-        ghostHolders.set(sessionId, holders);
-      }
+      // Store the saved entries for wiring in onSessionReady.
+      pendingRestore.set(sessionId, [...saved]);
 
       for (const entry of saved) {
-        const holder: { fn: (value: string | null) => void } = {
-          fn: () => { },
-        };
-        holders.set(entry.id, holder);
-        store.addGhost(sessionId, entry, (v) => holder.fn(v));
+        // Ghost entries with a temporary noop resolve — replaced in
+        // onSessionReady with the correct handler for each bind mode.
+        store.addGhost(sessionId, entry, () => {});
       }
     },
 
-    onSessionReady(
-      ctx: ToolSetContext,
-      sendMessage: (text: string) => void,
-    ): void {
+    onSessionReady(ctx: ToolSetContext, helpers: SessionReadyHelpers): void {
       if (adapter) return;
 
       const sessionId = ctxKey(ctx);
-      const holders = ghostHolders.get(sessionId);
-      if (!holders) return;
 
-      for (const holder of holders.values()) {
-        holder.fn = (v: string | null) => {
-          if (v !== null) sendMessage(v);
-        };
+      // Wire sendMessage into the context-patch cache.
+      sendMessageByKey.set(sessionId, helpers.sendMessage);
+
+      // Replace ghost resolves with the correct handler per bind mode.
+      const entries = pendingRestore.get(sessionId);
+      if (!entries) return;
+      pendingRestore.delete(sessionId);
+
+      for (const entry of entries) {
+        if (entry.boundToTool) {
+          store.replaceResolve(sessionId, entry.id, (value) => {
+            if (value !== null) {
+              helpers.injectToolResult(
+                entry.toolCallId ?? entry.id,
+                entry.toolName ?? "ask_user",
+                value,
+              );
+            }
+          });
+        } else {
+          store.replaceResolve(sessionId, entry.id, (value) => {
+            if (value !== null) helpers.sendMessage(value);
+          });
+        }
       }
-      ghostHolders.delete(sessionId);
     },
 
     onRemoveSession(ctx: ToolSetContext): void {
-      store.removeSession(ctxKey(ctx));
+      const key = ctxKey(ctx);
+      store.removeSession(key);
+      pendingRestore.delete(key);
+      sendMessageByKey.delete(key);
     },
 
     onResetSession(ctx: ToolSetContext): void {

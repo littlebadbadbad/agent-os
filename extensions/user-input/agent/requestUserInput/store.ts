@@ -127,5 +127,26 @@ export function createUserInputStore(): UserInputStore {
       b.entries.set(prompt.id, { ...prompt, resolve: onResolve });
       notify(b);
     },
+
+    replaceResolve(
+      sessionId: string,
+      id: string,
+      resolve: (value: string | null) => void,
+    ): void {
+      const b = buckets.get(sessionId);
+      if (!b) return;
+      const entry = b.entries.get(id);
+      if (!entry) return;
+      b.entries.set(id, { ...entry, resolve });
+      notify(b);
+    },
+
+    cancelAll(sessionId: string): void {
+      const b = buckets.get(sessionId);
+      if (!b) return;
+      for (const entry of b.entries.values()) entry.resolve(null);
+      b.entries.clear();
+      notify(b);
+    },
   };
 }

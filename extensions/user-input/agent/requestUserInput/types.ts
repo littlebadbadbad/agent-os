@@ -36,6 +36,22 @@ export interface InlinePromptEntry {
   readonly agentName: string;
   /** Ephemeral prompts are not persisted across page reloads. */
   readonly ephemeral?: boolean;
+  /**
+   * Whether this prompt's answer should produce a `role: 'tool'` message
+   * (`true`) or a new user message (`false`).
+   * Persisted in session snapshots and restored on reload.
+   */
+  readonly boundToTool: boolean;
+  /**
+   * The original tool-call ID for bound prompts.
+   * Used after restore to synthesise a tool-call + tool-result pair.
+   */
+  readonly toolCallId?: string;
+  /**
+   * The original tool name (e.g. `'ask_user'`) for bound prompts.
+   * Used after restore to synthesise the tool-call + tool-result pair.
+   */
+  readonly toolName?: string;
 }
 
 
@@ -68,6 +84,17 @@ export interface UserInputStore {
     prompt: InlinePromptEntry,
     onResolve: (value: string | null) => void,
   ): void;
+  /**
+   * Replace the resolve callback for an existing entry.
+   * Used by `onSessionReady` to wire ghost-restored prompts to the correct
+   * handler (`sendMessage` for unbound, `injectToolResult` for bound).
+   */
+  replaceResolve(sessionId: string, id: string, resolve: (value: string | null) => void): void;
+  /**
+   * Cancel all pending prompts for a session.
+   * Each entry's resolve is called with `null` and the store is cleared.
+   */
+  cancelAll(sessionId: string): void;
 }
 
 // ── UserInputAdapter (external prompt handling) ───────────────────────────────

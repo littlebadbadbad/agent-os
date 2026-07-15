@@ -16,6 +16,7 @@ import type {
   ToolSetContext,
   AgentRunOutcome,
   SessionEntryData,
+  SessionReadyHelpers,
   PluginSlotDeclaration,
   PluginUiAdapter,
 } from "@agent-type";
@@ -170,9 +171,9 @@ export function createPendingInputToolSet(
 
     onSessionReady(
       ctx: ToolSetContext,
-      sendMessage: (text: string) => void,
+      helpers: SessionReadyHelpers,
     ): void {
-      store.setSendMessage(ctxKey(ctx), sendMessage);
+      store.setSendMessage(ctxKey(ctx), helpers.sendMessage);
     },
 
     onResetSession(ctx: ToolSetContext): void {

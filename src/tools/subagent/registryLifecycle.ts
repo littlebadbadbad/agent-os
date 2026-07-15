@@ -94,21 +94,24 @@ export function createLifecycleFunctions(
     // Track the AbortController so UI-initiated cancel can abort auto-resumed sends.
     const sessionId = getSessionId();
     const resumeAbortKey = `resume:${entry.name}:${id}`;
+    const subSendMessage = (text: string) => {
+      const fn = sendMessageRef.current;
+      if (!fn) return;
+      const controller = new AbortController();
+      convControllers.set(resumeAbortKey, controller);
+      void fn(entry.name, id, text, {
+        sessionId,
+        signal: controller.signal,
+      }).finally(() => convControllers.delete(resumeAbortKey));
+    };
     for (const ts of deps.resolveToolSets()) {
-      ts.onSessionReady?.(convCtx, (text: string) => {
-        const fn = sendMessageRef.current;
-        if (!fn) return;
-        const controller = new AbortController();
-        convControllers.set(resumeAbortKey, controller);
-        void fn(entry.name, id, text, {
-          sessionId,
-          signal: controller.signal,
-          attachments: undefined,
-        }).finally(() => {
-          if (convControllers.get(resumeAbortKey) === controller) {
-            convControllers.delete(resumeAbortKey);
-          }
-        });
+      ts.onSessionReady?.(convCtx, {
+        sendMessage: subSendMessage,
+        injectToolResult: (_toolCallId, _name, _result) => {
+          // Sub-agent conversations don't support tool-result injection.
+          // This is a no-op; the main-agent session handles bound-prompt
+          // restoration.
+        },
       });
     }
     return conv;

@@ -12,7 +12,7 @@
 
 import "./types"; // module augmentations
 
-import { ctxKey } from "@agent-type";
+import { ctxKey, type SessionReadyHelpers } from "@agent-type";
 import type {
   ToolSet,
   ToolSetContext,
@@ -84,7 +84,7 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
 
     onSessionReady(
       ctx: ToolSetContext,
-      sendMessage: (text: string) => void,
+      helpers: SessionReadyHelpers,
     ): void {
       const bucket = upgradeStore.get(key(ctx));
       if (!bucket?.restartPending) return;
@@ -92,7 +92,7 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
       upgradeStore.setRestartPending(key(ctx), false);
       // In plugin model, user-input is always installed — no fallback needed.
       // The persisted post-restart prompt is handled by ghost-restore.
-      sendMessage(
+      helpers.sendMessage(
         "Upgrade complete. Please continue from where you left off before the restart.",
       );
     },

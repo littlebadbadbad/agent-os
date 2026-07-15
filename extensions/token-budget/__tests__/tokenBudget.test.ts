@@ -39,7 +39,7 @@ describe('createTokenBudgetToolSet', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
     ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
-    const state = ts.onGetSymbolState!(ctx);
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.type).toBe('tokenBudget');
     expect(state.tokenBudget).toBeDefined();
     expect(state.tokenBudget?.maxTokens).toBe(4096);

@@ -79,6 +79,7 @@ export type {
   CompactionNotice,
   AgentRunOutcome,
   SectionId,
+  SessionReadyHelpers,
 } from "./toolset";
 
 // Runtime constants & helpers (shared between core and extensions)

@@ -297,6 +297,29 @@ export type SectionId = string;
  * - Inject `onGetSystemPrompt` return values into every handler turn's system prompt.
  * - Call `onBuildSnapshot` when serialising a session for persistence.
  */
+
+/**
+ * Post-creation helpers passed to each ToolSet's `onSessionReady` hook.
+ *
+ * Provides the minimal surface the ToolSet needs to interact with a fully
+ * initialised session — sending user messages (`sendMessage`) or injecting
+ * synthetic tool-call + tool-result pairs for restored prompts
+ * (`injectToolResult`).
+ */
+export type SessionReadyHelpers = {
+  /** Send a user message into the conversation (starts a new agent run). */
+  sendMessage: (text: string) => void;
+  /**
+   * Inject a synthetic tool-call + tool-result pair into the conversation
+   * history and start a new agent turn so the LLM can react to the result.
+   *
+   * Used by the user-input extension to restore tool-bound prompts after
+   * session persistence reload — the answer becomes a `role: 'tool'` message
+   * rather than a new user message.
+   */
+  injectToolResult: (toolCallId: string, name: string, result: unknown) => void;
+};
+
 export type ToolSet = {
   symbol?: symbol;
   /** Human-readable name (used for debugging / deduplication). */
@@ -393,15 +416,7 @@ export type ToolSet = {
    * `SessionEntryExtension` module augmentation.
    */
   onInitSession?(ctx: ToolSetContext, entryData: SessionEntryData): void;
-  /**
-   * Called once after `onInitSession`, when the session's `sendMessage`
-   * function is available.
-   *
-   * Use for post-creation wiring that requires the ability to send messages —
-   * e.g. forwarding ghost-restored pending user-input answers as fresh agent
-   * turns.
-   */
-  onSessionReady?(ctx: ToolSetContext, sendMessage: (text: string) => void): void;
+  onSessionReady?(ctx: ToolSetContext, helpers: SessionReadyHelpers): void;
   /**
    * Called when the session's history is cleared (user pressed "Clear chat").
    * Use to reset per-session state alongside the message history.

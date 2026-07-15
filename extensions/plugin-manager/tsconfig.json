@@ -17,6 +17,6 @@
       "@agent-sdk/*": ["../../src/*"]
     }
   },
-  "include": ["backend", "ui"],
+  "include": ["agent", "backend", "ui", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

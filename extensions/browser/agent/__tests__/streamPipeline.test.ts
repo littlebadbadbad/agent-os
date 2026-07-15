@@ -34,6 +34,7 @@ describe('toArrayBuffer (cross-realm safe)', () => {
     (globalThis as any).window = { electronAPI: mockElectronAPI };
 
     const { createIpcBrowserAdapter } = await import(
+      // @ts-expect-error — ipcAdapter only exists in Electron build
       '../ipcAdapter'
     );
     adapter = createIpcBrowserAdapter();
@@ -236,7 +237,9 @@ describe('IPC connectStream — lifecycle', () => {
     };
     (globalThis as any).window = { electronAPI: mockElectronAPI };
 
+
     const { createIpcBrowserAdapter } = await import(
+      // @ts-expect-error — same file
       '../ipcAdapter'
     );
     adapter = createIpcBrowserAdapter();
@@ -451,6 +454,7 @@ describe('HTTP connectStream — binary frame handling', () => {
     });
 
     const { createHttpBrowserAdapter } = await import(
+      // @ts-expect-error — adapter only exists in HTTP build
       '../adapter'
     );
     adapter = createHttpBrowserAdapter({ baseUrl: '/api' });
