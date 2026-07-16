@@ -2,6 +2,7 @@
 export {};
 
 import type { PluginUiAdapter } from '@agent-type';
+import type { PendingApproval } from './store';
 
 declare module '@agent-type' {
   interface SessionEntryExtension {
@@ -9,6 +10,8 @@ declare module '@agent-type' {
     plan?: string;
     /** Whether the session is in plan mode (design only, no execution). */
     planMode?: boolean;
+    /** Persisted pending approval context (detached prompt). */
+    planPendingApproval?: PendingApproval;
   }
 }
 
@@ -24,6 +27,7 @@ export interface PlanSymbolState extends PluginUiAdapter {
   readonly type: 'plan';
   readonly plan?: string;
   readonly planMode?: boolean;
+  readonly pendingApproval?: PendingApproval | null;
 }
 
 // ── Module augmentation — direct field access in UI ──────────────────────────
@@ -35,6 +39,7 @@ declare module "@agent-type" {
     readonly type: 'plan';
     readonly plan?: string;
     readonly planMode?: boolean;
+    readonly pendingApproval?: PendingApproval | null;
   }
 }
 
@@ -59,6 +64,15 @@ export interface PlanCheckpointRejected {
 }
 export interface PlanCheckpointCancelled {
   readonly status: 'cancelled';
+}
+
+/**
+ * plan_checkpoint / plan_exit: prompt sent via detached mode.
+ * The tool returns immediately; the agent waits for user input.
+ */
+export interface PlanAwaitingInput {
+  readonly status: 'awaiting_input';
+  readonly message: string;
 }
 
 /** plan_enter: switches to read-only plan mode. */

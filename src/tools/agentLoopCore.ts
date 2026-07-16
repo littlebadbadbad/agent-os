@@ -1,19 +1,4 @@
-/**
- * Core agentic turn loop.
- *
- * Single source of truth for the turn-by-turn execution cycle shared by the
- * main `AgentSession` and every sub-agent conversation:
- *   • Invokes the LLM handler per turn (streaming + non-streaming paths).
- *   • Executes tool calls in parallel, racing against the abort signal.
- *   • Maintains conversation history.
- *   • Fires lifecycle hooks so callers integrate UI updates, token tracking,
- *     and history compaction without reimplementing the loop.
- *
- * Callers provide:
- *   • `invokeHandler` — one LLM call per turn (may rebuild context each time).
- *   • `callTool`      — tool execution (UI-aware for sessions, plain for sub-agents).
- *   • `hooks`         — optional lifecycle callbacks.
- */
+/** Core agentic turn loop shared by AgentSession and sub-agent conversations. */
 
 import { drainAgentStream } from './agentLoop';
 import { isAgentTurnResponse, resolveToolField } from './types';
@@ -64,6 +49,9 @@ export type AgentLoopHooks = AgentStreamHooks & {
    * `calls` is an immutable snapshot of all tool calls for this turn.
    */
   onBeforeToolCalls?(calls: readonly ToolCall[]): void;
+
+  /** Called right before tool execution with a fresh copy of the current turn's history. */
+  onTurnSnapshot?(history: AgentMessage[]): void;
 
   /**
    * Called after each individual tool call completes (success or error result).
@@ -167,6 +155,7 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
   const {
     onTurnBegin,
     onBeforeInvoke,
+    onTurnSnapshot,
     onAssistantText,
     onStreamEnd,
     onBeforeToolCalls,
@@ -224,6 +213,11 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
         completed = true;
         break;
       }
+
+      // Expose a snapshot of the current history so the caller (e.g.
+      // ConversationRunner) can persist in-flight turn data before
+      // potentially-suspending tool execution begins.
+      onTurnSnapshot?.([...history]);
 
       onBeforeToolCalls?.(turnToolCalls);
 
@@ -305,17 +299,37 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
       // SDK-executed calls (pre-executed ones are covered by onPreExecutedResult).
       const preExecutedIds = new Set<string>();
 
+      const streamingHooks = {
+        onTextDelta,
+        onThinkingDelta,
+        onFirstToolSeen,
+        onPreExecutedResult: (call: import('@agent-type').ToolCall, res: import('@agent-type').ToolResult) => {
+          preExecutedIds.add(call.id);
+          onPreExecutedResult?.(call, res);
+        },
+        onAttachment,
+        onBeforeAwaitResults: (
+          streamText: string,
+          streamThinking: string,
+          streamToolCalls: readonly import('@agent-type').ToolCall[],
+        ) => {
+          // Construct what the assistant message WILL look like once all tool
+          // results arrive — text, thinking, and toolCalls are already known.
+          const snapshot: import('@agent-type').AgentMessage[] = [
+            ...history,
+            {
+              role: 'assistant',
+              content: streamText,
+              ...(streamThinking ? { thinking: streamThinking } : {}),
+              ...(streamToolCalls.length ? { toolCalls: [...streamToolCalls] } : {}),
+            },
+          ];
+          onTurnSnapshot?.(snapshot);
+        },
+      };
+
       const { text, thinking, toolCalls, toolResultPairs, attachments, usage, shouldContinue } =
-        await drainAgentStream(result, callTool, signal, {
-          onTextDelta,
-          onThinkingDelta,
-          onFirstToolSeen,
-          onPreExecutedResult: (call, res) => {
-            preExecutedIds.add(call.id);
-            onPreExecutedResult?.(call, res);
-          },
-          onAttachment,
-        });
+        await drainAgentStream(result, callTool, signal, streamingHooks);
 
       onStreamEnd?.();
       finalText = text;

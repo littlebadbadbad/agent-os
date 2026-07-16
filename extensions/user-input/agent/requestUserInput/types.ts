@@ -1,14 +1,4 @@
-/**
- * extensions/user-input/agent/requestUserInput/types.ts — User Input type definitions
- *
- * Types shared between the store and toolSet modules.
- *
- * NOTE: `UserInputRequest` is imported from `@agent-type` — the canonical
- * discriminated union defined in `agent-type/core.ts`. Do NOT redefine it here.
- */
-
 import type { UserInputRequest } from "@agent-type";
-import { UserInputPromptState } from "../types";
 
 // ── InlinePromptEntry (UI-facing prompt snapshot) ──────────────────────────────
 
@@ -38,13 +28,24 @@ export interface InlinePromptEntry {
   /** Ephemeral prompts are not persisted across page reloads. */
   readonly ephemeral?: boolean;
   /**
+   * Answer-delivery mode.
+   *
+   * - `'bound'` (default): Promise suspends, answer is injected as a tool result.
+   * - `'detached'`:        Promise resolves immediately, answer is a user message.
+   */
+  readonly mode?: import('@agent-type').UserInputMode;
+  /**
    * The original tool-call ID for the prompt.
-   * Used after restore to synthesise a tool-call + tool-result pair.
+   * - Bound mode: used after restore to synthesise a tool-call + tool-result pair
+   *               via `injectToolResult`.
+   * - Detached mode: carried for traceability only; answers are sent as user
+   *   messages, not injected as tool results.
    */
   readonly toolCallId?: string;
   /**
    * The original tool name (e.g. `'ask_user'`).
-   * Used after restore to synthesise the tool-call + tool-result pair.
+   * Used after restore to synthesise the tool-call + tool-result pair
+   * (bound mode) or for traceability (detached mode).
    */
   readonly toolName?: string;
 }

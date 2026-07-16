@@ -38,7 +38,9 @@ export type {
   AgentTurnResponse,
   PluginStateExtension,
   UserInputRequest,
+  UserInputMode,
 } from "./core";
+export { DETACHED_SENTINEL } from "./core";
 
 // ── Handler types ─────────────────────────────────────────────────────────────
 export type { HandlerContext, AgentHandler } from "./handler";

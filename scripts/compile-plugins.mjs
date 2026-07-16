@@ -46,7 +46,7 @@ function readJSON(path) {
  * and immediately writes its .map, the scanner may still hold the lock — causing
  * a spurious "Access is denied" error.  Retrying after a short delay works around it.
  */
-async function runWithRetry(cmd, opts, { label, maxRetries = 2, delayMs = 1500 } = {}) {
+async function runWithRetry(cmd, opts, { label, maxRetries = 5, delayMs = 1500 } = {}) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       execSync(cmd, opts);

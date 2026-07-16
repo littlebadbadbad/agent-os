@@ -1,19 +1,4 @@
-// @ts-nocheck �?test file uses internal `_state` and Mock type for AgentHandler
-/**
- * src/__tests__/client/subagent.injectToolResult.test.ts
- *
- * Tests for the sub-agent injectToolResult pipeline:
- *   - createSubAgentRegistry + user-input ToolSet integration
- *   - onReady wires injectToolResult to the sub-agent conversation
- *   - injectToolResultIntoConversation in registryExecution pushes a tool
- *     result and starts the agent loop
- *
- * Covers:
- *   - Sub-agent prompt restore �?injectToolResult
- *   - Loading guard (no-op when busy)
- *   - Missing entry / missing conversation edge cases
- */
-
+// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSubAgentToolset } from '../../tools/subagent/metaTools';
 import { createSubAgentRegistry } from '../../tools/subagent/registry';
@@ -298,16 +283,13 @@ describe('injectToolResultIntoConversation �?integration', () => {
     // Answer bound prompt �?this triggers injectToolResult
     userTs.onGetSymbolState!(ctx).respondUserInput('b1', 'yes');
 
-    // Wait for async injectToolResult + agent loop
+    // Wait for async injectToolResult + agent loop — verify BOTH the tool
+    // result AND the synthetic assistant message appear in the tracker.
     await vi.waitFor(() => {
       const history = conv._state.tracker.getFullHistory();
-      // Tool result should be in the tracker
       expect(history.some((m) => m.role === 'tool' && m.toolCallId === 'tc-1')).toBe(true);
+      expect(history.some((m) => m.role === 'assistant' && m.toolCalls?.[0]?.id === 'tc-1')).toBe(true);
     });
-
-    // Synthetic assistant should also be in the tracker
-    const history = conv._state.tracker.getFullHistory();
-    expect(history.some((m) => m.role === 'assistant' && m.toolCalls?.[0]?.id === 'tc-1')).toBe(true);
   });
 
   it('injectToolResult is a no-op when conversation is loading', async () => {

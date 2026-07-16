@@ -1,20 +1,8 @@
-/**
- * Sub-agent conversation state management.
- *
- * Extracted from `registry.ts` — provides the low-level conversation data
- * structure and reactive state wrapper used by the flat sub-agent registry.
- *
- * This module has no dependencies on the registry's internal closure state
- * and can be tested / reasoned about in isolation.
- */
-
 import type { AgentMessage } from '@agent-type';
 import { createHistoryTracker, type HistoryTracker } from '@agent-sdk/tools/historyTracker';
 import { createMessageList, type MessageList } from '@agent-sdk/tools/messageList';
-import type {
-  SubAgentConversation,
-  SubAgentConversationState,
-} from './registryTypes';
+import type { ConversationRunner } from '@agent-sdk/tools/conversationRunner';
+import type { SubAgentConversation, SubAgentConversationState } from './registryTypes';
 
 // ── ID generation ─────────────────────────────────────────────────────────────
 
@@ -49,6 +37,13 @@ export type MutableConvState = {
    * `streamingText` + manual {@code agentMessagesToUI} pattern.
    */
   msgList: MessageList;
+  /**
+   * Persistent ConversationRunner created once per conversation lifetime.
+   * Both `sendMessage` and `editAndSendMessage` delegate to this runner,
+   * matching the main agent's pattern and eliminating the need for
+   * throwaway runners on every execution call.
+   */
+  runner: ConversationRunner | null;
 };
 
 /**
@@ -107,6 +102,7 @@ export function makeConversation(
     streamingText: '',
     tracker: createHistoryTracker(),
     msgList: createMessageList(),
+    runner: null,
   };
 
   // Bridge msgList mutations to conversation subscribers so UI re-renders

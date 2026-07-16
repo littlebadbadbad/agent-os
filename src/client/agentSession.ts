@@ -8,37 +8,20 @@
  * @module
  */
 
-import type { AgentMessage } from '@agent-type';
+import type { AgentMessage, ToolCall, ToolResult } from '@agent-type';
 import { createHistoryTracker } from '@agent-sdk/tools/historyTracker';
-import { createMessageList, type MessageList } from '@agent-sdk/tools/messageList';
+import { createMessageList } from '@agent-sdk/tools/messageList';
 import { createConversationRunner } from '@agent-sdk/tools/conversationRunner';
 import type { EngineRefs } from '@agent-sdk/tools/conversationEngine';
 import type { AgentSessionState, AgentSessionConfig, AgentSession } from './agentSession.types';
-import { buildRunToolCall } from './agentSession.executors';
 import { agentMessagesToUI } from './historyConverter';
 
 export type { AgentSessionState, AgentSessionConfig, AgentSession } from './agentSession.types';
 
-
-// ── Factory ───────────────────────────────────────────────────────────────────
-// The factory has been substantially slimmed down.  Previously it contained an
-// inline agent loop (~120 lines) with streaming hooks, batchers, onAfterTurn
-// logic, and error handling — all duplicated in registryExecution.ts.  Now
-// those live once in ConversationRunner, shared by both callers.
-
 export function createAgentSession(config: AgentSessionConfig): AgentSession {
-  // ── Reactive message store ────────────────────────────────────────────────
-  // Single source of truth for UI messages.  Replaces the imperative
-  // setMessages/setState pattern that was previously mixed into the loop.
-
   const msgList = createMessageList(
     config.initialMessages ? agentMessagesToUI(config.initialMessages) : [],
   );
-
-  // ── Observable state (AgentSessionState) ────────────────────────────────
-  // Built from MessageList + external ToolSet state.  Subscribers see a
-  // merged snapshot that includes messages, isLoading, and every extended
-  // field contributed by registered ToolSets.
 
   let state: AgentSessionState = {
     messages: msgList.messages,
@@ -60,12 +43,10 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     for (const sub of subscribers) sub();
   }
 
-  // Re-sync session state whenever the MessageList changes.
   msgList.subscribe(() => {
     setState((prev) => ({ ...prev, messages: msgList.messages }));
   });
 
-  // Re-sync session state whenever external ToolSet contributors change.
   config.subscribeExternalState(() => {
     setState((prev) => {
       const ext = config.getExternalState(prev);
@@ -73,48 +54,28 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     });
   });
 
-  // ── Mutable runtime state ────────────────────────────────────────────────
-  // isLoading and abortController are managed by runEngine inside the
-  // ConversationRunner — refs is the shared bridge.
-
   const tracker = createHistoryTracker(config.initialMessages, config.liveHistory);
   const refs: EngineRefs = { isLoading: false, abortController: null };
 
-  // Adapt SetMessages → MessageList.replace so buildRunToolCall works.
-  const runToolCall = buildRunToolCall(
-    (fn) => { msgList.replace(fn as (prev: readonly import('@agent-sdk/tools/messageList').Message[]) => import('@agent-sdk/tools/messageList').Message[]); },
-    config.callTool,
-    () => refs.abortController!.signal,
-  );
-
-  // ── Conversation runner ─────────────────────────────────────────────────
-  // Centralises sendMessage, editAndSendMessage, and injectToolResult plus
-  // the full agent loop (runEngine → runAgentLoopCore) — all streaming hooks,
-  // onAfterTurn compaction, onBeforeInvoke queuing, and error handling.
-  // Previously this was ~120 lines of inline code. Now it's a single call.
+  // Direct pipeline call — no UI wrapping (onPreExecutedResult in
+  // conversationRunner handles tool-result UI updates).
+  // Using a closure to forward the latest AbortSignal from runEngine.
+  const runToolCall = (call: ToolCall): Promise<ToolResult> =>
+    config.callTool(call, refs.abortController!.signal);
 
   const runner = createConversationRunner({
-    msgList,
-    tracker,
-    refs,
-    scope: config.scope,
-    tsCtx: config.tsCtx,
+    msgList, tracker, refs,
+    scope: config.scope, tsCtx: config.tsCtx,
     maxAgentTurns: config.maxAgentTurns,
-
     notify: (isLoading) => {
       setState((prev) => Object.assign({}, prev, { isLoading }, config.getExternalState(prev)));
     },
-
     invokeHandler: (msgs, signal, userText) =>
-      config.getHandler(userText)(msgs as import('@agent-type').AgentMessage[], signal),
-
+      config.getHandler(userText)(msgs, signal),
     runToolCall,
-
     onInterceptMessage: config.onInterceptMessage,
-    toUIMessages: agentMessagesToUI as (msgs: import('@agent-type').AgentMessage[]) => readonly import('@agent-sdk/tools/messageList').Message[],
+    toUIMessages: agentMessagesToUI,
   });
-
-  // ── Public API ──────────────────────────────────────────────────────────
 
   const session: AgentSession = {
     sendMessage: runner.sendMessage,

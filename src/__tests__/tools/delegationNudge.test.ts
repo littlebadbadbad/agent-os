@@ -20,7 +20,7 @@ describe('createDelegationNudgeToolSet', () => {
     // Manually trigger onBeforeRun — counter resets to 0
     ts.onBeforeRun?.(CTX, []);
     // No large results yet → no system prompt
-    const result = ts.onGetSystemPrompt?.(CTX);
+    const result = ts.onGetSystemPrompt?.(CTX, {} as any, []);
     expect(result).toBeUndefined();
   });
 
@@ -31,15 +31,15 @@ describe('createDelegationNudgeToolSet', () => {
     // First large result (exceeds 5000 chars)
     const largeResult = { toolCallId: 'tc-1', name: 'read_file', result: 'x'.repeat(5001) };
     ts.onToolResult?.(CTX, 'read_file', largeResult);
-    expect(ts.onGetSystemPrompt?.(CTX)).toBeUndefined();
+    expect(ts.onGetSystemPrompt?.(CTX, {} as any, [])).toBeUndefined();
 
     // Second large result
     ts.onToolResult?.(CTX, 'read_file', largeResult);
-    expect(ts.onGetSystemPrompt?.(CTX)).toBeUndefined();
+    expect(ts.onGetSystemPrompt?.(CTX, {} as any, [])).toBeUndefined();
 
     // Third large result — triggers nudge
     ts.onToolResult?.(CTX, 'read_file', largeResult);
-    const prompt = ts.onGetSystemPrompt?.(CTX);
+    const prompt = ts.onGetSystemPrompt?.(CTX, {} as any, []);
     expect(prompt).toContain('Delegation reminder');
     expect(prompt).toContain('delegate_*_task');
   });
@@ -54,7 +54,7 @@ describe('createDelegationNudgeToolSet', () => {
       ts.onToolResult?.(CTX, 'query', { toolCallId: `tc-${i}`, name: 'query', result: bigArray });
     }
 
-    const prompt = ts.onGetSystemPrompt?.(CTX);
+    const prompt = ts.onGetSystemPrompt?.(CTX, {} as any, []);
     expect(prompt).toContain('Delegation reminder');
   });
 
@@ -66,7 +66,7 @@ describe('createDelegationNudgeToolSet', () => {
       ts.onToolResult?.(CTX, 'echo', { toolCallId: `tc-${i}`, name: 'echo', result: 'small' });
     }
 
-    const prompt = ts.onGetSystemPrompt?.(CTX);
+    const prompt = ts.onGetSystemPrompt?.(CTX, {} as any, []);
     expect(prompt).toBeUndefined();
   });
 
@@ -91,8 +91,8 @@ describe('createDelegationNudgeToolSet', () => {
     for (let i = 0; i < 3; i++) ts.onToolResult?.(ctxA, 'read_file', large);
 
     // Session A should have nudge
-    expect(ts.onGetSystemPrompt?.(ctxA)).toContain('Delegation reminder');
+    expect(ts.onGetSystemPrompt?.(ctxA, {} as any, [])).toContain('Delegation reminder');
     // Session B should not (no large results in B)
-    expect(ts.onGetSystemPrompt?.(ctxB)).toBeUndefined();
+    expect(ts.onGetSystemPrompt?.(ctxB, {} as any, [])).toBeUndefined();
   });
 });

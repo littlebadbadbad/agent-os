@@ -1,17 +1,3 @@
-/**
- * extensions/user-input/agent/toolSet.ts — UserInput ToolSet
- *
- * Lifecycle hooks that:
- *   1. Inject `requestUserInput`/`cancelUserInput`/`sendMessage` into
- *      ToolExecutionContext (onPatchToolContext)
- *   2. Expose prompt state + responder via `onGetSymbolState` (symbol-isolated)
- *   3. Declare inlinePrompt slot for UI injection
- *   4. Handle lifecycle (onInit/onReady/onReset/onRemove) and persistence
- *
- * All restored prompts resolve via injectToolResult (bound mode). The
- * ask_user tool always binds; answers are never sent as user messages.
- */
-
 import {
   type ToolSet,
   type ToolSetContext,
@@ -22,12 +8,13 @@ import {
   type Attachment,
   type PluginUiAdapter,
   type PluginSlotDeclaration,
+  type UserInputMode,
   ctxKey,
 } from "@agent-type";
+import { DETACHED_SENTINEL } from "@agent-type";
 import { createUserInputStore } from "./store";
 import { askUserTool } from "./askUser";
 import type { UserInputAdapter, InlinePromptEntry } from "./types";
-import { UserInputPromptState } from "../types";
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +46,8 @@ function toInlinePromptEntry(
     agentName,
     toolCallId: request.toolCallId ?? id,
     toolName: request.toolName ?? "ask_user",
+    mode: request.mode,
+    ephemeral: request.ephemeral,
   };
 
   switch (request.type) {
@@ -124,7 +113,7 @@ export interface UserInputToolSetOptions {
 
 export function createUserInputToolSet(
   options: UserInputToolSetOptions = {},
-): ToolSet<UserInputPromptState> {
+): ToolSet {
   const { adapter } = options;
   const store = createUserInputStore();
 
@@ -135,6 +124,27 @@ export function createUserInputToolSet(
   // `sendMessage` refs injected into onPatchToolContext.
   // Keyed by sessionId.
   const sendMessageByKey = new Map<string, (text: string) => void>();
+
+  // ── Detached-mode answer accumulator ─────────────────────────────────────
+  // Keyed by sessionId. Accumulates answers until ALL detached prompts in
+  // that session are answered, then flushes via sendMessage.
+  const detachedAccum = new Map<string, string[]>();
+
+  /** Flush all accumulated detached answers for a session via sendMessage. */
+  function flushDetached(sessionId: string): void {
+    const answers = detachedAccum.get(sessionId);
+    if (!answers?.length) return;
+    detachedAccum.delete(sessionId);
+    const sm = sendMessageByKey.get(sessionId);
+    for (const ans of answers) sm?.(ans);
+  }
+
+  /** Count unresolved detached-mode prompts in a session. */
+  function countPendingDetached(sessionId: string): number {
+    return store
+      .getAll(sessionId)
+      .filter((e) => e.mode === "detached").length;
+  }
 
   // ── onPatchToolContext (injects requestUserInput / sendMessage) ────────────
 
@@ -151,7 +161,7 @@ export function createUserInputToolSet(
         req: UserInputRequest,
         id?: string,
       ): Promise<string | null> =>
-        new Promise<string | null>((resolve) => {
+        new Promise<string | null>((resolvePromise) => {
           const entryId = id ?? crypto.randomUUID();
           const enriched: UserInputRequest = {
             ...req,
@@ -164,18 +174,63 @@ export function createUserInputToolSet(
             ctx.conversationId,
             ctx.agentName,
           );
-          store.add(sessionId, { ...prompt, resolve });
-          signal.addEventListener(
-            "abort",
-            () => store.remove(sessionId, entryId, null),
-            { once: true },
-          );
 
-          if (adapter) {
-            adapter.prompt(req).then(
-              (v) => store.remove(sessionId, entryId, v),
+          const mode: UserInputMode = req.mode ?? "bound";
+
+          if (mode === "detached") {
+            // ── Detached mode ─────────────────────────────────────────
+            // Entry resolve accumulates answers.  When ALL detached
+            // prompts are answered the batch is flushed via sendMessage.
+            const entryResolve = (value: string | null): void => {
+              if (value === null) return; // cancelled — skip
+              const list = detachedAccum.get(sessionId) ?? [];
+              list.push(value);
+              detachedAccum.set(sessionId, list);
+
+              // Entry was already removed from store by the caller
+              // (store.remove or respondUserInput).  Count remaining.
+              if (countPendingDetached(sessionId) === 0) {
+                flushDetached(sessionId);
+              }
+            };
+
+            store.add(sessionId, {
+              ...prompt,
+              mode: "detached",
+              resolve: entryResolve,
+            });
+
+            signal.addEventListener(
+              "abort",
               () => store.remove(sessionId, entryId, null),
+              { once: true },
             );
+
+            if (adapter) {
+              adapter.prompt(req).then(
+                (v) => store.remove(sessionId, entryId, v),
+                () => store.remove(sessionId, entryId, null),
+              );
+            }
+
+            // Resolve the returned Promise immediately with sentinel.
+            resolvePromise(DETACHED_SENTINEL);
+          } else {
+            // ── Bound mode (default) — current behavior ───────────────
+            store.add(sessionId, { ...prompt, resolve: resolvePromise });
+
+            signal.addEventListener(
+              "abort",
+              () => store.remove(sessionId, entryId, null),
+              { once: true },
+            );
+
+            if (adapter) {
+              adapter.prompt(req).then(
+                (v) => store.remove(sessionId, entryId, v),
+                () => store.remove(sessionId, entryId, null),
+              );
+            }
           }
         }),
 
@@ -186,7 +241,10 @@ export function createUserInputToolSet(
   };
 
   patchFn.comment =
-    "`context.requestUserInput(request, id?)` → `Promise<string | null>` — suspend tool execution until the user responds.\n" +
+    "`context.requestUserInput(request, id?)` → `Promise<string | null>` — " +
+    "suspends tool execution until the user responds (bound) or resolves " +
+    "immediately (detached, answer arrives as user message).\n" +
+    "Set `request.mode = 'detached'` for fire-and-forget prompts.\n" +
     "`context.cancelUserInput?(id)` — cancel a pending prompt programmatically.\n" +
     "`context.sendMessage?(text)` — send a user message into the conversation.";
 
@@ -296,21 +354,38 @@ export function createUserInputToolSet(
       // Wire sendMessage into the context-patch cache.
       sendMessageByKey.set(sessionId, helpers.sendMessage);
 
-      // Replace ghost resolves with injectToolResult (always bound mode).
+      // Replace ghost resolves based on each entry's mode.
       const entries = pendingRestore.get(sessionId);
       if (!entries) return;
       pendingRestore.delete(sessionId);
 
       for (const entry of entries) {
-        store.replaceResolve(sessionId, entry.id, (value) => {
-          if (value !== null) {
-            helpers.injectToolResult(
-              entry.toolCallId ?? entry.id,
-              entry.toolName ?? "ask_user",
-              value,
-            );
-          }
-        });
+        if (entry.mode === "detached") {
+          // Detached mode: answer arrives as a user message.
+          // Accumulate until ALL detached prompts are answered.
+          store.replaceResolve(sessionId, entry.id, (value) => {
+            if (value === null) return;
+            const list = detachedAccum.get(sessionId) ?? [];
+            list.push(value);
+            detachedAccum.set(sessionId, list);
+
+            // Entry already removed — count remaining.
+            if (countPendingDetached(sessionId) === 0) {
+              flushDetached(sessionId);
+            }
+          });
+        } else {
+          // Bound mode: answer is injected as a tool result.
+          store.replaceResolve(sessionId, entry.id, (value) => {
+            if (value !== null) {
+              helpers.injectToolResult(
+                entry.toolCallId ?? entry.id,
+                entry.toolName ?? "ask_user",
+                value,
+              );
+            }
+          });
+        }
       }
     },
 
@@ -319,10 +394,13 @@ export function createUserInputToolSet(
       store.removeSession(key);
       pendingRestore.delete(key);
       sendMessageByKey.delete(key);
+      detachedAccum.delete(key);
     },
 
     onReset(ctx: ToolSetContext): void {
-      store.resetSession(ctxKey(ctx));
+      const key = ctxKey(ctx);
+      store.resetSession(key);
+      detachedAccum.delete(key);
     },
 
     // ── Persistence ─────────────────────────────────────────────────────────

@@ -92,30 +92,27 @@ describe('createPlanToolSet', () => {
     expect(state.planMode).toBe(true);
   });
 
-  it('plan_exit clears planMode when invoked', async () => {
+  it('plan_exit returns awaiting_input and clears planMode', async () => {
     const ts = createPlanToolSet();
+    const ctx = makeCtx('session-plan-exit');
+    const tsCtx = makeTsCtx('session-plan-exit');
     const enterTool = resolveToolSetTools(ts).find((t) => t.name === 'plan_enter')!;
     const exitTool = resolveToolSetTools(ts).find((t) => t.name === 'plan_exit')!;
 
     // Enter plan mode, write plan
-    await enterTool.execute({}, makeCtx());
+    await enterTool.execute({}, ctx);
     const writeTool = resolveToolSetTools(ts).find((t) => t.name === 'plan_write')!;
-    await writeTool.execute({ content: 'Plan content' }, makeCtx());
+    await writeTool.execute({ content: 'Plan content' }, ctx);
 
-    const stateBefore = ts.onGetSymbolState!(makeTsCtx());
+    const stateBefore = ts.onGetSymbolState!(tsCtx);
     expect(stateBefore.planMode).toBe(true);
 
-    // Exit â€?planMode should be cleared
-    // Note: plan_exit calls requestUserInput which isn't available in tests,
-    // so it will return status: 'cancelled' since context.requestUserInput is undefined
-    const exitResult = await exitTool.execute({}, {
-      ...makeCtx(),
-      requestUserInput: undefined,
-    });
-    expect(exitResult).toEqual({ status: 'cancelled' });
+    // Exit â€” now uses detached mode, returns awaiting_input immediately
+    const exitResult = await exitTool.execute({}, ctx);
+    expect(exitResult).toMatchObject({ status: 'awaiting_input' });
 
-    // planMode should still be false (it's set false before the prompt)
-    const stateAfter = ts.onGetSymbolState!(makeTsCtx());
+    // planMode should be cleared
+    const stateAfter = ts.onGetSymbolState!(tsCtx);
     expect(stateAfter.planMode).toBe(false);
   });
 

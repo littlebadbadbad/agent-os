@@ -1,15 +1,3 @@
-/**
- * Flat sub-agent registry.
- *
- * Manages all sub-agents and their conversations as a single flat store.
- * Each sub-agent has N conversations; one is active at any time.
- *
- * Integrates with ToolSets by calling their session lifecycle hooks once
- * per agent (keyed by "${sessionId}:${agentName}") rather than
- * per-conversation — giving each agent its own isolated state shared
- * across all of its conversations.
- */
-
 import type { ToolSetContext } from '@agent-type';
 import type { AgentMessage, Tool } from '@agent-type';
 import type {
@@ -31,6 +19,8 @@ import {
 import { createLifecycleFunctions } from './registryLifecycle';
 import { createExecutionFunctions } from './registryExecution';
 import type { SendMessageOpts } from './registryExecution';
+import { extractAssistantOutput } from './registryExecution';
+import type { SubAgentResult } from './types';
 import { createToolSetScope } from '@agent-sdk/tools/toolSetScope';
 import { agentMessagesToUI } from '@agent-sdk';
 
@@ -108,6 +98,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     sendMessageRef,
     injectToolResultRef,
     convControllers,
+    handler,
   );
   const execution = createExecutionFunctions({ subCtx, resolveTools, handler, scope }, entries);
 
@@ -120,7 +111,22 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     if (!entry) throw new Error(`Sub-agent "${agentName}" not found.`);
     const conv = entry.conversations.get(convId);
     if (!conv) throw new Error(`Conversation "${convId}" not found on sub-agent "${agentName}".`);
-    return execution.injectToolResultIntoConversation(entry, conv, toolCallId, name, result, { sessionId, signal: new AbortController().signal });
+
+    // Delegate to the persistent runner — same as the main agent path.
+    if (!conv._state.runner) {
+      throw new Error(`Conversation "${convId}" has no runner.`);
+    }
+    return conv._state.runner.injectToolResult(toolCallId, name, result).then(() => {
+      const history = conv._state.tracker.getLiveHistory();
+      const output = extractAssistantOutput(history);
+      conv._state.tracker.reconcile();
+      return {
+        output,
+        turns: conv._state.runner!.lastRun?.turns ?? 0,
+        toolCallCount: conv._state.runner!.lastRun?.toolCallCount ?? 0,
+        history,
+      } satisfies SubAgentResult;
+    });
   };
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -343,14 +349,14 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
         createdAt:            e.createdAt,
         activeConversationId: e.activeConversationId,
         conversations: [...e.conversations.values()].map((c) => ({
-          id:          c._state.id,
-          agentName:   c._state.agentName,
-          title:       c._state.title,
-          history:     c._state.tracker.getFullHistory(),
-          liveHistory: c._state.tracker.getLiveHistory(),
-          ...scope.collectSnapshot(subCtx(e.name, c._state.id)),
+            id:          c._state.id,
+            agentName:   c._state.agentName,
+            title:       c._state.title,
+            history:     c._state.tracker.getFullHistory(),
+            liveHistory: c._state.tracker.getLiveHistory(),
+            ...scope.collectSnapshot(subCtx(e.name, c._state.id)),
         })),
-        ...scope.collectSnapshot(subCtx(e.name, e.activeConversationId)),
+        ...scope.collectSnapshot(subCtx(e.name, '__entry__')),
       } as SubAgentSerializedEntry));
     },
 
@@ -378,28 +384,28 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
         // Restore agent-level ToolSet hooks FIRST (onInitSession) so that
         // per-agent state is ready before any conversation's onInitConversation
         // fires.
-        lifecycle.initAgentToolSets(sessionId, entry, raw as Record<string, unknown>);
+        lifecycle.initAgentToolSets(sessionId, entry, raw);
 
         // Restore conversations after onInitSession — onInitConversation may
         // read state that onInitSession just set up.
         for (const sc of raw.conversations) {
-          const conv = lifecycle.createConversationForEntry(sc.title, entry, sc.id);
+          // Pass snapshot data to createConversationForEntry so onInit fires
+          // BEFORE onReady — critical for ToolSets (e.g. user-input) that
+          // wire restore logic (ghost → injectToolResult) inside onReady.
+          const conv = lifecycle.createConversationForEntry(sc.title, entry, sc.id, { ...sc, id: sessionId });
           conv._state.tracker.replaceBoth(
             [...(sc.liveHistory ?? sc.history)],
             [...sc.history],
           );
+          // Seal orphaned tool calls that may exist if a snapshot was saved
+          // mid-turn before tool results arrived (e.g. page refresh during
+          // tool execution). Synthetic "cancelled" results prevent API errors.
+          conv._state.tracker.sealOrphanedToolCalls();
           // Populate msgList from restored history so the UI renders the
           // full conversation immediately (no blank state on reload).
           const restoredMsgs = agentMessagesToUI(sc.history);
           if (restoredMsgs.length > 0) conv._state.msgList.push(...restoredMsgs);
           entry.conversations.set(sc.id, conv);
-          // Restore per-conversation ToolSet state (e.g. PendingInputToolSet
-          // queues) from the conversation-level snapshot.  Uses the same hook
-          // as the agent-level restoration but with a distinct sub-context so
-          // that per-conversation keys (e.g. "${sess}:${agent}:${conv}") resolve
-          // independently of the agent-level key.
-          const convCtx = subCtx(raw.name, sc.id);
-          scope.initScope(convCtx, { ...sc, id: sessionId });
         }
 
         // Finalize active conversation ID now that the map is populated.

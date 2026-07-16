@@ -1,19 +1,4 @@
-/**
- * Direct unit tests for runAgentLoopCore.
- *
- * subagentLoop.test.ts already exercises agentLoopCore extensively through
- * loop.ts (runAgentLoop). These tests focus on the hook behaviours and
- * branches that loop.ts either never reaches or always takes the same way:
- *
- *   • onAfterTurn compaction (returning a new history array)
- *   • onAfterTurn absent → natural completion still sets completed=true
- *   • onAfterTurn absent → tool execution path still finishes normally
- *   • Tool execution with no AbortSignal (else branch of "if (signal)")
- *   • Abort racing against parallel tool execution (non-streaming)
- *   • All lifecycle hooks fire in the correct order and with correct args
- *   • Streaming path: onAfterTurn called; completed=true when !shouldContinue
- *   • Streaming path: onStreamEnd called; onAfterToolCall fires for SDK calls
- */
+
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runAgentLoopCore } from '../../tools/agentLoopCore';
@@ -26,7 +11,7 @@ vi.mock('../../tools/agentLoop', () => ({
   drainAgentStream: vi.fn(),
 }));
 
-import { drainAgentStream } from '../../tools/agentLoop';
+import { drainAgentStream, type AgentStreamHooks } from '../../tools/agentLoop';
 
 const mockDrain = vi.mocked(drainAgentStream);
 
@@ -334,12 +319,148 @@ describe('runAgentLoopCore – non-streaming, tool execution', () => {
     // Second handler call should receive the compacted history, not the full one
     expect(secondCallHistory).toEqual([{ role: 'user', content: 'compacted after tools' }]);
   });
+
+  // ── onTurnSnapshot ──────────────────────────────────────────────────────
+
+  describe('onTurnSnapshot hook (non-streaming)', () => {
+    it('fires with the correct history when tool calls are present', async () => {
+      const call = toolCall('c1');
+      const callTool = vi.fn().mockResolvedValue(toolResult('c1'));
+      const onTurnSnapshot = vi.fn();
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(turnResponse({ text: 'analysis', toolCalls: [call], thinking: 'deep thought' }))
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool,
+        hooks: { onTurnSnapshot },
+      });
+
+      // Should fire exactly once (for the turn with tool calls, not the final turn)
+      expect(onTurnSnapshot).toHaveBeenCalledTimes(1);
+
+      // The snapshot should include the assistant message with text, thinking, and toolCalls
+      const [snapshot] = onTurnSnapshot.mock.calls[0] as [import('@agent-type').AgentMessage[]];
+      expect(snapshot.length).toBeGreaterThanOrEqual(2);
+      const assistantMsg = snapshot[snapshot.length - 1];
+      expect(assistantMsg.role).toBe('assistant');
+      expect(assistantMsg.content).toBe('analysis');
+      expect((assistantMsg as { thinking?: string }).thinking).toBe('deep thought');
+      expect((assistantMsg as { toolCalls?: unknown[] }).toolCalls).toHaveLength(1);
+    });
+
+    it('does NOT fire when no tool calls are produced (natural completion)', async () => {
+      const onTurnSnapshot = vi.fn();
+      const invokeHandler = vi.fn().mockResolvedValue(turnResponse({ text: 'done' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'hello' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler: invokeHandler,
+        callTool: vi.fn(),
+        hooks: { onTurnSnapshot },
+      });
+
+      expect(onTurnSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('fires before onBeforeToolCalls (correct ordering)', async () => {
+      const call = toolCall('c1');
+      const callTool = vi.fn().mockResolvedValue(toolResult('c1'));
+      const callOrder: string[] = [];
+      const onTurnSnapshot = vi.fn(() => { callOrder.push('onTurnSnapshot'); });
+      const onBeforeToolCalls = vi.fn(() => { callOrder.push('onBeforeToolCalls'); });
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [call] }))
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool,
+        hooks: { onTurnSnapshot, onBeforeToolCalls },
+      });
+
+      expect(callOrder).toEqual(['onTurnSnapshot', 'onBeforeToolCalls']);
+    });
+
+    it('fires per-turn when multiple turns produce tool calls', async () => {
+      const call = toolCall('c1');
+      const callTool = vi.fn().mockResolvedValue(toolResult('c1'));
+      const onTurnSnapshot = vi.fn();
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(turnResponse({ text: 'turn0', toolCalls: [call] }))
+        .mockResolvedValueOnce(turnResponse({ text: 'turn1', toolCalls: [call] }))
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool,
+        hooks: { onTurnSnapshot },
+      });
+
+      expect(onTurnSnapshot).toHaveBeenCalledTimes(2);
+    });
+
+    it('receives a fresh array copy (mutation-safe)', async () => {
+      const call = toolCall('c1');
+      const callTool = vi.fn().mockResolvedValue(toolResult('c1'));
+      const captured: import('@agent-type').AgentMessage[][] = [];
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(turnResponse({ text: 'a', toolCalls: [call] }))
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool,
+        hooks: {
+          onTurnSnapshot(history) {
+            captured.push(history);
+          },
+        },
+      });
+
+      // The captured snapshot should not be the same reference as the one
+      // agentLoopCore continues to modify (tool results appended later)
+      expect(captured.length).toBe(1);
+      const snapshot = captured[0];
+      // Snapshot should NOT contain tool results (they come after)
+      expect(snapshot.every((m) => m.role !== 'tool')).toBe(true);
+    });
+  });
 });
 
 // ── Streaming path ────────────────────────────────────────────────────────────
 
 describe('runAgentLoopCore – streaming path', () => {
-  beforeEach(() => { mockDrain.mockReset(); });
+  beforeEach(() => {
+    mockDrain.mockReset();
+    // Default: a mock that calls onBeforeAwaitResults so onTurnSnapshot fires.
+    // Tests that need different behavior override with their own mock setup.
+    mockDrain.mockImplementation(async (_stream: ReadableStream<AgentStreamChunk>, _exec: (call: ToolCall) => Promise<ToolResult>, _sig: AbortSignal, hooks?: AgentStreamHooks) => {
+      const result = streamResult({ text: 'stream output', shouldContinue: false });
+      (hooks?.onBeforeAwaitResults as ((t: string, th: string, tc: readonly import('@agent-type').ToolCall[]) => void) | undefined)
+        ?.(result.text, result.thinking, result.toolCalls);
+      return result;
+    });
+  });
 
   it('onStreamEnd called after drainAgentStream resolves', async () => {
     mockDrain.mockResolvedValue(streamResult({ text: 'stream output', shouldContinue: false }));
@@ -617,6 +738,142 @@ describe('runAgentLoopCore – streaming path', () => {
       expect(res.completed).toBe(false);
       expect(res.output).toMatch(/completed \d+ tool call\(s\)/);
       expect(res.output).toContain('No summary text was produced');
+    });
+  });
+
+  // ── onTurnSnapshot (streaming path) ────────────────────────────────────
+
+  describe('onTurnSnapshot (streaming path)', () => {
+    it('fires via onBeforeAwaitResults when tool calls are in the stream', async () => {
+      const call = toolCall('c1');
+      const result = toolResult('c1', 'ask_user');
+
+      mockDrain.mockImplementation(async (_stream: ReadableStream<AgentStreamChunk>, _exec: (call: ToolCall) => Promise<ToolResult>, _sig: AbortSignal, hooks?: AgentStreamHooks) => {
+        // Call onBeforeAwaitResults with text, thinking, and toolCalls
+        (hooks?.onBeforeAwaitResults as ((t: string, th: string, tc: readonly import('@agent-type').ToolCall[]) => void) | undefined)
+          ?.('analysis', 'deep thinking', [call]);
+        return streamResult({
+          text: 'analysis', thinking: 'deep thinking', toolCalls: [call],
+          toolResultPairs: [{ call, result }], shouldContinue: true,
+        });
+      });
+
+      const onTurnSnapshot = vi.fn();
+      const onAfterTurn = vi.fn().mockResolvedValue(undefined);
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(makeStream())
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool: vi.fn().mockResolvedValue(result),
+        hooks: { onTurnSnapshot, onAfterTurn },
+      });
+
+      expect(onTurnSnapshot).toHaveBeenCalledTimes(1);
+
+      // Verify the snapshot includes the constructed assistant message
+      const [snapshot] = onTurnSnapshot.mock.calls[0] as [import('@agent-type').AgentMessage[]];
+      expect(snapshot.length).toBeGreaterThanOrEqual(2);
+      const assistantMsg = snapshot[snapshot.length - 1];
+      expect(assistantMsg.role).toBe('assistant');
+      expect(assistantMsg.content).toBe('analysis');
+      expect((assistantMsg as { thinking?: string }).thinking).toBe('deep thinking');
+      expect((assistantMsg as { toolCalls?: readonly import('@agent-type').ToolCall[] }).toolCalls).toHaveLength(1);
+      // Snapshot should NOT contain tool results (they haven't been awaited yet)
+      expect(snapshot.every((m) => m.role !== 'tool')).toBe(true);
+    });
+
+    it('does NOT fire when stream has no tool calls', async () => {
+      mockDrain.mockImplementation(async (_stream: ReadableStream<AgentStreamChunk>, _exec: (call: ToolCall) => Promise<ToolResult>, _sig: AbortSignal, hooks?: AgentStreamHooks) => {
+        // No onBeforeAwaitResults call — no tools in this stream
+        return streamResult({ text: 'plain text', shouldContinue: false });
+      });
+
+      const onTurnSnapshot = vi.fn();
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'hello' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler: vi.fn().mockResolvedValue(makeStream()),
+        callTool: vi.fn(),
+        hooks: { onTurnSnapshot },
+      });
+
+      expect(onTurnSnapshot).not.toHaveBeenCalled();
+    });
+
+    it('provides a mutation-safe copy (not the same reference as loop history)', async () => {
+      const call = toolCall('c1');
+      const result = toolResult('c1', 'echo');
+      let captured: import('@agent-type').AgentMessage[] | null = null;
+
+      mockDrain.mockImplementation(async (_stream: ReadableStream<AgentStreamChunk>, _exec: (call: ToolCall) => Promise<ToolResult>, _sig: AbortSignal, hooks?: AgentStreamHooks) => {
+        (hooks?.onBeforeAwaitResults as ((t: string, th: string, tc: readonly import('@agent-type').ToolCall[]) => void) | undefined)
+          ?.('text', '', [call]);
+        return streamResult({
+          text: '', toolCalls: [call], toolResultPairs: [{ call, result }],
+          shouldContinue: true,
+        });
+      });
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(makeStream())
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool: vi.fn().mockResolvedValue(result),
+        hooks: {
+          onTurnSnapshot(history) { captured = history; },
+        },
+      });
+
+      // Captured snapshot should NOT contain tool results
+      expect(captured).not.toBeNull();
+      expect(captured!.every((m) => m.role !== 'tool')).toBe(true);
+    });
+
+    it('fires before onStreamEnd (correct ordering)', async () => {
+      const call = toolCall('c1');
+      const result = toolResult('c1', 'echo');
+      const callOrder: string[] = [];
+
+      mockDrain.mockImplementation(async (_stream: ReadableStream<AgentStreamChunk>, _exec: (call: ToolCall) => Promise<ToolResult>, _sig: AbortSignal, hooks?: AgentStreamHooks) => {
+        (hooks?.onBeforeAwaitResults as ((t: string, th: string, tc: readonly import('@agent-type').ToolCall[]) => void) | undefined)
+          ?.('text', '', [call]);
+        return streamResult({
+          text: '', toolCalls: [call], toolResultPairs: [{ call, result }],
+          shouldContinue: true,
+        });
+      });
+
+      const invokeHandler = vi.fn()
+        .mockResolvedValueOnce(makeStream())
+        .mockResolvedValueOnce(turnResponse({ text: 'final' }));
+
+      await runAgentLoopCore({
+        initialHistory: [{ role: 'user', content: 'task' }],
+        maxTurns: 10,
+        signal: new AbortController().signal,
+        invokeHandler,
+        callTool: vi.fn().mockResolvedValue(result),
+        hooks: {
+          onTurnSnapshot: vi.fn(() => { callOrder.push('onTurnSnapshot'); }),
+          onStreamEnd: vi.fn(() => { callOrder.push('onStreamEnd'); }),
+        },
+      });
+
+      // onTurnSnapshot fires during drainAgentStream, onStreamEnd fires after
+      expect(callOrder).toEqual(['onTurnSnapshot', 'onStreamEnd']);
     });
   });
 });

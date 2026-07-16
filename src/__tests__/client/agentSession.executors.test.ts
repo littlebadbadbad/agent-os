@@ -4,7 +4,8 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { buildRunToolCall } from '../../client/agentSession.executors';
-import type { Message, ToolCall, ToolResult } from '@agent-sdk/utils/shared';
+import type { ToolCall, ToolResult } from '@agent-type';
+import type { Message } from '@agent-sdk/utils/shared';
 
 function makeMessages(): Message[] {
   return [];

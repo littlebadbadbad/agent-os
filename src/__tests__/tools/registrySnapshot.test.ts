@@ -123,7 +123,7 @@ describe('collectToolSetState', () => {
     collectToolSetState(resolveTools, ['tool_a', 'tool_b'], scope, ctx);
 
     expect(collectStateSpy).toHaveBeenCalledOnce();
-    const [, stateCtx] = collectStateSpy.mock.calls[0];
+    const stateCtx = (collectStateSpy.mock.calls[0] as any)[1];
     expect(stateCtx.tools).toHaveLength(2);
     expect(stateCtx.tools[0].name).toBe('tool_a');
     expect(stateCtx.tools[1].name).toBe('tool_b');
@@ -167,7 +167,7 @@ describe('snapshotConversation', () => {
     expect(result.agentName).toBe('agent-x');
     expect(result.conversationId).toBe('conv-1');
     expect(result.title).toBe('Test Conv');
-    expect(result.visible).toBe(true);
+    expect((result as any).visible).toBe(true);
     expect(result[SYM_A]).toEqual({ slot: 'data-a' });
   });
 });
@@ -191,7 +191,7 @@ describe('snapshotEntry', () => {
     expect(result.activeConversationId).toBe('conv-1');
     expect(result.conversations).toHaveLength(1);
     expect(result.conversations[0].conversationId).toBe('conv-1');
-    expect(result.visible).toBe(true);
+    expect((result as any).visible).toBe(true);
   });
 
   it('returns empty conversations list when none exist', () => {

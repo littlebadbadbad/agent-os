@@ -117,7 +117,12 @@ export const askUserTool = defineTool({
     }
 
     const request = toRequest(params);
-    const result = await context.requestUserInput(request, undefined);
+    // Use the original LLM tool call ID so the persisted prompt entry's
+    // toolCallId matches the assistant message in the conversation history.
+    // Without this, the restore path would generate a random ID and fail
+    // to correlate with the existing assistant message, causing duplicate
+    // messages and API errors.
+    const result = await context.requestUserInput(request, context.toolCallId);
 
     if (result === null) {
       return CANCEL_MSG;

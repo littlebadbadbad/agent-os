@@ -41,14 +41,14 @@ describe('createDelegateTaskTool', () => {
 
   it('creates a tool named delegate_<suffix>_task', () => {
     const deps = makeDeps();
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
     expect(tool.name).toBe('delegate_test_task');
     expect(tool.parameters).toBeDefined();
   });
 
   it('creates ephemeral sub-agent, sends task, returns result', async () => {
     const deps = makeDeps();
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
 
     const result = await tool.execute({ task: 'do something', max_turns: 5 }, makeCtx()) as any;
 
@@ -65,11 +65,12 @@ describe('createDelegateTaskTool', () => {
 
   it('appends optional context to the task message', async () => {
     const deps = makeDeps();
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
 
     await tool.execute({ task: 'do something', context: 'background info', max_turns: 5 }, makeCtx());
 
-    const [, , message] = deps.registry.sendMessage.mock.calls[0];
+    const calls = deps.registry.sendMessage.mock.calls as any[];
+    const message = calls[0][2];
     expect(message).toContain('do something');
     expect(message).toContain('background info');
     expect(message).toContain('Context (what is already known)');
@@ -82,22 +83,24 @@ describe('createDelegateTaskTool', () => {
       ['delegate_test_task', { name: 'delegate_test_task' } as Tool],
     ]));
 
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
     await tool.execute({ task: 'do something' }, makeCtx());
 
-    const createCall = deps.registry.createSubAgent.mock.calls[0][0];
+    const createCalls = deps.registry.createSubAgent.mock.calls as any[];
+    const createCall = createCalls[0][0];
     expect(createCall.toolNames).not.toContain('delegate_test_task');
     expect(createCall.toolNames).toContain('tool_a');
   });
 
   it('truncates long task description to 80 chars', async () => {
     const deps = makeDeps();
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
 
     const longTask = 'a'.repeat(200);
     await tool.execute({ task: longTask }, makeCtx());
 
-    const createCall = deps.registry.createSubAgent.mock.calls[0][0];
+    const createCalls = deps.registry.createSubAgent.mock.calls as any[];
+    const createCall = createCalls[0][0];
     // "Ephemeral delegate: " (20) + task.slice(0,80) + "…" (1) = 101
     expect(createCall.description.length).toBe(101);
     expect(createCall.description).toContain('…');
@@ -106,7 +109,7 @@ describe('createDelegateTaskTool', () => {
   it('cleans up even when sendMessage throws', async () => {
     const deps = makeDeps();
     deps.registry.sendMessage = vi.fn(() => Promise.reject(new Error('handler error')));
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
 
     await expect(tool.execute({ task: 'task' }, makeCtx())).rejects.toThrow('handler error');
     // deleteSubAgent should still be called (finally block)
@@ -116,7 +119,7 @@ describe('createDelegateTaskTool', () => {
   it('ignores deleteSubAgent errors during cleanup', async () => {
     const deps = makeDeps();
     deps.registry.deleteSubAgent = vi.fn(() => { throw new Error('cleanup fail'); });
-    const tool = createDelegateTaskTool('test', deps);
+    const tool = createDelegateTaskTool('test', deps as any);
 
     // Should not throw despite cleanup error
     const result = await tool.execute({ task: 'task' }, makeCtx()) as any;

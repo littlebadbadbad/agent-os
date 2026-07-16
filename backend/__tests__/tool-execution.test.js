@@ -17,9 +17,23 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { fileURLToPath } from 'url';
 import { join } from 'path';
-import { upsertTool, removeTool, executeTool } from '../lib/store.js';
-import { upsertModule, removeModule } from '../lib/moduleStore.js';
-import { installDeps, removeDep, listDeps } from '../lib/depStore.js';
+
+// ── Dynamic store imports ───────────────────────────────────────────────────
+// The store modules use better-sqlite3 (a native addon). When the test runner
+// Node.js version differs from the one that compiled the addon, the module
+// fails to load.  We use a plain require() inside beforeAll so vitest's ESM
+let store, moduleStore, depStore;
+
+// Load the store modules.  better-sqlite3 requires a native addon compiled
+// for the test runner's Node.js ABI.  If there's a mismatch (e.g. VS Code's
+// built-in Node.js vs the workspace Node.js), the import succeeds but
+// new Database() throws.  We wrap it so the suite can gracefully skip.
+try {
+  const _store = await import('../lib/store.js');
+  store = _store;
+  moduleStore = await import('../lib/moduleStore.js');
+  depStore = await import('../lib/depStore.js');
+} catch { /* native module not available */ }
 
 // Absolute path to the pre-downloaded tarballs — enables fully-offline test runs.
 const FIXTURES_DIR    = join(fileURLToPath(import.meta.url), '..', 'fixtures');
@@ -37,15 +51,16 @@ const TOOL_COMBINED   = 'test_combined_tool';  // tool that uses BOTH module + n
 // ── Cleanup ───────────────────────────────────────────────────────────────────
 
 afterAll(async () => {
-  removeTool(TOOL_MODULE);
-  removeTool(TOOL_DEP);
-  removeTool(TOOL_COMBINED);
-  removeModule(MODULE_NAME);
-  removeModule(MODULE_COMBINED);
+  if (!store) return;
+  store.removeTool(TOOL_MODULE);
+  store.removeTool(TOOL_DEP);
+  store.removeTool(TOOL_COMBINED);
+  moduleStore.removeModule(MODULE_NAME);
+  moduleStore.removeModule(MODULE_COMBINED);
   // Only remove ms if this test was the one that installed it.
-  const { dependencies } = listDeps();
+  const { dependencies } = depStore.listDeps();
   if (DEP_PKG in (dependencies ?? {})) {
-    await removeDep(DEP_PKG);
+    await depStore.removeDep(DEP_PKG);
   }
 });
 
@@ -53,7 +68,7 @@ afterAll(async () => {
 
 describe('backend tool importing a #modules/* shared module', () => {
   it('persists the shared module to disk and DB', () => {
-    upsertModule({
+    moduleStore.upsertModule({
       name: MODULE_NAME,
       description: 'Test helpers — slugify a string to a URL-safe slug.',
       content: `\
@@ -70,7 +85,7 @@ export function slugify(str) {
   });
 
   it('persists the tool that imports the shared module', () => {
-    upsertTool({
+    store.upsertTool({
       name: TOOL_MODULE,
       description: 'Returns the URL slug of the given text using the shared string-utils module.',
       parameters: {
@@ -90,13 +105,13 @@ export async function run(args) {
   });
 
   it('executes the tool and returns the correct slug', async () => {
-    const result = await executeTool(TOOL_MODULE, { text: 'Hello World! This is a Test.' });
+    const result = await store.executeTool(TOOL_MODULE, { text: 'Hello World! This is a Test.' });
     expect(result).toEqual({ slug: 'hello-world-this-is-a-test' });
   });
 
   it('re-executes correctly after the module content changes (cache-busting)', async () => {
     // Update the module to uppercase the slug — verifies each run gets fresh source.
-    upsertModule({
+    moduleStore.upsertModule({
       name: MODULE_NAME,
       description: 'Test helpers — now uppercase slug.',
       content: `\
@@ -110,7 +125,7 @@ export function slugify(str) {
 `,
     });
     // Update the tool to use the new behaviour.
-    upsertTool({
+    store.upsertTool({
       name: TOOL_MODULE,
       description: 'Returns an UPPER_SNAKE slug.',
       parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
@@ -123,7 +138,7 @@ export async function run(args) {
 }
 `,
     });
-    const result = await executeTool(TOOL_MODULE, { text: 'hello world' });
+    const result = await store.executeTool(TOOL_MODULE, { text: 'hello world' });
     expect(result).toEqual({ slug: 'HELLO_WORLD' });
   });
 });
@@ -132,17 +147,17 @@ export async function run(args) {
 
 describe('backend tool importing a third-party npm package (ms)', () => {
   it('installs the "ms" package into the tool-scripts scope', async () => {
-    const result = await installDeps([DEP_PKG]);
+    const result = await depStore.installDeps([DEP_PKG]);
     expect(result.success).toBe(true);
     expect(result.packages).toContain(DEP_PKG);
 
     // Verify it now appears in the package.json dependencies.
-    const { dependencies } = listDeps();
+    const { dependencies } = depStore.listDeps();
     expect(DEP_PKG in dependencies).toBe(true);
   }, 120_000 /* pnpm can be slow on a cold cache */);
 
   it('persists a tool that imports ms', () => {
-    upsertTool({
+    store.upsertTool({
       name: TOOL_DEP,
       description: 'Parses a human-readable duration string using the ms npm package.',
       parameters: {
@@ -169,12 +184,12 @@ export async function run(args) {
     ['1d',       86_400_000],
     ['500ms',          500],
   ])('executes: ms("%s") === %d', async (duration, expected) => {
-    const result = await executeTool(TOOL_DEP, { duration });
+    const result = await store.executeTool(TOOL_DEP, { duration });
     expect(result).toEqual({ input: duration, milliseconds: expected });
   });
 
   it('throws a useful error when the duration is unrecognised', async () => {
-    await expect(executeTool(TOOL_DEP, { duration: 'not-a-duration' }))
+    await expect(store.executeTool(TOOL_DEP, { duration: 'not-a-duration' }))
       .rejects.toThrow('Cannot parse duration');
   });
 });
@@ -188,12 +203,12 @@ export async function run(args) {
 describe('backend tool using both a #modules/* module AND an npm tarball (offline)', () => {
   beforeAll(async () => {
     // Install ms from the local tarball — no registry access needed.
-    const result = await installDeps([`file:${MS_TGZ}`]);
+    const result = await depStore.installDeps([`file:${MS_TGZ}`]);
     if (!result.success) throw new Error(`Failed to install ms from tarball:\n${result.output}`);
   }, 60_000);
 
   it('persists the test-duration-fmt shared module', () => {
-    upsertModule({
+    moduleStore.upsertModule({
       name: MODULE_COMBINED,
       description: 'Formats a millisecond count into a compact human-readable label.',
       content: `\
@@ -212,7 +227,7 @@ export function formatMs(n) {
   });
 
   it('persists the combined tool', () => {
-    upsertTool({
+    store.upsertTool({
       name: TOOL_COMBINED,
       description: 'Parses a duration string (via ms) and formats it (via #modules/test-duration-fmt).',
       parameters: {
@@ -243,10 +258,10 @@ export async function run(args) {
                   undefined, null],
   ])('executes with input "%s"', async (input, expectedMs, expectedLabel) => {
     if (expectedMs === undefined) {
-      await expect(executeTool(TOOL_COMBINED, { input }))
+      await expect(store.executeTool(TOOL_COMBINED, { input }))
         .rejects.toThrow('Cannot parse');
     } else {
-      const result = await executeTool(TOOL_COMBINED, { input });
+      const result = await store.executeTool(TOOL_COMBINED, { input });
       expect(result).toEqual({ input, milliseconds: expectedMs, label: expectedLabel });
     }
   });

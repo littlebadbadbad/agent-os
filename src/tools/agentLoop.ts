@@ -43,6 +43,26 @@ export type AgentStreamHooks = {
    * Use this to append a generated attachment to the current assistant bubble.
    */
   onAttachment?: (attachment: Attachment) => void;
+
+  /**
+   * Called right before awaiting tool execution results, with all assistant
+   * content that has been accumulated from the stream so far (text, thinking,
+   * and tool calls).
+   *
+   * In the streaming path, tool calls are dispatched immediately when
+   * `tool_call` chunks arrive, but the results are awaited only after the
+   * stream ends.  For suspending tools (e.g. `ask_user`), this await can
+   * last indefinitely.  This hook lets callers persist the assistant message
+   * (text, thinking, tool calls) *before* the tool results are known, so
+   * in-flight turn data survives page reload even when tools are pending.
+   *
+   * `toolCalls` are the raw `ToolCall` objects from the stream (no results yet).
+   */
+  onBeforeAwaitResults?: (
+    text: string,
+    thinking: string,
+    toolCalls: readonly ToolCall[],
+  ) => void;
 };
 
 // ── Return type ───────────────────────────────────────────────────────────────
@@ -191,6 +211,13 @@ export async function drainAgentStream(
   const abortPromise = new Promise<never>((_, reject) => {
     signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
   });
+
+  // Notify caller before potentially-blocking tool-result await.
+  // This lets the caller (agentLoopCore) construct the assistant history entry
+  // and call onTurnSnapshot — critical for tools that suspend indefinitely
+  // (e.g. ask_user via requestUserInput).
+  hooks?.onBeforeAwaitResults?.(text, thinking, allToolCalls);
+
   sdkPairs = await Promise.race([allResultsPromise, abortPromise]);
 
   return {

@@ -159,66 +159,73 @@ describe('chat:stream:start', () => {
 
   it('sends text chunks via event.sender.send', () => {
     const ev = makeEvent();
-    handler()(ev, DEFAULT_PARAMS);
+    const result = handler()(ev, DEFAULT_PARAMS);
+    const sid = result.sessionId;
 
     const { onText } = mockStartChatStreamingSession.mock.calls[0][0];
     onText('Hello');
     onText(' world');
 
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:chunk', { type: 'text', delta: 'Hello' });
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:chunk', { type: 'text', delta: ' world' });
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:chunk`, { type: 'text', delta: 'Hello' });
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:chunk`, { type: 'text', delta: ' world' });
   });
 
   it('sends thinking chunks via event.sender.send', () => {
     const ev = makeEvent();
-    handler()(ev, DEFAULT_PARAMS);
+    const result = handler()(ev, DEFAULT_PARAMS);
+    const sid = result.sessionId;
 
     const { onThinking } = mockStartChatStreamingSession.mock.calls[0][0];
     onThinking('reasoning step 1');
 
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:chunk', { type: 'thinking', delta: 'reasoning step 1' });
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:chunk`, { type: 'thinking', delta: 'reasoning step 1' });
   });
 
   it('sends tool_call events via event.sender.send', () => {
     const convertedToolCall = { id: 'tc1', function: { name: 'add', arguments: '{"a":1}' } };
     const ev = makeEvent();
-    handler()(ev, DEFAULT_PARAMS);
+    const result = handler()(ev, DEFAULT_PARAMS);
+    const sid = result.sessionId;
 
     const { onToolCall } = mockStartChatStreamingSession.mock.calls[0][0];
     onToolCall(convertedToolCall);
 
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:chunk', { type: 'tool_call', call: convertedToolCall });
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:chunk`, { type: 'tool_call', call: convertedToolCall });
   });
 
   it('sends usage event when present', () => {
     const usage = { promptTokens: 10, completionTokens: 20 };
     const ev = makeEvent();
-    handler()(ev, DEFAULT_PARAMS);
+    const result = handler()(ev, DEFAULT_PARAMS);
+    const sid = result.sessionId;
 
     const { onUsage } = mockStartChatStreamingSession.mock.calls[0][0];
     onUsage(usage);
 
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:chunk', { type: 'usage', usage });
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:chunk`, { type: 'usage', usage });
   });
 
   it('sends done event with tool call count and sessionId', () => {
     const ev = makeEvent();
-    handler()(ev, DEFAULT_PARAMS);
+    const result = handler()(ev, DEFAULT_PARAMS);
+    const sid = result.sessionId;
 
     const { onDone } = mockStartChatStreamingSession.mock.calls[0][0];
     onDone({ toolCalls: 2, sessionId: 'test-session' });
 
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:done', { toolCalls: 2, sessionId: 'test-session' });
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:done`, { toolCalls: 2, sessionId: 'test-session' });
   });
 
   it('sends error event on stream failure', () => {
     const ev = makeEvent();
-    handler()(ev, DEFAULT_PARAMS);
+    const result = handler()(ev, DEFAULT_PARAMS);
+    const sid = result.sessionId;
 
     const { onError } = mockStartChatStreamingSession.mock.calls[0][0];
     onError('API error');
 
-    expect(ev.sender.send).toHaveBeenCalledWith('chat:stream:error', { error: 'API error', sessionId: 'test-session' });
+    // sessionId is in the channel name now, not the payload
+    expect(ev.sender.send).toHaveBeenCalledWith(`chat:stream:${sid}:error`, { error: 'API error' });
   });
 
   it('does not send events when sender.isDestroyed() is true', () => {

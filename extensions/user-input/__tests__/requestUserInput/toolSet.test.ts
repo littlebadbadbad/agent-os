@@ -539,6 +539,58 @@ describe('createUserInputToolSet — sub-agent snapshot/restore', () => {
     // Main agent should still have its pending input
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(1);
   });
+
+  // ── Entry-level snapshot isolation (Bug 2 fix) ──────────────────────────
+  //
+  // The registry's getSnapshot() uses '__entry__' as the conversationId for
+  // entry-level ToolSet state to prevent duplicating per-conversation data.
+  // Verify that an entry-level context does NOT contain conversation-scoped
+  // pendingUserInputs.
+
+  it('entry-level context (__entry__) does not contain per-conversation pendingUserInputs', () => {
+    const ts = createUserInputToolSet();
+    const entryCtx: ToolSetContext = { sessionId: 'sess-1', agentName: 'asker', conversationId: '__entry__' };
+    const convCtx: ToolSetContext = { sessionId: 'sess-1', agentName: 'asker', conversationId: 'conv-abc' };
+
+    // Add pending input to the conversation context
+    const patch = ts.onPatchToolContext!(convCtx, new AbortController().signal);
+    void patch!.requestUserInput!({ type: 'confirm', message: 'Confirm?' });
+
+    // Conversation sees the pending input
+    expect(ts.onBuildSnapshot!(convCtx).pendingUserInputs).toHaveLength(1);
+
+    // Entry-level (__entry__) should NOT see it
+    expect(ts.onBuildSnapshot!(entryCtx)).toEqual({});
+  });
+
+  it('restore: onInit data before onReady correctly wires injectToolResult', () => {
+    // This simulates the corrected loadSnapshot order:
+    //   1. initScope(convCtx, {pendingUserInputs}) — onInit with data
+    //   2. readyScope(convCtx, {injectToolResult}) — onReady
+    //
+    // Previously onReady fired BEFORE onInit with data, causing ghosts
+    // to never be wired to injectToolResult (Bug 3).
+    const ts = createUserInputToolSet();
+    const injectToolResult = vi.fn();
+    const helpers = makeHelpers({ injectToolResult });
+
+    const saved: InlinePromptEntry[] = [
+      { id: 'restored-g', kind: 'confirm', message: 'Approved?', toolCallId: 'rtc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'asker' },
+    ];
+
+    // Step 1: onInit with data (restored from snapshot)
+    ts.onInit!(SUB_AGENT_CTX, makeEntryData(saved));
+    expect(ts.onGetSymbolState!(SUB_AGENT_CTX).pendingUserInputs).toHaveLength(1);
+
+    // Step 2: onReady with helpers (wires injectToolResult)
+    ts.onReady!(SUB_AGENT_CTX, helpers);
+
+    // Step 3: User answers
+    ts.onGetSymbolState!(SUB_AGENT_CTX).respondUserInput('restored-g', 'yes');
+
+    // injectToolResult must have been called — ghost was correctly wired
+    expect(injectToolResult).toHaveBeenCalledWith('rtc', 'ask_user', 'yes');
+  });
 });
 
 // ── Edge cases ─────────────────────────────────────────────────────────────

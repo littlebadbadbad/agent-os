@@ -221,4 +221,54 @@ describe('askUserTool.execute', () => {
     expect(req.message).toBe('Pick:');
     expect(req.options).toEqual(['A', 'B']);
   });
+
+  it('passes context.toolCallId as the id parameter to requestUserInput', async () => {
+    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('answer');
+    const ctx = makeContext({
+      requestUserInput,
+      toolCallId: 'call_00_abc123',
+    });
+    await askUserTool.execute(
+      { type: 'text', question: 'Name?' } as AskUserParams,
+      ctx,
+    );
+    // The second argument to requestUserInput must be the LLM's original tool call ID
+    expect(requestUserInput.mock.calls[0][1]).toBe('call_00_abc123');
+  });
+
+  it('still works when context.toolCallId is undefined (no pipeline)', async () => {
+    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('ok');
+    const ctx = makeContext({ requestUserInput, toolCallId: undefined });
+    await askUserTool.execute(
+      { type: 'confirm', question: 'OK?' } as AskUserParams,
+      ctx,
+    );
+    // When toolCallId is undefined, the second argument should be undefined
+    // and requestUserInput will generate its own entry ID.
+    expect(requestUserInput).toHaveBeenCalledOnce();
+    expect(requestUserInput.mock.calls[0][1]).toBeUndefined();
+  });
+
+  it('passes toolCallId for each prompt type', async () => {
+    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('ok');
+    const ctx = makeContext({ requestUserInput, toolCallId: 'call_00_types' });
+
+    const types: Array<AskUserParams> = [
+      { type: 'text', question: 'Q1' },
+      { type: 'confirm', question: 'Q2' },
+      { type: 'select', question: 'Q3', options: ['A', 'B'] },
+      { type: 'multiSelect', question: 'Q4', options: ['A', 'B'] },
+      { type: 'number', question: 'Q5' },
+    ];
+
+    for (const params of types) {
+      await askUserTool.execute(params, ctx);
+    }
+
+    // Every call should have the toolCallId as the second argument
+    expect(requestUserInput).toHaveBeenCalledTimes(5);
+    for (let i = 0; i < 5; i++) {
+      expect(requestUserInput.mock.calls[i][1]).toBe('call_00_types');
+    }
+  });
 });

@@ -1,13 +1,3 @@
-/**
- * extensions/user-input/agent/store.ts — UserInputStore factory
- *
- * In-memory store keyed by sessionId. Each bucket holds a Map of
- * pending prompt entries (with Promise resolve callbacks) and
- * a Set of React-compatible subscribers.
- *
- * Ported from plugins/user-input/index.js with full TypeScript typing.
- */
-
 import type {
   UserInputStore,
   UserInputBucket,

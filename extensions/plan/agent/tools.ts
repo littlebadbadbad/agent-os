@@ -28,45 +28,20 @@ export function createPlanTools(store: typeof PlanStore) {
     name: 'plan_checkpoint',
     group: 'Planning',
     description:
-      'Pause for user review of the current plan before proceeding. ' +
-      'Call plan_write first to ensure the latest plan is visible, then call this. ' +
-      'Returns { status: "approved" } | { status: "rejected", feedback: string } | { status: "cancelled" }.',
+      'Ask the user to review the current plan. The question is sent detached — ' +
+      'the tool returns immediately and the answer arrives as a user message. ' +
+      'Call plan_write first. Returns { status: "awaiting_input" }.',
     parameters: z.object({
-      message: z
-        .string()
-        .min(1)
-        .describe(
-          'Brief context shown before the approval prompt, ' +
-          'e.g. "Ready to implement the auth refactor — please review the plan above."',
-        ),
+      message: z.string().min(1).describe(
+        'Brief context shown before the approval prompt, ' +
+        'e.g. "Ready to implement the auth refactor — please review the plan above."',
+      ),
     }),
     execute: async ({ message }, context) => {
-      const action = await context.requestUserInput?.({
-        type: 'select',
-        message,
-        options: ['Approve', 'Request changes', 'Cancel'],
-      });
-
-      if (action === null || action === undefined || action === 'Cancel') {
-        return { status: 'cancelled' as const };
-      }
-
-      if (action === 'Approve') {
-        return { status: 'approved' as const };
-      }
-
-      // 'Request changes' — collect feedback in a second prompt
-      const feedback = await context.requestUserInput?.({
-        type: 'text',
-        message: 'Describe the changes needed:',
-        placeholder: 'e.g. "Split step 3 into two steps, the scope is too broad"',
-      });
-
-      if (feedback === null || feedback === undefined) {
-        return { status: 'cancelled' as const };
-      }
-
-      return { status: 'rejected' as const, feedback: feedback.trim() };
+      const key = ctxKey(context);
+      void context.requestUserInput?.({ type: 'select', message, options: ['Approve', 'Request changes', 'Cancel'], mode: 'detached' });
+      store.setPendingApproval(key, { stage: 'checkpoint', message });
+      return { status: 'awaiting_input', message: 'Awaiting user approval for the current plan.' };
     },
   });
 
@@ -94,46 +69,18 @@ export function createPlanTools(store: typeof PlanStore) {
     group: 'Planning',
     description:
       'Exit plan mode and submit the current plan for user approval. ' +
-      'The user will be asked to approve or request changes. ' +
-      'Call this only after the plan is complete and ready for review.',
+      'The question is sent detached. ' +
+      'Returns { status: "awaiting_input" }.',
     parameters: z.object({}),
     execute: async (_, context) => {
       const key = ctxKey(context);
       const current = store.get(key);
       store.setPlanMode(key, false);
+      if (!current) return { status: 'no_plan', message: 'No plan found. Write a plan first with plan_write.' };
 
-      if (!current) {
-        return { status: 'no_plan', message: 'No plan found. Write a plan first with plan_write.' };
-      }
-
-      const action = await context.requestUserInput?.({
-        type: 'select',
-        message: 'Plan is ready for review. What would you like to do?',
-        options: ['Approve and execute', 'Request changes', 'Cancel'],
-      });
-
-      if (action === null || action === undefined || action === 'Cancel') {
-        return { status: 'cancelled' };
-      }
-
-      if (action === 'Approve and execute') {
-        return {
-          status: 'approved',
-          message: 'Plan approved. Proceed to execute the plan step by step. Use todo_write to track progress.',
-        };
-      }
-
-      // Request changes — go back to plan mode
-      const feedback = await context.requestUserInput?.({
-        type: 'text',
-        message: 'What changes are needed?',
-        placeholder: 'Describe the adjustments...',
-      });
-
-      if (feedback === null || feedback === undefined) return { status: 'cancelled' };
-
-      store.setPlanMode(key, true); // back to plan mode
-      return { status: 'changes_requested', feedback: feedback.trim() };
+      void context.requestUserInput?.({ type: 'select', message: 'Plan is ready for review. What would you like to do?', options: ['Approve and execute', 'Request changes', 'Cancel'], mode: 'detached' });
+      store.setPendingApproval(key, { stage: 'exit', message: 'Plan is ready for review. What would you like to do?' });
+      return { status: 'awaiting_input', message: 'Awaiting user approval for the plan.' };
     },
   });
 

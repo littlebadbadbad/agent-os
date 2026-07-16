@@ -138,11 +138,35 @@ export interface ToolExecutionContextExtension {}
 //  UserInputRequest — built-in type contract
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ── UserInputMode ────────────────────────────────────────────────────────────
+
+/**
+ * How `requestUserInput` delivers the answer.
+ *
+ * - `'bound'`:    The returned Promise suspends until the user responds.
+ *                 The answer is injected as a tool result via `injectToolResult`.
+ *                 Persistence is controlled by the `ephemeral` flag.
+ *
+ * - `'detached'`: The returned Promise resolves immediately with
+ *                 `"__detached__"`. The answer is delivered as a user message
+ *                 via `sendMessage`.  Implicitly persistent — `ephemeral` is
+ *                 ignored.
+ */
+export type UserInputMode = 'bound' | 'detached';
+
+// ── Sentinel value returned by detached-mode requestUserInput ─────────────────
+
+/** Value returned by `requestUserInput` when the request mode is `'detached'`. */
+export const DETACHED_SENTINEL = '__detached__' as const;
+
 /**
  * Describes a user-input request that a tool can issue at runtime.
  *
  * The optional `ephemeral` flag marks a request as transient: it will not be
  * persisted in session snapshots and will not be replayed on page reload.
+ *
+ * The optional `mode` controls whether the tool suspends (bound) or resolves
+ * immediately (detached).  Defaults to `'bound'` when omitted.
  */
 export type UserInputRequest = {
   readonly ephemeral?: true;
@@ -150,6 +174,13 @@ export type UserInputRequest = {
   readonly toolCallId?: string;
   /** Name of the originating tool (e.g. `'ask_user'`). */
   readonly toolName?: string;
+  /**
+   * Answer-delivery mode.
+   *
+   * - `'bound'` (default): Promise suspends, answer is injected as a tool result.
+   * - `'detached'`:        Promise resolves immediately, answer is a user message.
+   */
+  readonly mode?: UserInputMode;
 } & (
   | { readonly type: "confirm"; readonly message: string }
   | {
@@ -389,6 +420,23 @@ export type ToolExecutionContext<Ctx = ToolExecutionContextExtension> = Ctx & {
    * without a pipeline.
    */
   readonly handler?: AgentHandler;
+  /**
+   * The ID of the tool call currently being executed, as assigned by the
+   * LLM in its response (e.g. `"call_00_abc123"`).
+   *
+   * Set by the pipeline at invocation time — always present in the real
+   * execution path, absent only in unit tests that construct a bare
+   * `ToolExecutionContext` manually.
+   *
+   * Tools that need to correlate their execution with the assistant message
+   * in the conversation history (e.g. `ask_user` which persists its prompt
+   * as `pendingUserInput`) should use this field as the `id` parameter of
+   * `requestUserInput` so the persisted `toolCallId` matches the original
+   * LLM call ID.  Without this, the restore path would generate a new
+   * random ID and fail to match the assistant message's tool call entry,
+   * causing duplicate assistant messages and API errors.
+   */
+  readonly toolCallId?: string;
   /**
    * Force-flush any pending debounced persistence write.
    *

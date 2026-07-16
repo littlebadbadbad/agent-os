@@ -104,6 +104,7 @@ export function createToolCallPipeline(
       signal,
       handler,
       flushPersistence,
+      toolCallId: call.id,
 
       ...ctxPatch,
     };

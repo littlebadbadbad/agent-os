@@ -1,38 +1,17 @@
-// ── Side-effect: register module augmentation fields ─────────────────────────
 import './types';
-
 import { ctxKey } from '@agent-type';
-import type { ToolSet, ToolSetContext, Tool, CompactToolCardDescriptor, ToolCallInfo } from '@agent-type';
-import type { SessionEntryData, PluginSlotDeclaration } from '@agent-type';
+import type { ToolSet, ToolSetContext, Tool } from '@agent-type';
+import type { SessionEntryData } from '@agent-type';
 import { planStore } from './store';
 import { createPlanTools } from './tools';
 import { PLAN_GUIDANCE, PLAN_SECTION_ID } from './prompt';
-import type { PlanSymbolState } from './types';
 
-/**
- * Tools the agent may use while in plan mode.
- *
- * Plan mode is read-and-plan only: no writes, no execution.  The agent can
- * read the codebase for context, write/refine the plan, ask the user questions,
- * and exit plan mode when ready.  `tool_search` is included so the agent can
- * discover additional read-only tools if needed.
- */
 const PLAN_MODE_ALLOWED = new Set([
-  'plan_write',
-  'plan_exit',
-  'read_file',
-  'list_dir',
-  'search_files',
-  'get_workspace_root',
-  'ask_user',
-  'tool_search',
+  'plan_write', 'plan_exit', 'read_file', 'list_dir',
+  'search_files', 'get_workspace_root', 'ask_user', 'tool_search',
 ]);
 
-// ── Symbol ────────────────────────────────────────────────────────────────────
-
 export const PLAN_SYMBOL = Symbol('plan');
-
-// ── Compact tool-card descriptor helpers ──────────────────────────────────────
 
 const TOOL_META: Record<string, { icon: string; label: string }> = {
   plan_write:      { icon: '📝', label: 'Plan' },
@@ -51,6 +30,7 @@ function planBadge(result: unknown): string {
     if (s === 'changes_requested') return '↩';
     if (s === 'plan_mode_entered') return '⚡';
     if (s === 'no_plan') return '∅';
+    if (s === 'awaiting_input') return '⏳';
   }
   return '';
 }
@@ -63,17 +43,6 @@ function planDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-/**
- * Create the plan ToolSet.
- *
- * Provides five tools — `plan_write`, `plan_checkpoint`, `plan_enter`,
- * `plan_exit`, and `plan_verify` — that let the agent maintain a live markdown
- * plan document per session, gate execution on human approval, and optionally
- * enter a restricted plan mode where only read and planning tools are visible.
- *
- * Requires `createUserInputToolSet` to be registered on the same agent so that
- * `context.requestUserInput` is available to `plan_checkpoint` and `plan_exit`.
- */
 export function createPlanToolSet(): ToolSet {
   const tools = createPlanTools(planStore);
 
@@ -102,6 +71,9 @@ export function createPlanToolSet(): ToolSet {
       if (entryData?.planMode) {
         planStore.setPlanMode(key(ctx), entryData.planMode);
       }
+      if (entryData?.planPendingApproval) {
+        planStore.setPendingApproval(key(ctx), entryData.planPendingApproval);
+      }
     },
 
     onReset(ctx: ToolSetContext): void {
@@ -119,11 +91,11 @@ export function createPlanToolSet(): ToolSet {
     onGetSymbolState(ctx: ToolSetContext) {
       const currentPlan = planStore.get(key(ctx));
       const inPlanMode = planStore.getPlanMode(key(ctx));
-
       return {
         type: 'plan',
         plan: currentPlan,
         planMode: inPlanMode,
+        pendingApproval: planStore.getPendingApproval(key(ctx)),
         slots: [
           {
             type: 'panel' as const,
@@ -150,7 +122,12 @@ export function createPlanToolSet(): ToolSet {
 
     onBuildSnapshot(ctx: ToolSetContext) {
       const serialized = planStore.serialize(key(ctx));
-      return serialized ? { plan: serialized.content, planMode: serialized.planMode } : {};
+      if (!serialized) return {};
+      return {
+        plan: serialized.content,
+        planMode: serialized.planMode,
+        ...(serialized.pendingApproval ? { planPendingApproval: serialized.pendingApproval } : {}),
+      };
     },
 
     /**
@@ -163,9 +140,37 @@ export function createPlanToolSet(): ToolSet {
       return tools.filter((t) => PLAN_MODE_ALLOWED.has(t.name));
     },
 
+    /**
+     * After a successful agent run, clear any pending approval that was
+     * consumed — it was already shown in the system prompt for that turn.
+     */
+    onAfterRun(ctx: ToolSetContext, _outcome: import("@agent-type").AgentRunOutcome): void {
+      if (planStore.getPendingApproval(key(ctx))) {
+        planStore.setPendingApproval(key(ctx), null);
+      }
+    },
+
     onGetSystemPrompt(ctx: ToolSetContext): string | undefined {
       const content = planStore.get(key(ctx));
       const inPlanMode = planStore.getPlanMode(key(ctx));
+      const pendingApproval = planStore.getPendingApproval(key(ctx));
+
+      // ── Pending approval: user was asked for input ─────────────────────
+      if (pendingApproval) {
+        const stage = pendingApproval.stage === 'checkpoint' ? 'checkpoint review' : 'plan exit review';
+        return [
+          `## Planning (awaiting user response — ${stage})`,
+          '',
+          `You previously asked the user: "${pendingApproval.message}"`,
+          '',
+          'The user has now responded. Read their message and react accordingly:',
+          '- **Approve / Approve and execute**: proceed with the plan.',
+          '- **Request changes**: gather feedback and update the plan.',
+          '- **Cancel**: stop the current workflow.',
+          '',
+          'Do NOT call plan_checkpoint or plan_exit again — the user already answered.',
+        ].join('\n');
+      }
 
       if (inPlanMode) {
         const planBlock = content ?? 'No plan yet.';

@@ -74,6 +74,35 @@ export interface HistoryTracker {
    */
   reconcile(): void;
 
+  /**
+   * Seal orphaned tool calls in both buffers.
+   *
+   * An "orphaned" tool call is one where an `assistant` message has
+   * `toolCalls` but the matching `tool` results are absent from the
+   * history (e.g. because a snapshot was saved mid-turn before tool
+   * results arrived, then restored on page refresh).
+   *
+   * This method inserts synthetic `tool` messages with
+   * `{ cancelled: true }` results so the message sequence is valid
+   * for API consumption.
+   */
+  sealOrphanedToolCalls(): void;
+
+  /**
+   * Replace the content of a tool result message identified by toolCallId.
+   * Updates both `live` and `full` buffers in-place.
+   *
+   * Returns `true` if a matching message was found and replaced, `false`
+   * if no tool result with that toolCallId exists.
+   *
+   * Needed when a session is restored with pending user inputs: the
+   * constructor seals orphaned tool calls with `{cancelled:true}`, but
+   * later the real answer arrives via the restored prompt.  Replacing
+   * the synthetic result avoids duplicate tool messages with the same
+   * toolCallId, which would cause API errors.
+   */
+  replaceToolResult(toolCallId: string, content: unknown): boolean;
+
   /** Reset both histories to empty. */
   reset(): void;
 }
@@ -96,6 +125,13 @@ export function createHistoryTracker(
   let full: AgentMessage[] = initialMessages ? [...initialMessages] : [];
 
   let turnStart = 0;
+
+  // Seal any orphaned tool calls from restored snapshots immediately.
+  // This handles the case where a snapshot was saved mid-turn before
+  // tool results arrived — on page refresh, the orphaned tool_calls
+  // would cause API errors without this fix.
+  sealOrphanedToolCallsInPlace(live);
+  sealOrphanedToolCallsInPlace(full);
 
   return {
     getLiveHistory(): AgentMessage[] {
@@ -146,10 +182,79 @@ export function createHistoryTracker(
       }
     },
 
+    sealOrphanedToolCalls(): void {
+      sealOrphanedToolCallsInPlace(live);
+      sealOrphanedToolCallsInPlace(full);
+    },
+
+    replaceToolResult(toolCallId: string, content: unknown): boolean {
+      let found = false;
+      for (const arr of [live, full]) {
+        for (let i = 0; i < arr.length; i++) {
+          const m = arr[i];
+          if (m.role !== 'tool') continue;
+          if (m.toolCallId !== toolCallId) continue;
+          arr[i] = { role: 'tool', toolCallId: m.toolCallId, name: m.name, content };
+          found = true;
+          break;
+        }
+      }
+      return found;
+    },
+
     reset(): void {
       live = [];
       full = [];
       turnStart = 0;
     },
   };
+}
+
+// ── Orphaned tool call sealing ────────────────────────────────────────────────
+
+/**
+ * Find assistant messages with `toolCalls` that have no matching `tool`
+ * results in the array, and insert synthetic "cancelled" tool results.
+ *
+ * This handles the case where a snapshot was saved mid-turn (before tool
+ * results arrived) and then restored on page refresh — without this fix,
+ * the orphaned `tool_calls` would cause API errors like:
+ * "An assistant message with 'tool_calls' must be followed by tool messages".
+ *
+ * @param msgs - The message array to fix in place.
+ */
+function sealOrphanedToolCallsInPlace(msgs: AgentMessage[]): void {
+  // Collect all tool call IDs that already have results.
+  const toolCallIdsWithResults = new Set<string>();
+  for (const m of msgs) {
+    if (m.role === 'tool' && m.toolCallId) {
+      toolCallIdsWithResults.add(m.toolCallId);
+    }
+  }
+
+  // Scan for assistant messages with orphaned tool calls and insert
+  // synthetic cancelled results.
+  const result: AgentMessage[] = [];
+  for (const m of msgs) {
+    result.push(m);
+    if (m.role === 'assistant' && m.toolCalls?.length) {
+      for (const tc of m.toolCalls) {
+        if (tc.id && !toolCallIdsWithResults.has(tc.id)) {
+          // Mark as having results now so we don't insert duplicates
+          // if a tool call ID appears in multiple assistant messages.
+          toolCallIdsWithResults.add(tc.id);
+          result.push({
+            role: 'tool',
+            toolCallId: tc.id,
+            name: tc.name,
+            content: JSON.stringify({ cancelled: true }),
+          });
+        }
+      }
+    }
+  }
+
+  // Replace in place so the caller's reference remains valid.
+  msgs.length = 0;
+  msgs.push(...result);
 }
