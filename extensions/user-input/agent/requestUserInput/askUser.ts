@@ -2,7 +2,8 @@
  * extensions/user-input/agent/askUser.ts — ask_user tool definition
  *
  * The core tool that agents call to request structured input from the user.
- * Supports 5 prompt types + bound/unbound dual mode.
+ * Supports 5 prompt types. The answer always binds to the tool call as a
+ * tool result — never sent as a user message.
  *
  * Detailed usage rules live in the ToolSet's `onGetSystemPrompt`, not here.
  */
@@ -12,9 +13,6 @@ import { defineTool, type UserInputRequest } from "@agent-type";
 
 export const CANCEL_MSG =
   "[User cancelled — no input was provided. Proceed accordingly or try a different approach.]";
-
-export const UNBOUND_OK_MSG =
-  "[User responded — their answer has been submitted as a new message. Proceed accordingly.]";
 
 export const askUserSchema = z.object({
   type: z
@@ -56,13 +54,6 @@ export const askUserSchema = z.object({
   min: z.number().optional().describe("(number) Minimum allowed value."),
   max: z.number().optional().describe("(number) Maximum allowed value."),
   step: z.number().optional().describe("(number) Increment step."),
-  bind_to_tool: z
-    .boolean()
-    .default(true)
-    .describe(
-      "When true (default), the answer becomes the tool result the LLM sees. " +
-        "When false, the answer is submitted as a new user message.",
-    ),
 });
 
 // ── Build a UserInputRequest from the Zod-parsed params ───────────────────────
@@ -132,13 +123,8 @@ export const askUserTool = defineTool({
       return CANCEL_MSG;
     }
 
-    // Unbound mode: forward the answer as a new user message, return a marker.
-    if (params.bind_to_tool === false) {
-      context.sendMessage?.(result);
-      return UNBOUND_OK_MSG;
-    }
-
-    // Bound mode (default): return the value as the tool result.
+    // The answer always binds to the tool call — the LLM receives it as a
+    // `tool` message result.
     return result;
   },
 });

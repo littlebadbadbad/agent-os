@@ -104,7 +104,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
         for (const tool of tools) {
           tm.registerTool(tool);
         }
-        ts.onInitSession?.(ctx, tm.entryData);
+        ts.onInit?.(ctx, tm.entryData);
         if (tm.externalRefresh) {
           const unsub = ts.onSubscribe?.(ctx, tm.externalRefresh);
           if (unsub) sessionUnsubs.set(sessionId, unsub);
@@ -127,7 +127,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
           // Tear down the subscription wired by onSubscribe, then notify the
           // ToolSet that the session is gone.
           sessionUnsubs.get(sessionId)?.();
-          ts.onRemoveSession?.(makeCtx(sessionId));
+          ts.onRemove?.(makeCtx(sessionId));
         }
         sessionUnsubs.clear();
       };

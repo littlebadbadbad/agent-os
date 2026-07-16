@@ -132,7 +132,7 @@ export type ToolResult = {
  * }
  * ```
  */
-export interface ToolExecutionContextExtension { }
+export interface ToolExecutionContextExtension {}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  UserInputRequest — built-in type contract
@@ -146,37 +146,31 @@ export interface ToolExecutionContextExtension { }
  */
 export type UserInputRequest = {
   readonly ephemeral?: true;
-  /**
-   * When true (default), the user's answer produces a `role: 'tool'` result
-   * message. When false, the answer is forwarded as a new `role: 'user'`
-   * message. Persisted and restored across session reloads.
-   */
-  readonly boundToTool?: boolean;
   /** Stable identifier for the originating tool call (persisted for restore). */
   readonly toolCallId?: string;
   /** Name of the originating tool (e.g. `'ask_user'`). */
   readonly toolName?: string;
 } & (
-    | { readonly type: "confirm"; readonly message: string }
-    | {
+  | { readonly type: "confirm"; readonly message: string }
+  | {
       readonly type: "text";
       readonly message: string;
       readonly placeholder?: string;
       readonly defaultValue?: string;
     }
-    | {
+  | {
       readonly type: "select";
       readonly message: string;
       readonly options: readonly string[];
     }
-    | {
+  | {
       readonly type: "multiSelect";
       readonly message: string;
       readonly options: readonly string[];
       readonly minSelect?: number;
       readonly maxSelect?: number;
     }
-    | {
+  | {
       readonly type: "number";
       readonly message: string;
       readonly placeholder?: string;
@@ -185,7 +179,7 @@ export type UserInputRequest = {
       readonly max?: number;
       readonly step?: number;
     }
-  );
+);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Extension interfaces for module augmentation
@@ -213,7 +207,7 @@ export interface AgentSessionExtension extends Record<string, unknown> {
   [key: ToolSetSymbol]: PluginStateExtension & PluginUiAdapter;
 }
 /** Minimum discriminant every plugin symbol state must provide. */
-export interface PluginStateExtension { }
+export interface PluginStateExtension {}
 export type ToolSetSymbol = symbol;
 /**
  * Open extension point for ToolSet-specific persisted fields.
@@ -235,7 +229,7 @@ export type ToolSetSymbol = symbol;
  * is used — in `onInitSession`, `onBuildSnapshot`, `createSession`, etc.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface SessionEntryExtension { }
+export interface SessionEntryExtension {}
 
 /**
  * Core (always-present) fields of a serialisable session descriptor.
@@ -263,7 +257,8 @@ export type SessionEntryDataBase = {
  * Core fields live in `SessionEntryDataBase`; ToolSet-specific fields are
  * contributed via `SessionEntryExtension` module augmentation.
  */
-export type SessionEntryData = SessionEntryDataBase & SessionEntryExtension;
+export type SessionEntryData<Snapshot = SessionEntryExtension> =
+  SessionEntryDataBase & Snapshot;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  AgentSessionState  (核心字段 — 来自 src/client/agentSession.types.ts)
@@ -339,7 +334,7 @@ export type AgentSessionState = {
   readonly conversationId: string;
 } & AgentSessionExtension;
 /** Context passed to the tool's `execute` function on every invocation. */
-export interface ToolExecutionContext extends ToolExecutionContextExtension {
+export type ToolExecutionContext<Ctx = ToolExecutionContextExtension> = Ctx & {
   /** Signal to abort long-running tool operations. */
   readonly signal: AbortSignal;
   /**
@@ -378,7 +373,7 @@ export interface ToolExecutionContext extends ToolExecutionContextExtension {
    * `'main'` for the root agent; the sub-agent's registered name otherwise.
    * Use this for attribution in tool cards and debug logging.
    */
-  readonly sourceAgent: 'main' | string;
+  readonly sourceAgent: "main" | string;
   /**
    * Derived convenience: `true` when this tool is being executed by a
    * sub-agent (i.e. `sourceAgent !== 'main'`).
@@ -437,7 +432,7 @@ export interface ToolExecutionContext extends ToolExecutionContextExtension {
    * `undefined` when the session is not yet ready for message sending.
    */
   readonly sendMessage?: (text: string) => void;
-}
+};
 
 // ── Resolvable helper ─────────────────────────────────────────────────────────
 
@@ -475,8 +470,8 @@ export type Tool<
   readonly description: string | (() => string);
   readonly parameters: TSchema | (() => TSchema);
   readonly rawParametersSchema?:
-  | Record<string, unknown>
-  | (() => Record<string, unknown>);
+    | Record<string, unknown>
+    | (() => Record<string, unknown>);
   readonly group?: string;
   readonly execute: (
     params: z.infer<TSchema>,

@@ -567,7 +567,7 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
       return () => s!.delete(fn);
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       subscribers.delete(ctx.sessionId);
     },
   };

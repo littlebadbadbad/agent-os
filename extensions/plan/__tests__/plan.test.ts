@@ -105,7 +105,7 @@ describe('createPlanToolSet', () => {
     const stateBefore = ts.onGetSymbolState!(makeTsCtx());
     expect(stateBefore.planMode).toBe(true);
 
-    // Exit — planMode should be cleared
+    // Exit �?planMode should be cleared
     // Note: plan_exit calls requestUserInput which isn't available in tests,
     // so it will return status: 'cancelled' since context.requestUserInput is undefined
     const exitResult = await exitTool.execute({}, {
@@ -231,9 +231,9 @@ describe('createPlanToolSet', () => {
 
   // ── Session lifecycle ────────────────────────────────────────────────────
 
-  it('onInitSession restores plan and planMode from entryData', () => {
+  it('onInit restores plan and planMode from entryData', () => {
     const ts = createPlanToolSet();
-    ts.onInitSession!(makeTsCtx(), {
+    ts.onInit!(makeTsCtx(), {
       plan: '# Restored Plan',
       planMode: true,
     });
@@ -243,7 +243,7 @@ describe('createPlanToolSet', () => {
     expect(state.planMode).toBe(true);
   });
 
-  it('onResetSession clears plan content and plan mode', async () => {
+  it('onReset clears plan content and plan mode', async () => {
     const ts = createPlanToolSet();
     const enterTool = resolveToolSetTools(ts).find((t) => t.name === 'plan_enter')!;
     const writeTool = resolveToolSetTools(ts).find((t) => t.name === 'plan_write')!;
@@ -251,7 +251,7 @@ describe('createPlanToolSet', () => {
     await enterTool.execute({}, makeCtx());
     await writeTool.execute({ content: 'Some plan' }, makeCtx());
 
-    ts.onResetSession!(makeTsCtx());
+    ts.onReset!(makeTsCtx());
 
     const state = ts.onGetSymbolState!(makeTsCtx());
     expect(state.plan).toBeUndefined();

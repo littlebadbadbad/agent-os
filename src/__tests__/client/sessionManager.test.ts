@@ -113,7 +113,7 @@ describe('createSessionManager', () => {
     expect(mgr.getState().sessions.length).toBe(before);
   });
 
-  it('removeSession calls onRemoveSession callback', () => {
+  it('removeSession calls onRemove callback', () => {
     const { factory } = makeFactory();
     const onRemove = vi.fn();
     const mgr = createSessionManager(factory, {

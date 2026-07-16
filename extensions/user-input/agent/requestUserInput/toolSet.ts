@@ -6,9 +6,10 @@
  *      ToolExecutionContext (onPatchToolContext)
  *   2. Expose prompt state + responder via `onGetSymbolState` (symbol-isolated)
  *   3. Declare inlinePrompt slot for UI injection
- *   4. Handle session lifecycle (init/ready/remove/reset) and persistence
- *   5. Differentiate bound prompts (answer → tool result) from unbound prompts
- *      (answer → new user message) for correct snapshot/restore behaviour
+ *   4. Handle lifecycle (onInit/onReady/onReset/onRemove) and persistence
+ *
+ * All restored prompts resolve via injectToolResult (bound mode). The
+ * ask_user tool always binds; answers are never sent as user messages.
  */
 
 import {
@@ -26,6 +27,7 @@ import {
 import { createUserInputStore } from "./store";
 import { askUserTool } from "./askUser";
 import type { UserInputAdapter, InlinePromptEntry } from "./types";
+import { UserInputPromptState } from "../types";
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
@@ -43,9 +45,7 @@ export interface UserInputSymbolState extends PluginUiAdapter {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Build an `InlinePromptEntry` from a `UserInputRequest`, carrying the bind
- * metadata through so `onBuildSnapshot` / `onInitSession` can distinguish
- * bound prompts from unbound ones.
+ * Build an `InlinePromptEntry` from a `UserInputRequest`.
  */
 function toInlinePromptEntry(
   id: string,
@@ -57,7 +57,6 @@ function toInlinePromptEntry(
     id,
     conversationId,
     agentName,
-    boundToTool: request.boundToTool ?? true,
     toolCallId: request.toolCallId ?? id,
     toolName: request.toolName ?? "ask_user",
   };
@@ -107,7 +106,11 @@ function toInlinePromptEntry(
         step: request.step,
       };
     default:
-      return { ...base, kind: "text" as const, message: (request as { message?: string }).message ?? "" };
+      return {
+        ...base,
+        kind: "text" as const,
+        message: (request as { message?: string }).message ?? "",
+      };
   }
 }
 
@@ -121,7 +124,7 @@ export interface UserInputToolSetOptions {
 
 export function createUserInputToolSet(
   options: UserInputToolSetOptions = {},
-): ToolSet {
+): ToolSet<UserInputPromptState> {
   const { adapter } = options;
   const store = createUserInputStore();
 
@@ -152,7 +155,6 @@ export function createUserInputToolSet(
           const entryId = id ?? crypto.randomUUID();
           const enriched: UserInputRequest = {
             ...req,
-            boundToTool: req.boundToTool ?? true,
             toolCallId: req.toolCallId ?? entryId,
             toolName: req.toolName ?? "ask_user",
           };
@@ -213,12 +215,7 @@ export function createUserInputToolSet(
         "- **select** — pick one from a fixed list. Prefer this over text when the valid answers are known.",
         "- **multiSelect** — pick one or more options. Returns a JSON array string.",
         "- **number** — numeric input. Specify `min`/`max`/`step` to constrain.",
-        "",
-        "Two modes via `bind_to_tool`:",
-        '- **bind_to_tool=true** (default): the answer becomes the tool result — the LLM sees it as a `tool` message.',
-        '- **bind_to_tool=false**: the answer is submitted as a new user message — the LLM sees it as a `user` message.',
-        "  Use this when the user's answer should feel like the user speaking, not a tool returning data.",
-        "",
+
         "Tool execution is **suspended** until the user responds. If the user cancels, the tool",
         "returns a cancellation message — proceed with a fallback strategy rather than retrying.",
       ].join("\n");
@@ -258,7 +255,10 @@ export function createUserInputToolSet(
 
     onInterceptMessage(
       ctx: ToolSetContext,
-      _message: { readonly content: string; readonly attachments?: readonly Attachment[] },
+      _message: {
+        readonly content: string;
+        readonly attachments?: readonly Attachment[];
+      },
       _isLoading: boolean,
     ): void {
       const key = ctxKey(ctx);
@@ -272,9 +272,9 @@ export function createUserInputToolSet(
 
     // ── Session lifecycle ───────────────────────────────────────────────────
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
       if (adapter) return;
-      const saved = entryData.pendingUserInputs;
+      const saved = entryData?.pendingUserInputs;
       if (!saved?.length) return;
 
       const sessionId = ctxKey(ctx);
@@ -283,12 +283,12 @@ export function createUserInputToolSet(
 
       for (const entry of saved) {
         // Ghost entries with a temporary noop resolve — replaced in
-        // onSessionReady with the correct handler for each bind mode.
+        // onSessionReady with injectToolResult.
         store.addGhost(sessionId, entry, () => {});
       }
     },
 
-    onSessionReady(ctx: ToolSetContext, helpers: SessionReadyHelpers): void {
+    onReady(ctx: ToolSetContext, helpers: SessionReadyHelpers): void {
       if (adapter) return;
 
       const sessionId = ctxKey(ctx);
@@ -296,46 +296,38 @@ export function createUserInputToolSet(
       // Wire sendMessage into the context-patch cache.
       sendMessageByKey.set(sessionId, helpers.sendMessage);
 
-      // Replace ghost resolves with the correct handler per bind mode.
+      // Replace ghost resolves with injectToolResult (always bound mode).
       const entries = pendingRestore.get(sessionId);
       if (!entries) return;
       pendingRestore.delete(sessionId);
 
       for (const entry of entries) {
-        if (entry.boundToTool) {
-          store.replaceResolve(sessionId, entry.id, (value) => {
-            if (value !== null) {
-              helpers.injectToolResult(
-                entry.toolCallId ?? entry.id,
-                entry.toolName ?? "ask_user",
-                value,
-              );
-            }
-          });
-        } else {
-          store.replaceResolve(sessionId, entry.id, (value) => {
-            if (value !== null) helpers.sendMessage(value);
-          });
-        }
+        store.replaceResolve(sessionId, entry.id, (value) => {
+          if (value !== null) {
+            helpers.injectToolResult(
+              entry.toolCallId ?? entry.id,
+              entry.toolName ?? "ask_user",
+              value,
+            );
+          }
+        });
       }
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       const key = ctxKey(ctx);
       store.removeSession(key);
       pendingRestore.delete(key);
       sendMessageByKey.delete(key);
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       store.resetSession(ctxKey(ctx));
     },
 
     // ── Persistence ─────────────────────────────────────────────────────────
 
-    onBuildSnapshot(ctx: ToolSetContext): {
-      pendingUserInputs?: readonly InlinePromptEntry[];
-    } {
+    onBuildSnapshot(ctx: ToolSetContext) {
       const prompts = store.serialize(ctxKey(ctx));
       return prompts.length ? { pendingUserInputs: prompts } : {};
     },

@@ -308,9 +308,9 @@ describe('createExperienceTools', () => {
     expect(prompt).toMatch(/#perf/);
   });
 
-  // ── lifecycle: onInitSession ───────────────────────────────────────────────
+  // ── lifecycle: onInit ───────────────────────────────────────────────
 
-  it('onInitSession restores experiences from entryData', async () => {
+  it('onInit restores experiences from entryData', async () => {
     const ts = createExperienceTools();
     const saved: ExperienceItem[] = [
       {
@@ -320,38 +320,38 @@ describe('createExperienceTools', () => {
         createdAt: '2024-01-01',
       },
     ];
-    ts.onInitSession?.(makeTsCtx('session-restored'), { id: 'session-restored', title: 'Test', experiences: saved });
+    ts.onInit?.(makeTsCtx('session-restored'), { id: 'session-restored', title: 'Test', experiences: saved });
     const result = await listExperiences(ts, 'session-restored');
     expect(result.total).toBe(1);
     expect(result.experiences[0].trigger).toBe('REST.status=429');
     expect(result.experiences[0].insight).toBe('retry with backoff');
   });
 
-  it('onInitSession ignores missing entryData', () => {
+  it('onInit ignores missing entryData', () => {
     const ts = createExperienceTools();
-    expect(() => ts.onInitSession?.(makeTsCtx('session-new'), { id: 'session-new', title: 'New' })).not.toThrow();
+    expect(() => ts.onInit?.(makeTsCtx('session-new'), { id: 'session-new', title: 'New' })).not.toThrow();
   });
 
-  // ── lifecycle: onRemoveSession ─────────────────────────────────────────────
+  // ── lifecycle: onRemove ─────────────────────────────────────────────
 
-  it('onRemoveSession does not clear experiences (they are permanent)', async () => {
+  it('onRemove does not clear experiences (they are permanent)', async () => {
     // Experiences are cross-session and permanent �?removing a session does
     // not delete the global experience pool.
     const ts = createExperienceTools();
     await addExperience(ts, { trigger: 'T', insight: 'Will survive removal' });
-    ts.onRemoveSession?.(makeTsCtx());
+    ts.onRemove?.(makeTsCtx());
     const result = await listExperiences(ts);
     expect(result.total).toBe(1);
   });
 
-  // ── lifecycle: onResetSession ──────────────────────────────────────────────
+  // ── lifecycle: onReset ──────────────────────────────────────────────
 
-  it('onResetSession does not clear experiences (they persist across history clears)', async () => {
+  it('onReset does not clear experiences (they persist across history clears)', async () => {
     // Experiences are permanent �?clearing conversation history does not
     // delete the global experience pool.
     const ts = createExperienceTools();
     await addExperience(ts, { trigger: 'T', insight: 'Before reset' });
-    ts.onResetSession?.(makeTsCtx());
+    ts.onReset?.(makeTsCtx());
     const result = await listExperiences(ts);
     expect(result.total).toBe(1);
   });

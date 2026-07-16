@@ -8,6 +8,7 @@
  */
 
 import type { UserInputRequest } from "@agent-type";
+import { UserInputPromptState } from "../types";
 
 // ── InlinePromptEntry (UI-facing prompt snapshot) ──────────────────────────────
 
@@ -37,23 +38,16 @@ export interface InlinePromptEntry {
   /** Ephemeral prompts are not persisted across page reloads. */
   readonly ephemeral?: boolean;
   /**
-   * Whether this prompt's answer should produce a `role: 'tool'` message
-   * (`true`) or a new user message (`false`).
-   * Persisted in session snapshots and restored on reload.
-   */
-  readonly boundToTool: boolean;
-  /**
-   * The original tool-call ID for bound prompts.
+   * The original tool-call ID for the prompt.
    * Used after restore to synthesise a tool-call + tool-result pair.
    */
   readonly toolCallId?: string;
   /**
-   * The original tool name (e.g. `'ask_user'`) for bound prompts.
+   * The original tool name (e.g. `'ask_user'`).
    * Used after restore to synthesise the tool-call + tool-result pair.
    */
   readonly toolName?: string;
 }
-
 
 // ── UserInputStore (internal) ─────────────────────────────────────────────────
 
@@ -89,7 +83,11 @@ export interface UserInputStore {
    * Used by `onSessionReady` to wire ghost-restored prompts to the correct
    * handler (`sendMessage` for unbound, `injectToolResult` for bound).
    */
-  replaceResolve(sessionId: string, id: string, resolve: (value: string | null) => void): void;
+  replaceResolve(
+    sessionId: string,
+    id: string,
+    resolve: (value: string | null) => void,
+  ): void;
   /**
    * Cancel all pending prompts for a session.
    * Each entry's resolve is called with `null` and the store is cleared.

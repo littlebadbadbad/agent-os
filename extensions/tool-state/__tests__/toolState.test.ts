@@ -153,12 +153,12 @@ describe('createToolStateToolSet', () => {
     expect(disabled.has('g2')).toBe(false);
   });
 
-  // ── onInitSession ──────────────────────────────────────────────────────────
+  // ── onInit ──────────────────────────────────────────────────────────
 
-  it('onInitSession restores disabled tools from entryData.toolStates', () => {
+  it('onInit restores disabled tools from entryData.toolStates', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx('s1');
-    ts.onInitSession!(ctx, {
+    ts.onInit!(ctx, {
       id: 's1',
       title: 'T',
       toolStates: { echo: false, search: true },
@@ -168,30 +168,30 @@ describe('createToolStateToolSet', () => {
     expect(disabled.has('search')).toBe(false);
   });
 
-  it('onInitSession ignores missing toolStates', () => {
+  it('onInit ignores missing toolStates', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx('s1');
-    expect(() => ts.onInitSession!(ctx, { id: 's1', title: 'T' })).not.toThrow();
+    expect(() => ts.onInit!(ctx, { id: 's1', title: 'T' })).not.toThrow();
     expect(ts.getDisabledNames(ctx).size).toBe(0);
   });
 
-  // ── onRemoveSession ────────────────────────────────────────────────────────
+  // ── onRemove ────────────────────────────────────────────────────────
 
-  it('onRemoveSession clears disabled state for the session', () => {
+  it('onRemove clears disabled state for the session', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx('s1');
     ts.disableNames(ctx, new Set(['echo']));
-    ts.onRemoveSession!(ctx);
+    ts.onRemove!(ctx);
     expect(ts.getDisabledNames(ctx).size).toBe(0);
   });
 
-  it('onRemoveSession does not affect other sessions', () => {
+  it('onRemove does not affect other sessions', () => {
     const ts = createToolStateToolSet();
     const ctx1 = makeCtx('s1');
     const ctx2 = makeCtx('s2');
     ts.disableNames(ctx1, new Set(['echo']));
     ts.disableNames(ctx2, new Set(['search']));
-    ts.onRemoveSession!(ctx1);
+    ts.onRemove!(ctx1);
     expect(ts.getDisabledNames(ctx2).has('search')).toBe(true);
   });
 

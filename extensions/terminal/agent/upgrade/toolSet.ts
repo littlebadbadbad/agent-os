@@ -70,8 +70,8 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
 
     // ── Session lifecycle ──────────────────────────────────────────────
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
-      if (entryData.upgradeRestartPending) {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
+      if (entryData?.upgradeRestartPending) {
         upgradeStore.setRestartPending(key(ctx), true);
       }
       adapter
@@ -82,7 +82,7 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
         });
     },
 
-    onSessionReady(
+    onReady(
       ctx: ToolSetContext,
       helpers: SessionReadyHelpers,
     ): void {
@@ -104,11 +104,11 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
       upgradeStore.setFrozen(key(ctx), false);
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       upgradeStore.setRestartPending(key(ctx), false);
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       upgradeStore.remove(key(ctx));
     },
 

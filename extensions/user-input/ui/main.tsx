@@ -25,10 +25,7 @@ import type {
   PendingInputStripState,
   UserInputPluginState,
 } from "./types";
-import {
-  isUserInputPromptState,
-  isPendingInputStripState,
-} from "./types";
+import { isUserInputPromptState, isPendingInputStripState } from "./types";
 import styles from "./main.module.scss";
 
 // ── Type-safe host boundary ───────────────────────────────────────────────────
@@ -79,7 +76,6 @@ waitForHost()
   });
 
 function bootApp(host: Host): void {
-
   // ── Reactive store ────────────────────────────────────────────────────────
 
   let toolSetState: UserInputPluginState | null = null;
@@ -149,4 +145,3 @@ function bootApp(host: Host): void {
     );
   }
 }
-

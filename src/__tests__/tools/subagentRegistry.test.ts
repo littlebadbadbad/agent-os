@@ -1,0 +1,398 @@
+/**
+ * Comprehensive integration tests for the sub-agent registry
+ * (src/tools/subagent/registry.ts — createSubAgentRegistry).
+ *
+ * Tests every public API method on the SubAgentRegistry interface using
+ * a mock handler and tool pool.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createSubAgentRegistry } from '../../tools/subagent/registry';
+import type { Tool, AgentHandler } from '@agent-type';
+
+// ── Fakes ─────────────────────────────────────────────────────────────────────
+
+function makeTool(name: string): Tool {
+  return { name, description: `Tool ${name}`, parameters: {} as any, execute: async () => `result:${name}` };
+}
+
+function makeRegistry() {
+  const toolPool = () => new Map<string, Tool>([
+    ['tool_a', makeTool('tool_a')],
+    ['tool_b', makeTool('tool_b')],
+  ]);
+
+  const handler: AgentHandler = vi.fn(async () => ({ text: 'ok', toolCalls: [] })) as unknown as AgentHandler;
+
+  return createSubAgentRegistry({
+    sessionId: 'test-sess',
+    handler,
+    toolPool,
+    label: 'test',
+  });
+}
+
+describe('createSubAgentRegistry', () => {
+  let registry: ReturnType<typeof makeRegistry>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    registry = makeRegistry();
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Label
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('label', () => {
+    it('returns configured label', () => {
+      expect(registry.label).toBe('test');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  getState
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('getState', () => {
+    it('returns empty subAgents initially', () => {
+      expect(registry.getState().subAgents).toEqual([]);
+    });
+
+    it('includes created sub-agents', () => {
+      registry.createSubAgent({
+        name: 'worker', description: 'Worker', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      const state = registry.getState();
+      expect(state.subAgents).toHaveLength(1);
+      expect(state.subAgents[0].name).toBe('worker');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  subscribe
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('subscribe', () => {
+    it('notifies on createSubAgent', () => {
+      const fn = vi.fn();
+      registry.subscribe(fn);
+      registry.createSubAgent({
+        name: 'n', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      expect(fn).toHaveBeenCalled();
+    });
+
+    it('unsubscribe stops notifications', () => {
+      const fn = vi.fn();
+      const unsub = registry.subscribe(fn);
+      unsub();
+      registry.createSubAgent({
+        name: 'n', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      expect(fn).not.toHaveBeenCalled();
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  createSubAgent
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('createSubAgent', () => {
+    it('returns a conversation handle', () => {
+      const conv = registry.createSubAgent({
+        name: 'agent-1', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      expect(conv.getState().agentName).toBe('agent-1');
+    });
+
+    it('rejects empty name', () => {
+      expect(() => registry.createSubAgent({
+        name: '', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      })).toThrow('non-empty');
+    });
+
+    it('rejects name with whitespace', () => {
+      expect(() => registry.createSubAgent({
+        name: 'bad name', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      })).toThrow('no whitespace');
+    });
+
+    it('rejects duplicate name', () => {
+      registry.createSubAgent({
+        name: 'dup', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      expect(() => registry.createSubAgent({
+        name: 'dup', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      })).toThrow('already exists');
+    });
+
+    it('rejects unknown tool names', () => {
+      expect(() => registry.createSubAgent({
+        name: 'bad', description: '', toolNames: ['ghost'], maxTurns: 5, parent: 'main:main',
+      })).toThrow('Unknown tool');
+    });
+
+    it('creates an initial conversation titled "Conversation 1"', () => {
+      const conv = registry.createSubAgent({
+        name: 'x', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      expect(conv.getState().title).toBe('Conversation 1');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  updateSubAgent
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('updateSubAgent', () => {
+    beforeEach(() => {
+      registry.createSubAgent({
+        name: 'upd', description: 'Original', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+    });
+
+    it('updates description', () => {
+      registry.updateSubAgent('upd', { description: 'Updated' });
+      expect(registry.getState().subAgents[0].description).toBe('Updated');
+    });
+
+    it('updates toolNames', () => {
+      registry.updateSubAgent('upd', { toolNames: ['tool_a', 'tool_b'] });
+      expect(registry.getState().subAgents[0].toolNames).toEqual(['tool_a', 'tool_b']);
+    });
+
+    it('rejects unknown tool names', () => {
+      expect(() => registry.updateSubAgent('upd', { toolNames: ['ghost'] })).toThrow('Unknown tool');
+    });
+
+    it('updates maxTurns', () => {
+      registry.updateSubAgent('upd', { maxTurns: 20 });
+      expect(registry.getState().subAgents[0].maxTurns).toBe(20);
+    });
+
+    it('updates systemPrompt', () => {
+      registry.updateSubAgent('upd', { systemPrompt: 'New prompt' });
+      expect(registry.getState().subAgents[0].systemPrompt).toBe('New prompt');
+    });
+
+    it('clears systemPrompt when empty string', () => {
+      registry.updateSubAgent('upd', { systemPrompt: '' });
+      expect(registry.getState().subAgents[0].systemPrompt).toBe('');
+    });
+
+    it('throws for non-existent agent', () => {
+      expect(() => registry.updateSubAgent('ghost', { description: 'x' })).toThrow('not found');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  deleteSubAgent
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('deleteSubAgent', () => {
+    it('removes the agent', () => {
+      registry.createSubAgent({
+        name: 'r', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      registry.deleteSubAgent('r');
+      expect(registry.getState().subAgents).toHaveLength(0);
+    });
+
+    it('throws for non-existent', () => {
+      expect(() => registry.deleteSubAgent('ghost')).toThrow('not found');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Conversation CRUD
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('conversation CRUD', () => {
+    beforeEach(() => {
+      registry.createSubAgent({
+        name: 'ca', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+    });
+
+    it('createConversation creates a new conversation', () => {
+      const conv = registry.createConversation('ca', { title: 'New' });
+      expect(conv.getState().title).toBe('New');
+      expect(registry.getState().subAgents[0].conversations).toHaveLength(2);
+    });
+
+    it('createConversation with setActive switches active', () => {
+      const conv = registry.createConversation('ca', { title: 'Active', setActive: true });
+      expect(registry.getState().subAgents[0].activeConversationId).toBe(conv.getState().conversationId);
+    });
+
+    it('createConversation without setActive keeps current active', () => {
+      const orig = registry.getState().subAgents[0].activeConversationId;
+      registry.createConversation('ca', { title: 'Extra' });
+      expect(registry.getState().subAgents[0].activeConversationId).toBe(orig);
+    });
+
+    it('createConversation throws for unknown agent', () => {
+      expect(() => registry.createConversation('ghost', {})).toThrow('not found');
+    });
+
+    it('deleteConversation removes the conversation', () => {
+      const conv = registry.createConversation('ca', { title: 'Temp' });
+      const id = conv.getState().conversationId;
+      registry.deleteConversation('ca', id);
+      const ids = registry.getState().subAgents[0].conversations.map((c) => c.conversationId);
+      expect(ids).not.toContain(id);
+    });
+
+    it('deleteConversation always keeps at least one conversation', () => {
+      // Delete the initial conversation
+      const id = registry.getState().subAgents[0].activeConversationId;
+      registry.deleteConversation('ca', id);
+      expect(registry.getState().subAgents[0].conversations).toHaveLength(1);
+    });
+
+    it('deleteConversation throws for unknown agent', () => {
+      expect(() => registry.deleteConversation('ghost', 'c1')).toThrow('not found');
+    });
+
+    it('deleteConversation throws for unknown conversation', () => {
+      expect(() => registry.deleteConversation('ca', 'fake')).toThrow('not found');
+    });
+
+    it('setActiveConversation switches active', () => {
+      const conv = registry.createConversation('ca', { title: 'B' });
+      const id = conv.getState().conversationId;
+      registry.setActiveConversation('ca', id);
+      expect(registry.getState().subAgents[0].activeConversationId).toBe(id);
+    });
+
+    it('setActiveConversation throws for unknown conv', () => {
+      expect(() => registry.setActiveConversation('ca', 'ghost')).toThrow('not found');
+    });
+
+    it('clearConversationHistory resets the conversation', () => {
+      const id = registry.getState().subAgents[0].activeConversationId;
+      registry.clearConversationHistory('ca', id);
+      const conv = registry.getConversation('ca', id);
+      expect(conv?.getHistory()).toEqual([]);
+    });
+
+    it('clearConversationHistory throws for unknown agent', () => {
+      expect(() => registry.clearConversationHistory('ghost', 'c1')).toThrow('not found');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  sendMessage
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('sendMessage', () => {
+    it('sends a message and returns a SubAgentResult', async () => {
+      registry.createSubAgent({
+        name: 'talker', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      const result = await registry.sendMessage('talker', registry.getState().subAgents[0].activeConversationId, 'Hello', {
+        sessionId: 'test-sess',
+        signal: new AbortController().signal,
+      });
+      expect(result).toBeDefined();
+      expect(typeof result.output).toBe('string');
+    });
+
+    it('rejects message to unknown agent', async () => {
+      await expect(registry.sendMessage('ghost', 'c1', 'Hi', {
+        sessionId: 'test-sess',
+        signal: new AbortController().signal,
+      })).rejects.toThrow('not found');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  readHistory
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('readHistory', () => {
+    it('returns empty for fresh conversation', () => {
+      registry.createSubAgent({
+        name: 'reader', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      const h = registry.readHistory('reader', registry.getState().subAgents[0].activeConversationId);
+      expect(h).toEqual([]);
+    });
+
+    it('throws for unknown agent', () => {
+      expect(() => registry.readHistory('ghost', 'c1')).toThrow('not found');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  getConversation
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('getConversation', () => {
+    it('returns the conversation handle', () => {
+      registry.createSubAgent({
+        name: 'f', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      const id = registry.getState().subAgents[0].activeConversationId;
+      expect(registry.getConversation('f', id)).toBeDefined();
+    });
+
+    it('returns undefined for unknown agent', () => {
+      expect(registry.getConversation('ghost', 'c1')).toBeUndefined();
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Snapshot / Restore
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('snapshot/restore', () => {
+    it('getSnapshot returns serializable entries', () => {
+      registry.createSubAgent({
+        name: 'snap', description: 'Agent', toolNames: ['tool_a'], maxTurns: 3, parent: 'main:main',
+      });
+      const snap = registry.getSnapshot();
+      expect(snap).toHaveLength(1);
+      expect(snap[0].name).toBe('snap');
+    });
+
+    it('loadSnapshot restores entries', () => {
+      registry.createSubAgent({
+        name: 'orig', description: 'Orig', toolNames: ['tool_a'], maxTurns: 3, parent: 'main:main',
+      });
+      const snap = registry.getSnapshot();
+      registry.deleteSubAgent('orig');
+      expect(registry.getState().subAgents).toHaveLength(0);
+
+      registry.loadSnapshot(snap);
+      expect(registry.getState().subAgents).toHaveLength(1);
+      expect(registry.getState().subAgents[0].name).toBe('orig');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  UI-initiated send / cancel / edit
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('UI operations', () => {
+    it('sendConversationMessage sends to the conversation', async () => {
+      registry.createSubAgent({
+        name: 'ui-agent', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      const id = registry.getState().subAgents[0].activeConversationId;
+      await registry.sendConversationMessage('ui-agent', id, 'Hello');
+      // The mock handler doesn't produce real messages, but no throw = success
+      expect(true).toBe(true);
+    });
+
+    it('cancelConversationMessage aborts an active run', () => {
+      registry.createSubAgent({
+        name: 'ui-agent', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
+      });
+      const id = registry.getState().subAgents[0].activeConversationId;
+      // This should not throw even if nothing is running
+      expect(() => registry.cancelConversationMessage('ui-agent', id)).not.toThrow();
+    });
+  });
+});

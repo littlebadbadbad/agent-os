@@ -111,38 +111,20 @@ export function createMemoryGraphToolSet(options: MemoryGraphToolSetOptions = {}
 
     // ── Session lifecycle ───────────────────────────────────────────────────
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
-      const graph = (entryData as { memoryGraph?: KnowledgeGraph }).memoryGraph;
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
+      const graph = (entryData as { memoryGraph?: KnowledgeGraph } | undefined)?.memoryGraph;
       if (graph) {
         memoryGraphStore.set(convKey(ctx), graph);
       }
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       const key = convKey(ctx);
       memoryGraphStore.reset(key);
       historyCache.delete(key);
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
-      const key = convKey(ctx);
-      memoryGraphStore.remove(key);
-      historyCache.delete(key);
-    },
-
-    // ── Sub-agent conversation lifecycle ────────────────────────────────────
-
-    // Fresh conversations need no initialisation; restored conversations are
-    // handled by `onInitSession` called by the sub-agent registry.
-    onInitConversation(_ctx: ToolSetContext): void {},
-
-    onResetConversation(ctx: ToolSetContext): void {
-      const key = convKey(ctx);
-      memoryGraphStore.reset(key);
-      historyCache.delete(key);
-    },
-
-    onRemoveConversation(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       const key = convKey(ctx);
       memoryGraphStore.remove(key);
       historyCache.delete(key);

@@ -33,101 +33,102 @@ describe('createTokenBudgetToolSet', () => {
     expect(ts.tools).toEqual([]);
   });
 
-  // ── onInitSession ──────────────────────────────────────────────────────────
+  // ── onInit ──────────────────────────────────────────────────────────
 
-  it('onInitSession creates a tracker for main session', () => {
+  it('onInit creates a tracker for main session', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.type).toBe('tokenBudget');
     expect(state.tokenBudget).toBeDefined();
     expect(state.tokenBudget?.maxTokens).toBe(4096);
   });
 
-  it('onInitSession is a no-op for sub-agent conversations', () => {
+  it('onInit creates a tracker for sub-agent conversations eagerly', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeSubCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
-    // Sub-agent trackers are created lazily, not by onInitSession.
-    const state = ts.onGetSymbolState!(ctx);
-    expect(state.tokenBudget).toBeUndefined();
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
+    // With unified onInit, sub-agent conversations also eagerly create a tracker.
+    const state = ts.onGetSymbolState!(ctx) as any;
+    expect(state.tokenBudget).toBeDefined();
+    expect(state.tokenBudget?.maxTokens).toBe(4096);
   });
 
-  it('onInitSession is a no-op when getConfig returns undefined', () => {
+  it('onInit is a no-op when getConfig returns undefined', () => {
     const ts = createTokenBudgetToolSet(() => undefined);
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const state = ts.onGetSymbolState!(ctx);
     expect(state.tokenBudget).toBeUndefined();
   });
 
-  // ── onRemoveSession ────────────────────────────────────────────────────────
+  // ── onRemove ────────────────────────────────────────────────────────
 
-  it('onRemoveSession deletes the tracker', () => {
+  it('onRemove deletes the tracker', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
-    ts.onRemoveSession!(ctx);
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
+    ts.onRemove!(ctx);
     const state = ts.onGetSymbolState!(ctx);
     expect(state.tokenBudget).toBeUndefined();
   });
 
-  it('onRemoveSession does not affect other sessions', () => {
+  it('onRemove does not affect other sessions', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx1 = makeCtx('s1');
     const ctx2 = makeCtx('s2');
-    ts.onInitSession!(ctx1, { id: 's1', title: 'T' });
-    ts.onInitSession!(ctx2, { id: 's2', title: 'T' });
-    ts.onRemoveSession!(ctx1);
+    ts.onInit!(ctx1, { id: 's1', title: 'T' });
+    ts.onInit!(ctx2, { id: 's2', title: 'T' });
+    ts.onRemove!(ctx1);
     const state2 = ts.onGetSymbolState!(ctx2);
     expect(state2.tokenBudget).toBeDefined();
   });
 
-  // ── onResetSession ─────────────────────────────────────────────────────────
+  // ── onReset ─────────────────────────────────────────────────────────
 
-  it('onResetSession replaces the tracker with a fresh one', () => {
+  it('onReset replaces the tracker with a fresh one', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const before = ts.onGetSymbolState!(ctx);
-    ts.onResetSession!(ctx);
+    ts.onReset!(ctx);
     const after = ts.onGetSymbolState!(ctx);
-    // The tracker should be fresh — turnCount back to 0.
+    // The tracker should be fresh �?turnCount back to 0.
     expect(after.tokenBudget?.turnCount).toBe(0);
     expect(before.tokenBudget?.maxTokens).toBe(after.tokenBudget?.maxTokens);
   });
 
-  it('onResetSession is a no-op for sub-agent conversations', () => {
+  it('onReset is a no-op for sub-agent conversations', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeSubCtx();
-    expect(() => ts.onResetSession!(ctx)).not.toThrow();
+    expect(() => ts.onReset!(ctx)).not.toThrow();
   });
 
-  // ── onInitConversation / onRemoveConversation ──────────────────────────────
+  // ── onInit / onRemove ──────────────────────────────
 
-  it('onInitConversation creates a tracker for sub-agent conversation', () => {
+  it('onInit creates a tracker for sub-agent conversation', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeSubCtx('session-1', 'conv-A');
-    ts.onInitConversation!(ctx);
+    ts.onInit!(ctx);
     const state = ts.onGetSymbolState!(ctx);
     expect(state.tokenBudget).toBeDefined();
   });
 
-  it('onRemoveConversation deletes the sub-agent tracker', () => {
+  it('onRemove deletes the sub-agent tracker', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeSubCtx('session-1', 'conv-A');
-    ts.onInitConversation!(ctx);
-    ts.onRemoveConversation!(ctx);
+    ts.onInit!(ctx);
+    ts.onRemove!(ctx);
     const state = ts.onGetSymbolState!(ctx);
     expect(state.tokenBudget).toBeUndefined();
   });
 
-  it('onResetConversation replaces the sub-agent tracker', () => {
+  it('onReset replaces the sub-agent tracker', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeSubCtx('session-1', 'conv-A');
-    ts.onInitConversation!(ctx);
-    ts.onResetConversation!(ctx);
+    ts.onInit!(ctx);
+    ts.onReset!(ctx);
     const state = ts.onGetSymbolState!(ctx);
     expect(state.tokenBudget?.turnCount).toBe(0);
   });
@@ -144,7 +145,7 @@ describe('createTokenBudgetToolSet', () => {
   it('onGetSymbolState returns tokenBudget state after tracker created', () => {
     const ts = createTokenBudgetToolSet(makeConfig(8000));
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const state = ts.onGetSymbolState!(ctx);
     expect(state.tokenBudget!.maxTokens).toBe(8000);
     expect(state.tokenBudget!.turnCount).toBe(0);
@@ -154,7 +155,7 @@ describe('createTokenBudgetToolSet', () => {
   it('onGetSymbolState declares a headerBar slot', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const state = ts.onGetSymbolState!(ctx);
     expect(state.slots).toBeDefined();
     const headerBarSlot = state.slots!.find((s) => s.type === 'headerBar');
@@ -166,10 +167,10 @@ describe('createTokenBudgetToolSet', () => {
   it('onSubscribe fires when tracker is removed', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const fn = vi.fn();
     ts.onSubscribe!(ctx, fn);
-    ts.onRemoveSession!(ctx);
+    ts.onRemove!(ctx);
     // notify() is called when tracker is deleted
     expect(fn).toHaveBeenCalled();
   });
@@ -177,11 +178,11 @@ describe('createTokenBudgetToolSet', () => {
   it('onSubscribe returns an unsubscribe function', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const fn = vi.fn();
     const unsub = ts.onSubscribe!(ctx, fn);
     unsub();
-    ts.onRemoveSession!(ctx);
+    ts.onRemove!(ctx);
     expect(fn).not.toHaveBeenCalled();
   });
 
@@ -190,7 +191,7 @@ describe('createTokenBudgetToolSet', () => {
   it('onGetSystemPrompt returns undefined before any turns', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const promptCtx: SystemPromptContext = {
       userMessage: undefined,
       baseSystemPrompt: undefined,
@@ -206,7 +207,7 @@ describe('createTokenBudgetToolSet', () => {
   it('onBuildSnapshot returns empty object (token budget is runtime-only)', () => {
     const ts = createTokenBudgetToolSet(makeConfig());
     const ctx = makeCtx();
-    ts.onInitSession!(ctx, { id: 'session-1', title: 'T' });
+    ts.onInit!(ctx, { id: 'session-1', title: 'T' });
     const snap = ts.onBuildSnapshot!(ctx);
     expect(snap).toEqual({});
   });
@@ -217,9 +218,9 @@ describe('createTokenBudgetToolSet', () => {
     const ts = createTokenBudgetToolSet(() => ({ maxTokens: 4096 }));
     const ctx1 = makeCtx('s1');
     const ctx2 = makeCtx('s2');
-    ts.onInitSession!(ctx1, { id: 's1', title: 'T' });
-    ts.onInitSession!(ctx2, { id: 's2', title: 'T' });
-    ts.onRemoveSession!(ctx1);
+    ts.onInit!(ctx1, { id: 's1', title: 'T' });
+    ts.onInit!(ctx2, { id: 's2', title: 'T' });
+    ts.onRemove!(ctx1);
     expect(ts.onGetSymbolState!(ctx1).tokenBudget).toBeUndefined();
     expect(ts.onGetSymbolState!(ctx2).tokenBudget).toBeDefined();
   });

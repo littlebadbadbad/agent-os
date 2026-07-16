@@ -1,18 +1,18 @@
 /**
  * Sub-agent lifecycle management.
  *
- * Handles ToolSet lifecycle hooks (onInitSession, onRemoveSession,
- * onInitConversation, onRemoveConversation) and the creation / removal of
- * conversations within a sub-agent entry.
+ * Handles ToolSet lifecycle hooks (onInit, onReady, onReset, onRemove) and
+ * the creation / removal of conversations within a sub-agent entry.
  *
- * Exported as a factory to capture closure dependencies without repetitive
- * parameter passing.
+ * All ToolSet iteration is delegated to a {@link ToolSetScope} — no more
+ * manual for-loops over `resolveToolSets()`.
  */
 
-import type { SessionEntryData } from '../../client/sessionManager.types';
+import type { ToolSetScope } from '@agent-sdk/tools/toolSetScope';
+import type { ToolSetContext } from '@agent-type';
 import { generateConvId, makeConversation } from './registryConversation';
 import type { ConversationHandle } from './registryConversation';
-import type { InternalEntry, RegistryDeps } from './registryInternal';
+import type { InternalEntry } from './registryInternal';
 import type { collectToolSetState, collectToolSetSymbolState } from './registrySnapshot';
 import type { SendMessageOpts } from './registryExecution';
 import type { SubAgentResult } from './types';
@@ -42,9 +42,12 @@ export type LifecycleFunctions = {
 };
 
 /**
- * Create lifecycle management functions bound to a set of shared dependencies.
+ * Create lifecycle management functions bound to a toolset scope + subagent
+ * dependency bag.
  *
- * @param deps             Registry-level deps (subCtx, resolveToolSets, etc.).
+ * @param subCtx           Build a ToolSetContext for a sub-agent conversation.
+ * @param resolveTools     Resolve tool names to Tool instances.
+ * @param scope            Unified ToolSet lifecycle orchestrator.
  * @param collectState     The `collectToolSetState` function from registrySnapshot.
  * @param convSubCleanups  Mutable map of per-conversation cleanup callbacks.
  * @param notify           Registry-level notify function (snapshot invalidation).
@@ -54,16 +57,24 @@ export type LifecycleFunctions = {
  *                         object (avoiding a circular dependency).
  */
 export function createLifecycleFunctions(
-  deps: RegistryDeps,
+  subCtx: (agentName: string, conversationId: string) => ToolSetContext,
+  resolveTools: (toolNames: readonly string[]) => import('@agent-type').Tool[],
+  scope: ToolSetScope,
   collectState: CollectToolSetStateFn,
   collectSymbolState: CollectToolSetSymbolStateFn,
   convSubCleanups: Map<string, () => void>,
   notify: () => void,
   getSessionId: () => string,
   sendMessageRef: { current?: (agentName: string, convId: string, text: string, opts: SendMessageOpts) => Promise<SubAgentResult> },
+  injectToolResultRef: { current?: (agentName: string, convId: string, toolCallId: string, name: string, result: unknown) => Promise<SubAgentResult> },
   convControllers: Map<string, AbortController>,
 ): LifecycleFunctions {
   // ── Conversation creation ─────────────────────────────────────────────────
+
+  function subscribeConv(convCtx: ToolSetContext, conv: ConversationHandle): () => void {
+    const unsub = scope.subscribeScope(convCtx, () => { conv._notify(); notify(); });
+    return unsub;
+  }
 
   function createConversationForEntry(
     title: string,
@@ -71,27 +82,18 @@ export function createLifecycleFunctions(
     existingId?: string,
   ): ConversationHandle {
     const id = existingId ?? generateConvId();
-    const convCtx = deps.subCtx(entry.name, id);
+    const convCtx = subCtx(entry.name, id);
     const conv = makeConversation(id, getSessionId(), title, entry.name, notify, () => ({
-      ...collectState(deps, convCtx, entry),
-      ...collectSymbolState(deps, convCtx, entry),
+      ...collectState(resolveTools, entry.toolNames, scope, convCtx),
+      ...collectSymbolState(resolveTools, entry.toolNames, scope, convCtx),
     }));
 
-    const unsubs: Array<() => void> = [];
-    for (const ts of deps.resolveToolSets()) {
-      const u = ts.onSubscribe?.(convCtx, () => { conv._notify(); notify(); });
-      if (u) unsubs.push(u);
-    }
-    if (unsubs.length > 0) {
-      convSubCleanups.set(id, () => { for (const u of unsubs) u(); });
-    }
-    // Fire onInitConversation so per-conversation ToolSet state is ready before the first turn.
-    for (const ts of deps.resolveToolSets()) {
-      ts.onInitConversation?.(convCtx);
-    }
-    // Fire onSessionReady per conversation so ToolSets (e.g. PendingInputToolSet)
+    const unsub = subscribeConv(convCtx, conv);
+    convSubCleanups.set(id, unsub);
+    // Fire onInit so per-conversation ToolSet state is ready before the first turn.
+    scope.initScope(convCtx);
+    // Fire onReady per conversation so ToolSets (e.g. PendingInputToolSet)
     // receive the correct sendMessage for this specific conversation.
-    // Track the AbortController so UI-initiated cancel can abort auto-resumed sends.
     const sessionId = getSessionId();
     const resumeAbortKey = `resume:${entry.name}:${id}`;
     const subSendMessage = (text: string) => {
@@ -104,16 +106,16 @@ export function createLifecycleFunctions(
         signal: controller.signal,
       }).finally(() => convControllers.delete(resumeAbortKey));
     };
-    for (const ts of deps.resolveToolSets()) {
-      ts.onSessionReady?.(convCtx, {
-        sendMessage: subSendMessage,
-        injectToolResult: (_toolCallId, _name, _result) => {
-          // Sub-agent conversations don't support tool-result injection.
-          // This is a no-op; the main-agent session handles bound-prompt
-          // restoration.
-        },
-      });
-    }
+    scope.readyScope(convCtx, {
+      sendMessage: subSendMessage,
+      injectToolResult: (toolCallId, name, result) => {
+        const fn = injectToolResultRef.current;
+        if (!fn) return;
+        const controller = new AbortController();
+        convControllers.set(resumeAbortKey, controller);
+        void fn(entry.name, id, toolCallId, name, result).finally(() => convControllers.delete(resumeAbortKey));
+      },
+    });
     return conv;
   }
 
@@ -122,10 +124,10 @@ export function createLifecycleFunctions(
   function removeConversation(entry: InternalEntry, convId: string): void {
     const conv = entry.conversations.get(convId);
     if (!conv) return;
-    // Fire onRemoveConversation before tearing down subscriptions so ToolSets
+    // Fire onRemove before tearing down subscriptions so ToolSets
     // can access their own state one last time during cleanup.
-    const convCtx = deps.subCtx(entry.name, convId);
-    for (const ts of deps.resolveToolSets()) ts.onRemoveConversation?.(convCtx);
+    const convCtx = subCtx(entry.name, convId);
+    scope.removeScope(convCtx);
     convSubCleanups.get(convId)?.();
     convSubCleanups.delete(convId);
     entry.conversations.delete(convId);
@@ -145,41 +147,29 @@ export function createLifecycleFunctions(
 
   // ── Agent-level ToolSet initialisation ────────────────────────────────────
 
-  /**
-   * Fire ToolSet `onInitSession` hooks at the agent level.
-   * Called when an agent entry is first created or restored from a snapshot.
-   * Per-conversation subscriptions are managed by `createConversationForEntry`.
-   *
-   * Uses the active conversation ID so `ctxKey` produces the
-   * correct per-agent key `"${sessionId}:${agentName}"` regardless of which
-   * conversation happens to be active at call time.
-   */
   function initAgentToolSets(
     sessionId: string,
     entry: InternalEntry,
     entryData: Record<string, unknown> = {},
   ): void {
-    const ctx = deps.subCtx(entry.name, entry.activeConversationId);
-    const initData = { id: sessionId, title: entry.name, ...entryData } as SessionEntryData;
-    for (const ts of deps.resolveToolSets()) {
-      ts.onInitSession?.(ctx, initData);
-    }
+    const ctx = subCtx(entry.name, entry.activeConversationId);
+    const initData = { id: sessionId, title: entry.name, ...entryData } as import('../../client/sessionManager.types').SessionEntryData;
+    scope.initScope(ctx, initData);
   }
 
   // ── Agent-level ToolSet teardown ──────────────────────────────────────────
 
-  /** Tear down all per-conversation subscriptions and ToolSet hooks for an agent. */
   function removeAgentToolSets(entry: InternalEntry): void {
-    // Fire onRemoveConversation for every conversation so per-conversation
+    // Fire onRemove for every conversation so per-conversation
     // ToolSet state is properly released.
     for (const [convId] of entry.conversations) {
-      const convCtx = deps.subCtx(entry.name, convId);
-      for (const ts of deps.resolveToolSets()) ts.onRemoveConversation?.(convCtx);
+      const convCtx = subCtx(entry.name, convId);
+      scope.removeScope(convCtx);
       convSubCleanups.get(convId)?.();
       convSubCleanups.delete(convId);
     }
-    const ctx = deps.subCtx(entry.name, entry.activeConversationId);
-    for (const ts of deps.resolveToolSets()) ts.onRemoveSession?.(ctx);
+    const ctx = subCtx(entry.name, entry.activeConversationId);
+    scope.removeScope(ctx);
   }
 
   // ── Return bound functions ────────────────────────────────────────────────

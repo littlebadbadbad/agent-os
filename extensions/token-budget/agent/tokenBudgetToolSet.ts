@@ -328,45 +328,19 @@ export function createTokenBudgetToolSet(
     // the first turn.  Sub-agent conversation trackers are created lazily in
     // `onAfterTurn` because the registry does not call `onInitSession` per-
     // conversation.
-    onInitSession(ctx: ToolSetContext, _entryData: SessionEntryData): void {
-      if (ctx.conversationId === MAIN_CONVERSATION_ID) {
-        getOrCreate(ctx);
-      }
-    },
-
-    // Destroy trackers when a session or sub-agent is removed.
-    // For sub-agents, `onRemoveConversation` handles per-conversation cleanup;
-    // `onRemoveSession` is only reached for the main agent session.
-    onRemoveSession(ctx: ToolSetContext): void {
-      deleteTracker(trackerKey(ctx));
-    },
-
-    // When the user clears the conversation history, delete the tracker so it
-    // is rebuilt fresh (picking up the latest config) on the next turn.
-    onResetSession(ctx: ToolSetContext): void {
-      if (ctx.conversationId === MAIN_CONVERSATION_ID) {
-        deleteTracker(trackerKey(ctx));
-        // Immediately attempt to pre-build for the new config, so the UI
-        // reflects any context-window change after the reset.
-        getOrCreate(ctx);
-      }
-    },
-
-    // ── Per-conversation lifecycle ───────────────────────────────────────────
-
-    // Eagerly create a tracker for a new sub-agent conversation so that
-    // `tokenBudget` is never `undefined` in the initial conversation state.
-    onInitConversation(ctx: ToolSetContext): void {
+    // Create tracker eagerly for any scope — main session (on init) or
+    // sub-agent conversation (on init).  The key function `trackerKey(ctx)`
+    // ensures isolation across scopes with no need for MAIN_CONVERSATION_ID
+    // checks.
+    onInit(ctx: ToolSetContext, _entryData?: SessionEntryData): void {
       getOrCreate(ctx);
     },
 
-    // Release the per-conversation tracker when the conversation is removed.
-    onRemoveConversation(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       deleteTracker(trackerKey(ctx));
     },
 
-    // Reset the per-conversation tracker when its history is cleared.
-    onResetConversation(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       deleteTracker(trackerKey(ctx));
       getOrCreate(ctx);
     },

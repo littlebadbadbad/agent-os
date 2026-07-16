@@ -147,34 +147,34 @@ describe('createTodoTools', () => {
 
   // ── ToolSet lifecycle hooks ────────────────────────────────────────────────
 
-  it('onInitSession pre-populates todos from entryData.todos', async () => {
+  it('onInit pre-populates todos from entryData.todos', async () => {
     const ts = createTodoTools();
     const initial: TodoItem[] = [{ id: 99, title: 'Restored', status: 'in-progress' }];
-    ts.onInitSession!(makeTsCtx('session-restore'), { id: 'session-restore', title: 'Test', todos: initial });
+    ts.onInit!(makeTsCtx('session-restore'), { id: 'session-restore', title: 'Test', todos: initial });
     const result = await readTodos(ts, 'session-restore');
     expect(result.todos).toEqual(initial);
   });
 
-  it('onInitSession skips pre-population when todos is empty', async () => {
+  it('onInit skips pre-population when todos is empty', async () => {
     const ts = createTodoTools();
-    ts.onInitSession!(makeTsCtx('session-empty'), { id: 'session-empty', title: 'Test', todos: [] });
+    ts.onInit!(makeTsCtx('session-empty'), { id: 'session-empty', title: 'Test', todos: [] });
     const result = await readTodos(ts, 'session-empty');
     expect(result.todos).toHaveLength(0);
   });
 
-  it('onRemoveSession cleans up session state', async () => {
+  it('onRemove cleans up session state', async () => {
     const ts = createTodoTools();
     await writeTodos(ts, [{ id: 1, title: 'T', status: 'not-started' }], 'session-gc');
-    ts.onRemoveSession!(makeTsCtx('session-gc'));
+    ts.onRemove!(makeTsCtx('session-gc'));
     // After removal, reading should give empty state (new session effectively)
     const result = await readTodos(ts, 'session-gc');
     expect(result.todos).toHaveLength(0);
   });
 
-  it('onResetSession clears todos for the session', async () => {
+  it('onReset clears todos for the session', async () => {
     const ts = createTodoTools();
     await writeTodos(ts, [{ id: 1, title: 'T', status: 'not-started' }], 'session-reset');
-    ts.onResetSession!(makeTsCtx('session-reset'));
+    ts.onReset!(makeTsCtx('session-reset'));
     const result = await readTodos(ts, 'session-reset');
     expect(result.todos).toHaveLength(0);
   });
@@ -247,7 +247,7 @@ describe('createTodoTools', () => {
   it('onBuildSnapshot returns empty object after session todos are cleared', async () => {
     const ts = createTodoTools();
     await writeTodos(ts, [{ id: 1, title: 'T', status: 'not-started' }], 'session-cleared');
-    ts.onResetSession!(makeTsCtx('session-cleared'));
+    ts.onReset!(makeTsCtx('session-cleared'));
     const snap = ts.onBuildSnapshot!(makeTsCtx('session-cleared'));
     expect(snap).toEqual({});
   });
@@ -311,7 +311,7 @@ describe('createTodoTools', () => {
     const writeTool = resolveToolSetTools(ts).find((t) => t.name === 'todo_write')!;
     const readTool  = resolveToolSetTools(ts).find((t) => t.name === 'todo_read')!;
 
-    // Same agent, two different conversations — each has its own key
+    // Same agent, two different conversations �?each has its own key
     const conv1Ctx = makeSubAgentCtx('researcher_agent', 'conv-1', 'session-1');
     const conv2Ctx = makeSubAgentCtx('researcher_agent', 'conv-2', 'session-1');
 

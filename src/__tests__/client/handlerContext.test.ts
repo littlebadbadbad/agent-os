@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { buildHandlerContext } from '../../client/handlerContext';
 import { createToolManager } from '../../client/toolManager';
-import { createToolCallPipeline } from '../../tools/callToolPipeline';
+import { createToolSetScope } from '../../tools/toolSetScope';
 import type { Tool } from '@agent-type';
 import type { ToolSet, ToolSetContext, SystemPromptContext } from '@agent-type';
-import { MAIN_CONVERSATION_ID } from '../../tools/toolSet';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,7 +49,7 @@ function makeFilterToolSet(disabledNames: ReadonlySet<string>): ToolSet {
 
 const TEST_SIGNAL = new AbortController().signal;
 
-/** Shorthand: build context with default empty toolSets. */
+/** Shorthand: build context with scope from toolSets. */
 function build(
   tm: ReturnType<typeof createToolManager>,
   systemPrompt?: string,
@@ -58,13 +57,13 @@ function build(
   userMessage?: string,
   toolSets: readonly ToolSet[] = [],
 ) {
-  const pipeline = createToolCallPipeline({
-    registry: () => new Map(tm.getTools().map((t) => [t.name, t])),
-    toolSets: [...toolSets],
-    ctx: { sessionId: 'session-1', agentName: 'main', conversationId: MAIN_CONVERSATION_ID },
-    handler: () => Promise.reject(new Error('noop')),
-  });
-  return buildHandlerContext(tm, systemPrompt, toolChoice as any, 'session-1', 'main', TEST_SIGNAL, userMessage, toolSets, pipeline);
+  const getToolSets = () => toolSets;
+  const scope = createToolSetScope(getToolSets, () => Promise.reject(new Error('noop')));
+  const pipeline = scope.createPipeline(
+    { sessionId: 'session-1', agentName: 'main', conversationId: 'main' as const },
+    () => new Map(tm.getTools().map((t) => [t.name, t])),
+  );
+  return buildHandlerContext(tm, systemPrompt, toolChoice as any, 'session-1', 'main', TEST_SIGNAL, userMessage, scope, pipeline);
 }
 
 describe('buildHandlerContext', () => {
@@ -181,13 +180,12 @@ describe('buildHandlerContext', () => {
   it('passes the AbortSignal through', () => {
     const tm = createToolManager();
     const signal = new AbortController().signal;
-    const pipeline = createToolCallPipeline({
-      registry: () => new Map(tm.getTools().map((t) => [t.name, t])),
-      toolSets: [],
-      ctx: { sessionId: 'session-1', agentName: 'main', conversationId: MAIN_CONVERSATION_ID },
-      handler: () => Promise.reject(new Error('noop')),
-    });
-    const ctx = buildHandlerContext(tm, undefined, undefined, 'session-1', 'main', signal, undefined, [], pipeline);
+    const scope = createToolSetScope(() => [], () => Promise.reject(new Error('noop')));
+    const pipeline = scope.createPipeline(
+      { sessionId: 'session-1', agentName: 'main', conversationId: 'main' as const },
+      () => new Map(tm.getTools().map((t) => [t.name, t])),
+    );
+    const ctx = buildHandlerContext(tm, undefined, undefined, 'session-1', 'main', signal, undefined, scope, pipeline);
     expect(ctx.signal).toBe(signal);
   });
 

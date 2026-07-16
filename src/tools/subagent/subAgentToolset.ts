@@ -196,13 +196,13 @@ export function createSubAgentToolset(
     onSubscribe: (ctx: ToolSetContext, fn: () => void) =>
       getRegistry(ctx.sessionId).subscribe(fn),
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
-      if (entryData.subAgents?.length) {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
+      if (entryData && entryData.subAgents?.length) {
         getRegistry(ctx.sessionId).loadSnapshot(entryData.subAgents);
       }
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       // Clear cursor state and drop all sub-agents.
       for (const key of [...scrollbackCursors.keys()]) {
         if (key.startsWith(`${ctx.sessionId}:`)) scrollbackCursors.delete(key);
@@ -210,7 +210,7 @@ export function createSubAgentToolset(
       getRegistry(ctx.sessionId).loadSnapshot([]);
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       // Clean up all cursor state scoped to this session.
       for (const key of [...scrollbackCursors.keys()]) {
         if (key.startsWith(`${ctx.sessionId}:`)) scrollbackCursors.delete(key);

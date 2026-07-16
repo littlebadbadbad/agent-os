@@ -1,7 +1,19 @@
-import type { Tool, TokenUsage, Attachment, ToolResult, ToolExecutionContext, AnyRecord, AgentSessionState, SessionEntryData, SessionEntryExtension, PluginStateExtension } from './core';
-import type { AgentMessage } from './message';
-import type { AgentHandler } from './handler';
-import type { PluginUiAdapter } from './ui-slot';
+import type {
+  Tool,
+  TokenUsage,
+  Attachment,
+  ToolResult,
+  ToolExecutionContext,
+  AnyRecord,
+  AgentSessionState,
+  SessionEntryData,
+  SessionEntryExtension,
+  PluginStateExtension,
+  ToolExecutionContextExtension,
+} from "./core";
+import type { AgentMessage } from "./message";
+import type { AgentHandler } from "./handler";
+import type { PluginUiAdapter } from "./ui-slot";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Shared constants & helpers (used by both core and extensions)
@@ -127,8 +139,11 @@ export type ToolSetStateContext = {
  * ),
  * ```
  */
-export interface ToolContextPatch {
-  (ctx: ToolSetContext, signal: AbortSignal): Partial<ToolExecutionContext> | undefined;
+export interface ToolContextPatch<Ctx = ToolExecutionContextExtension> {
+  (
+    ctx: ToolSetContext,
+    signal: AbortSignal,
+  ): Partial<ToolExecutionContext<Ctx>> | undefined;
   /** Markdown description of the ToolExecutionContext fields this patch injects. */
   comment?: string;
 }
@@ -236,7 +251,7 @@ export type CompactionResult = {
  * - `'aborted'`    — the run was cancelled by the user or a signal.
  * - `'error'`      — an unexpected exception was thrown inside the loop.
  */
-export type AgentRunOutcome = 'completed' | 'max-turns' | 'aborted' | 'error';
+export type AgentRunOutcome = "completed" | "max-turns" | "aborted" | "error";
 
 // ── Intercept result ───────────────────────────────────────────────────────────
 
@@ -320,7 +335,11 @@ export type SessionReadyHelpers = {
   injectToolResult: (toolCallId: string, name: string, result: unknown) => void;
 };
 
-export type ToolSet = {
+export type ToolSet<
+  State = PluginStateExtension,
+  Ctx = ToolExecutionContextExtension,
+  Snapshot = SessionEntryExtension,
+> = {
   symbol?: symbol;
   /** Human-readable name (used for debugging / deduplication). */
   name: string;
@@ -402,58 +421,52 @@ export type ToolSet = {
    */
   onAttach?(agent: AgentQueryFns): (() => void) | void;
 
-  // ── Session lifecycle ──────────────────────────────────────────────────────
+  // ── Lifecycle hooks ────────────────────────────────────────────────────────
+  //
+  // All 4 hooks fire for EVERY scope (main-agent session, sub-agent agent,
+  // sub-agent conversation) — the caller is responsible for iterating the
+  // correct scopes.  ToolSets use `ctxKey(ctx)` to derive the scope key:
+  //
+  //   main session:  ctxKey(ctx) === ctx.sessionId
+  //   sub-agent:     ctxKey(ctx) === `${sessionId}:${agentName}:${conversationId}`
+  //
+  // Previously these were split into `on*Session` / `on*Conversation` pairs
+  // that did the same thing — the duplication was unnecessary.
 
   /**
-   * Called once when a session is created or restored.
+   * Called when a scope (session / sub-agent / conversation) is created or
+   * restored from persistence.
    *
-   * Use to initialise or rehydrate per-session state from the persisted
-   * `entryData`.  Fired for both main-agent sessions and sub-agent scopes
-   * (keyed by `ctxKey(ctx)`).
+   * `entryData` is present only when restoring the main-agent session
+   * (`ctx.conversationId === MAIN_CONVERSATION_ID`) — it carries the persisted
+   * snapshot fields that this ToolSet contributed via `onBuildSnapshot`.
+   * For sub-agent scopes, `entryData` is `undefined`; use `onBuildSnapshot`
+   * and the per-agent/ per-conversation snapshot logic in the sub-agent
+   * registry for persistence.
    *
-   * The `entryData` includes all core fields (`id`, `title`, `messages`,
-   * `liveHistory`) plus any ToolSet-contributed fields from the
-   * `SessionEntryExtension` module augmentation.
+   * Use to initialise or rehydrate per-scope state.
    */
-  onInitSession?(ctx: ToolSetContext, entryData: SessionEntryData): void;
-  onSessionReady?(ctx: ToolSetContext, helpers: SessionReadyHelpers): void;
+  onInit?(ctx: ToolSetContext, entryData?: SessionEntryData<Snapshot>): void;
   /**
-   * Called when the session's history is cleared (user pressed "Clear chat").
-   * Use to reset per-session state alongside the message history.
-   */
-  onResetSession?(ctx: ToolSetContext): void;
-  /**
-   * Called when a session is permanently removed.
-   * Use to release per-session state and subscriptions.
-   */
-  onRemoveSession?(ctx: ToolSetContext): void;
-
-  // ── Sub-agent conversation lifecycle ──────────────────────────────────────
-
-  /**
-   * Called once per sub-agent conversation when it is created.
+   * Called once after the scope is fully wired (session created, helpers
+   * available).  Receives `sendMessage` and `injectToolResult` helpers for
+   * this scope.
    *
-   * Fired for every new conversation, including the first one created with a
-   * new sub-agent.  NOT called for main-agent sessions — use `onInitSession`.
-   *
-   * Use to initialise per-conversation state that must be ready before the
-   * first turn (e.g. a token-budget tracker so the state field is never
-   * `undefined` in the initial UI snapshot).
+   * Fires for:
+   *   - Main-agent session (once, after `createAgentSession` returns)
+   *   - Sub-agent conversation (once per conversation, after it's created)
    */
-  onInitConversation?(ctx: ToolSetContext): void;
+  onReady?(ctx: ToolSetContext, helpers: SessionReadyHelpers): void;
   /**
-   * Called when a sub-agent conversation's history is cleared.
-   * Use to reset per-conversation state (e.g. token counters).
+   * Called when the scope's history is cleared or the scope is reset.
+   * Use to reset per-scope state alongside the message history.
    */
-  onResetConversation?(ctx: ToolSetContext): void;
+  onReset?(ctx: ToolSetContext): void;
   /**
-   * Called when a sub-agent conversation is permanently removed.
-   *
-   * Use to release per-conversation state.
-   * NOT called when the entire sub-agent is deleted — `onRemoveSession`
-   * handles that case.
+   * Called when the scope is permanently removed.
+   * Use to release per-scope state and subscriptions.
    */
-  onRemoveConversation?(ctx: ToolSetContext): void;
+  onRemove?(ctx: ToolSetContext): void;
 
   // ── Per-run hooks (fire once per sendMessage call) ─────────────────────────
 
@@ -478,7 +491,10 @@ export type ToolSet = {
    */
   onInterceptMessage?(
     ctx: ToolSetContext,
-    message: { readonly content: string; readonly attachments?: readonly Attachment[] },
+    message: {
+      readonly content: string;
+      readonly attachments?: readonly Attachment[];
+    },
     isLoading: boolean,
   ): InterceptResult;
 
@@ -597,7 +613,7 @@ export type ToolSet = {
    *
    * Return `undefined` to leave the context unchanged.
    */
-  onPatchToolContext?: ToolContextPatch;
+  onPatchToolContext?: ToolContextPatch<Ctx>;
 
   /**
    * Called **before** every tool-execution, after `onPatchToolContext` and
@@ -638,7 +654,11 @@ export type ToolSet = {
    * storing large results in the variable store and replacing them with handles.
    * Return the (possibly replaced) result.
    */
-  onToolResult?(ctx: ToolSetContext, toolName: string, result: ToolResult): ToolResult;
+  onToolResult?(
+    ctx: ToolSetContext,
+    toolName: string,
+    result: ToolResult,
+  ): ToolResult;
 
   // ── State & persistence ────────────────────────────────────────────────────
 
@@ -649,8 +669,14 @@ export type ToolSet = {
    * can read them without knowing which ToolSet produced them.
    * `stateCtx.tools` contains all tools registered for the session at call time.
    */
-  onGetState?(ctx: ToolSetContext, stateCtx?: ToolSetStateContext): ToolSetState;
-  onGetSymbolState?(ctx: ToolSetContext, stateCtx?: ToolSetStateContext): PluginStateExtension & PluginUiAdapter;
+  onGetState?(
+    ctx: ToolSetContext,
+    stateCtx?: ToolSetStateContext,
+  ): ToolSetState;
+  onGetSymbolState?(
+    ctx: ToolSetContext,
+    stateCtx?: ToolSetStateContext,
+  ): State & PluginUiAdapter;
   /**
    * Subscribe to this ToolSet's state changes for a session.
    *
@@ -666,5 +692,5 @@ export type ToolSet = {
    * returned object is spread into `SessionEntryData` and passed back to
    * `onInitSession` on the next page load.
    */
-  onBuildSnapshot?(ctx: ToolSetContext): Partial<SessionEntryExtension>;
+  onBuildSnapshot?(ctx: ToolSetContext): Partial<Snapshot>;
 };

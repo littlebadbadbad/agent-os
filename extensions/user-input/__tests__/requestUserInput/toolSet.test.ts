@@ -9,15 +9,16 @@
  *   - AbortSignal cancels pending prompts
  *   - Adapter mode bypasses store
  *   - onGetSymbolState exposes pendingInputs and slots
- *   - onBuildSnapshot serializes pending inputs with boundToTool metadata
- *   - onInitSession restores ghost entries
- *   - onSessionReady wires bound → injectToolResult, unbound → sendMessage
- *   - onRemoveSession / onResetSession clean up state
+ *   - onBuildSnapshot serializes pending inputs
+ *   - onInit restores ghost entries
+ *   - onReady wires ghost → injectToolResult
+ *   - onRemove / onReset clean up state
  *   - onGetSystemPrompt returns detailed usage rules
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createUserInputToolSet, USER_INPUT_SYMBOL } from '../../agent/requestUserInput/toolSet';
+
 import type { ToolSetContext, SessionEntryData, SessionReadyHelpers } from '@agent-type';
 import type { InlinePromptEntry } from '../../agent/requestUserInput/types';
 
@@ -77,7 +78,6 @@ describe('createUserInputToolSet — basics', () => {
     const ts = createUserInputToolSet();
     const prompt = ts.onGetSystemPrompt!();
     expect(prompt).toContain('ask_user');
-    expect(prompt).toContain('bind_to_tool');
     expect(prompt).toContain('confirm');
     expect(prompt).toContain('select');
     expect(prompt).toContain('multiSelect');
@@ -91,8 +91,8 @@ describe('createUserInputToolSet — basics', () => {
 describe('createUserInputToolSet — onPatchToolContext', () => {
   it('injects requestUserInput, cancelUserInput, and sendMessage', () => {
     const ts = createUserInputToolSet();
-    // Simulate onSessionReady being called first to cache sendMessage
-    ts.onSessionReady!(MINIMAL_CTX, makeHelpers({ sendMessage: vi.fn() }));
+    // Simulate onReady being called first to cache sendMessage
+    ts.onReady!(MINIMAL_CTX, makeHelpers({ sendMessage: vi.fn() }));
 
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     expect(patch!.requestUserInput).toBeDefined();
@@ -100,7 +100,7 @@ describe('createUserInputToolSet — onPatchToolContext', () => {
     expect(patch!.sendMessage).toBeDefined();
   });
 
-  it('sendMessage is undefined before onSessionReady', () => {
+  it('sendMessage is undefined before onReady', () => {
     const ts = createUserInputToolSet();
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     expect(patch!.sendMessage).toBeUndefined();
@@ -110,7 +110,7 @@ describe('createUserInputToolSet — onPatchToolContext', () => {
     const ts = createUserInputToolSet();
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     // Start the request and get a reference to the promise
-    const promise = patch!.requestUserInput!({ type: 'confirm', message: 'Proceed?', boundToTool: true } as any);
+    const promise = patch!.requestUserInput!({ type: 'confirm', message: 'Proceed?' } as any);
     // Resolve it via the store's responder
     const state = ts.onGetSymbolState!(MINIMAL_CTX);
     state.respondUserInput(state.pendingUserInputs[0].id, 'yes');
@@ -118,32 +118,18 @@ describe('createUserInputToolSet — onPatchToolContext', () => {
     expect(result).toBe('yes');
   });
 
-  it('requestUserInput stores entry with boundToTool=true by default', async () => {
+  it('requestUserInput stores entry with toolCallId and toolName', async () => {
     const ts = createUserInputToolSet();
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     // Start the request but don't await — check state
     const promise = patch!.requestUserInput!({ type: 'text', message: 'Enter:' });
     const symbolState = ts.onGetSymbolState!(MINIMAL_CTX);
     expect(symbolState.pendingUserInputs).toHaveLength(1);
-    expect(symbolState.pendingUserInputs[0].boundToTool).toBe(true);
     expect(symbolState.pendingUserInputs[0].toolCallId).toBeDefined();
     expect(symbolState.pendingUserInputs[0].toolName).toBe('ask_user');
     // Resolve via responder
     symbolState.respondUserInput(symbolState.pendingUserInputs[0].id, 'answer');
     await expect(promise).resolves.toBe('answer');
-  });
-
-  it('requestUserInput stores entry with boundToTool=false', async () => {
-    const ts = createUserInputToolSet();
-    ts.onSessionReady!(MINIMAL_CTX, makeHelpers({ sendMessage: vi.fn() }));
-    const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
-    const promise = patch!.requestUserInput!({ type: 'text', message: 'Enter:', boundToTool: false } as any);
-
-    const symbolState = ts.onGetSymbolState!(MINIMAL_CTX);
-    expect(symbolState.pendingUserInputs).toHaveLength(1);
-    expect(symbolState.pendingUserInputs[0].boundToTool).toBe(false);
-    symbolState.respondUserInput(symbolState.pendingUserInputs[0].id, 'msg');
-    await expect(promise).resolves.toBe('msg');
   });
 
   it('abort signal removes the pending entry', async () => {
@@ -318,96 +304,80 @@ describe('createUserInputToolSet — snapshot/restore', () => {
     expect(ts.onBuildSnapshot!(MINIMAL_CTX)).toEqual({});
   });
 
-  it('onBuildSnapshot serializes pending inputs with bind metadata', () => {
+  it('onBuildSnapshot serializes pending inputs', () => {
     const ts = createUserInputToolSet();
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
-    void patch!.requestUserInput!({ type: 'confirm', message: 'Bound?', boundToTool: true, toolCallId: 'tc-1', toolName: 'ask_user' } as any);
-    void patch!.requestUserInput!({ type: 'text', message: 'Unbound', boundToTool: false } as any);
+    void patch!.requestUserInput!({ type: 'confirm', message: 'Go?', toolCallId: 'tc-1', toolName: 'ask_user' } as any);
 
     const snapshot = ts.onBuildSnapshot!(MINIMAL_CTX);
-    expect(snapshot.pendingUserInputs).toHaveLength(2);
-
-    const bound = snapshot.pendingUserInputs!.find((e) => e.id === snapshot.pendingUserInputs![0].id)!;
-    // Both should have boundToTool preserved
-    const entries = snapshot.pendingUserInputs!;
-    expect(entries.filter((e) => e.boundToTool)).toHaveLength(1);
-    expect(entries.filter((e) => !e.boundToTool)).toHaveLength(1);
-    // The bound entry should have toolCallId
-    const boundEntry = entries.find((e) => e.boundToTool)!;
-    expect(boundEntry.toolCallId).toBe('tc-1');
-    expect(boundEntry.toolName).toBe('ask_user');
+    expect(snapshot.pendingUserInputs).toHaveLength(1);
+    expect(snapshot.pendingUserInputs![0].toolCallId).toBe('tc-1');
+    expect(snapshot.pendingUserInputs![0].toolName).toBe('ask_user');
   });
 
-  it('onInitSession restores ghost entries from snapshot', () => {
+  it('onInit restores ghost entries from snapshot', () => {
     const ts = createUserInputToolSet();
     const saved: InlinePromptEntry[] = [
-      { id: 'restore-bound', kind: 'confirm', message: 'Go?', boundToTool: true, toolCallId: 'tc-old', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
-      { id: 'restore-unbound', kind: 'text', message: 'Say:', boundToTool: false, toolCallId: 'tc-old2', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+      { id: 'restore-1', kind: 'confirm', message: 'Go?', toolCallId: 'tc-old', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+      { id: 'restore-2', kind: 'text', message: 'Say:', toolCallId: 'tc-old2', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
     ];
-    ts.onInitSession!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
 
     const state = ts.onGetSymbolState!(MINIMAL_CTX);
     expect(state.pendingUserInputs).toHaveLength(2);
-    expect(state.pendingUserInputs.map((e) => e.id)).toEqual(['restore-bound', 'restore-unbound']);
+    expect(state.pendingUserInputs.map((e) => e.id)).toEqual(['restore-1', 'restore-2']);
   });
 
-  it('onInitSession does nothing with empty saved data', () => {
+  it('onInit does nothing with empty saved data', () => {
     const ts = createUserInputToolSet();
-    ts.onInitSession!(MINIMAL_CTX, makeEntryData(undefined));
+    ts.onInit!(MINIMAL_CTX, makeEntryData(undefined));
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(0);
   });
 
-  it('onSessionReady wires bound ghost → injectToolResult', () => {
+  it('onReady wires ghost → injectToolResult', () => {
     const ts = createUserInputToolSet();
     const injectToolResult = vi.fn();
-    const sendMessage = vi.fn();
-    const helpers = makeHelpers({ injectToolResult, sendMessage });
+    const helpers = makeHelpers({ injectToolResult });
 
-    // Restore a bound entry
     const saved: InlinePromptEntry[] = [
-      { id: 'bound-g', kind: 'confirm', message: 'Go?', boundToTool: true, toolCallId: 'tc-1', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+      { id: 'ghost-g', kind: 'confirm', message: 'Go?', toolCallId: 'tc-1', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
     ];
-    ts.onInitSession!(MINIMAL_CTX, makeEntryData(saved));
-    ts.onSessionReady!(MINIMAL_CTX, helpers);
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onReady!(MINIMAL_CTX, helpers);
 
-    // Now respond to the ghost prompt
     const state = ts.onGetSymbolState!(MINIMAL_CTX);
-    state.respondUserInput('bound-g', 'yes');
+    state.respondUserInput('ghost-g', 'yes');
 
     expect(injectToolResult).toHaveBeenCalledWith('tc-1', 'ask_user', 'yes');
-    expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it('onSessionReady wires unbound ghost → sendMessage', () => {
+  it('onReady ghost cancelled → no injectToolResult', () => {
     const ts = createUserInputToolSet();
-    const injectToolResult = vi.fn();
-    const sendMessage = vi.fn();
-    const helpers = makeHelpers({ injectToolResult, sendMessage });
+    const helpers = makeHelpers();
 
     const saved: InlinePromptEntry[] = [
-      { id: 'ub-g', kind: 'text', message: 'Say:', boundToTool: false, toolCallId: 'tc-2', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+      { id: 'cancel-g', kind: 'confirm', message: 'Go?', toolCallId: 'tc-cancel', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
     ];
-    ts.onInitSession!(MINIMAL_CTX, makeEntryData(saved));
-    ts.onSessionReady!(MINIMAL_CTX, helpers);
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onReady!(MINIMAL_CTX, helpers);
 
-    const state = ts.onGetSymbolState!(MINIMAL_CTX);
-    state.respondUserInput('ub-g', 'hello');
+    ts.onGetSymbolState!(MINIMAL_CTX).respondUserInput('cancel-g', null);
 
-    expect(sendMessage).toHaveBeenCalledWith('hello');
-    expect(injectToolResult).not.toHaveBeenCalled();
+    expect(helpers.injectToolResult).not.toHaveBeenCalled();
+    expect(helpers.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('onSessionReady does nothing when no ghosts exist', () => {
+  it('onReady does nothing when no ghosts exist', () => {
     const ts = createUserInputToolSet();
-    ts.onSessionReady!(MINIMAL_CTX, makeHelpers());
+    ts.onReady!(MINIMAL_CTX, makeHelpers());
     // Should not throw
     expect(true).toBe(true);
   });
 
-  it('onSessionReady caches sendMessage for onPatchToolContext', () => {
+  it('onReady caches sendMessage for onPatchToolContext', () => {
     const ts = createUserInputToolSet();
     const sm = vi.fn();
-    ts.onSessionReady!(MINIMAL_CTX, makeHelpers({ sendMessage: sm }));
+    ts.onReady!(MINIMAL_CTX, makeHelpers({ sendMessage: sm }));
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     expect(patch!.sendMessage).toBe(sm);
   });
@@ -415,9 +385,9 @@ describe('createUserInputToolSet — snapshot/restore', () => {
   it('adapter mode skips init/ready restore', () => {
     const ts = createUserInputToolSet({ adapter: { prompt: vi.fn() } });
     const saved: InlinePromptEntry[] = [
-      { id: 'g1', kind: 'text', message: 'X', boundToTool: true, toolCallId: 'tc', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+      { id: 'g1', kind: 'text', message: 'X', toolCallId: 'tc', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
     ];
-    ts.onInitSession!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(0);
   });
 });
@@ -425,17 +395,17 @@ describe('createUserInputToolSet — snapshot/restore', () => {
 // ── Session lifecycle — cleanup ──────────────────────────────────────────────
 
 describe('createUserInputToolSet — session lifecycle cleanup', () => {
-  it('onRemoveSession cleans up store and caches', () => {
+  it('onRemove cleans up store and caches', () => {
     const ts = createUserInputToolSet();
     const sm = vi.fn();
-    ts.onSessionReady!(MINIMAL_CTX, makeHelpers({ sendMessage: sm }));
+    ts.onReady!(MINIMAL_CTX, makeHelpers({ sendMessage: sm }));
 
     // Add a pending input
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     void patch!.requestUserInput!({ type: 'text', message: 'X' });
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(1);
 
-    ts.onRemoveSession!(MINIMAL_CTX);
+    ts.onRemove!(MINIMAL_CTX);
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(0);
 
     // onPatchToolContext should return undefined sendMessage after cleanup
@@ -443,12 +413,12 @@ describe('createUserInputToolSet — session lifecycle cleanup', () => {
     expect(patch2!.sendMessage).toBeUndefined();
   });
 
-  it('onResetSession clears pending inputs', () => {
+  it('onReset clears pending inputs', () => {
     const ts = createUserInputToolSet();
     const patch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     void patch!.requestUserInput!({ type: 'confirm', message: 'Go?' });
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(1);
-    ts.onResetSession!(MINIMAL_CTX);
+    ts.onReset!(MINIMAL_CTX);
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(0);
   });
 });
@@ -459,12 +429,11 @@ describe('createUserInputToolSet — sub-agent snapshot/restore', () => {
   it('onBuildSnapshot uses ctxKey (not sessionId) for sub-agent isolation', () => {
     const ts = createUserInputToolSet();
     const patch = ts.onPatchToolContext!(SUB_AGENT_CTX, new AbortController().signal);
-    void patch!.requestUserInput!({ type: 'confirm', message: 'Sub-bound?', boundToTool: true, toolCallId: 'sa-tc', toolName: 'ask_user' } as any);
+    void patch!.requestUserInput!({ type: 'confirm', message: 'Sub Q?', toolCallId: 'sa-tc', toolName: 'ask_user' } as any);
 
     // Sub-agent context should produce a snapshot with pendingUserInputs
     const snapshot = ts.onBuildSnapshot!(SUB_AGENT_CTX);
     expect(snapshot.pendingUserInputs).toHaveLength(1);
-    expect(snapshot.pendingUserInputs![0].boundToTool).toBe(true);
     expect(snapshot.pendingUserInputs![0].toolCallId).toBe('sa-tc');
 
     // Main-agent context should be empty (separate key)
@@ -484,12 +453,12 @@ describe('createUserInputToolSet — sub-agent snapshot/restore', () => {
     expect(ts.onGetSymbolState!(SUB_AGENT_CTX).pendingUserInputs[0].message).toBe('Sub Q');
   });
 
-  it('sub-agent onInitSession restores ghost entries from snapshot', () => {
+  it('sub-agent onInit restores ghost entries from snapshot', () => {
     const ts = createUserInputToolSet();
     const saved: InlinePromptEntry[] = [
-      { id: 'sub-g1', kind: 'confirm', message: 'Go?', boundToTool: true, toolCallId: 'tc-s1', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'sub-g1', kind: 'confirm', message: 'Go?', toolCallId: 'tc-s1', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ];
-    ts.onInitSession!(SUB_AGENT_CTX, makeEntryData(saved));
+    ts.onInit!(SUB_AGENT_CTX, makeEntryData(saved));
 
     const state = ts.onGetSymbolState!(SUB_AGENT_CTX);
     expect(state.pendingUserInputs).toHaveLength(1);
@@ -499,42 +468,37 @@ describe('createUserInputToolSet — sub-agent snapshot/restore', () => {
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(0);
   });
 
-  it('sub-agent onSessionReady wires bound ghost → injectToolResult', () => {
+  it('sub-agent onReady wires ghost → injectToolResult', () => {
     const ts = createUserInputToolSet();
     const injectToolResult = vi.fn();
-    const sendMessage = vi.fn();
-    const helpers = makeHelpers({ injectToolResult, sendMessage });
+    const helpers = makeHelpers({ injectToolResult });
 
     const saved: InlinePromptEntry[] = [
-      { id: 'sub-bound', kind: 'confirm', message: 'Proceed?', boundToTool: true, toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'sub-g', kind: 'confirm', message: 'Proceed?', toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ];
-    ts.onInitSession!(SUB_AGENT_CTX, makeEntryData(saved));
-    ts.onSessionReady!(SUB_AGENT_CTX, helpers);
+    ts.onInit!(SUB_AGENT_CTX, makeEntryData(saved));
+    ts.onReady!(SUB_AGENT_CTX, helpers);
 
     const state = ts.onGetSymbolState!(SUB_AGENT_CTX);
-    state.respondUserInput('sub-bound', 'yes');
+    state.respondUserInput('sub-g', 'yes');
 
     expect(injectToolResult).toHaveBeenCalledWith('sa-tc', 'ask_user', 'yes');
-    expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it('sub-agent onSessionReady wires unbound ghost → sendMessage', () => {
+  it('sub-agent ghost cancelled → no injectToolResult', () => {
     const ts = createUserInputToolSet();
-    const injectToolResult = vi.fn();
-    const sendMessage = vi.fn();
-    const helpers = makeHelpers({ injectToolResult, sendMessage });
+    const helpers = makeHelpers();
 
     const saved: InlinePromptEntry[] = [
-      { id: 'sub-ub', kind: 'text', message: 'What?', boundToTool: false, conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'sub-cancel-g', kind: 'confirm', message: 'Go?', toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ];
-    ts.onInitSession!(SUB_AGENT_CTX, makeEntryData(saved));
-    ts.onSessionReady!(SUB_AGENT_CTX, helpers);
+    ts.onInit!(SUB_AGENT_CTX, makeEntryData(saved));
+    ts.onReady!(SUB_AGENT_CTX, helpers);
 
-    const state = ts.onGetSymbolState!(SUB_AGENT_CTX);
-    state.respondUserInput('sub-ub', 'hello from sub');
+    ts.onGetSymbolState!(SUB_AGENT_CTX).respondUserInput('sub-cancel-g', null);
 
-    expect(sendMessage).toHaveBeenCalledWith('hello from sub');
-    expect(injectToolResult).not.toHaveBeenCalled();
+    expect(helpers.injectToolResult).not.toHaveBeenCalled();
+    expect(helpers.sendMessage).not.toHaveBeenCalled();
   });
 
   it('sub-agent onInterceptMessage cancels pending prompts', () => {
@@ -548,31 +512,111 @@ describe('createUserInputToolSet — sub-agent snapshot/restore', () => {
     expect(ts.onGetSymbolState!(SUB_AGENT_CTX).pendingUserInputs).toHaveLength(0);
   });
 
-  it('sub-agent onRemoveSession cleans up independent state', () => {
+  it('sub-agent onRemove cleans up independent state', () => {
     const ts = createUserInputToolSet();
-    ts.onSessionReady!(SUB_AGENT_CTX, makeHelpers({ sendMessage: vi.fn() }));
+    ts.onReady!(SUB_AGENT_CTX, makeHelpers({ sendMessage: vi.fn() }));
     const patch = ts.onPatchToolContext!(SUB_AGENT_CTX, new AbortController().signal);
     void patch!.requestUserInput!({ type: 'text', message: 'Sub Q' });
 
     // Sub-agent has pending input, main agent does not
     expect(ts.onGetSymbolState!(SUB_AGENT_CTX).pendingUserInputs).toHaveLength(1);
 
-    ts.onRemoveSession!(SUB_AGENT_CTX);
+    ts.onRemove!(SUB_AGENT_CTX);
     expect(ts.onGetSymbolState!(SUB_AGENT_CTX).pendingUserInputs).toHaveLength(0);
   });
 
-  it('sub-agent onResetSession clears only sub-agent pending inputs', () => {
+  it('sub-agent onReset clears only sub-agent pending inputs', () => {
     const ts = createUserInputToolSet();
     const mainPatch = ts.onPatchToolContext!(MINIMAL_CTX, new AbortController().signal);
     const subPatch  = ts.onPatchToolContext!(SUB_AGENT_CTX, new AbortController().signal);
     void mainPatch!.requestUserInput!({ type: 'text', message: 'Main Q' });
     void subPatch!.requestUserInput!({ type: 'text', message: 'Sub Q' });
 
-    ts.onResetSession!(SUB_AGENT_CTX);
+    ts.onReset!(SUB_AGENT_CTX);
 
     // Sub-agent should be cleared
     expect(ts.onGetSymbolState!(SUB_AGENT_CTX).pendingUserInputs).toHaveLength(0);
     // Main agent should still have its pending input
     expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(1);
+  });
+});
+
+// ── Edge cases ─────────────────────────────────────────────────────────────
+
+describe('createUserInputToolSet — restore edge cases', () => {
+  it('multiple ghosts all resolve via injectToolResult', () => {
+    const ts = createUserInputToolSet();
+    const injectToolResult = vi.fn();
+    const helpers = makeHelpers({ injectToolResult });
+
+    const saved: InlinePromptEntry[] = [
+      { id: 'g-1', kind: 'confirm', message: 'Go?', toolCallId: 'tc-1', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+      { id: 'g-2', kind: 'text', message: 'Name?', toolCallId: 'tc-2', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+    ];
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onReady!(MINIMAL_CTX, helpers);
+
+    ts.onGetSymbolState!(MINIMAL_CTX).respondUserInput('g-1', 'yes');
+    ts.onGetSymbolState!(MINIMAL_CTX).respondUserInput('g-2', 'test');
+
+    expect(injectToolResult).toHaveBeenCalledTimes(2);
+    expect(injectToolResult).toHaveBeenCalledWith('tc-1', 'ask_user', 'yes');
+    expect(injectToolResult).toHaveBeenCalledWith('tc-2', 'ask_user', 'test');
+  });
+
+  it('onInterceptMessage after restore cancels pending ghost entries', () => {
+    const ts = createUserInputToolSet();
+    const helpers = makeHelpers();
+
+    const saved: InlinePromptEntry[] = [
+      { id: 'g1', kind: 'confirm', message: 'Go?', toolCallId: 'tc-1', toolName: 'ask_user', conversationId: 'main', agentName: 'main' },
+    ];
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onReady!(MINIMAL_CTX, helpers);
+
+    // User sends a message instead of answering
+    ts.onInterceptMessage!(MINIMAL_CTX, { content: 'new msg' }, false);
+
+    // Ghost should be cancelled
+    expect(ts.onGetSymbolState!(MINIMAL_CTX).pendingUserInputs).toHaveLength(0);
+    // No injectToolResult should have been called
+    expect(helpers.injectToolResult).not.toHaveBeenCalled();
+    expect(helpers.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('restore with empty toolCallId/toolName uses fallback defaults', () => {
+    const ts = createUserInputToolSet();
+    const injectToolResult = vi.fn();
+    const helpers = makeHelpers({ injectToolResult });
+
+    const saved: InlinePromptEntry[] = [
+      { id: 'no-tc', kind: 'confirm', message: 'Go?', conversationId: 'main', agentName: 'main' },
+    ];
+    ts.onInit!(MINIMAL_CTX, makeEntryData(saved));
+    ts.onReady!(MINIMAL_CTX, helpers);
+
+    ts.onGetSymbolState!(MINIMAL_CTX).respondUserInput('no-tc', 'yes');
+
+    // Falls back to entry.id for toolCallId and 'ask_user' for toolName
+    expect(injectToolResult).toHaveBeenCalledWith('no-tc', 'ask_user', 'yes');
+  });
+
+  it('sub-agent with multiple ghosts resolves correctly', () => {
+    const ts = createUserInputToolSet();
+    const injectToolResult = vi.fn();
+    const helpers = makeHelpers({ injectToolResult });
+
+    const saved: InlinePromptEntry[] = [
+      { id: 's-g1', kind: 'confirm', message: 'Go?', toolCallId: 'stc-1', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 's-g2', kind: 'text', message: 'Enter:', toolCallId: 'stc-2', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+    ];
+    ts.onInit!(SUB_AGENT_CTX, makeEntryData(saved));
+    ts.onReady!(SUB_AGENT_CTX, helpers);
+
+    ts.onGetSymbolState!(SUB_AGENT_CTX).respondUserInput('s-g1', 'yes');
+    expect(injectToolResult).toHaveBeenCalledWith('stc-1', 'ask_user', 'yes');
+
+    ts.onGetSymbolState!(SUB_AGENT_CTX).respondUserInput('s-g2', 'free text');
+    expect(injectToolResult).toHaveBeenCalledWith('stc-2', 'ask_user', 'free text');
   });
 });

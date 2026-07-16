@@ -2,7 +2,7 @@
  * extensions/user-input/__tests__/requestUserInput/askUser.test.ts
  *
  * Full coverage for askUserTool and toRequest.
- * Covers all 5 prompt types, bound/unbound modes, cancellation, edge cases.
+ * Covers all 5 prompt types, cancellation, edge cases.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,7 +11,6 @@ import {
   askUserTool,
   toRequest,
   CANCEL_MSG,
-  UNBOUND_OK_MSG,
   askUserSchema,
 } from '../../agent/requestUserInput/askUser';
 import type { ToolExecutionContext } from '@agent-type';
@@ -40,7 +39,7 @@ function makeContext(overrides: Partial<Pick<ToolExecutionContext, 'requestUserI
 
 describe('toRequest', () => {
   it('builds a text request', () => {
-    const r = toRequest({ type: 'text', question: 'Name?', placeholder: 'e.g. Alice', default_value: 'Bob', bind_to_tool: true });
+    const r = toRequest({ type: 'text', question: 'Name?', placeholder: 'e.g. Alice', default_value: 'Bob' });
     expect(r).toEqual({
       type: 'text',
       message: 'Name?',
@@ -50,17 +49,17 @@ describe('toRequest', () => {
   });
 
   it('builds a confirm request', () => {
-    const r = toRequest({ type: 'confirm', question: 'Continue?', bind_to_tool: true });
+    const r = toRequest({ type: 'confirm', question: 'Continue?' });
     expect(r).toEqual({ type: 'confirm', message: 'Continue?' });
   });
 
   it('builds a select request with options', () => {
-    const r = toRequest({ type: 'select', question: 'Pick:', options: ['A', 'B'], bind_to_tool: true });
+    const r = toRequest({ type: 'select', question: 'Pick:', options: ['A', 'B'] });
     expect(r).toEqual({ type: 'select', message: 'Pick:', options: ['A', 'B'] });
   });
 
   it('defaults select options to empty array when missing', () => {
-    const r = toRequest({ type: 'select', question: 'Pick:', bind_to_tool: true });
+    const r = toRequest({ type: 'select', question: 'Pick:' });
     expect(r.options).toEqual([]);
   });
 
@@ -71,7 +70,6 @@ describe('toRequest', () => {
       options: ['X', 'Y', 'Z'],
       min_select: 1,
       max_select: 2,
-      bind_to_tool: true,
     });
     expect(r).toEqual({
       type: 'multiSelect',
@@ -91,7 +89,6 @@ describe('toRequest', () => {
       min: 0,
       max: 150,
       step: 1,
-      bind_to_tool: true,
     });
     expect(r).toEqual({
       type: 'number',
@@ -167,40 +164,36 @@ describe('askUserTool.execute — validation', () => {
   });
 });
 
-// ── Tool execute — bound mode (bind_to_tool=true, default) ───────────────────
+// ── Tool execute — basic mode ────────────────────────────────────────
 
-describe('askUserTool.execute — bound mode', () => {
+describe('askUserTool.execute', () => {
   it('returns the user answer as the tool result', async () => {
     const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('my answer');
-    const sendMessage = vi.fn();
-    const ctx = makeContext({ requestUserInput, sendMessage });
+    const ctx = makeContext({ requestUserInput });
 
     const result = await askUserTool.execute(
-      { type: 'text', question: 'Enter value:', bind_to_tool: true } as AskUserParams,
+      { type: 'text', question: 'Enter value:' } as AskUserParams,
       ctx,
     );
     expect(result).toBe('my answer');
-    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it('returns cancellation message when user cancels', async () => {
     const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue(null);
-    const sendMessage = vi.fn();
-    const ctx = makeContext({ requestUserInput, sendMessage });
+    const ctx = makeContext({ requestUserInput });
 
     const result = await askUserTool.execute(
-      { type: 'confirm', question: 'Proceed?', bind_to_tool: true } as AskUserParams,
+      { type: 'confirm', question: 'Proceed?' } as AskUserParams,
       ctx,
     );
     expect(result).toBe(CANCEL_MSG);
-    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it('works with confirm type', async () => {
     const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('yes');
     const ctx = makeContext({ requestUserInput });
     const result = await askUserTool.execute(
-      { type: 'confirm', question: 'Continue?', bind_to_tool: true } as AskUserParams,
+      { type: 'confirm', question: 'Continue?' } as AskUserParams,
       ctx,
     );
     expect(result).toBe('yes');
@@ -210,7 +203,7 @@ describe('askUserTool.execute — bound mode', () => {
     const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('42');
     const ctx = makeContext({ requestUserInput });
     const result = await askUserTool.execute(
-      { type: 'number', question: 'Age:', bind_to_tool: true } as AskUserParams,
+      { type: 'number', question: 'Age:' } as AskUserParams,
       ctx,
     );
     expect(result).toBe('42');
@@ -220,78 +213,12 @@ describe('askUserTool.execute — bound mode', () => {
     const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('answer');
     const ctx = makeContext({ requestUserInput });
     await askUserTool.execute(
-      { type: 'select', question: 'Pick:', options: ['A', 'B'], bind_to_tool: true } as AskUserParams,
+      { type: 'select', question: 'Pick:', options: ['A', 'B'] } as AskUserParams,
       ctx,
     );
     const req = requestUserInput.mock.calls[0][0];
     expect(req.type).toBe('select');
     expect(req.message).toBe('Pick:');
     expect(req.options).toEqual(['A', 'B']);
-  });
-
-  it('bind_to_tool defaults to true when omitted', async () => {
-    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('ans');
-    const sendMessage = vi.fn();
-    const ctx = makeContext({ requestUserInput, sendMessage });
-    // Call without bind_to_tool (zod default applies)
-    const params = askUserSchema.parse({ type: 'text', question: 'Q?' });
-    expect(params.bind_to_tool).toBe(true);
-    const result = await askUserTool.execute(params, ctx);
-    expect(result).toBe('ans');
-    expect(sendMessage).not.toHaveBeenCalled();
-  });
-});
-
-// ── Tool execute — unbound mode (bind_to_tool=false) ────────────────────────
-
-describe('askUserTool.execute — unbound mode', () => {
-  it('calls sendMessage and returns UNBOUND_OK_MSG', async () => {
-    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('user interjection');
-    const sendMessage = vi.fn();
-    const ctx = makeContext({ requestUserInput, sendMessage });
-
-    const result = await askUserTool.execute(
-      { type: 'text', question: 'Say something:', bind_to_tool: false } as AskUserParams,
-      ctx,
-    );
-    expect(sendMessage).toHaveBeenCalledWith('user interjection');
-    expect(result).toBe(UNBOUND_OK_MSG);
-  });
-
-  it('does not call sendMessage when user cancels', async () => {
-    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue(null);
-    const sendMessage = vi.fn();
-    const ctx = makeContext({ requestUserInput, sendMessage });
-
-    const result = await askUserTool.execute(
-      { type: 'confirm', question: 'Proceed?', bind_to_tool: false } as AskUserParams,
-      ctx,
-    );
-    expect(result).toBe(CANCEL_MSG);
-    expect(sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('works with multiSelect type', async () => {
-    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('["A","B"]');
-    const sendMessage = vi.fn();
-    const ctx = makeContext({ requestUserInput, sendMessage });
-
-    const result = await askUserTool.execute(
-      { type: 'multiSelect', question: 'Pick:', options: ['A', 'B', 'C'], bind_to_tool: false } as AskUserParams,
-      ctx,
-    );
-    expect(sendMessage).toHaveBeenCalledWith('["A","B"]');
-    expect(result).toBe(UNBOUND_OK_MSG);
-  });
-
-  it('handles missing sendMessage gracefully (tool should still return UNBOUND_OK_MSG)', async () => {
-    const requestUserInput = vi.fn<[any, string?], Promise<string | null>>().mockResolvedValue('text');
-    const ctx = makeContext({ requestUserInput, sendMessage: undefined });
-
-    const result = await askUserTool.execute(
-      { type: 'text', question: 'Q?', bind_to_tool: false } as AskUserParams,
-      ctx,
-    );
-    expect(result).toBe(UNBOUND_OK_MSG);
   });
 });

@@ -1,109 +1,83 @@
 /**
  * Sub-agent registry snapshot builders.
  *
- * Pure functions that transform internal registry state into the public
- * snapshot types consumed by UI layers and persistence.
- *
- * All functions take a `RegistryDeps` object for lazy dependency resolution
- * — no mutable closure state required.
+ * Delegates ToolSet state collection to {@link ToolSetScope} — all real logic
+ * lives in `sharedStateCollector.ts` and is routed through the scope.
  */
 
-import type { ToolSetContext, PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { ToolSetContext, ToolSetStateContext, PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { ToolSetScope } from '@agent-sdk/tools/toolSetScope';
 import type {
   SubAgentConversationState,
   SubAgentEntrySnapshot,
 } from './registryTypes';
 import type { ConversationHandle } from './registryConversation';
-import type { InternalEntry, RegistryDeps } from './registryInternal';
+import type { InternalEntry } from './registryInternal';
+import type { Tool } from '@agent-type';
 
 // ── ToolSet state collection ─────────────────────────────────────────────────
 
-/**
- * Merge all ToolSet `onGetState` results for the given context into a single
- * record — no field names from any specific ToolSet appear here.
- */
+function buildStateCtx(resolveTools: (names: readonly string[]) => Tool[], toolNames: readonly string[]): ToolSetStateContext {
+  return { tools: resolveTools(toolNames) };
+}
+
 export function collectToolSetState(
-  deps: RegistryDeps,
+  resolveTools: (names: readonly string[]) => Tool[],
+  toolNames: readonly string[],
+  scope: ToolSetScope,
   ctx: ToolSetContext,
-  entry: InternalEntry,
 ): Record<string, unknown> {
-  const stateCtx = { tools: deps.resolveTools(entry.toolNames) };
-  const merged: Record<string, unknown> = {};
-  for (const ts of deps.resolveToolSets()) {
-    const s = ts.onGetState?.(ctx, stateCtx);
-    if (s) Object.assign(merged, s);
-  }
-  return merged;
+  return (scope.collectState(ctx, buildStateCtx(resolveTools, toolNames)) as Record<string, unknown>);
 }
 
-/**
- * Collect all ToolSet `onGetSymbolState` results for the given context,
- * keyed by each ToolSet's `symbol` property.
- *
- * Returns a record mapping `symbol → PluginStateExtension & PluginUiAdapter`.
- * ToolSets without a `symbol` or without `onGetSymbolState` are skipped.
- */
 export function collectToolSetSymbolState(
-  deps: RegistryDeps,
+  resolveTools: (names: readonly string[]) => Tool[],
+  toolNames: readonly string[],
+  scope: ToolSetScope,
   ctx: ToolSetContext,
-  entry: InternalEntry,
 ): Record<symbol, PluginStateExtension & PluginUiAdapter> {
-  const stateCtx = { tools: deps.resolveTools(entry.toolNames) };
-  const merged: Record<symbol, PluginStateExtension & PluginUiAdapter> = {};
-  for (const ts of deps.resolveToolSets()) {
-    if (!ts.symbol) continue;
-    const s = ts.onGetSymbolState?.(ctx, stateCtx);
-    if (s) merged[ts.symbol] = s;
+  const full = scope.collectState(ctx, buildStateCtx(resolveTools, toolNames));
+  const keys = Object.getOwnPropertySymbols(full);
+  const symbol: Record<symbol, PluginStateExtension & PluginUiAdapter> = {};
+  for (let i = 0; i < keys.length; i++) {
+    symbol[keys[i]] = full[keys[i]] as PluginStateExtension & PluginUiAdapter;
   }
-  return merged;
-}
-
-/**
- * Merge all ToolSet `onBuildSnapshot` results for the given context.
- * Used by `getSnapshot()` so persistence receives the ToolSet's declared
- * snapshot fields rather than the transient runtime state.
- */
-export function collectToolSetSnapshot(
-  deps: RegistryDeps,
-  ctx: ToolSetContext,
-): Record<string, unknown> {
-  const merged: Record<string, unknown> = {};
-  for (const ts of deps.resolveToolSets()) {
-    const s = ts.onBuildSnapshot?.(ctx);
-    if (s) Object.assign(merged, s);
-  }
-  return merged;
+  return symbol;
 }
 
 // ── Conversation snapshot ────────────────────────────────────────────────────
 
 export function snapshotConversation(
-  deps: RegistryDeps,
+  subCtx: (agentName: string, conversationId: string) => ToolSetContext,
+  resolveTools: (names: readonly string[]) => Tool[],
+  scope: ToolSetScope,
   conv: ConversationHandle,
   entry: InternalEntry,
 ): SubAgentConversationState {
-  const ctx = deps.subCtx(entry.name, conv._state.id);
+  const ctx = subCtx(entry.name, conv._state.id);
   return Object.assign(
     {},
     {
       ...conv.getState(),
       agentName: entry.name,
       conversationId: conv._state.id,
-      ...collectToolSetState(deps, ctx, entry),
+      ...collectToolSetState(resolveTools, entry.toolNames, scope, ctx),
     },
-    collectToolSetSymbolState(deps, ctx, entry),
+    collectToolSetSymbolState(resolveTools, entry.toolNames, scope, ctx),
   );
 }
 
 // ── Entry snapshot ───────────────────────────────────────────────────────────
 
 export function snapshotEntry(
-  deps: RegistryDeps,
+  subCtx: (agentName: string, conversationId: string) => ToolSetContext,
+  resolveTools: (names: readonly string[]) => Tool[],
+  scope: ToolSetScope,
   entry: InternalEntry,
 ): SubAgentEntrySnapshot {
-  const ctx = deps.subCtx(entry.name, entry.activeConversationId);
+  const ctx = subCtx(entry.name, entry.activeConversationId);
   const convList = [...entry.conversations.values()].map((c) =>
-    snapshotConversation(deps, c, entry),
+    snapshotConversation(subCtx, resolveTools, scope, c, entry),
   );
   return Object.assign(
     {},
@@ -117,8 +91,8 @@ export function snapshotEntry(
       createdAt: entry.createdAt,
       activeConversationId: entry.activeConversationId,
       conversations: convList,
-      ...collectToolSetState(deps, ctx, entry),
+      ...collectToolSetState(resolveTools, entry.toolNames, scope, ctx),
     },
-    collectToolSetSymbolState(deps, ctx, entry),
+    collectToolSetSymbolState(resolveTools, entry.toolNames, scope, ctx),
   );
 }

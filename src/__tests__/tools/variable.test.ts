@@ -260,9 +260,9 @@ describe('createVariableToolSet', () => {
     expect(list.total).toBe(0);
   });
 
-  // ── onInitSession ──────────────────────────────────────────────────────────
+  // ── onInit ──────────────────────────────────────────────────────────
 
-  it('onInitSession restores JSON variables from entryData', () => {
+  it('onInit restores JSON variables from entryData', () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
@@ -270,42 +270,42 @@ describe('createVariableToolSet', () => {
       { handle: '$var:aabbccdd', kind: 'json', value: 'restored content', size: 16, createdAt: Date.now(), source: 'tool-result' },
     ];
     // @ts-expect-error
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', variables: saved });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', variables: saved });
     const store = getSessionStore(sessionId);
     expect(store.resolve('$var:aabbccdd' as any)).toBeDefined();
   });
 
-  it('onInitSession ignores missing entryData variables', () => {
+  it('onInit ignores missing entryData variables', () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    expect(() => ts.onInitSession!(ctx, { id: sessionId, title: 'T' })).not.toThrow();
+    expect(() => ts.onInit!(ctx, { id: sessionId, title: 'T' })).not.toThrow();
   });
 
-  // ── onRemoveSession ────────────────────────────────────────────────────────
+  // ── onRemove ────────────────────────────────────────────────────────
 
-  it('onRemoveSession deletes the session store', async () => {
+  it('onRemove deletes the session store', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const toolCtx = makeToolCtx(sessionId);
     // Store something first
     await getTool(ts, 'var_write').execute({ json: '"data"' }, toolCtx);
-    ts.onRemoveSession!(ctx);
+    ts.onRemove!(ctx);
     // After removal, a fresh store is created �?should be empty
     const store = getSessionStore(sessionId);
     expect(store.list()).toHaveLength(0);
   });
 
-  // ── onResetSession ─────────────────────────────────────────────────────────
+  // ── onReset ─────────────────────────────────────────────────────────
 
-  it('onResetSession clears all variables', async () => {
+  it('onReset clears all variables', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const toolCtx = makeToolCtx(sessionId);
     const ctx = makeCtx(sessionId);
     await getTool(ts, 'var_write').execute({ json: '"data"' }, toolCtx);
-    ts.onResetSession!(ctx);
+    ts.onReset!(ctx);
     const list = await getTool(ts, 'var_list').execute({}, toolCtx);
     expect(list.total).toBe(0);
   });

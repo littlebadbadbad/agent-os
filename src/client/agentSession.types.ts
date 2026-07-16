@@ -1,6 +1,7 @@
-import type { WidgetHandler, ToolCall, ToolResult, AgentMessage, Attachment, TokenUsage, AgentSessionState } from '@agent-type';
-import type { CompactionResult, AgentRunOutcome } from '@agent-type';
-import type { Message } from "../../agent-UI/components/AgentWidget/types";
+import type { WidgetHandler, ToolCall, ToolResult, AgentMessage, Attachment, TokenUsage, AgentSessionState, ToolSetContext } from '@agent-type';
+import type { AgentRunOutcome } from '@agent-type';
+import type { Message } from '@agent-sdk/utils/shared';
+import type { ToolSetScope } from '@agent-sdk/tools/toolSetScope';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 // AgentSessionState is defined in @agent-type/core.ts.
@@ -65,19 +66,15 @@ export type AgentSessionConfig = {
   /** Maximum agentic turns per user message. Defaults to 10. */
   maxAgentTurns: number;
   /**
-   * Called after every agent turn with the full history and token usage.
+   * Unified ToolSet lifecycle orchestrator.
    *
-   * Composed from all registered ToolSets' `onAfterTurn` hooks by the agent
-   * client.  When a ToolSet returns a `CompactionResult`, the session replaces
-   * its history and injects a "_Context compressed_" UI message.
-   *
-   * Omit (or return `undefined`) to leave the history unchanged.
+   * Replaces the per-callback pattern (onBeforeRun, onAfterRun, onAfterTurn,
+   * onBeforeInvoke) — the {@link ConversationRunner} calls these hooks
+   * directly through the scope, eliminating the forwarding callbacks.
    */
-  onAfterTurn?: (
-    history: AgentMessage[],
-    usage: TokenUsage | undefined,
-    signal: AbortSignal,
-  ) => Promise<CompactionResult | void>;
+  scope: ToolSetScope;
+  /** Stable ToolSet context for this session's scope. */
+  tsCtx: ToolSetContext;
 
   // ── External state slices ────────────────────────────────────────────────
   // The session subscribes to these stores and merges their snapshots into
@@ -113,13 +110,6 @@ export type AgentSessionConfig = {
 
   // ── Action callbacks ─────────────────────────────────────────────────────
   onClearHistory: () => void;
-  onBeforeRun?: (history: readonly AgentMessage[]) => void;
-  /**
-   * Called before each LLM invocation (every turn of the agent loop).
-   * Return pending user messages to inject into the conversation history
-   * before this turn's handler call.
-   */
-  onBeforeInvoke?: () => AgentMessage[];
   /**
    * Called before every `sendMessage` attempt.  Return `true` to intercept
    * the message — the send call stops and the message is not delivered to
@@ -133,11 +123,6 @@ export type AgentSessionConfig = {
     attachments: readonly Attachment[] | undefined,
     isLoading: boolean,
   ) => boolean;
-  /**
-   * Called once after the entire agent run finishes (success, max-turns, abort, or error).
-   * Composed from all registered ToolSets' `onAfterRun` hooks by the agent client.
-   */
-  onAfterRun?: (outcome: AgentRunOutcome) => void;
 };
 
 // ── Session interface ─────────────────────────────────────────────────────────

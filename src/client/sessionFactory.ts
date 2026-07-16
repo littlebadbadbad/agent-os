@@ -1,32 +1,22 @@
 import type {
   AgentMessage,
+  Attachment,
   ToolCall,
   ToolResult,
-  TokenUsage,
   ToolChoice,
-  AgentSessionExtension,
-  Attachment,
-} from "@agent-type";
-import {
-  createToolCallPipeline,
-  withErrorBoundary,
-} from "@agent-sdk/tools/callToolPipeline";
-import type {
-  CompactionResult,
   ToolSet,
   ToolSetContext,
   ToolSetStateContext,
-  AgentRunOutcome,
   AgentSessionState,
+  Tool,
+  AgentHandler,
 } from "@agent-type";
 import { MAIN_CONVERSATION_ID } from "../tools/toolSet";
-import type { Tool } from "@agent-type";
 import { createToolManager, type ToolManager } from "./toolManager";
 import { createAgentSession } from "./agentSession";
 import { buildHandlerContext } from "./handlerContext";
-import { composeToolSetAfterTurn, dispatchOnInterceptMessage, dispatchOnBeforeRun, dispatchOnAfterRun, dispatchOnBeforeInvoke } from "@agent-sdk/tools/agentRuntime";
+import { createToolSetScope } from "@agent-sdk/tools/toolSetScope";
 import type { SessionEntryData } from "./sessionManager.types";
-import type { AgentHandler } from "@agent-type";
 import { createSystemPromptCache } from "@agent-sdk/tools/prompts/section";
 
 export type SessionFactoryDeps = {
@@ -76,12 +66,13 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
     const slot = createToolManager(entryData);
     slots.set(sessionId, slot);
 
-    // Canonical ToolSet context for this session (main agent).
+    // Canonical ToolSet context + unified scope for this session.
     const tsCtx: ToolSetContext = {
       sessionId,
       agentName: id ?? "main",
       conversationId: MAIN_CONVERSATION_ID,
     };
+    const scope = createToolSetScope(getAllToolSets, handler);
 
     // Propagate all currently registered master tools.
     for (const tool of masterTools) {
@@ -89,21 +80,11 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
     }
 
     // Initialize all tool sets for this session.
-    for (const ts of getAllToolSets()) {
-      ts.onInitSession?.(tsCtx, entryData);
-    }
+    scope.initScope(tsCtx, entryData);
 
     // ── Pipeline and callTool ─────────────────────────────────────────────
 
-    const pipeline = withErrorBoundary(
-      createToolCallPipeline({
-        registry: () => slot.getRegistry(),
-        toolSets: getAllToolSets, // lazy: resolved on every call so late-registered ToolSets always participate
-        ctx: tsCtx,
-        handler,
-        flushPersistence,
-      }),
-    );
+    const pipeline = scope.createPipeline(tsCtx, () => slot.getRegistry(), flushPersistence);
 
     function callTool(
       call: ToolCall,
@@ -122,6 +103,8 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
       liveHistory: entryData.liveHistory
         ? [...entryData.liveHistory]
         : undefined,
+      scope,
+      tsCtx,
       getHandler:
         (userMessage?: string) => (msgs: AgentMessage[], signal: AbortSignal) =>
           handler(
@@ -134,92 +117,45 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
               id ?? "main",
               signal,
               userMessage,
-              getAllToolSets(),
+              scope,
               pipeline,
               sectionCache,
             ),
           ),
       callTool,
       maxAgentTurns,
-      onAfterTurn: async (
-        history: AgentMessage[],
-        usage: TokenUsage | undefined,
-        signal: AbortSignal,
-      ): Promise<CompactionResult | void> => {
-        const r = await composeToolSetAfterTurn(
-          history,
-          getAllToolSets(),
-          tsCtx,
-          usage,
-          signal,
-          handler,
-        );
-        return r.changed || r.notices.length > 0
-          ? { history: r.history, notices: r.notices }
-          : undefined;
-      },
       getExternalState: (prevState) => {
-        const merged: Partial<AgentSessionState> = {};
         const stateCtx: ToolSetStateContext = {
           tools: slot.getTools(),
           prevState,
         };
-        for (const ts of getAllToolSets()) {
-          if (ts.onGetState) {
-            for (const [k, v] of Object.entries(
-              ts.onGetState(tsCtx, stateCtx),
-            )) {
-              merged[k] =
-                Array.isArray(v) && Array.isArray(merged[k])
-                  ? [...merged[k], ...v]
-                  : v;
-            }
-          }
-          if (ts.onGetSymbolState && ts.symbol) {
-            const existing = merged[ts.symbol];
-            const symbolState = Object.assign(
-              {},
-              existing !== undefined ? { ...existing } : {},
-              ts.onGetSymbolState(tsCtx, stateCtx),
-            );
-            merged[ts.symbol] = symbolState;
-          }
-        }
-        return merged;
+        return scope.collectState(tsCtx, stateCtx) as Partial<AgentSessionState>;
       },
       subscribeExternalState: (fn) => {
         slot.externalRefresh = fn;
-        const unsubs: Array<() => void> = [];
-        for (const ts of getAllToolSets()) {
-          if (ts.onSubscribe) unsubs.push(ts.onSubscribe(tsCtx, fn));
-        }
+        const unsub = scope.subscribeScope(tsCtx, fn);
         return () => {
           slot.externalRefresh = null;
-          unsubs.forEach((u) => u());
+          unsub();
         };
       },
       enableAttachments,
       onClearHistory: () => {
         sectionCache.invalidate();
-        for (const ts of getAllToolSets()) ts.onResetSession?.(tsCtx);
+        scope.resetScope(tsCtx);
       },
-      onBeforeRun: (history) => dispatchOnBeforeRun(getAllToolSets(), tsCtx, history),
       onInterceptMessage: (
         text: string,
         attachments: readonly Attachment[] | undefined,
         isLoading: boolean,
-      ): boolean => dispatchOnInterceptMessage(getAllToolSets(), tsCtx, text, attachments, isLoading),
-      onBeforeInvoke: () => dispatchOnBeforeInvoke(getAllToolSets(), tsCtx),
-      onAfterRun: (outcome: AgentRunOutcome) => dispatchOnAfterRun(getAllToolSets(), tsCtx, outcome),
+      ): boolean => scope.interceptMessage(tsCtx, text, attachments, isLoading),
     });
 
-    // Fire onSessionReady for all ToolSets now that the session is fully wired.
-    for (const ts of getAllToolSets()) {
-      ts.onSessionReady?.(tsCtx, {
-        sendMessage: (t) => session.sendMessage(t),
-        injectToolResult: (id, name, result) => session.injectToolResult(id, name, result),
-      });
-    }
+    // Fire onReady for all ToolSets now that the session is fully wired.
+    scope.readyScope(tsCtx, {
+      sendMessage: (t) => session.sendMessage(t),
+      injectToolResult: (id, name, result) => session.injectToolResult(id, name, result),
+    });
 
     return session;
   };

@@ -52,61 +52,61 @@ describe('createMemoryGraphToolSet', () => {
     expect(names).toContain('memory_recall');
   });
 
-  // ── onInitSession ──────────────────────────────────────────────────────────
+  // ── onInit ──────────────────────────────────────────────────────────
 
-  it('onInitSession restores graph from entryData', () => {
+  it('onInit restores graph from entryData', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const graph = makeGraph();
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
     const state = ts.onGetState!(ctx) as any;
     expect(state.memoryGraph?.graph).toBeDefined();
     expect(state.memoryGraph?.graph.nodes[0].id).toBe('entity-1');
   });
 
-  it('onInitSession handles missing memoryGraph in entryData', () => {
+  it('onInit handles missing memoryGraph in entryData', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    expect(() => ts.onInitSession!(ctx, { id: sessionId, title: 'T' })).not.toThrow();
+    expect(() => ts.onInit!(ctx, { id: sessionId, title: 'T' })).not.toThrow();
   });
 
-  // ── onResetSession ─────────────────────────────────────────────────────────
+  // ── onReset ─────────────────────────────────────────────────────────
 
-  it('onResetSession clears the graph', () => {
+  it('onReset clears the graph', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
-    ts.onResetSession!(ctx);
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
+    ts.onReset!(ctx);
     const state = ts.onGetState!(ctx) as any;
     // After reset: graph is cleared
     expect(state.memoryGraph?.graph).toBeUndefined();
   });
 
-  // ── onRemoveSession ────────────────────────────────────────────────────────
+  // ── onRemove ────────────────────────────────────────────────────────
 
-  it('onRemoveSession removes the session entry', () => {
+  it('onRemove removes the session entry', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
-    ts.onRemoveSession!(ctx);
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
+    ts.onRemove!(ctx);
     const state = ts.onGetState!(ctx) as any;
     // After removal the graph is gone
     expect(state.memoryGraph?.graph).toBeUndefined();
   });
 
-  it('onRemoveSession does not affect other sessions', () => {
+  it('onRemove does not affect other sessions', () => {
     const ts = createMemoryGraphToolSet();
     const s1 = freshSessionId();
     const s2 = freshSessionId();
     const ctx1 = makeCtx(s1);
     const ctx2 = makeCtx(s2);
-    ts.onInitSession!(ctx1, { id: s1, title: 'T', memoryGraph: makeGraph() });
-    ts.onInitSession!(ctx2, { id: s2, title: 'T', memoryGraph: makeGraph() });
-    ts.onRemoveSession!(ctx1);
+    ts.onInit!(ctx1, { id: s1, title: 'T', memoryGraph: makeGraph() });
+    ts.onInit!(ctx2, { id: s2, title: 'T', memoryGraph: makeGraph() });
+    ts.onRemove!(ctx1);
     const state2 = ts.onGetState!(ctx2) as any;
     expect(state2.memoryGraph?.graph).toBeDefined();
   });
@@ -125,7 +125,7 @@ describe('createMemoryGraphToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const graph = makeGraph();
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
     const state = ts.onGetState!(ctx) as any;
     expect(state.memoryGraph?.graph?.nodes[0].id).toBe('entity-1');
   });
@@ -136,7 +136,7 @@ describe('createMemoryGraphToolSet', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T' });
+    ts.onInit!(ctx, { id: sessionId, title: 'T' });
     // @ts-expect-error �?onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toMatch(/## Memory/);
@@ -147,7 +147,7 @@ describe('createMemoryGraphToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const graph = makeGraph({ nodes: [{ id: 'node-A', label: 'Node A', description: 'Alpha entity' }] });
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
     // @ts-expect-error �?onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toBeDefined();
@@ -159,7 +159,7 @@ describe('createMemoryGraphToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const emptyGraph: KnowledgeGraph = { nodes: [], edges: [], updatedAt: new Date().toISOString(), updateCount: 1 };
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: emptyGraph });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: emptyGraph });
     // @ts-expect-error �?onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toMatch(/## Memory/);
@@ -171,11 +171,11 @@ describe('createMemoryGraphToolSet', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
     const fn = vi.fn();
     ts.onSubscribe!(ctx, fn);
     // store.reset calls notify, which fires all subscribers
-    ts.onResetSession!(ctx);
+    ts.onReset!(ctx);
     expect(fn).toHaveBeenCalled();
   });
 
@@ -183,11 +183,11 @@ describe('createMemoryGraphToolSet', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
     const fn = vi.fn();
     const unsub = ts.onSubscribe!(ctx, fn);
     unsub();
-    ts.onResetSession!(ctx);
+    ts.onReset!(ctx);
     expect(fn).not.toHaveBeenCalled();
   });
 
@@ -198,7 +198,7 @@ describe('createMemoryGraphToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const graph = makeGraph();
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
     const snap = ts.onBuildSnapshot!(ctx) as any;
     // Snapshot shape: { memoryGraph: KnowledgeGraph } �?the graph is stored directly
     expect(snap.memoryGraph).toBeDefined();
@@ -209,7 +209,7 @@ describe('createMemoryGraphToolSet', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T' });
+    ts.onInit!(ctx, { id: sessionId, title: 'T' });
     // Should not throw; the value may be undefined inside
     expect(() => ts.onBuildSnapshot!(ctx)).not.toThrow();
   });
@@ -220,7 +220,7 @@ describe('createMemoryGraphToolSet', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T' });
+    ts.onInit!(ctx, { id: sessionId, title: 'T' });
     const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
     const recallTool = (tools as any[]).find((t: any) => t.name === 'memory_recall');
     const result = await recallTool.execute({ query: 'test' }, makeToolCtx(sessionId));
@@ -233,7 +233,7 @@ describe('createMemoryGraphToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const graph = makeGraph({ nodes: [{ id: 'auth-system', label: 'Auth System', description: 'OAuth authentication module' }] });
-    ts.onInitSession!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
+    ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
     const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
     const recallTool = (tools as any[]).find((t: any) => t.name === 'memory_recall');
     const result = await recallTool.execute({ query: 'auth' }, makeToolCtx(sessionId));
@@ -248,8 +248,8 @@ describe('createMemoryGraphToolSet', () => {
     const s2 = freshSessionId();
     const ctx1 = makeCtx(s1);
     const ctx2 = makeCtx(s2);
-    ts.onInitSession!(ctx1, { id: s1, title: 'T', memoryGraph: makeGraph() });
-    ts.onInitSession!(ctx2, { id: s2, title: 'T' });
+    ts.onInit!(ctx1, { id: s1, title: 'T', memoryGraph: makeGraph() });
+    ts.onInit!(ctx2, { id: s2, title: 'T' });
     const state1 = ts.onGetState!(ctx1) as any;
     const state2 = ts.onGetState!(ctx2) as any;
     expect(state1.memoryGraph?.graph).toBeDefined();

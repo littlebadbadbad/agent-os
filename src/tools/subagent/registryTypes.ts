@@ -99,10 +99,19 @@ export type SubAgentConversationState = {
   /**
    * Accumulated streaming text from the current turn's text_delta events.
    * Non-empty only while `isLoading` is true; reset to `''` at turn boundaries.
+   * @deprecated Use {@code messages} instead — the ConversationRunner writes
+   * streaming updates as {@code isStreaming} assistant messages.
    */
   readonly streamingText: string;
   /** Full message history — reactive, updates after each turn and after summarization. */
   readonly history: readonly AgentMessage[];
+  /**
+   * UI-facing messages — same {@link Message} type used by the main agent
+   * session.  Includes streaming messages ({@code isStreaming: true}) and
+   * tool-call result bubbles.  Replaces the old {@code streamingText} +
+   * {@code agentMessagesToUI(history)} pattern.
+   */
+  readonly messages: import('@agent-sdk/tools/messageList').Message[];
   /**
    * Symbol-keyed plugin state slices.
    *

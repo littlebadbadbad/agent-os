@@ -1,24 +1,10 @@
-import type { Message, ToolCallInfo } from "./types";
+/**
+ * Backward-compatible re-export.
+ *
+ * These utilities were moved to `@agent-sdk/utils/shared` to eliminate the
+ * SDK-core → UI-layer dependency.  This file now delegates there so existing
+ * imports from `../helpers` continue to work without changes.
+ */
 
-export function createId(): string {
-  return crypto.randomUUID();
-}
-
-export const assistantMsg = (
-  id: string,
-  content: string,
-  streaming = false,
-): Message => ({
-  id,
-  role: "assistant",
-  content,
-  isStreaming: streaming,
-});
-
-export const toolMsg = (info: ToolCallInfo): Message => ({
-  id: info.toolCallId,
-  role: "tool",
-  content: "",
-  isStreaming: false,
-  toolCall: info,
-});
+export { createId, assistantMsg, toolMsg } from '@agent-sdk/utils/shared';
+export type { Message, ToolCallInfo } from '@agent-sdk/utils/shared';

@@ -456,7 +456,7 @@ export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
       };
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       subscribers.delete(ctx.sessionId);
     },
 

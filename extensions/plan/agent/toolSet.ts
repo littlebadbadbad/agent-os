@@ -95,20 +95,20 @@ export function createPlanToolSet(): ToolSet {
      */
     coreTools: ['plan_write', 'plan_checkpoint', 'plan_enter', 'plan_exit', 'plan_verify'],
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
-      if (entryData.plan) {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
+      if (entryData?.plan) {
         planStore.set(key(ctx), entryData.plan);
       }
-      if (entryData.planMode) {
+      if (entryData?.planMode) {
         planStore.setPlanMode(key(ctx), entryData.planMode);
       }
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       planStore.reset(key(ctx));
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       planStore.remove(key(ctx));
     },
 

@@ -7,7 +7,6 @@ export type {
   SubAgentRegistryState,
   SubAgentRegistry,
 } from './registryTypes';
-export { runAgentLoop } from './loop';
 export { createSubAgentToolset } from './subAgentToolset';
 export { createSubAgentRegistry } from './registry';
 export type { CreateSubAgentRegistryOptions } from './registry';

@@ -51,15 +51,15 @@ export function createCronToolSet(adapter: CronManagerAdapter): ToolSet {
     // createToolSearchToolSet defers low-priority tools behind tool_search.
     coreTools: ['cron_create', 'cron_list'],
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
       // Restore snapshot so the UI can display jobs immediately on page load.
       // The real backend state is fetched in onSessionReady.
-      if (entryData.cronJobs && entryData.cronJobs.length > 0) {
+      if (entryData?.cronJobs?.length) {
         cronStore.setJobs(ctx.sessionId, entryData.cronJobs);
       }
     },
 
-    onSessionReady(ctx: ToolSetContext, helpers: SessionReadyHelpers): void {
+    onReady(ctx: ToolSetContext, helpers: SessionReadyHelpers): void {
       // Wire SSE so fired-job prompts become user messages.
       const stopFn = adapter.startListening(ctx.sessionId, (_jobId, prompt) => {
         helpers.sendMessage(prompt);
@@ -83,12 +83,12 @@ export function createCronToolSet(adapter: CronManagerAdapter): ToolSet {
         .catch(() => { /* keep snapshot as fallback */ });
     },
 
-    // onResetSession is intentionally absent: cron jobs are session-scoped
+    // onReset is intentionally absent: cron jobs are session-scoped
     // autonomous entities, not part of the conversation history.  When the
     // user clears chat the jobs should continue running and remain visible
-    // in the Cron panel.  Only onRemoveSession tears everything down.
+    // in the Cron panel.  Only onRemove tears everything down.
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       cronStore.stopListening(ctx.sessionId);
       cronStore.remove(ctx.sessionId);
       lastRefreshAt.delete(ctx.sessionId);

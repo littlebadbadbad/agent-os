@@ -62,17 +62,4 @@ export type CreateSubAgentRegistryOptions = {
   handler: AgentHandler;
 };
 
-// ── Shared dependency bag ─────────────────────────────────────────────────────
 
-/**
- * Shared dependencies resolved from the registry factory closure.
- *
- * Every sub-module factory receives this single object, eliminating
- * repetitive parameter lists while keeping dependencies explicit.
- */
-export type RegistryDeps = {
-  subCtx: (agentName: string, conversationId: string) => ToolSetContext;
-  resolveToolSets: () => readonly ToolSet[];
-  resolveTools: (toolNames: readonly string[]) => Tool[];
-  handler: AgentHandler;
-};

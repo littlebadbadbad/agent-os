@@ -11,7 +11,7 @@ function makeTsCtx(sessionId: string) {
   return { sessionId, agentName: AGENT_ID, conversationId: MAIN_CONVERSATION_ID };
 }
 
-/** Minimal AgentClientLike stub ï¿½?enough for onAttach calls in tests. */
+/** Minimal AgentClientLike stub ï¿?enough for onAttach calls in tests. */
 const stubAgentClient: AgentClientLike = {
   registerTool: vi.fn(() => () => {}),
   registerToolSet: vi.fn(() => () => {}),
@@ -104,19 +104,19 @@ describe('createToolLifecycle', () => {
     expect(slots.get('s1')!.getRegistry().has('ts-tool')).toBe(true);
   });
 
-  it('registerToolSet calls onInitSession for each existing session', () => {
+  it('registerToolSet calls onInit for each existing session', () => {
     const masterTools: Tool[] = [];
     const masterToolSets: ToolSet[] = [];
     const slots = makeSlots('s1', 's2');
     const lc = createToolLifecycle({ masterTools, masterToolSets, slots, sessionMgr: makeSessionMgr(['s1', 's2']), getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
 
-    const onInitSession = vi.fn();
-    const ts: ToolSet = { name: 'ts', tools: [], onInitSession };
+    const onInit = vi.fn();
+    const ts: ToolSet = { name: 'ts', tools: [], onInit };
     lc.registerToolSet(ts);
 
-    expect(onInitSession).toHaveBeenCalledTimes(2);
-    expect(onInitSession).toHaveBeenCalledWith(makeTsCtx('s1'), expect.any(Object));
-    expect(onInitSession).toHaveBeenCalledWith(makeTsCtx('s2'), expect.any(Object));
+    expect(onInit).toHaveBeenCalledTimes(2);
+    expect(onInit).toHaveBeenCalledWith(makeTsCtx('s1'), expect.any(Object));
+    expect(onInit).toHaveBeenCalledWith(makeTsCtx('s2'), expect.any(Object));
   });
 
   it('registerToolSet returns an unregister callback that cleans up', () => {
@@ -126,15 +126,15 @@ describe('createToolLifecycle', () => {
     const mgr = makeSessionMgr(['s1']);
     const lc = createToolLifecycle({ masterTools, masterToolSets, slots, sessionMgr: mgr, getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
 
-    const onRemoveSession = vi.fn();
-    const ts: ToolSet = { name: 'ts', tools: [makeTool('ts-t')], onRemoveSession };
+    const onRemove = vi.fn();
+    const ts: ToolSet = { name: 'ts', tools: [makeTool('ts-t')], onRemove };
     const unregister = lc.registerToolSet(ts);
     unregister();
 
     expect(masterToolSets).not.toContain(ts);
     expect(masterTools.map((t) => t.name)).not.toContain('ts-t');
     expect(slots.get('s1')!.getRegistry().has('ts-t')).toBe(false);
-    expect(onRemoveSession).toHaveBeenCalledWith(makeTsCtx('s1'));
+    expect(onRemove).toHaveBeenCalledWith(makeTsCtx('s1'));
   });
 
   it('registerToolSet calls onSubscribe and externalRefresh when slot has externalRefresh', () => {
@@ -157,7 +157,7 @@ describe('createToolLifecycle', () => {
     expect(externalRefresh).toHaveBeenCalled();
   });
 
-  it('registerToolSet calls onInitSession with slot.entryData for each existing session', () => {
+  it('registerToolSet calls onInit with slot.entryData for each existing session', () => {
     // Covers the path where slot.entryData is forwarded instead of a sessionMgr lookup.
     const masterTools: Tool[] = [];
     const masterToolSets: ToolSet[] = [];
@@ -167,12 +167,12 @@ describe('createToolLifecycle', () => {
 
     const lc = createToolLifecycle({ masterTools, masterToolSets, slots, sessionMgr: mgr, getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
 
-    const onInitSession = vi.fn();
-    const ts: ToolSet = { name: 'ts-fallback', tools: [], onInitSession };
+    const onInit = vi.fn();
+    const ts: ToolSet = { name: 'ts-fallback', tools: [], onInit };
     lc.registerToolSet(ts);
 
-    // onInitSession should be called with the slot's own entryData
-    expect(onInitSession).toHaveBeenCalledWith(makeTsCtx('s1'), { id: 's1', title: 'Session s1' });
+    // onInit should be called with the slot's own entryData
+    expect(onInit).toHaveBeenCalledWith(makeTsCtx('s1'), { id: 's1', title: 'Session s1' });
   });
 
   it('calling unregister a second time is harmless (ts not in masterToolSets)', () => {

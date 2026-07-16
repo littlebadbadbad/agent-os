@@ -13,7 +13,7 @@
  * and inspects the history and handler invocations.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createAgentClient } from '@agent-sdk';
 import type { AgentHandler, Tool, ToolResultMessage } from '@agent-type';
 
@@ -59,13 +59,11 @@ describe('AgentSession.injectToolResult', () => {
     expect(typeof session.injectToolResult).toBe('function');
   });
 
-  it('appends a tool result (no synthetic assistant) into history', async () => {
+  it('creates synthetic assistant when no matching tool_call exists', async () => {
     const agent = createAgent();
     const session = agent.getSessionManager().getActiveSession()!;
 
-    // Inject a tool result — there's no preceding assistant with toolCalls,
-    // so the tool result stands alone (the LLM handler is mocked to return
-    // a simple text response, so the loop completes without issue).
+    // Inject a tool result — there's no preceding assistant with toolCalls
     await session.injectToolResult('tc-1', 'ask_user', 'the answer');
 
     const history = session.getHistory();
@@ -79,14 +77,40 @@ describe('AgentSession.injectToolResult', () => {
     // Content should be the RAW value, NOT JSON.stringify'd
     expect(toolResultMsg!.content).toBe('the answer');
 
-    // NO synthetic assistant with toolCalls should have been created.
-    // The only assistant messages in history come from the loop response
-    // (mocked handler returns { text: 'done' }) — NOT from injectToolResult.
+    // injectToolResult creates exactly ONE synthetic assistant with empty args
+    // to pair with the tool result — this is by design (tool result must be
+    // preceded by its corresponding tool-call message in the LLM history).
     const injectedAssistants = history.filter(
       (m): m is import('@agent-type').AssistantMessage =>
         m.role === 'assistant' && (m.toolCalls?.length ?? 0) > 0,
     );
-    expect(injectedAssistants).toHaveLength(0);
+    expect(injectedAssistants).toHaveLength(1);
+  });
+
+  it('skips synthetic assistant when matching tool_call already exists', async () => {
+    const agent = createAgent();
+    const session = agent.getSessionManager().getActiveSession()!;
+
+    // First injection creates synthetic assistant + tool result
+    await session.injectToolResult('tc-existing', 'ask_user', 'first');
+
+    // Second injection with SAME toolCallId — should NOT create another assistant
+    await session.injectToolResult('tc-existing', 'ask_user', 'second');
+
+    const history = session.getHistory();
+
+    // Exactly ONE synthetic assistant (from the first injection)
+    const injectedAssistants = history.filter(
+      (m): m is import('@agent-type').AssistantMessage =>
+        m.role === 'assistant' && (m.toolCalls?.length ?? 0) > 0,
+    );
+    expect(injectedAssistants).toHaveLength(1);
+
+    // Both tool results should be present
+    const toolResults = history.filter(
+      (m): m is ToolResultMessage => m.role === 'tool' && m.toolCallId === 'tc-existing',
+    );
+    expect(toolResults).toHaveLength(2);
   });
 
   it('pushes tool result to liveHistory as well', async () => {
@@ -151,11 +175,13 @@ describe('AgentSession.injectToolResult', () => {
       (m) => m.role === 'tool',
     );
     expect(toolResults).toHaveLength(1);
-    // No assistant with toolCalls should have been synthesised
+    // One synthetic assistant with toolCalls should exist — injectToolResult
+    // creates a tool-call + tool-result pair by design so the LLM sees
+    // the complete conversation structure.
     const synthAssistants = history.filter(
       (m) => m.role === 'assistant' && (m as any).toolCalls?.length > 0,
     );
-    expect(synthAssistants).toHaveLength(0);
+    expect(synthAssistants).toHaveLength(1);
   });
 
   it('handles complex result values (objects, arrays) – raw, not stringified', async () => {

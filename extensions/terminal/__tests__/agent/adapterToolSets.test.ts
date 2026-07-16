@@ -62,10 +62,10 @@ describe('createTerminalToolSet', () => {
     expect(state.type).toBe('terminal');
   });
 
-  it('does not implement onInitSession, onResetSession, or onBuildSnapshot', () => {
+  it('does not implement onInit, onReset, or onBuildSnapshot', () => {
     const ts = createTerminalToolSet(makeTerminalAdapter());
-    expect(ts.onInitSession).toBeUndefined();
-    expect(ts.onResetSession).toBeUndefined();
+    expect(ts.onInit).toBeUndefined();
+    expect(ts.onReset).toBeUndefined();
     expect(ts.onBuildSnapshot).toBeUndefined();
   });
 });

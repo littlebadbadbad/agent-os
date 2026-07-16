@@ -10,6 +10,7 @@
 
 import type { AgentMessage } from '@agent-type';
 import { createHistoryTracker, type HistoryTracker } from '@agent-sdk/tools/historyTracker';
+import { createMessageList, type MessageList } from '@agent-sdk/tools/messageList';
 import type {
   SubAgentConversation,
   SubAgentConversationState,
@@ -41,6 +42,13 @@ export type MutableConvState = {
   streamingText: string;
   /** Unified dual-buffer history tracker (live LLM context + full append-only record). */
   tracker: HistoryTracker;
+  /**
+   * Reactive UI message store.
+   * Populated during agent runs by {@link ConversationRunner} and restored
+   * from tracker history during snapshot reload.  Replaces the old
+   * `streamingText` + manual {@code agentMessagesToUI} pattern.
+   */
+  msgList: MessageList;
 };
 
 /**
@@ -98,7 +106,12 @@ export function makeConversation(
     isLoading: false,
     streamingText: '',
     tracker: createHistoryTracker(),
+    msgList: createMessageList(),
   };
+
+  // Bridge msgList mutations to conversation subscribers so UI re-renders
+  // on every text delta, tool-call result, and streaming-state change.
+  state.msgList.subscribe(() => notifyConv());
   const subs = new Set<() => void>();
   let convSnapshot: SubAgentConversationState | undefined;
 
@@ -138,6 +151,7 @@ export function makeConversation(
           isLoading: state.isLoading,
           streamingText: state.streamingText,
           history: state.tracker.getFullHistory(),
+          messages: state.msgList.messages,
           ...getExtraState?.(),
         } as SubAgentConversationState;
       }

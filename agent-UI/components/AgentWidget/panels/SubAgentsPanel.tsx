@@ -16,8 +16,6 @@
 import { useState, useCallback, useSyncExternalStore, useMemo } from 'react';
 import type { ReactElement } from 'react';
 import type { Attachment, SubAgentRegistry, SubAgentEntrySnapshot } from '@agent-sdk';
-import { agentMessagesToUI } from '@agent-sdk';
-import { assistantMsg } from '../helpers';
 import { ChatMessages } from '../chat/ChatMessages';
 import { ChatInput } from '../chat/ChatInput';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
@@ -95,29 +93,27 @@ function ConversationPane({ registry, agentName, convId, sessionId }: Conversati
     registry.cancelConversationMessage(agentName, convId);
   }, [registry, agentName, convId]);
 
-  // Memoize UI message conversion so message IDs are stable between renders.
-  // Without memoization, agentMessagesToUI creates fresh IDs on every render,
-  // making the virtualizer remount all items and breaking edit targeting.
+  // Messages come directly from the ConversationRunner's MessageList via the
+  // conversation state — includes streaming messages (isStreaming: true),
+  // thinking deltas, tool-call result bubbles, and attachments.  No need to
+  // manually convert history or synthesise a streaming placeholder message.
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const baseMessages = useMemo(() => agentMessagesToUI(conv.history), [conv.history]);
-  const messages = conv.isLoading
-    ? [...baseMessages, assistantMsg('__subagent_stream__', conv.streamingText, true)]
-    : baseMessages;
+  const messages = conv.messages;
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const handleEditMessage = useCallback(
     async (messageId: string, newText: string, attachments?: readonly Attachment[]) => {
       // Translate stable UI message ID → 1-based user message count in fullHistory.
-      const msgIndex = baseMessages.findIndex((m) => m.id === messageId);
+      const msgIndex = messages.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return;
       let userCount = 0;
       for (let i = 0; i <= msgIndex; i++) {
-        if (baseMessages[i].role === 'user') userCount++;
+        if (messages[i].role === 'user') userCount++;
       }
       if (userCount === 0) return;
       await registry.editConversationMessage(agentName, convId, userCount, newText, attachments);
     },
-    [registry, agentName, convId, baseMessages],
+    [registry, agentName, convId, messages],
   );
 
   return (

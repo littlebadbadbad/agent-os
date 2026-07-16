@@ -353,8 +353,8 @@ export function createExperienceTools(): ToolSet {
 
     // Merge persisted experiences into the global pool on session load.
     // ID-based deduplication handles concurrent session initialisation safely.
-    onInitSession(_ctx: ToolSetContext, entryData): void {
-      if (entryData.experiences?.length) {
+    onInit(_ctx: ToolSetContext, entryData): void {
+      if (entryData?.experiences?.length) {
         mergeItems(entryData.experiences);
       }
     },

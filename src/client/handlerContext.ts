@@ -1,11 +1,9 @@
 import { toDescriptors } from '@agent-sdk/tools/toDescriptor';
 import type { ToolManager } from '@agent-sdk/client/toolManager';
-import type { HandlerContext, ToolChoice } from '@agent-type';
+import type { HandlerContext, ToolChoice, ToolSetContext } from '@agent-type';
 import { MAIN_CONVERSATION_ID } from '@agent-sdk/tools/toolSet';
-import type { ToolSet, ToolSetContext } from '@agent-type';
+import type { ToolSetScope, SystemPromptCache } from '@agent-sdk/tools/toolSetScope';
 import type { ToolCallPipeline } from '@agent-sdk/tools/callToolPipeline';
-import { buildSystemPrompt, applyToolFilters } from '@agent-sdk/tools/agentRuntime';
-import type { SystemPromptCache } from '@agent-sdk/tools/prompts/section';
 
 /**
  * Build a `HandlerContext` from a session slot and per-turn parameters.
@@ -30,14 +28,14 @@ export function buildHandlerContext(
   agentName: string,
   signal: AbortSignal,
   userMessage: string | undefined,
-  toolSets: readonly ToolSet[],
+  scope: ToolSetScope,
   callToolFn: ToolCallPipeline,
   sectionCache?: SystemPromptCache,
 ): HandlerContext {
   const ctx: ToolSetContext = { sessionId, agentName, conversationId: MAIN_CONVERSATION_ID };
 
-  const tools = applyToolFilters(toolManager.getTools(), toolSets, ctx);
-  const resolvedSystemPrompt = buildSystemPrompt(systemPrompt, toolSets, ctx, userMessage, sectionCache);
+  const tools = scope.filterTools(toolManager.getTools(), ctx);
+  const resolvedSystemPrompt = scope.buildSystemPrompt(systemPrompt, ctx, userMessage, sectionCache);
 
   return {
     tools: toDescriptors(tools),

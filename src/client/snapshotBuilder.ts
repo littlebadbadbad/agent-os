@@ -1,7 +1,7 @@
 import { MAIN_CONVERSATION_ID } from '@agent-sdk/tools/toolSet';
 import type { ToolSet, ToolSetContext } from '@agent-type';
 import type { SessionManager, SessionEntryData } from './sessionManager.types';
-import type { SessionEntryExtension } from '@agent-type';
+import { collectSnapshotData } from '@agent-sdk/tools/sharedStateCollector';
 
 export type SnapshotBuilderDeps = {
   sessionMgr: Pick<SessionManager, 'getState'>;
@@ -21,10 +21,7 @@ export function createSnapshotBuilder(deps: SnapshotBuilderDeps) {
 
     // Collect contributions from all ToolSets (config-time + runtime-registered).
     const snapshotCtx: ToolSetContext = { sessionId, agentName: agentId, conversationId: MAIN_CONVERSATION_ID };
-    const toolSetData = getAllToolSets().reduce<Partial<SessionEntryExtension>>(
-      (acc, ts) => Object.assign(acc, ts.onBuildSnapshot?.(snapshotCtx) ?? {}),
-      {},
-    );
+    const toolSetData = collectSnapshotData(getAllToolSets(), snapshotCtx);
 
     return {
       id: sessionId,

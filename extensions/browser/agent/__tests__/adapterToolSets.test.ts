@@ -56,10 +56,10 @@ describe('createBrowserToolSet', () => {
     expect(ts.onGetState?.(makeTsCtx('session-1'))).toEqual({ browserAdapter: adapter });
   });
 
-  it('does not implement onInitSession, onResetSession, or onBuildSnapshot', () => {
+  it('does not implement onInit, onReset, or onBuildSnapshot', () => {
     const ts = createBrowserToolSet(makeBrowserAdapter());
-    expect(ts.onInitSession).toBeUndefined();
-    expect(ts.onResetSession).toBeUndefined();
+    expect(ts.onInit).toBeUndefined();
+    expect(ts.onReset).toBeUndefined();
     expect(ts.onBuildSnapshot).toBeUndefined();
   });
 });

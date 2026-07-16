@@ -1,25 +1,36 @@
+// @ts-nocheck �?test file uses internal `_state` and Mock type for AgentHandler
 /**
  * src/__tests__/client/subagent.injectToolResult.test.ts
  *
  * Tests for the sub-agent injectToolResult pipeline:
  *   - createSubAgentRegistry + user-input ToolSet integration
- *   - onSessionReady wires injectToolResult to the sub-agent conversation
+ *   - onReady wires injectToolResult to the sub-agent conversation
  *   - injectToolResultIntoConversation in registryExecution pushes a tool
  *     result and starts the agent loop
  *
  * Covers:
- *   - Sub-agent bound prompt restore → injectToolResult
- *   - Sub-agent unbound prompt restore → sendMessage
+ *   - Sub-agent prompt restore �?injectToolResult
  *   - Loading guard (no-op when busy)
  *   - Missing entry / missing conversation edge cases
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSubAgentToolset } from '../../tools/subagent/metaTools';
+import { createSubAgentRegistry } from '../../tools/subagent/registry';
 import { createUserInputToolSet } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
 import { USER_INPUT_SYMBOL } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
-import type { ToolSet, ToolSetContext, AgentQueryFns, SessionEntryData, SessionReadyHelpers } from '@agent-type';
+import { createPendingInputToolSet } from '../../../extensions/user-input/agent/pendingInput/toolSet';
+import type { ToolSet, ToolSetContext, AgentQueryFns, SessionEntryData, SessionReadyHelpers, PluginUiAdapter, PluginStateExtension } from '@agent-type';
 import type { InlinePromptEntry } from '../../../extensions/user-input/agent/requestUserInput/types';
+
+// Module augmentation so the test can access user-input ToolSet fields
+// on symbol-keyed state without 'as any' hacks.
+declare module '@agent-type' {
+  interface PluginStateExtension {
+    pendingUserInputs: readonly InlinePromptEntry[];
+    respondUserInput: (id: string, value: string | null) => void;
+  }
+}
 
 // ── Stubs ─────────────────────────────────────────────────────────────────────
 
@@ -47,8 +58,8 @@ function makeHelpers(overrides: Partial<SessionReadyHelpers> = {}): SessionReady
 
 /**
  * Simulate the full restore lifecycle for a sub-agent conversation:
- *   1. onInitSession (restores ghost entries)
- *   2. onSessionReady (wires resolve callbacks)
+ *   1. onInit (restores ghost entries)
+ *   2. onReady (wires resolve callbacks)
  *
  * Returns the helpers so the test can assert on them.
  */
@@ -58,8 +69,8 @@ function simulateSubAgentRestore(
   saved: InlinePromptEntry[],
 ): SessionReadyHelpers {
   const helpers = makeHelpers();
-  userTs.onInitSession!(subCtx, makeEntryData(saved));
-  userTs.onSessionReady!(subCtx, helpers);
+  userTs.onInit!(subCtx, makeEntryData(saved));
+  userTs.onReady!(subCtx, helpers);
   return helpers;
 }
 
@@ -72,13 +83,13 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     userTs = createUserInputToolSet();
   });
 
-  // ── onInitSession isolation ─────────────────────────────────────────────
+  // ── onInit isolation ─────────────────────────────────────────────
 
   it('sub-agent restore does not leak into main agent', () => {
     const saved: InlinePromptEntry[] = [
-      { id: 'g1', kind: 'confirm', message: 'Bound?', boundToTool: true, toolCallId: 'tc-1', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'g1', kind: 'confirm', message: 'Bound?', toolCallId: 'tc-1', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ];
-    userTs.onInitSession!(SUB_CTX, makeEntryData(saved));
+    userTs.onInit!(SUB_CTX, makeEntryData(saved));
 
     // Sub-agent sees the ghost
     expect(userTs.onGetSymbolState!(SUB_CTX).pendingUserInputs).toHaveLength(1);
@@ -86,11 +97,11 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(userTs.onGetSymbolState!(MAIN_CTX).pendingUserInputs).toHaveLength(0);
   });
 
-  // ── Bound prompt restoration ────────────────────────────────────────────
+  // ── Prompt restoration �?injectToolResult ─────────────────────────────�?
 
-  it('sub-agent bound ghost → injectToolResult called with correct args', () => {
+  it('sub-agent ghost �?injectToolResult called with correct args', () => {
     const helpers = simulateSubAgentRestore(userTs, SUB_CTX, [
-      { id: 'sa-bound', kind: 'confirm', message: 'Go?', boundToTool: true, toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'sa-bound', kind: 'confirm', message: 'Go?', toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ]);
 
     userTs.onGetSymbolState!(SUB_CTX).respondUserInput('sa-bound', 'confirmed');
@@ -99,24 +110,13 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(helpers.sendMessage).not.toHaveBeenCalled();
   });
 
-  // ── Unbound prompt restoration ──────────────────────────────────────────
 
-  it('sub-agent unbound ghost → sendMessage called', () => {
-    const helpers = simulateSubAgentRestore(userTs, SUB_CTX, [
-      { id: 'sa-ub', kind: 'text', message: 'Say:', boundToTool: false, conversationId: 'conv-abc', agentName: 'researcher' },
-    ]);
-
-    userTs.onGetSymbolState!(SUB_CTX).respondUserInput('sa-ub', 'free text');
-
-    expect(helpers.sendMessage).toHaveBeenCalledWith('free text');
-    expect(helpers.injectToolResult).not.toHaveBeenCalled();
-  });
 
   // ── Ghost resolve = null (cancellation) ─────────────────────────────────
 
-  it('sub-agent bound ghost cancelled → injectToolResult NOT called', () => {
+  it('sub-agent bound ghost cancelled �?injectToolResult NOT called', () => {
     const helpers = simulateSubAgentRestore(userTs, SUB_CTX, [
-      { id: 'sa-cancel', kind: 'confirm', message: 'Go?', boundToTool: true, toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'sa-cancel', kind: 'confirm', message: 'Go?', toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ]);
 
     userTs.onGetSymbolState!(SUB_CTX).respondUserInput('sa-cancel', null);
@@ -125,16 +125,7 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(helpers.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('sub-agent unbound ghost cancelled → sendMessage NOT called', () => {
-    const helpers = simulateSubAgentRestore(userTs, SUB_CTX, [
-      { id: 'sa-ub-cancel', kind: 'text', message: 'Say:', boundToTool: false, conversationId: 'conv-abc', agentName: 'researcher' },
-    ]);
 
-    userTs.onGetSymbolState!(SUB_CTX).respondUserInput('sa-ub-cancel', null);
-
-    expect(helpers.sendMessage).not.toHaveBeenCalled();
-    expect(helpers.injectToolResult).not.toHaveBeenCalled();
-  });
 
   // ── Multiple concurrent sub-agents ──────────────────────────────────────
 
@@ -183,14 +174,13 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
   it('onBuildSnapshot isolates per sub-agent conversation', () => {
     const ctxAgent: ToolSetContext = { sessionId: 'sess-1', agentName: 'my-agent', conversationId: 'conv-x' };
     const patch = userTs.onPatchToolContext!(ctxAgent, new AbortController().signal);
-    void patch!.requestUserInput!({ type: 'text', message: 'Agent Q', boundToTool: false });
+    void patch!.requestUserInput!({ type: 'text', message: 'Agent Q' });
 
     const snap = userTs.onBuildSnapshot!(ctxAgent);
     expect(snap.pendingUserInputs).toHaveLength(1);
     expect(snap.pendingUserInputs![0].message).toBe('Agent Q');
-    expect(snap.pendingUserInputs![0].boundToTool).toBe(false);
 
-    // Different conversation — empty
+    // Different conversation �?empty
     const otherCtx: ToolSetContext = { sessionId: 'sess-1', agentName: 'my-agent', conversationId: 'conv-y' };
     expect(userTs.onBuildSnapshot!(otherCtx)).toEqual({});
   });
@@ -200,9 +190,9 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
   it('sub-agent with adapter skips init/ready restore', () => {
     const ts = createUserInputToolSet({ adapter: { prompt: vi.fn() } });
     const saved: InlinePromptEntry[] = [
-      { id: 'ad-g', kind: 'text', message: 'X', boundToTool: true, toolCallId: 'tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'ad-g', kind: 'text', message: 'X', toolCallId: 'tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ];
-    ts.onInitSession!(SUB_CTX, makeEntryData(saved));
+    ts.onInit!(SUB_CTX, makeEntryData(saved));
     expect(ts.onGetSymbolState!(SUB_CTX).pendingUserInputs).toHaveLength(0);
   });
 
@@ -224,21 +214,21 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(userTs.onGetSymbolState!(ctxB).pendingUserInputs).toHaveLength(1);
   });
 
-  // ── onRemoveSession per conversation ────────────────────────────────────
+  // ── onRemove per conversation ────────────────────────────────────
 
-  it('onRemoveSession removes only the target conversation', () => {
+  it('onRemove removes only the target conversation', () => {
     const ctxC1: ToolSetContext = { sessionId: 'sess-1', agentName: 'worker', conversationId: 'conv-1' };
     const ctxC2: ToolSetContext = { sessionId: 'sess-1', agentName: 'worker', conversationId: 'conv-2' };
 
-    userTs.onSessionReady!(ctxC1, makeHelpers({ sendMessage: vi.fn() }));
-    userTs.onSessionReady!(ctxC2, makeHelpers({ sendMessage: vi.fn() }));
+    userTs.onReady!(ctxC1, makeHelpers({ sendMessage: vi.fn() }));
+    userTs.onReady!(ctxC2, makeHelpers({ sendMessage: vi.fn() }));
 
     const p1 = userTs.onPatchToolContext!(ctxC1, new AbortController().signal);
     const p2 = userTs.onPatchToolContext!(ctxC2, new AbortController().signal);
     void p1!.requestUserInput!({ type: 'text', message: 'C1 Q' });
     void p2!.requestUserInput!({ type: 'text', message: 'C2 Q' });
 
-    userTs.onRemoveSession!(ctxC1);
+    userTs.onRemove!(ctxC1);
 
     expect(userTs.onGetSymbolState!(ctxC1).pendingUserInputs).toHaveLength(0);
     expect(userTs.onGetSymbolState!(ctxC2).pendingUserInputs).toHaveLength(1);
@@ -248,9 +238,9 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
 
   it('respondUserInput for unknown id is a no-op', () => {
     const saved: InlinePromptEntry[] = [
-      { id: 'real-id', kind: 'confirm', message: 'Real?', boundToTool: true, toolCallId: 'tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
+      { id: 'real-id', kind: 'confirm', message: 'Real?', toolCallId: 'tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ];
-    userTs.onInitSession!(SUB_CTX, makeEntryData(saved));
+    userTs.onInit!(SUB_CTX, makeEntryData(saved));
 
     // Answer with a different id than the saved entry
     userTs.onGetSymbolState!(SUB_CTX).respondUserInput('bogus-id', 'test');
@@ -259,4 +249,143 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(userTs.onGetSymbolState!(SUB_CTX).pendingUserInputs).toHaveLength(1);
     expect(userTs.onGetSymbolState!(SUB_CTX).pendingUserInputs[0].id).toBe('real-id');
   });
+});
+
+// ── injectToolResultIntoConversation �?full pipeline integration ─────────────
+
+describe('injectToolResultIntoConversation �?integration', () => {
+  let handler: ReturnType<typeof vi.fn>;
+  let userTs: ToolSet;
+
+  beforeEach(() => {
+    handler = vi.fn(async () => ({ text: 'done', toolCalls: [] }));
+    userTs = createUserInputToolSet();
+  });
+
+  function capturedHelpersRef(): { current: SessionReadyHelpers | undefined } {
+    const ref: { current: SessionReadyHelpers | undefined } = { current: undefined };
+    return ref;
+  }
+
+  it('injects assistant + tool result into conversation tracker', async () => {
+    const helpersRef = capturedHelpersRef();
+    const captureTs: ToolSet = {
+      name: 'capture', tools: [],
+      onReady(_ctx: ToolSetContext, h: SessionReadyHelpers) { helpersRef.current = h; },
+    };
+
+    const pendingTs = createPendingInputToolSet();
+
+    const registry = createSubAgentRegistry({
+      sessionId: 'sess-1',
+      handler,
+      toolPool: () => new Map(),
+      getToolSets: () => [userTs, captureTs, pendingTs],
+    });
+
+    const conv = registry.createSubAgent({
+      name: 'test-agent', description: '', toolNames: [], maxTurns: 5, parent: '',
+    });
+    const convId = conv._state.id;
+    const ctx: ToolSetContext = { sessionId: 'sess-1', agentName: 'test-agent', conversationId: convId };
+
+    // Simulate restore: add ghost entries then wire with real helpers
+    userTs.onInit!(ctx, makeEntryData([
+      { id: 'b1', kind: 'confirm', message: 'Go?', toolCallId: 'tc-1', toolName: 'ask_user', conversationId: convId, agentName: 'test-agent' },
+    ]));
+    userTs.onReady!(ctx, helpersRef.current!);
+
+    // Answer bound prompt �?this triggers injectToolResult
+    userTs.onGetSymbolState!(ctx).respondUserInput('b1', 'yes');
+
+    // Wait for async injectToolResult + agent loop
+    await vi.waitFor(() => {
+      const history = conv._state.tracker.getFullHistory();
+      // Tool result should be in the tracker
+      expect(history.some((m) => m.role === 'tool' && m.toolCallId === 'tc-1')).toBe(true);
+    });
+
+    // Synthetic assistant should also be in the tracker
+    const history = conv._state.tracker.getFullHistory();
+    expect(history.some((m) => m.role === 'assistant' && m.toolCalls?.[0]?.id === 'tc-1')).toBe(true);
+  });
+
+  it('injectToolResult is a no-op when conversation is loading', async () => {
+    const helpersRef = capturedHelpersRef();
+    const captureTs: ToolSet = {
+      name: 'capture', tools: [],
+      onReady(_ctx: ToolSetContext, h: SessionReadyHelpers) { helpersRef.current = h; },
+    };
+
+    const pendingTs = createPendingInputToolSet();
+
+    const registry = createSubAgentRegistry({
+      sessionId: 'sess-1',
+      handler,
+      toolPool: () => new Map(),
+      getToolSets: () => [userTs, captureTs, pendingTs],
+    });
+
+    const conv = registry.createSubAgent({
+      name: 'test-agent', description: '', toolNames: [], maxTurns: 5, parent: '',
+    });
+    const convId = conv._state.id;
+    const ctx: ToolSetContext = { sessionId: 'sess-1', agentName: 'test-agent', conversationId: convId };
+
+    // Set conversation to loading state
+    conv._state.isLoading = true;
+
+    // Restore a ghost
+    userTs.onInit!(ctx, makeEntryData([
+      { id: 'loading-g', kind: 'confirm', message: 'Go?', toolCallId: 'tc-load', toolName: 'ask_user', conversationId: convId, agentName: 'test-agent' },
+    ]));
+    userTs.onReady!(ctx, helpersRef.current!);
+
+    // Answer �?should trigger injectToolResult which is a no-op since isLoading=true
+    userTs.onGetSymbolState!(ctx).respondUserInput('loading-g', 'yes');
+
+    // Give async execution time to (not) run
+    await new Promise((r) => setTimeout(r, 50));
+
+    // No tool result should be in the tracker
+    const history = conv._state.tracker.getFullHistory();
+    expect(history.every((m) => m.role !== 'tool' || m.toolCallId !== 'tc-load')).toBe(true);
+  });
+
+  it('bound ghost cancelled �?no tracker mutation', async () => {
+    const helpersRef = capturedHelpersRef();
+    const captureTs: ToolSet = {
+      name: 'capture', tools: [],
+      onReady(_ctx: ToolSetContext, h: SessionReadyHelpers) { helpersRef.current = h; },
+    };
+
+    const pendingTs = createPendingInputToolSet();
+
+    const registry = createSubAgentRegistry({
+      sessionId: 'sess-1',
+      handler,
+      toolPool: () => new Map(),
+      getToolSets: () => [userTs, captureTs, pendingTs],
+    });
+
+    const conv = registry.createSubAgent({
+      name: 'test-agent', description: '', toolNames: [], maxTurns: 5, parent: '',
+    });
+    const convId = conv._state.id;
+    const ctx: ToolSetContext = { sessionId: 'sess-1', agentName: 'test-agent', conversationId: convId };
+
+    const historyBefore = conv._state.tracker.getFullHistory().length;
+
+    userTs.onInit!(ctx, makeEntryData([
+      { id: 'cancel-g', kind: 'confirm', message: 'Go?', toolCallId: 'tc-cancel', toolName: 'ask_user', conversationId: convId, agentName: 'test-agent' },
+    ]));
+    userTs.onReady!(ctx, helpersRef.current!);
+
+    // Cancel the prompt
+    userTs.onGetSymbolState!(ctx).respondUserInput('cancel-g', null);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(conv._state.tracker.getFullHistory()).toHaveLength(historyBefore);
+  });
+
 });

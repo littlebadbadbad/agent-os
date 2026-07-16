@@ -22,17 +22,17 @@ import { createSystemPromptCache } from '@agent-sdk/tools/prompts/section';
 import type {
   InternalEntry,
   CreateSubAgentRegistryOptions,
-  RegistryDeps,
 } from './registryInternal';
 import {
   collectToolSetState,
   collectToolSetSymbolState,
-  collectToolSetSnapshot,
   snapshotEntry,
 } from './registrySnapshot';
 import { createLifecycleFunctions } from './registryLifecycle';
 import { createExecutionFunctions } from './registryExecution';
 import type { SendMessageOpts } from './registryExecution';
+import { createToolSetScope } from '@agent-sdk/tools/toolSetScope';
+import { agentMessagesToUI } from '@agent-sdk';
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     return { sessionId, agentName, conversationId };
   }
 
-  const deps: RegistryDeps = { subCtx, resolveToolSets, resolveTools, handler };
+  const scope = createToolSetScope(resolveToolSets, handler);
 
   // ── Notification ───────────────────────────────────────────────────────────
 
@@ -92,25 +92,36 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
 
   // ── Sub-module factories ───────────────────────────────────────────────────
 
-  // Holder for execution.sendMessage — wired below after execution is created.
-  // This avoids a circular dependency between lifecycle (which needs
-  // sendMessage for onSessionReady) and execution (which lifecycle creates).
+  // Holders for execution.sendMessage / injectToolResult — wired below after
+  // execution is created.  This avoids a circular dependency between lifecycle
+  // (which needs these for onSessionReady) and execution (which lifecycle creates).
   const sendMessageRef: {
     current?: (agentName: string, convId: string, text: string, opts: import('./registryExecution').SendMessageOpts) => Promise<import('./types').SubAgentResult>
   } = {};
+  const injectToolResultRef: {
+    current?: (agentName: string, convId: string, toolCallId: string, name: string, result: unknown) => Promise<import('./types').SubAgentResult>
+  } = {};
 
   const lifecycle = createLifecycleFunctions(
-    deps, collectToolSetState, collectToolSetSymbolState, convSubCleanups, notify,
+    subCtx, resolveTools, scope, collectToolSetState, collectToolSetSymbolState, convSubCleanups, notify,
     () => sessionId,
     sendMessageRef,
+    injectToolResultRef,
     convControllers,
   );
-  const execution = createExecutionFunctions(deps, entries);
+  const execution = createExecutionFunctions({ subCtx, resolveTools, handler, scope }, entries);
 
-  // Wire the holder now that execution is built — onSessionReady closures
-  // created later by lifecycle.initAgentToolSets will pick up this reference.
+  // Wire the holders now that execution is built — onSessionReady closures
+  // created later by lifecycle.initAgentToolSets will pick up these references.
   sendMessageRef.current = (agentName, convId, text, opts) =>
     execution.sendMessage(agentName, convId, text, opts);
+  injectToolResultRef.current = (agentName, convId, toolCallId, name, result) => {
+    const entry = entries.get(agentName);
+    if (!entry) throw new Error(`Sub-agent "${agentName}" not found.`);
+    const conv = entry.conversations.get(convId);
+    if (!conv) throw new Error(`Conversation "${convId}" not found on sub-agent "${agentName}".`);
+    return execution.injectToolResultIntoConversation(entry, conv, toolCallId, name, result, { sessionId, signal: new AbortController().signal });
+  };
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -119,7 +130,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     getState(): SubAgentRegistryState {
       if (!registrySnapshotCache) {
         registrySnapshotCache = {
-          subAgents: [...entries.values()].map((e) => snapshotEntry(deps, e)),
+          subAgents: [...entries.values()].map((e) => snapshotEntry(subCtx, resolveTools, scope, e)),
         };
       }
       return registrySnapshotCache;
@@ -240,15 +251,11 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       if (!conv) {
         throw new Error(`Conversation "${conversationId}" not found on sub-agent "${subAgentName}".`);
       }
-      // Only clear message history and progress — agent-level ToolSet state
-      // is scoped to the agent, not the conversation, and must
-      // not be reset when a single conversation is cleared.
       conv._state.tracker.reset();
       conv._state.streamingText = '';
-      // Let per-conversation ToolSets reset their own state.
+      conv._state.msgList.truncate(0);
       const convCtx = subCtx(subAgentName, conversationId);
-      for (const ts of resolveToolSets()) ts.onResetConversation?.(convCtx);
-      // Invalidate the prompt-section cache so the next turn gets fresh content.
+      scope.resetScope(convCtx);
       entry.sectionCache.invalidate();
       conv._notifyRegistry();
     },
@@ -341,9 +348,9 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
           title:       c._state.title,
           history:     c._state.tracker.getFullHistory(),
           liveHistory: c._state.tracker.getLiveHistory(),
-          ...collectToolSetSnapshot(deps, subCtx(e.name, c._state.id)),
+          ...scope.collectSnapshot(subCtx(e.name, c._state.id)),
         })),
-        ...collectToolSetSnapshot(deps, subCtx(e.name, e.activeConversationId)),
+        ...scope.collectSnapshot(subCtx(e.name, e.activeConversationId)),
       } as SubAgentSerializedEntry));
     },
 
@@ -381,6 +388,10 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
             [...(sc.liveHistory ?? sc.history)],
             [...sc.history],
           );
+          // Populate msgList from restored history so the UI renders the
+          // full conversation immediately (no blank state on reload).
+          const restoredMsgs = agentMessagesToUI(sc.history);
+          if (restoredMsgs.length > 0) conv._state.msgList.push(...restoredMsgs);
           entry.conversations.set(sc.id, conv);
           // Restore per-conversation ToolSet state (e.g. PendingInputToolSet
           // queues) from the conversation-level snapshot.  Uses the same hook
@@ -388,10 +399,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
           // that per-conversation keys (e.g. "${sess}:${agent}:${conv}") resolve
           // independently of the agent-level key.
           const convCtx = subCtx(raw.name, sc.id);
-          const convEntryData = { ...sc, id: sessionId };
-          for (const ts of resolveToolSets()) {
-            ts.onInitSession?.(convCtx, convEntryData);
-          }
+          scope.initScope(convCtx, { ...sc, id: sessionId });
         }
 
         // Finalize active conversation ID now that the map is populated.

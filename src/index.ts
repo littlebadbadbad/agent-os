@@ -46,7 +46,6 @@ export {
   toGeminiMessages,
 } from './tools/messages';
 export {
-  runAgentLoop,
   createSubAgentToolset,
   createSubAgentRegistry,
   createDelegationNudgeToolSet,

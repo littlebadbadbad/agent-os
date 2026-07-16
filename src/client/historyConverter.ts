@@ -1,6 +1,6 @@
 import type { AgentMessage } from '@agent-type';
-import { createId } from '../../agent-UI/components/AgentWidget/helpers';
-import type { Message } from '../../agent-UI/components/AgentWidget/types';
+import { createId } from '@agent-sdk/utils/shared';
+import type { Message } from '@agent-sdk/utils/shared';
 import { SUMMARY_ANCHOR_PREFIX, SUMMARY_ANCHOR_ACK } from '../constants';
 
 /**

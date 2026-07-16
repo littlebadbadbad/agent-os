@@ -60,8 +60,8 @@ export function createToolStateToolSet(): ToolStateToolSet {
     subsMap.get(key)?.forEach((fn) => fn());
   }
 
-  function onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
-    if (entryData.toolStates) {
+  function onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
+    if (entryData?.toolStates) {
       const toDisable = Object.entries(entryData.toolStates)
         .filter(([, enabled]) => !enabled)
         .map(([name]) => name);
@@ -72,7 +72,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
     }
   }
 
-  function onRemoveSession(ctx: ToolSetContext): void {
+  function onRemove(ctx: ToolSetContext): void {
     const key = ctxKey(ctx);
     disabledMap.delete(key);
     toolCache.delete(key);
@@ -236,8 +236,8 @@ export function createToolStateToolSet(): ToolStateToolSet {
     tools: [],
     [TOOL_STATE_TOOLSET_BRAND]: true as const,
 
-    onInitSession,
-    onRemoveSession,
+    onInit,
+    onRemove,
     onGetSymbolState,
     onSubscribe,
     onBuildSnapshot,

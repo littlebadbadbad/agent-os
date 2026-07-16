@@ -1,20 +1,11 @@
-import type { Attachment } from '@agent-sdk';
-import type { ToolCallInfo } from '@agent-type';
-export type { Attachment };
+/**
+ * Backward-compatible re-export.
+ *
+ * `Message` was moved to `@agent-sdk/utils/shared` to eliminate the
+ * SDK-core → UI-layer dependency.  This file now re-exports from there
+ * so existing imports from `../types` continue to work without changes.
+ */
 
-// ToolCallStatus and ToolCallInfo now live in @agent-type (agent-type/plugin.ts)
-// and are re-exported here for backward compatibility with existing imports.
+export type { Attachment } from '@agent-sdk';
 export type { ToolCallStatus, ToolCallInfo } from '@agent-type';
-
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
-  isStreaming: boolean;
-  /** Reasoning/thinking text shown in a collapsible block above the reply. */
-  thinking?: string;
-  /** Present only when role === 'tool'. */
-  toolCall?: ToolCallInfo;
-  /** Multimodal attachments attached by the user or produced by the assistant. */
-  attachments?: readonly Attachment[];
-}
+export type { Message } from '@agent-sdk/utils/shared';

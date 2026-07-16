@@ -121,24 +121,22 @@ export function createTodoTools(): ToolSet {
       return buildTaskTrackingSectionContent(items);
     },
 
-    onInitSession(ctx: ToolSetContext, entryData): void {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
       const key = ctxKey(ctx);
-      const data = entryData as unknown as Record<string, unknown>;
-      if (data.todos) {
-        const restored = data.todos as TodoItem[];
-        if (restored?.length) {
-          sessionTodos.set(key, [...restored]);
-        }
+      const data = entryData as unknown as Record<string, unknown> | undefined;
+      const todos = data?.todos as TodoItem[] | undefined;
+      if (todos?.length) {
+        sessionTodos.set(key, [...todos]);
       }
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       const key = ctxKey(ctx);
       sessionTodos.delete(key);
       sessionSubscribers.delete(key);
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       const key = ctxKey(ctx);
       sessionTodos.set(key, []);
       notifySession(key);

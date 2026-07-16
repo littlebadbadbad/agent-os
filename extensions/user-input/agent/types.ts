@@ -10,18 +10,17 @@
  *   if (state.type === "pendingInput") { ... }
  */
 
-import type { PluginStateExtension } from "@agent-type";
 import type { InlinePromptEntry } from "./requestUserInput/types";
 
 /** ToolSet state for requestUserInput (ask_user tool). */
-export interface UserInputPromptState extends PluginStateExtension {
+export interface UserInputPromptState {
   readonly type: "requestUserInput";
   readonly pendingUserInputs: ReadonlyArray<InlinePromptEntry>;
   readonly respondUserInput: (id: string, value: string | null) => void;
 }
 
 /** ToolSet state for pendingInput (message queuing). */
-export interface PendingInputStripState extends PluginStateExtension {
+export interface PendingInputStripState {
   readonly type: "pendingInput";
   readonly queueUserInput: (text: string) => void;
   readonly pendingInputCount: number;
@@ -31,4 +30,7 @@ export interface PendingInputStripState extends PluginStateExtension {
 }
 
 /** Plugin-level discriminated union for all ToolSet state slices. */
-export type UserInputPluginState = UserInputPromptState | PendingInputStripState;
+export type UserInputPluginState =
+  | UserInputPromptState
+  | PendingInputStripState;
+

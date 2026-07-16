@@ -19,6 +19,7 @@ import type {
   SessionReadyHelpers,
   PluginSlotDeclaration,
   PluginUiAdapter,
+  PluginStateExtension,
 } from "@agent-type";
 import type { Attachment } from "@agent-type";
 import { ctxKey, MAIN_CONVERSATION_ID } from "@agent-type";
@@ -28,6 +29,7 @@ import type { PendingInputEntry } from "./types";
 
 // Ensure SessionEntryExtension module augmentation is registered.
 import "./types";
+import { PendingInputStripState } from "../types";
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +69,7 @@ export interface PendingInputSymbolState extends PluginUiAdapter {
 
 export function createPendingInputToolSet(
   options: PendingInputToolSetOptions = {},
-): ToolSet {
+): ToolSet<PendingInputStripState> {
   const store: PendingInputStore = options.store ?? createPendingInputStore();
 
   // ── Stable per-key callbacks ──────────────────────────────────────────────
@@ -124,10 +126,10 @@ export function createPendingInputToolSet(
         slots: [
           {
             type: "inlinePrompt" as const,
-            shouldRender: (ctx) => store.getQueue(ctxKey(ctx)).length > 0,
+            shouldRender: (slotCtx: import("@agent-type").SlotDisplayContext) => store.getQueue(ctxKey({ sessionId: slotCtx.sessionId, agentName: slotCtx.agentName, conversationId: slotCtx.conversationId })).length > 0,
           },
         ],
-      };
+      }
     },
 
     // ── Message interception ──────────────────────────────────────────────
@@ -169,18 +171,18 @@ export function createPendingInputToolSet(
 
     // ── Session lifecycle ──────────────────────────────────────────────────
 
-    onSessionReady(
+    onReady(
       ctx: ToolSetContext,
       helpers: SessionReadyHelpers,
     ): void {
       store.setSendMessage(ctxKey(ctx), helpers.sendMessage);
     },
 
-    onResetSession(ctx: ToolSetContext): void {
+    onReset(ctx: ToolSetContext): void {
       store.reset(ctxKey(ctx));
     },
 
-    onRemoveSession(ctx: ToolSetContext): void {
+    onRemove(ctx: ToolSetContext): void {
       store.remove(ctxKey(ctx));
     },
 
@@ -193,8 +195,8 @@ export function createPendingInputToolSet(
       return inputs?.length ? { pendingInputs: [...inputs] } : {};
     },
 
-    onInitSession(ctx: ToolSetContext, entryData: SessionEntryData): void {
-      const inputs = entryData.pendingInputs;
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
+      const inputs = entryData?.pendingInputs;
       if (inputs?.length) store.restore(ctxKey(ctx), inputs);
     },
   };

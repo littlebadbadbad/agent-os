@@ -1,5 +1,5 @@
 import { MAIN_CONVERSATION_ID } from '@agent-type';
-import type { ToolSet, ToolSetContext } from '@agent-type';
+import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
 import type { AgentMessage } from '@agent-type';
 import type { ToolResult } from '@agent-type';
 import type { SerializedVariable, VariableEntry } from './types';
@@ -114,18 +114,18 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
       return { variables: serializeVariables(store) };
     },
 
-    onInitSession(ctx: ToolSetContext, entryData) {
-      if (entryData.variables?.length) {
+    onInit(ctx: ToolSetContext, entryData?: SessionEntryData) {
+      if (entryData?.variables?.length) {
         const store = getSessionStore(ctx.sessionId);
         restoreVariables(store, entryData.variables);
       }
     },
 
-    onRemoveSession(ctx: ToolSetContext) {
+    onRemove(ctx: ToolSetContext) {
       deleteSessionStore(ctx.sessionId);
     },
 
-    onResetSession(ctx: ToolSetContext) {
+    onReset(ctx: ToolSetContext) {
       const store = getSessionStore(ctx.sessionId);
       store.clear();
     },

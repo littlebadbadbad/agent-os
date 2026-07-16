@@ -13,6 +13,7 @@ import { MAIN_CONVERSATION_ID } from "@agent-sdk/tools/toolSet";
 import { createToolLifecycle } from "@agent-sdk/client/toolLifecycle";
 import { createSessionFactory } from "@agent-sdk/client/sessionFactory";
 import { createSnapshotBuilder } from "@agent-sdk/client/snapshotBuilder";
+import { createToolSetScope } from "@agent-sdk/tools/toolSetScope";
 
 export type { AgentClientConfig, ToolStateEntry } from "./types";
 export type {
@@ -122,6 +123,8 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
   // reference into the factory without rearranging the construction order.
   const persistenceHolder: { flush?: () => Promise<void> } = {};
 
+  const mainScope = createToolSetScope(getAllToolSets, handler);
+
   const makeSession = createSessionFactory({
     masterTools,
     slots,
@@ -144,7 +147,7 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
     onRemoveSession(id) {
       slots.delete(id);
       const rmCtx: ToolSetContext = { sessionId: id, agentName: agentId, conversationId: MAIN_CONVERSATION_ID };
-      for (const ts of getAllToolSets()) ts.onRemoveSession?.(rmCtx);
+      mainScope.removeScope(rmCtx);
     },
   });
 
