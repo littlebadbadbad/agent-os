@@ -85,15 +85,6 @@ export type IpcChannel =
   | 'browser:switchTab'
   | 'browser:networkRequests'
   | 'browser:clearNetworkRequests'
-  // ── Cron ──
-  | 'cron:list'
-  | 'cron:create'
-  | 'cron:update'
-  | 'cron:delete'
-  | 'cron:pause'
-  | 'cron:resume'
-  | 'cron:startListening'
-  | 'cron:stopListening'
   // ── Dynamic tools ──
   | 'tools:list'
   | 'tools:create'
@@ -128,7 +119,7 @@ export type IpcChannel =
  * ```ts
  * import { typedInvoke } from '@agent-type/ipc-channels';
  * const api = window.electronAPI;
- * const { jobs } = await typedInvoke(api.invoke.bind(api), 'cron:list') as { jobs: CronJob[] };
+ * const result = await typedInvoke(api.invoke.bind(api), 'health:check');
  * ```
  */
 export function typedInvoke(

@@ -5,7 +5,6 @@ import { ChatMessages } from "../chat/ChatMessages";
 import { ChatInput } from "../chat/ChatInput";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
 import { ExperiencePanel } from "../panels/ExperiencePanel";
-import { CronPanel } from "../panels/CronPanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
 import { buildSlotDisplayContextFromState } from "../../../slots/context";
@@ -27,14 +26,9 @@ export function SessionContent({
     messages,
     isLoading,
     enableAttachments,
-    toggleTool,
     subAgentRegistry,
     experiences,
     experienceStore,
-    cronJobs,
-    cronPauseJob,
-    cronResumeJob,
-    cronDeleteJob,
     agentName,
     conversationId,
   } = useSyncExternalStore(
@@ -67,7 +61,6 @@ export function SessionContent({
     | "chat"
     | "subagents"
     | "experience"
-    | "cron"
     | "tasks"
     | string
   >("chat");
@@ -81,7 +74,6 @@ export function SessionContent({
   const hasPluginUi = getByType("panel")
     .some((s) => s.declaration.showTab(slotCtx));
   const hasSubAgents = subAgentRegistry !== null;
-  const hasCron = (cronJobs?.length ?? 0) > 0;
 
   function handleClear() {
     session.clearHistory();
@@ -111,16 +103,6 @@ export function SessionContent({
         >
           Chat
         </button>
-        {hasCron && (
-          <button
-            type="button"
-            className={`${styles["tab"]}${view === "cron" ? ` ${styles["tab--active"]}` : ""}`}
-            onClick={() => setView("cron")}
-          >
-            Cron
-            <span className={styles["tab-badge"]}>{cronJobs!.length}</span>
-          </button>
-        )}
         {hasPluginUi && (
           <PluginTabBar
             activePluginView={view.startsWith("plugin:") ? view : null}
@@ -178,14 +160,6 @@ export function SessionContent({
           enableAttachments={enableAttachments}
         />
       </div>
-      {view === "cron" && (
-        <CronPanel
-          jobs={cronJobs ?? []}
-          onPause={cronPauseJob}
-          onResume={cronResumeJob}
-          onDelete={cronDeleteJob}
-        />
-      )}
       {view.startsWith("plugin:") && (() => {
           const pid = view.slice("plugin:".length);
           const panelEntry = getByType("panel").find((e) => e.pluginId === pid);

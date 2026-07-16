@@ -85,16 +85,6 @@ export type {
   ToolPermissionContext,
 } from './tools/permissions';
 
-// ── Cron job scheduling ───────────────────────────────────────────────────────
-export { createHttpCronAdapter, createIpcCronAdapter, createCronToolSet } from './tools/cron';
-export type {
-  CronJob,
-  CronStatus,
-  CronManagerAdapter,
-  HttpCronAdapterConfig,
-  IpcCronAdapterConfig,
-} from './tools/cron';
-
 // ── Token tracking & summarization ────────────────────────────────────────────
 export { createMemoryGraphToolSet } from './tools/memoryGraph';
 export type {

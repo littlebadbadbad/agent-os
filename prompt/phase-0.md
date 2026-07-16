@@ -41,7 +41,7 @@
 | R3 | **所有人都可以引用 `@agent-type`，但 `agent-type/` 不能引用任何人**（除了三方 dep） | R2 的另一种表述。单向依赖是底线 |
 | R4 | 类型从源文件搬走后，**源文件的原定义必须删干净** | 两份定义不同步 → **运行时诡异 bug，debug 到死**。查到一条，当周绩效 C |
 | R5 | `import type { X }` 可以改路径；`import { createToolSet }` 这类值导入**绝对不改** | 值导入改路径 = 运行时炸。**炸一次 - 1 个亿** |
-| R6 | **业务类型（BrowserAdapter / FileAdapter / CronJob 等）不许进 agent-type** | agent-type 只放**插件作者写插件时需要用的通用类型**。业务类型放进来 → 类型包变胖 + 职责模糊 |
+| R6 | **业务类型（BrowserAdapter / FileAdapter 等）不许进 agent-type** | agent-type 只放**插件作者写插件时需要用的通用类型**。业务类型放进来 → 类型包变胖 + 职责模糊 |
 
 验证方式（你自己跑）：
 

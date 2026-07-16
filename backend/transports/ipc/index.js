@@ -13,7 +13,6 @@
 import { ipcMain } from 'electron';
 import { createLogger } from '../../lib/logger.js';
 import { registerFileHandlers } from './files.js';
-import { registerCronHandlers } from './cron.js';
 import { registerToolHandlers } from './tools.js';
 import { registerGitHandlers } from './git.js';
 import { registerSessionHandlers } from './sessions.js';
@@ -28,7 +27,6 @@ export function registerIpcHandlers(pluginRouter) {
   log.info('Registering IPC handlers…');
 
   registerFileHandlers(ipcMain);
-  registerCronHandlers(ipcMain);
   registerToolHandlers(ipcMain);
   registerGitHandlers(ipcMain);
   registerSessionHandlers(ipcMain);

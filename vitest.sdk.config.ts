@@ -29,7 +29,7 @@ export default defineConfig({
         'src/tools/types/core.ts',
         'src/tools/types/response.ts',
         'src/tools/conversationSession.ts',
-        'src/tools/cron/**',
+
         'src/tools/dynamicTool/**',
         'src/tools/experience/**',
         'src/tools/file/**',

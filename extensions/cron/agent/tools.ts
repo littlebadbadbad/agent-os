@@ -1,3 +1,10 @@
+/**
+ * extensions/cron/agent/tools.ts — Cron tool definitions
+ *
+ * Six tools for scheduling management:
+ *   cron_create, cron_update, cron_list, cron_delete, cron_pause, cron_resume
+ */
+
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import type { CronManagerAdapter } from './types';
@@ -6,8 +13,7 @@ import { cronStore } from './store';
 // ── Tool factory ──────────────────────────────────────────────────────────────
 
 export function createCronTools(adapter: CronManagerAdapter) {
-
-  const cron_create = defineTool({
+  const cronCreate = defineTool({
     name: 'cron_create',
     group: 'Scheduling',
     description:
@@ -34,6 +40,9 @@ export function createCronTools(adapter: CronManagerAdapter) {
         .describe('Human-readable label. Defaults to a description derived from the cron expression.'),
     }),
     execute: async ({ cronExpr, prompt, recurring, label }, ctx) => {
+      if (ctx.isSubAgent) {
+        return { error: 'Cron jobs can only be managed from the main conversation.' };
+      }
       const job = await adapter.createJob({
         sessionId: ctx.sessionId,
         cronExpr,
@@ -43,41 +52,44 @@ export function createCronTools(adapter: CronManagerAdapter) {
       });
       cronStore.updateJob(ctx.sessionId, job);
       return {
-        id:            job.id,
-        label:         job.label,
-        cronExpr:      job.cronExpr,
-        status:        job.status,
-        recurring:     job.recurring,
-        nextFireAt:    job.nextFireAt,
+        id: job.id,
+        label: job.label,
+        cronExpr: job.cronExpr,
+        status: job.status,
+        recurring: job.recurring,
+        nextFireAt: job.nextFireAt,
       };
     },
   });
 
-  const cron_list = defineTool({
+  const cronList = defineTool({
     name: 'cron_list',
     group: 'Scheduling',
     description: 'List all scheduled cron jobs for the current session, including their status and next fire time.',
     parameters: z.object({}),
     execute: async (_args, ctx) => {
+      if (ctx.isSubAgent) {
+        return { jobs: [], message: 'Cron jobs are not available in sub-agent conversations.' };
+      }
       const jobs = await adapter.listJobs({ sessionId: ctx.sessionId });
       cronStore.setJobs(ctx.sessionId, jobs);
       if (jobs.length === 0) return { jobs: [], message: 'No cron jobs scheduled.' };
       return {
         jobs: jobs.map((j) => ({
-          id:         j.id,
-          label:      j.label,
-          cronExpr:   j.cronExpr,
-          status:     j.status,
-          recurring:  j.recurring,
+          id: j.id,
+          label: j.label,
+          cronExpr: j.cronExpr,
+          status: j.status,
+          recurring: j.recurring,
           nextFireAt: j.nextFireAt,
-          fireCount:  j.fireCount,
+          fireCount: j.fireCount,
           lastFiredAt: j.lastFiredAt,
         })),
       };
     },
   });
 
-  const cron_delete = defineTool({
+  const cronDelete = defineTool({
     name: 'cron_delete',
     group: 'Scheduling',
     description: 'Permanently delete a cron job by its ID. Stopped immediately.',
@@ -85,13 +97,16 @@ export function createCronTools(adapter: CronManagerAdapter) {
       id: z.string().describe('The cron job ID to delete.'),
     }),
     execute: async ({ id }, ctx) => {
+      if (ctx.isSubAgent) {
+        return { error: 'Cron jobs can only be managed from the main conversation.', id };
+      }
       await adapter.deleteJob(id, ctx.sessionId);
       cronStore.removeJob(ctx.sessionId, id);
       return { success: true, id };
     },
   });
 
-  const cron_pause = defineTool({
+  const cronPause = defineTool({
     name: 'cron_pause',
     group: 'Scheduling',
     description: 'Pause an active cron job. The job remains in the list but will not fire until resumed.',
@@ -99,13 +114,16 @@ export function createCronTools(adapter: CronManagerAdapter) {
       id: z.string().describe('The cron job ID to pause.'),
     }),
     execute: async ({ id }, ctx) => {
+      if (ctx.isSubAgent) {
+        return { error: 'Cron jobs can only be managed from the main conversation.', id };
+      }
       const job = await adapter.pauseJob(id, ctx.sessionId);
       cronStore.updateJob(ctx.sessionId, job);
       return { id: job.id, status: job.status, label: job.label };
     },
   });
 
-  const cron_resume = defineTool({
+  const cronResume = defineTool({
     name: 'cron_resume',
     group: 'Scheduling',
     description: 'Resume a paused cron job. The next fire time is recalculated from now.',
@@ -113,13 +131,16 @@ export function createCronTools(adapter: CronManagerAdapter) {
       id: z.string().describe('The cron job ID to resume.'),
     }),
     execute: async ({ id }, ctx) => {
+      if (ctx.isSubAgent) {
+        return { error: 'Cron jobs can only be managed from the main conversation.', id };
+      }
       const job = await adapter.resumeJob(id, ctx.sessionId);
       cronStore.updateJob(ctx.sessionId, job);
       return { id: job.id, status: job.status, nextFireAt: job.nextFireAt, label: job.label };
     },
   });
 
-  const cron_update = defineTool({
+  const cronUpdate = defineTool({
     name: 'cron_update',
     group: 'Scheduling',
     description:
@@ -145,18 +166,21 @@ export function createCronTools(adapter: CronManagerAdapter) {
         .describe('Change between recurring and one-shot.'),
     }),
     execute: async ({ id, cronExpr, prompt, label, recurring }, ctx) => {
+      if (ctx.isSubAgent) {
+        return { error: 'Cron jobs can only be managed from the main conversation.', id };
+      }
       const job = await adapter.updateJob(id, ctx.sessionId, { cronExpr, prompt, label, recurring });
       cronStore.updateJob(ctx.sessionId, job);
       return {
-        id:         job.id,
-        label:      job.label,
-        cronExpr:   job.cronExpr,
-        status:     job.status,
-        recurring:  job.recurring,
+        id: job.id,
+        label: job.label,
+        cronExpr: job.cronExpr,
+        status: job.status,
+        recurring: job.recurring,
         nextFireAt: job.nextFireAt,
       };
     },
   });
 
-  return [cron_create, cron_update, cron_list, cron_delete, cron_pause, cron_resume];
+  return [cronCreate, cronUpdate, cronList, cronDelete, cronPause, cronResume];
 }

@@ -1,9 +1,8 @@
 /**
- * Cron expression → human-readable string.
+ * extensions/cron/backend/cron-manager/human.js
  *
- * Thin wrapper around cronstrue that provides a safe no-throw fallback.
- * cronstrue covers the full POSIX cron matrix: every-N-minutes, hourly,
- * daily, weekly, monthly, step ranges, lists, and composite combinations.
+ * Cron expression -> human-readable string.
+ * Thin wrapper around cronstrue with a safe no-throw fallback.
  */
 
 import { toString as cronToString } from 'cronstrue';

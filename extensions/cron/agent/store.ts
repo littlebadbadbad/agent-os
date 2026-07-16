@@ -1,9 +1,13 @@
-// ── Cron frontend store ───────────────────────────────────────────────────────
-//
-// Per-session job list storage. Keyed by sessionId.
-// Does NOT contain the scheduler — that lives in the backend.
-// The `stopListening` function (returned by adapter.startListening) is stored
-// here so it can be called on session removal.
+/**
+ * extensions/cron/agent/store.ts — Cron frontend store
+ *
+ * Per-session job list storage — the single source of truth for the
+ * cron ToolSet and panel UI.  Keyed by sessionId.
+ *
+ * Does NOT contain the scheduler — that lives in the backend.
+ * The `stopListening` function (returned by adapter.startListening) is stored
+ * here so it can be called on session removal.
+ */
 
 import type { CronJob } from './types';
 

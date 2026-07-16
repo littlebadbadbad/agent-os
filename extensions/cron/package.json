@@ -1,0 +1,23 @@
+{
+  "name": "@uap/plugin-cron",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@vitejs/plugin-react": "*",
+    "esbuild": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sass": "*",
+    "vite": "*"
+  },
+  "dependencies": {
+    "croner": "^10.0.1",
+    "cronstrue": "^3.14.0"
+  }
+}

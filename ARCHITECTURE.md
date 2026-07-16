@@ -91,7 +91,7 @@ Sub-agent conversations: parallel hooks `onInitConversation` / `onResetConversat
 | `subagent/` | `runAgentLoop`, `createSubAgentToolset`, `createSubAgentRegistry`, delegation nudge |
 | `todo/` `plan/` | task list / plan management |
 | `dynamicTool/` | register tools at runtime |
-| `cron/` | scheduled tasks |
+| `cron/` *(moved to `extensions/cron/`)* | scheduled tasks |
 | `toolSearch/` | semantic tool discovery (defers non-core tools behind `tool_search`) |
 | `experience/` `memoryGraph/` `variable/` | memory stores |
 | `userInput/` + `pendingInput/` | user input queuing |
@@ -134,7 +134,7 @@ pluginSystem.ts: fetch enabled plugins → loader.ts (dynamic import agent entri
 Slots declared via `PluginUiAdapter.slots[]` in ToolSet's `onGetSymbolState`.
 
 ### Adapters (`createAdapters.ts`)
-Env detector → creates HTTP or IPC adapters for: file, terminal, browser, cron, dynamicTool, skill, mcp, upgrade. Each adapter: two impls switching on `IS_ELECTRON_IPC`.
+Env detector → creates HTTP or IPC adapters for: file, terminal, browser, dynamicTool, skill, mcp, upgrade. Each adapter: two impls switching on `IS_ELECTRON_IPC`.
 
 ### Session Persistence
 `agents.ts` creates `asyncAgent` + `streamAgent` (dual handler pattern). `InitGate` blocks saves until restore completes.
@@ -168,7 +168,7 @@ plugin-router.js:  route requests:
 ```
 
 ### Transports (`transports/`)
-- `network/` — HTTP route handlers: chat, tools, skills, files, terminals, cron, mcp, git, sessions, api-keys, models, model-config, proxy, ado-proxy, upgrade, chat-logs
+- `network/` — HTTP route handlers: chat, tools, skills, files, terminals, mcp, git, sessions, api-keys, models, model-config, proxy, ado-proxy, upgrade, chat-logs
 - `ipc/` — Electron IPC handlers (same routes, `ipcMain.handle` protocol). `index.js` aggregates all registrations.
 
 ## Plugin System

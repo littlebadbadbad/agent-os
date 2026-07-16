@@ -20,16 +20,6 @@ export function createFileAdapter(): FileAdapter {
     : createHttpFileAdapter({ baseUrl: '' });
 }
 
-// ── Cron adapter ───────────────────────────────────────────────────────────────
-import { createHttpCronAdapter, createIpcCronAdapter } from '@agent-sdk';
-import type { CronManagerAdapter } from '@agent-sdk';
-
-export function createCronAdapter(): CronManagerAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcCronAdapter()
-    : createHttpCronAdapter({ baseUrl: '/api' });
-}
-
 // ── Dynamic tool adapter ───────────────────────────────────────────────────────
 import { createHttpDynamicToolAdapter, createIpcDynamicToolAdapter } from '@agent-sdk';
 import type { DynamicToolAdapter } from '@agent-sdk';
@@ -58,6 +48,5 @@ export function createSessionStore(): SessionStore {
 // Created once at module load time, shared across all agents.
 
 export const fileAdapter = createFileAdapter();
-export const cronAdapter = createCronAdapter();
 export const dynamicToolAdapter = createDynamicToolAdapter();
 export const sessionStore = createSessionStore();

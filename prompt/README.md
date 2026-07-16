@@ -165,7 +165,7 @@ Phase 0 ────────────────────────
 | 后端路径管理 | `backend/lib/paths.js`（单源 truth） |
 | 流注册表 | `backend/lib/stream-registry.js`（Map + abort） |
 | 单测 mock electron | `agent-UI/__tests__/chatTransport.ipc.test.ts`（vi.hoisted + mockInvoke） |
-| 后端单测 | `backend/__tests__/cron.manager.test.js`（mock 文件系统） |
+| 后端单测 | `backend/__tests__/...`（mock 文件系统） |
 
 ### F. 验证命令速查表
 

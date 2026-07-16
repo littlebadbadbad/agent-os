@@ -168,6 +168,47 @@ export function createConversationRunner(deps: ConversationRunnerDeps): Conversa
                 );
               },
 
+              onBeforeToolCalls(calls) {
+                for (const call of calls) {
+                  msgList.push(toolMsg({
+                    toolCallId: call.id,
+                    name: call.name,
+                    arguments: call.arguments,
+                    status: 'running',
+                  }));
+                }
+              },
+
+              onAfterToolCall(call, result) {
+                const isError = typeof result.result === 'string' && result.result.startsWith('Error: ');
+                const exists = msgList.messages.some((m) => m.id === call.id);
+                if (exists) {
+                  msgList.update(call.id, (m) =>
+                    m?.toolCall
+                      ? {
+                          ...m,
+                          toolCall: {
+                            ...m.toolCall,
+                            status: isError ? 'error' : 'done',
+                            ...(isError ? { error: result.result as string } : { result: result.result }),
+                            ...(result.attachments?.length ? { attachments: [...result.attachments] } : {}),
+                          },
+                        }
+                      : m,
+                  );
+                } else {
+                  // Streaming path: no beforeToolCalls ran, create card now.
+                  msgList.push(toolMsg({
+                    toolCallId: call.id,
+                    name: call.name,
+                    arguments: call.arguments,
+                    status: isError ? 'error' : 'done',
+                    ...(isError ? { error: result.result as string } : { result: result.result }),
+                    ...(result.attachments?.length ? { attachments: [...result.attachments] } : {}),
+                  }));
+                }
+              },
+
               onPreExecutedResult(call, res) {
                 msgList.push(toolMsg({
                   toolCallId: call.id,

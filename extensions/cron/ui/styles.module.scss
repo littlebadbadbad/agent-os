@@ -1,0 +1,136 @@
+// ── Panel layout ──────────────────────────────────────────────────────────────
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-2, 8px);
+}
+
+.empty {
+  padding: var(--sp-4, 16px);
+  text-align: center;
+  font-size: var(--font-sm, 12px);
+  color: var(--text-muted, #888);
+}
+
+// ── Job card ──────────────────────────────────────────────────────────────────
+
+.job {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border, #333);
+  background: var(--bg-tertiary, #1a1a1a);
+  transition: border-color 0.2s, background 0.2s;
+
+  &--active {
+    border-color: color-mix(in srgb, var(--primary, #58a6ff) 55%, transparent);
+    background: color-mix(in srgb, var(--primary, #58a6ff) 6%, var(--bg-tertiary, #1a1a1a));
+  }
+
+  &--paused {
+    opacity: 0.65;
+  }
+
+  &--completed {
+    opacity: 0.45;
+  }
+}
+
+.job-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.job-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: monospace;
+  width: 14px;
+  text-align: center;
+
+  .job--active &   { color: var(--primary, #58a6ff); }
+  .job--paused &   { color: var(--text-secondary, #888); }
+  .job--completed & { color: var(--green, #3fb950); }
+}
+
+.job-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #e6e6e6);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-expr {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-secondary, #888);
+  background: var(--bg-elevated, #222);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.job-tag {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--primary-dark, #1f6feb);
+  background: color-mix(in srgb, var(--primary, #58a6ff) 15%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.job-meta {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  line-height: 1.3;
+}
+
+.job-prompt {
+  font-size: 11px;
+  color: var(--text-muted, #666);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.action-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border, #444);
+  background: transparent;
+  color: var(--text-secondary, #888);
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  &:not(:disabled):hover {
+    background: var(--bg-hover, #2a2a2a);
+    color: var(--text-primary, #e6e6e6);
+  }
+
+  &--danger:not(:disabled):hover {
+    background: color-mix(in srgb, var(--red, #f85149) 15%, transparent);
+    color: var(--red, #f85149);
+    border-color: color-mix(in srgb, var(--red, #f85149) 30%, transparent);
+  }
+}

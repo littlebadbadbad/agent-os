@@ -6,9 +6,8 @@
  * full IPC bridge via contextBridge so the renderer can call backend
  * operations without HTTP.
  *
- * Streaming channels (cron fired events) use
- * `on(channel, callback)` / `off(channel, callback)` for push-based
- * messages from main → renderer.
+ * Streaming channels use `on(channel, callback)` / `off(channel, callback)`
+ * for push-based messages from main → renderer.
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
@@ -23,8 +22,6 @@ import { contextBridge, ipcRenderer } from 'electron';
  * browser:    list, create, remove, navigate, evaluate, readOutput, snapshot,
  *             screenshotData, wait, setLaunchConfig, switchTab,
  *             networkRequests, clearNetworkRequests
- * cron:       list, create, update, delete, pause, resume,
- *             startListening, stopListening
  * tools:      list, create, update, delete, execute
  * toolModules: list, get, create, update, delete
  * toolDeps:   list, install, remove
@@ -51,7 +48,7 @@ const electronAPI: ElectronAPI = {
   invoke: (channel: string, params?: unknown): Promise<unknown> =>
     ipcRenderer.invoke(channel, params),
 
-  /** Subscribe to a push event from the main process (cron fired, etc.) */
+  /** Subscribe to a push event from the main process. */
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, ...args: unknown[]) =>
       callback(...args);

@@ -19,7 +19,6 @@ import { handleChatLogRoutes } from './transports/network/chat-logs.js';
 import { handleProxyRoutes } from './transports/network/proxy.js';
 import { handleAdoProxyRoutes } from './transports/network/ado-proxy.js';
 import { handleFileRoutes } from './transports/network/files.js';
-import { handleCronRoutes } from './transports/network/cron.js';
 import { createLogger } from './lib/logger.js';
 import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
 import * as systemService from './services/system.js';
@@ -177,8 +176,6 @@ async function handleRequest(req, res) {
     const fileRouteMatched = await handleFileRoutes(req, res, path);
     if (fileRouteMatched !== false) return;
 
-    const cronRouteMatched = await handleCronRoutes(req, res, path);
-    if (cronRouteMatched !== false) return;
 
     const apiKeyRouteMatched = await handleApiKeyRoutes(req, res, path);
     if (apiKeyRouteMatched !== false) return;

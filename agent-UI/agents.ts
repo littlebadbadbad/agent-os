@@ -4,7 +4,6 @@ import {
   createToolSearchToolSet,
   createPermissionsToolSet,
   createFileTools,
-  createCronToolSet,
   createDynamicToolset,
   createSubAgentToolset,
   createVariableToolSet,
@@ -22,7 +21,6 @@ import { providerStore } from "./store/providerStore";
 import { providerConfigStore } from "./store/providerConfigStore";
 import {
   fileAdapter,
-  cronAdapter,
   dynamicToolAdapter,
   sessionStore,
 } from "./createAdapters";
@@ -111,7 +109,6 @@ const getCurrentTime = defineTool({
 
 const fileTools = createFileTools(fileAdapter);
 const experienceToolSet = createExperienceTools();
-const cronToolSet = createCronToolSet(cronAdapter);
 
 const variableToolSet = createVariableToolSet();
 const toolResultCompressorToolSet = createToolResultCompressorToolSet({ keepRecentResults: 3 });
@@ -174,7 +171,6 @@ const sharedToolSets = [
   toolSearchToolSet,
   permissionsToolSet,
   experienceToolSet,
-  cronToolSet,
   toolResultCompressorToolSet,
   variableToolSet,
   memoryGraphToolSet,

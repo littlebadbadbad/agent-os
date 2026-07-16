@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "outDir": "./dist",
+    "paths": {
+      "@agent-type": ["../../agent-type"],
+      "@agent-type/*": ["../../agent-type/*"]
+    }
+  },
+  "include": ["agent/**/*.ts", "ui/**/*.ts", "ui/**/*.tsx"]
+}
