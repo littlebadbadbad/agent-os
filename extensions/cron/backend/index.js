@@ -5,7 +5,7 @@
  * BackendPluginHost.  Delegates to the cron-manager for job scheduling.
  *
  * Business API methods:
- *   listJobs, createJob, updateJob, deleteJob, pauseJob, resumeJob
+ *   listJobs, createJob, restoreJobs, updateJob, deleteJob, pauseJob, resumeJob
  *
  * Stream:
  *   fired - pushes { sessionId, jobId, prompt } when a cron job fires
@@ -18,10 +18,11 @@ import * as manager from './cron-manager/index.js';
 export function activate(host) {
   const log = host.logger;
 
-  // Initialise the cron manager with the plugin-scoped data directory.
-  const dataDir = host.getPluginDataDir();
-  manager.init(dataDir, log);
-  log.info('cron plugin activated, data dir: ' + dataDir);
+  // The cron manager is purely in-memory — no file persistence.
+  // All job definitions are owned by the frontend snapshot and
+  // re-registered on every onReady via restoreJobs.
+  manager.init(log);
+  log.info('cron plugin activated');
 
   // ── RPC APIs ───────────────────────────────────────────────────────────
 
@@ -39,6 +40,15 @@ export function activate(host) {
     if (!prompt) throw new Error('prompt is required');
     const job = manager.createJob({ sessionId, cronExpr, prompt, recurring, label });
     return manager.serializeJob(job);
+  });
+
+  host.defineApi('restoreJobs', async (params) => {
+    const { sessionId, jobs } = params || {};
+    if (!sessionId) throw new Error('sessionId is required');
+    if (!Array.isArray(jobs)) throw new Error('jobs array is required');
+    manager.restoreJobs(sessionId, jobs);
+    const refreshed = manager.listJobs(sessionId).map(manager.serializeJob);
+    return { jobs: refreshed };
   });
 
   host.defineApi('updateJob', async (params) => {

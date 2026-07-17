@@ -1,6 +1,5 @@
 import {
   createAgentClient,
-  createExperienceTools,
   createToolSearchToolSet,
   createPermissionsToolSet,
   createFileTools,
@@ -108,7 +107,6 @@ const getCurrentTime = defineTool({
 });
 
 const fileTools = createFileTools(fileAdapter);
-const experienceToolSet = createExperienceTools();
 
 const variableToolSet = createVariableToolSet();
 const toolResultCompressorToolSet = createToolResultCompressorToolSet({ keepRecentResults: 3 });
@@ -170,7 +168,6 @@ const permissionsToolSet = createPermissionsToolSet({
 const sharedToolSets = [
   toolSearchToolSet,
   permissionsToolSet,
-  experienceToolSet,
   toolResultCompressorToolSet,
   variableToolSet,
   memoryGraphToolSet,

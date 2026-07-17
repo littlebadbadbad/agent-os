@@ -29,11 +29,3 @@ export function isDynamicTool(name: string): boolean {
 export function isSubAgentMetaTool(name: string): boolean {
   return name.endsWith('_subagent') || name.endsWith('_subagents');
 }
-
-const EXPERIENCE_TOOL_NAMES = new Set([
-  'experience_add', 'experience_update', 'experience_delete', 'experience_list',
-]);
-
-export function isExperienceTool(name: string): boolean {
-  return EXPERIENCE_TOOL_NAMES.has(name);
-}

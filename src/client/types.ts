@@ -67,14 +67,6 @@ export type AgentClientConfig = {
    * (init, reset, remove) and a state slice that is merged into every
    * session's `AgentSessionState`.
    *
-   * @example
-   * ```ts
-   * import { createExperienceTools } from '@agent-sdk';
-   * const agent = createAgentClient({
-   *   handler,
-   *   toolSets: [createExperienceTools()],
-   * });
-   * ```
    */
   toolSets?: ToolSet[];
   /**

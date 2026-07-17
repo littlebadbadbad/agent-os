@@ -4,7 +4,6 @@ import type { Attachment, AgentSession } from "@agent-sdk";
 import { ChatMessages } from "../chat/ChatMessages";
 import { ChatInput } from "../chat/ChatInput";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
-import { ExperiencePanel } from "../panels/ExperiencePanel";
 import { PluginTabBar } from "../plugin/PluginTabBar";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
 import { buildSlotDisplayContextFromState } from "../../../slots/context";
@@ -27,8 +26,7 @@ export function SessionContent({
     isLoading,
     enableAttachments,
     subAgentRegistry,
-    experiences,
-    experienceStore,
+
     agentName,
     conversationId,
   } = useSyncExternalStore(
@@ -60,7 +58,6 @@ export function SessionContent({
   const [view, setView] = useState<
     | "chat"
     | "subagents"
-    | "experience"
     | "tasks"
     | string
   >("chat");
@@ -119,16 +116,7 @@ export function SessionContent({
             Sub-Agents
           </button>
         )}
-        <button
-          type="button"
-          className={`${styles["tab"]}${view === "experience" ? ` ${styles["tab--active"]}` : ""}`}
-          onClick={() => setView("experience")}
-        >
-          Experience
-          {experiences && experiences.length > 0 && (
-            <span className={styles["tab-badge"]}>{experiences.length}</span>
-          )}
-        </button>
+
         {view === "chat" && messages.length > 0 && (
           <button
             type="button"
@@ -186,12 +174,6 @@ export function SessionContent({
         >
           <SubAgentsPanel registry={subAgentRegistry!} sessionId={sessionStateId} />
         </div>
-      )}
-      {view === "experience" && (
-        <ExperiencePanel
-          experiences={experiences ?? []}
-          experienceStore={experienceStore}
-        />
       )}
       {/* Inline prompt slots — plugin-managed user-input overlays.
           Each slot creates a sandboxed iframe that receives prompt state

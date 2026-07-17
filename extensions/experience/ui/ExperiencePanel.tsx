@@ -1,7 +1,17 @@
-import { useState, useCallback, useRef } from 'react';
-import type { ReactElement, ChangeEvent } from 'react';
-import type { ExperienceItem, ExperienceInput, ExperienceStore } from '@agent-sdk';
-import styles from '../AgentWidget.module.scss';
+/**
+ * extensions/experience/ui/ExperiencePanel.tsx — Experience management panel
+ *
+ * Self-contained for sandboxed iframe rendering. Provides CRUD operations,
+ * tag filtering, JSON export/import, and clipboard support.
+ *
+ * All mutations flow through the ExperienceStore provided by the ToolSet's
+ * onGetSymbolState. No direct tool calls — the store is a same-realm
+ * reference injected via __UAP_PLUGIN_HOST__.
+ */
+
+import { useState, useCallback, useRef, type ReactElement, type ChangeEvent } from 'react';
+import type { ExperienceItem, ExperienceInput, ExperienceStore } from '../agent/types';
+import styles from './styles.module.scss';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,17 +32,12 @@ function collectAllTags(items: readonly ExperienceItem[]): string[] {
 
 // ── AddForm ───────────────────────────────────────────────────────────────────
 
-interface AddFormProps {
-  onAdd: (input: ExperienceInput) => void;
-  onCancel: () => void;
-}
-
-function AddForm({ onAdd, onCancel }: AddFormProps): ReactElement {
-  const [trigger, setTrigger]       = useState('');
-  const [insight, setInsight]       = useState('');
-  const [evidence, setEvidence]     = useState('');
+function AddForm({ onAdd, onCancel }: { onAdd: (input: ExperienceInput) => void; onCancel: () => void }): ReactElement {
+  const [trigger, setTrigger] = useState('');
+  const [insight, setInsight] = useState('');
+  const [evidence, setEvidence] = useState('');
   const [confidence, setConfidence] = useState('');
-  const [tagsRaw, setTagsRaw]       = useState('');
+  const [tagsRaw, setTagsRaw] = useState('');
 
   function handleSubmit() {
     if (!trigger.trim() || !insight.trim()) return;
@@ -44,7 +49,11 @@ function AddForm({ onAdd, onCancel }: AddFormProps): ReactElement {
       confidence: conf !== undefined && !isNaN(conf) ? conf : undefined,
       tags: parseTags(tagsRaw),
     });
-    setTrigger(''); setInsight(''); setEvidence(''); setConfidence(''); setTagsRaw('');
+    setTrigger('');
+    setInsight('');
+    setEvidence('');
+    setConfidence('');
+    setTagsRaw('');
   }
 
   return (
@@ -53,7 +62,7 @@ function AddForm({ onAdd, onCancel }: AddFormProps): ReactElement {
         className={styles['exp-form-textarea']}
         value={trigger}
         onChange={(e) => setTrigger(e.target.value)}
-        placeholder="Trigger: activation condition, e.g. REST.status=429; Retry-After∈headers"
+        placeholder="Trigger: activation condition, e.g. REST.status=429; Retry-After in headers"
         rows={2}
         autoFocus
       />
@@ -68,32 +77,27 @@ function AddForm({ onAdd, onCancel }: AddFormProps): ReactElement {
         className={styles['exp-form-textarea']}
         value={evidence}
         onChange={(e) => setEvidence(e.target.value)}
-        placeholder="Evidence (optional): causal chain, ≤2 sentences"
+        placeholder="Evidence (optional): causal chain, <=2 sentences"
         rows={2}
       />
       <input
-        className={styles['exp-form-tags-input']}
+        className={styles['exp-form-input']}
         value={confidence}
         onChange={(e) => setConfidence(e.target.value)}
-        placeholder="Confidence 0.0–1.0 (optional, default 1.0)"
+        placeholder="Confidence 0.0-1.0 (optional, default 1.0)"
         type="number"
         min="0"
         max="1"
         step="0.1"
       />
       <input
-        className={styles['exp-form-tags-input']}
+        className={styles['exp-form-input']}
         value={tagsRaw}
         onChange={(e) => setTagsRaw(e.target.value)}
         placeholder="Tags: comma-separated, e.g. typescript, api"
       />
       <div className={styles['exp-form-actions']}>
-        <button
-          type="button"
-          className={styles['exp-btn-primary']}
-          onClick={handleSubmit}
-          disabled={!trigger.trim() || !insight.trim()}
-        >
+        <button type="button" className={styles['exp-btn-primary']} onClick={handleSubmit} disabled={!trigger.trim() || !insight.trim()}>
           Save
         </button>
         <button type="button" className={styles['exp-btn-ghost']} onClick={onCancel}>
@@ -106,18 +110,12 @@ function AddForm({ onAdd, onCancel }: AddFormProps): ReactElement {
 
 // ── EditForm ──────────────────────────────────────────────────────────────────
 
-interface EditFormProps {
-  item: ExperienceItem;
-  onSave: (patch: Partial<ExperienceInput>) => void;
-  onCancel: () => void;
-}
-
-function EditForm({ item, onSave, onCancel }: EditFormProps): ReactElement {
-  const [trigger, setTrigger]       = useState(item.trigger);
-  const [insight, setInsight]       = useState(item.insight);
-  const [evidence, setEvidence]     = useState(item.evidence ?? '');
+function EditForm({ item, onSave, onCancel }: { item: ExperienceItem; onSave: (patch: Partial<ExperienceInput>) => void; onCancel: () => void }): ReactElement {
+  const [trigger, setTrigger] = useState(item.trigger);
+  const [insight, setInsight] = useState(item.insight);
+  const [evidence, setEvidence] = useState(item.evidence ?? '');
   const [confidence, setConfidence] = useState(item.confidence?.toString() ?? '');
-  const [tagsRaw, setTagsRaw]       = useState(item.tags?.join(', ') ?? '');
+  const [tagsRaw, setTagsRaw] = useState(item.tags?.join(', ') ?? '');
 
   function handleSubmit() {
     if (!trigger.trim() || !insight.trim()) return;
@@ -156,28 +154,23 @@ function EditForm({ item, onSave, onCancel }: EditFormProps): ReactElement {
         rows={2}
       />
       <input
-        className={styles['exp-form-tags-input']}
+        className={styles['exp-form-input']}
         value={confidence}
         onChange={(e) => setConfidence(e.target.value)}
-        placeholder="Confidence 0.0–1.0 (optional)"
+        placeholder="Confidence 0.0-1.0 (optional)"
         type="number"
         min="0"
         max="1"
         step="0.1"
       />
       <input
-        className={styles['exp-form-tags-input']}
+        className={styles['exp-form-input']}
         value={tagsRaw}
         onChange={(e) => setTagsRaw(e.target.value)}
         placeholder="Tags: comma-separated"
       />
       <div className={styles['exp-form-actions']}>
-        <button
-          type="button"
-          className={styles['exp-btn-primary']}
-          onClick={handleSubmit}
-          disabled={!trigger.trim() || !insight.trim()}
-        >
+        <button type="button" className={styles['exp-btn-primary']} onClick={handleSubmit} disabled={!trigger.trim() || !insight.trim()}>
           Save
         </button>
         <button type="button" className={styles['exp-btn-ghost']} onClick={onCancel}>
@@ -188,15 +181,9 @@ function EditForm({ item, onSave, onCancel }: EditFormProps): ReactElement {
   );
 }
 
-// ── ExperienceItem row ────────────────────────────────────────────────────────
+// ── ItemRow ───────────────────────────────────────────────────────────────────
 
-interface ItemRowProps {
-  item: ExperienceItem;
-  onEdit: (item: ExperienceItem) => void;
-  onDelete: (id: string) => void;
-}
-
-function ItemRow({ item, onEdit, onDelete }: ItemRowProps): ReactElement {
+function ItemRow({ item, onEdit, onDelete }: { item: ExperienceItem; onEdit: (item: ExperienceItem) => void; onDelete: (id: string) => void }): ReactElement {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
@@ -205,68 +192,32 @@ function ItemRow({ item, onEdit, onDelete }: ItemRowProps): ReactElement {
         <span className={styles['exp-item-date']}>
           {item.createdAt}
           {item.confidence !== undefined && (
-            <span className={styles['exp-item-conf']}>
-              conf={item.confidence.toFixed(2)}
-            </span>
+            <span className={styles['exp-item-conf']}>conf={item.confidence.toFixed(2)}</span>
           )}
         </span>
         <div className={styles['exp-item-actions']}>
           {confirmDelete ? (
             <>
-              <button
-                type="button"
-                className={styles['exp-btn-danger-sm']}
-                onClick={() => onDelete(item.id)}
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                onClick={() => setConfirmDelete(false)}
-              >
-                Cancel
-              </button>
+              <button type="button" className={styles['exp-btn-danger-sm']} onClick={() => onDelete(item.id)}>Confirm</button>
+              <button type="button" className={styles['exp-btn-ghost-sm']} onClick={() => setConfirmDelete(false)}>Cancel</button>
             </>
           ) : (
             <>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                title="Edit"
-                onClick={() => onEdit(item)}
-              >
-                ✎
-              </button>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                title="Delete"
-                onClick={() => setConfirmDelete(true)}
-              >
-                ✕
-              </button>
+              <button type="button" className={styles['exp-btn-ghost-sm']} title="Edit" onClick={() => onEdit(item)}>✎</button>
+              <button type="button" className={styles['exp-btn-ghost-sm']} title="Delete" onClick={() => setConfirmDelete(true)}>✕</button>
             </>
           )}
         </div>
       </div>
-      <p className={`${styles['exp-item-content']} ${styles['exp-item-trigger']}`}>
-        TRIGGER: {item.trigger}
-      </p>
-      <p className={styles['exp-item-content']}>
-        {item.insight}
-      </p>
+      <p className={`${styles['exp-item-content']} ${styles['exp-item-trigger']}`}>TRIGGER: {item.trigger}</p>
+      <p className={styles['exp-item-content']}>{item.insight}</p>
       {item.evidence && (
-        <p className={`${styles['exp-item-content']} ${styles['exp-item-evidence']}`}>
-          {item.evidence}
-        </p>
+        <p className={`${styles['exp-item-content']} ${styles['exp-item-evidence']}`}>{item.evidence}</p>
       )}
       {item.tags && item.tags.length > 0 && (
         <div className={styles['exp-item-tags']}>
           {item.tags.map((tag) => (
-            <span key={tag} className={styles['exp-tag']}>
-              {tag}
-            </span>
+            <span key={tag} className={styles['exp-tag']}>{tag}</span>
           ))}
         </div>
       )}
@@ -285,15 +236,16 @@ export function ExperiencePanel({
 }): ReactElement {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ExperienceItem | null>(null);
-  const [activeTag, setActiveTag]     = useState<string | null>(null);
-  const [feedback, setFeedback]       = useState<string | null>(null);
-  const fileInputRef  = useRef<HTMLInputElement>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allTags = collectAllTags(experiences);
 
-  const filtered =
-    activeTag ? experiences.filter((e) => e.tags?.includes(activeTag)) : experiences;
+  const filtered = activeTag
+    ? experiences.filter((e) => e.tags?.includes(activeTag))
+    : experiences;
 
   const showFeedback = useCallback((msg: string) => {
     setFeedback(msg);
@@ -325,17 +277,13 @@ export function ExperiencePanel({
     [experienceStore],
   );
 
-  const handleTagClick = useCallback((tag: string) => {
-    setActiveTag((prev) => (prev === tag ? null : tag));
-  }, []);
-
   const handleExport = useCallback(() => {
     if (!experienceStore) return;
     const json = experienceStore.exportJSON();
     const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
     a.download = `experiences-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
@@ -345,18 +293,21 @@ export function ExperiencePanel({
     fileInputRef.current?.click();
   }, []);
 
-  const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !experienceStore) return;
-    try {
-      const text = await file.text();
-      const { imported, skipped } = experienceStore.importJSON(text);
-      showFeedback(`+${imported} imported${skipped ? `, ${skipped} skipped` : ''}`);
-    } catch {
-      showFeedback('Invalid JSON');
-    }
-    e.target.value = '';
-  }, [experienceStore, showFeedback]);
+  const handleFileChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !experienceStore) return;
+      try {
+        const text = await file.text();
+        const { imported, skipped } = experienceStore.importJSON(text);
+        showFeedback(`+${imported} imported${skipped ? `, ${skipped} skipped` : ''}`);
+      } catch {
+        showFeedback('Invalid JSON');
+      }
+      e.target.value = '';
+    },
+    [experienceStore, showFeedback],
+  );
 
   const handleCopy = useCallback(async () => {
     if (!experienceStore) return;
@@ -382,7 +333,6 @@ export function ExperiencePanel({
 
   return (
     <div className={styles['exp-panel']}>
-      {/* Hidden file input for JSON import */}
       <input
         ref={fileInputRef}
         type="file"
@@ -390,7 +340,7 @@ export function ExperiencePanel({
         className={styles['hidden']}
         onChange={handleFileChange}
       />
-      {/* Toolbar */}
+
       <div className={styles['exp-toolbar']}>
         <span className={styles['exp-toolbar-title']}>
           Experience
@@ -399,58 +349,28 @@ export function ExperiencePanel({
           )}
         </span>
         <div className={styles['exp-toolbar-actions']}>
-          {feedback && (
-            <span className={styles['exp-toolbar-feedback']}>{feedback}</span>
-          )}
           {canEdit && (
-            <>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                title="Copy all to clipboard"
-                onClick={handleCopy}
-              >
-                ⎘
-              </button>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                title="Import from clipboard"
-                onClick={handlePaste}
-              >
-                ⎗
-              </button>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                title="Export as .json file"
-                onClick={handleExport}
-              >
-                ⬇
-              </button>
-              <button
-                type="button"
-                className={styles['exp-btn-ghost-sm']}
-                title="Import from .json file"
-                onClick={handleImportFile}
-              >
-                ⬆
-              </button>
-            </>
-          )}
-          {canEdit && !showAddForm && editingItem === null && (
-            <button
-              type="button"
-              className={styles['exp-btn-primary']}
-              onClick={() => setShowAddForm(true)}
-            >
+            <button type="button" className={styles['exp-btn-sm']} onClick={() => setShowAddForm(true)}>
               + Add
             </button>
           )}
+          <button type="button" className={styles['exp-btn-sm']} onClick={handleExport} title="Export JSON">
+            Export
+          </button>
+          <button type="button" className={styles['exp-btn-sm']} onClick={handleImportFile} title="Import JSON">
+            Import
+          </button>
+          <button type="button" className={styles['exp-btn-sm']} onClick={handleCopy} title="Copy to clipboard">
+            Copy
+          </button>
+          <button type="button" className={styles['exp-btn-sm']} onClick={handlePaste} title="Paste from clipboard">
+            Paste
+          </button>
         </div>
       </div>
 
-      {/* Add form */}
+      {feedback && <div className={styles['exp-feedback']} role="status">{feedback}</div>}
+
       {showAddForm && (
         <AddForm
           onAdd={handleAdd}
@@ -458,60 +378,53 @@ export function ExperiencePanel({
         />
       )}
 
-      {/* Tag filter bar */}
+      {editingItem && (
+        <EditForm
+          item={editingItem}
+          onSave={handleSaveEdit}
+          onCancel={() => setEditingItem(null)}
+        />
+      )}
+
       {allTags.length > 0 && (
-        <div className={styles['exp-filter-tags']}>
+        <div className={styles['exp-tag-bar']}>
+          <button
+            type="button"
+            className={`${styles['exp-tag-filter']}${activeTag === null ? ` ${styles['exp-tag-filter--active']}` : ''}`}
+            onClick={() => setActiveTag(null)}
+          >
+            All
+          </button>
           {allTags.map((tag) => (
             <button
               key={tag}
               type="button"
-              className={`${styles['exp-tag']}${activeTag === tag ? ` ${styles['exp-tag--active']}` : ''}`}
-              onClick={() => handleTagClick(tag)}
+              className={`${styles['exp-tag-filter']}${activeTag === tag ? ` ${styles['exp-tag-filter--active']}` : ''}`}
+              onClick={() => setActiveTag((prev) => (prev === tag ? null : tag))}
             >
               {tag}
             </button>
           ))}
-          {activeTag && (
-            <button
-              type="button"
-              className={styles['exp-filter-clear']}
-              onClick={() => setActiveTag(null)}
-            >
-              ✕ clear
-            </button>
-          )}
         </div>
       )}
 
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className={styles['tools-empty']}>
-          {experiences.length === 0
-            ? 'No experiences yet. The agent will record lessons and insights here as it works.'
-            : `No experiences tagged "${activeTag}".`}
-        </div>
-      ) : (
-        <div className={styles['exp-list']}>
-          {filtered.map((item) =>
-            editingItem?.id === item.id ? (
-              <div key={item.id} className={styles['exp-item']}>
-                <EditForm
-                  item={item}
-                  onSave={handleSaveEdit}
-                  onCancel={() => setEditingItem(null)}
-                />
-              </div>
-            ) : (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onEdit={canEdit ? setEditingItem : () => {}}
-                onDelete={handleDelete}
-              />
-            ),
-          )}
-        </div>
-      )}
+      <div className={styles['exp-list']}>
+        {filtered.length === 0 && (
+          <div className={styles['exp-empty']}>
+            {experiences.length === 0
+              ? 'No experiences yet. Use experience_add to persist reusable patterns.'
+              : 'No experiences match the selected tag filter.'}
+          </div>
+        )}
+        {filtered.map((item) => (
+          <ItemRow
+            key={item.id}
+            item={item}
+            onEdit={setEditingItem}
+            onDelete={handleDelete}
+          />
+        ))}
+      </div>
     </div>
   );
 }

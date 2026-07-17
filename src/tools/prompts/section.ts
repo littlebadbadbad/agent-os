@@ -33,7 +33,6 @@ export const SECTION_IDS = [
   'permissions',       // Permission rules & tool access control
   'planning',          // Planning tools (plan_write, plan_checkpoint)
   'task_tracking',     // Task tracking & checklist management
-  'experience',        // Experience / memory records
   'subagent',          // Sub-agent delegation strategy
   'file',              // File management tools
   'terminal',          // Terminal / shell tools

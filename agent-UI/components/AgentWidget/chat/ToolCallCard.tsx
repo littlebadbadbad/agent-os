@@ -6,7 +6,6 @@ import { FileToolCard } from "./toolCards/FileToolCard";
 import { AskUserCard } from "./toolCards/AskUserCard";
 import { DynamicToolCard } from "./toolCards/DynamicToolCard";
 import { SubAgentMetaCard } from "./toolCards/SubAgentMetaCard";
-import { ExperienceToolCard } from "./toolCards/ExperienceToolCard";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
 import {
   CardShell,
@@ -22,7 +21,6 @@ import {
   isAskUserTool,
   isDynamicTool,
   isSubAgentMetaTool,
-  isExperienceTool,
 } from "./toolCards/identifiers";
 import { CompactToolCard } from "./CompactToolCard";
 import { ToolCardModal } from "./ToolCardModal";
@@ -87,7 +85,6 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
   if (isAskUserTool(name)) return <AskUserCard info={info} />;
   if (isDynamicTool(name)) return <DynamicToolCard info={info} />;
   if (isSubAgentMetaTool(name)) return <SubAgentMetaCard info={info} />;
-  if (isExperienceTool(name)) return <ExperienceToolCard info={info} />;
 
   // Generic plugin tool-card path: match tool name to plugin.
 

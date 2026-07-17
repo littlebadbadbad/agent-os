@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@agent-type": ["../../agent-type/index.ts"],
+      "@agent-type/*": ["../../agent-type/*"]
+    }
+  },
+  "include": ["agent", "ui", "__tests__", "vite-env.d.ts"]
+}

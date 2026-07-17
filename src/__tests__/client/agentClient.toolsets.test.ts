@@ -4,16 +4,16 @@
  *
  * Test strategy
  * ─────────────
- * �?Every test creates a fresh `createAgentClient` (+ auto-created "New Chat"
+ * �?Every test creates a fresh `createAgentClient` (+ auto-created "New Chat"
  *   session) and inspects the session state / registered tools directly.
- * �?Handler is mocked to return `{ text: 'done' }` so turn-based assertions
+ * �?Handler is mocked to return `{ text: 'done' }` so turn-based assertions
  *   stay fast and deterministic.
- * �?ToolSet hooks are spied on with `vi.spyOn` to verify they fire at the
+ * �?ToolSet hooks are spied on with `vi.spyOn` to verify they fire at the
  *   right lifecycle points.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createAgentClient, createExperienceTools, createVariableToolSet, createMemoryGraphToolSet, MAIN_CONVERSATION_ID } from '@agent-sdk';
+import { createAgentClient, createVariableToolSet, createMemoryGraphToolSet, MAIN_CONVERSATION_ID } from '@agent-sdk';
 import type { AgentHandler } from '@agent-sdk';
 
 // ── Mock handler ──────────────────────────────────────────────────────────────
@@ -33,62 +33,11 @@ function makeAgent(toolSets: any[]) {
   });
 }
 
-// ── ExperienceToolSet ─────────────────────────────────────────────────────────
+// ── VariableToolSet ─────────────────────────────────────────────────────────
 
-describe('createAgentClient + ExperienceToolSet', () => {
-  it('registers experience_add, experience_update, experience_delete, experience_list', () => {
-    const agent = makeAgent([createExperienceTools()]);
-    const names = agent.getTools().map((t) => t.name);
-    expect(names).toContain('experience_add');
-    expect(names).toContain('experience_update');
-    expect(names).toContain('experience_delete');
-    expect(names).toContain('experience_list');
-  });
-
-  it('session state has experiences: [] on creation', () => {
-    const agent = makeAgent([createExperienceTools()]);
-    const state = agent.getSessionManager().getActiveSession()!.getState();
-    expect(Array.isArray((state as any).experiences)).toBe(true);
-    expect((state as any).experiences).toHaveLength(0);
-  });
-
-  it('session state has experienceStore reference', () => {
-    const agent = makeAgent([createExperienceTools()]);
-    const state = agent.getSessionManager().getActiveSession()!.getState();
-    expect(typeof (state as any).experienceStore?.add).toBe('function');
-  });
-
-  it('onInit fires for the auto-created session', () => {
-    const ts = createExperienceTools();
-    const spy = vi.spyOn(ts, 'onInit');
-    makeAgent([ts]);
-    expect(spy).toHaveBeenCalledOnce();
-  });
-
-  it('experiences persist across multiple sessions (global pool)', async () => {
-    const ts = createExperienceTools();
-    const agent = makeAgent([ts]);
-    // Add experience via tool
-    const addTool = agent.getTools().find((t) => t.name === 'experience_add')!;
-    const sessionId = agent.getSessionManager().getState().sessions[0].id;
-    const ctx = {
-      sessionId,
-      agentName: 'main',
-      conversationId: sessionId, sourceAgent: 'main', isSubAgent: false,
-      signal: new AbortController().signal,
-
-        requestUserInput: () => Promise.resolve(null),
-
-        cancelUserInput: () => {},
-
-      };
-    await addTool.execute({ trigger: 'T', insight: 'I' }, ctx);
-
-    // Create a second session �?it should also see the experience
     agent.getSessionManager().createSession();
     const sessions = agent.getSessionManager().getState().sessions;
     const session2State = sessions[sessions.length - 1].session.getState();
-    expect((session2State as any).experiences).toHaveLength(1);
   });
 });
 
@@ -209,14 +158,11 @@ describe('createAgentClient + MemoryGraphToolSet', () => {
 describe('createAgentClient + all built-in toolsets', () => {
   it('all toolsets coexist without conflicts', () => {
     const agent = makeAgent([
-      createExperienceTools(),
       createVariableToolSet(),
       createMemoryGraphToolSet(),
     ]);
     const state = agent.getSessionManager().getActiveSession()!.getState();
 
-    // Experience
-    expect(Array.isArray((state as any).experiences)).toBe(true);
     // Variable
     expect(Array.isArray((state as any).variables)).toBe(true);
     // MemoryGraph
@@ -225,27 +171,24 @@ describe('createAgentClient + all built-in toolsets', () => {
 
   it('all toolset tools are registered', () => {
     const agent = makeAgent([
-      createExperienceTools(),
       createVariableToolSet(),
       createMemoryGraphToolSet(),
     ]);
     const names = agent.getTools().map((t) => t.name);
 
-    expect(names).toContain('experience_add');
     expect(names).toContain('var_write');
     expect(names).toContain('memory_recall');
   });
 
   it('lifecycle hooks all fire on session creation', () => {
-    const expTs = createExperienceTools();
     const varTs = createVariableToolSet();
     const mgTs = createMemoryGraphToolSet();
 
-    const spies = [expTs, varTs, mgTs].map((ts) =>
+    const spies = [varTs, mgTs].map((ts) =>
       vi.spyOn(ts, 'onInit'),
     );
 
-    makeAgent([expTs, varTs, mgTs]);
+    makeAgent([varTs, mgTs]);
 
     for (const spy of spies) {
       expect(spy).toHaveBeenCalledOnce();

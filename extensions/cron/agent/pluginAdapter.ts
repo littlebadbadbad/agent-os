@@ -30,6 +30,13 @@ export function createCronPluginAdapter(apiClient: PluginApiClient): CronManager
       });
     },
 
+    async restoreJobs(sessionId, jobs) {
+      const raw = await apiClient.call<{ jobs: CronJob[] }>('restoreJobs', {
+        sessionId, jobs: jobs as CronJob[],
+      });
+      return raw.jobs;
+    },
+
     async updateJob(id, sessionId, patch) {
       return apiClient.call<CronJob>('updateJob', { id, sessionId, patch });
     },

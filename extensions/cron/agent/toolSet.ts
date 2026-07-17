@@ -159,16 +159,27 @@ export function createCronToolSet(
       });
       cronStore.setStopListening(sessionId, stopFn);
 
-      // Sync backend state right away — persisted snapshot may be stale.
-      adapter
-        .listJobs({ sessionId })
-        .then((jobs) => {
-          cronStore.setJobs(sessionId, jobs);
+      // Restore persisted jobs from snapshot to the backend.
+      // The backend is purely in-memory — after a restart all timers
+      // are gone, so we re-register them from the cached snapshot.
+      // Idempotent: restoreJobs skips jobs already registered in memory.
+      const storedJobs = cronStore.getJobs(sessionId);
+      if (storedJobs.length > 0) {
+        adapter.restoreJobs(sessionId, storedJobs).then((refreshed) => {
+          cronStore.setJobs(sessionId, refreshed);
           lastRefreshAt.set(sessionId, Date.now());
-        })
-        .catch(() => {
+        }).catch(() => {
           /* keep snapshot as fallback */
         });
+      } else {
+        // No cached snapshot — pull fresh state from backend.
+        adapter.listJobs({ sessionId }).then((jobs) => {
+          cronStore.setJobs(sessionId, jobs);
+          lastRefreshAt.set(sessionId, Date.now());
+        }).catch(() => {
+          /* keep snapshot as fallback */
+        });
+      }
     },
 
     onRemove(ctx: ToolSetContext): void {

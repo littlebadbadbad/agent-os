@@ -17,8 +17,6 @@ export type {
 
 // ── Tool primitives ───────────────────────────────────────────────────────────
 export { createToolSearchToolSet } from './tools/toolSearch';
-export { createExperienceTools } from './tools/experience/experience';
-export type { ExperienceItem, ExperienceInput, ExperienceStore } from './tools/experience/experience';
 export type { ToolSet, ToolSetState, ToolSetContext, ToolSetStateContext, AgentQueryFns, AgentClientLike, ToolContextPatch, SystemPromptContext, CompactionResult, CompactionNotice } from '@agent-type';
 export { MAIN_CONVERSATION_ID, ctxKey } from './tools/toolSet';
 export { createFileTools, createFileToolSet } from './tools/file';

@@ -1,0 +1,9 @@
+{
+  "id": "experience",
+  "name": "Experience",
+  "version": "0.1.0",
+  "description": "Persistent trigger→insight experience records for agent pattern matching. Provides experience_add, experience_update, experience_delete, experience_list tools.",
+  "agentEntry": "activate.js",
+  "uiEntry": "ui/index.html",
+  "tools": ["experience"]
+}

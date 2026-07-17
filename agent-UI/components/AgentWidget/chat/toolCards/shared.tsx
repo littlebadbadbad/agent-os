@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode, CSSProperties } from 'react';
 import type { ToolCallStatus, ToolCallInfo } from '../../types';
 import {
   isFileTool, isAskUserTool,
-  isDynamicTool, isSubAgentMetaTool, isExperienceTool,
+  isDynamicTool, isSubAgentMetaTool,
 } from './identifiers';
 import styles from '../../AgentWidget.module.scss';
 
@@ -246,9 +246,6 @@ export function getToolMeta(name: string): { icon: string; label: string; family
     label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   } else if (isSubAgentMetaTool(name)) {
     family = 'meta-agent';
-    label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  } else if (isExperienceTool(name)) {
-    family = 'file'; // experience uses file accent
     label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   } else {
     family = 'file';

@@ -16,7 +16,7 @@
  * the most recent results that the model may still need.
  *
  * ### Non-compactable tools
- * Structural-state tools (`plan_*`, `experience_*`, `var_*`,
+ * Structural-state tools (`plan_*`, `var_*`,
  * `*_subagent`, `send_*_message`, etc.) are intentionally excluded so that
  * their results always stay in full.  Pass `compactableToolNames` to override.
  *

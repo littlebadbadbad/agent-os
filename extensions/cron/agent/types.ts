@@ -62,6 +62,12 @@ export interface CronManagerAdapter {
     recurring?: boolean;
     label?: string;
   }): Promise<CronJob>;
+  /**
+   * Re-activate persisted jobs from a session snapshot on the backend.
+   * Idempotent — jobs already registered in memory are skipped.
+   * Returns the refreshed job list after restoration.
+   */
+  restoreJobs(sessionId: string, jobs: readonly CronJob[]): Promise<CronJob[]>;
   updateJob(
     id: string,
     sessionId: string,

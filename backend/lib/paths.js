@@ -82,7 +82,7 @@ export const PROJECT_ROOT = (IS_PKG || process.env.UAP_IS_PACKAGED === '1')
 /** SQLite databases, tool scripts, session JSON files. */
 export const DATA_ROOT = join(PROJECT_ROOT, 'data');
 
-/** Agent-managed state directory (experience store, configs, etc.). */
+/** Agent-managed state directory (configs, etc.). */
 export const AGENT_DIR = join(PROJECT_ROOT, '.agent');
 
 /** Compiled plugins output directory. */
