@@ -19,6 +19,8 @@ import * as upgrade from './services/upgrade.js';
  * @param {import('@agent-type').BackendPluginHost} host
  */
 export function activate(host) {
+  upgrade.init(host);
+
   // ── RPC APIs ──────────────────────────────────────────────────────────────
 
   host.defineApi('list', async (_params) => {

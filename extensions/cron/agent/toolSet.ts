@@ -17,15 +17,20 @@
  * or panel tabs — they are not allowed to manage schedules.
  */
 
-import type { ToolSet, ToolSetContext, SessionReadyHelpers, SessionEntryData } from '@agent-type';
-import { ctxKey, MAIN_CONVERSATION_ID } from '@agent-type';
-import type { CronManagerAdapter, CronSymbolState } from './types';
-import { createCronTools } from './tools';
-import { cronStore } from './store';
+import type {
+  ToolSet,
+  ToolSetContext,
+  SessionReadyHelpers,
+  SessionEntryData,
+} from "@agent-type";
+import { ctxKey, MAIN_CONVERSATION_ID } from "@agent-type";
+import type { CronManagerAdapter, CronSymbolState } from "./types";
+import { createCronTools } from "./tools";
+import { cronStore } from "./store";
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
-export const CRON_SYMBOL = Symbol('cron');
+export const CRON_SYMBOL = Symbol("cron");
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -41,52 +46,85 @@ function isMainConversation(ctx: ToolSetContext): boolean {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-export function createCronToolSet(adapter: CronManagerAdapter): ToolSet {
+export function createCronToolSet(
+  adapter: CronManagerAdapter,
+): ToolSet<CronSymbolState> {
   const tools = createCronTools(adapter);
 
   const lastRefreshAt = new Map<string, number>();
 
   function refreshJobs(sessionId: string): void {
     const now = Date.now();
-    if ((now - (lastRefreshAt.get(sessionId) ?? 0)) < REFRESH_INTERVAL_MS) return;
+    if (now - (lastRefreshAt.get(sessionId) ?? 0) < REFRESH_INTERVAL_MS) return;
     lastRefreshAt.set(sessionId, now);
-    adapter.listJobs({ sessionId })
+    adapter
+      .listJobs({ sessionId })
       .then((jobs) => cronStore.setJobs(sessionId, jobs))
-      .catch(() => { /* stale data is acceptable */ });
+      .catch(() => {
+        /* stale data is acceptable */
+      });
   }
 
   return {
     symbol: CRON_SYMBOL,
-    name: 'cron',
-    description: 'Scheduled task management via cron expressions.',
+    name: "cron",
+    description: "Scheduled task management via cron expressions.",
     tools,
-    coreTools: ['cron_create', 'cron_list'],
+    coreTools: [
+      "cron_create",
+      "cron_update",
+      "cron_list",
+      "cron_delete",
+      "cron_pause",
+      "cron_resume",
+    ],
 
     // ── System prompt ──────────────────────────────────────────────────────
 
     onGetSystemPrompt(ctx: ToolSetContext): string | undefined {
       if (!isMainConversation(ctx)) return undefined;
 
-      const jobs = cronStore.getJobs(ctxKey(ctx))
-        .filter((j) => j.status === 'active' || j.status === 'paused');
-      if (jobs.length === 0) return undefined;
+      const jobs = cronStore
+        .getJobs(ctxKey(ctx))
+        .filter((j) => j.status === "active" || j.status === "paused");
 
-      const lines = jobs.map((j) => {
-        const next = j.status === 'active'
-          ? `next: ${j.nextFireAt ?? 'unknown'}`
-          : 'paused';
-        return `  - [${j.status.toUpperCase()}] "${j.label}" (${j.cronExpr}) -> ${next}`;
-      }).join('\n');
+      const jobList =
+        jobs.length === 0
+          ? ""
+          : [
+              "",
+              "Active jobs:",
+              ...jobs.map((j) => {
+                const next =
+                  j.status === "active"
+                    ? `next: ${j.nextFireAt ?? "unknown"}`
+                    : "paused";
+                return `  [${j.status.toUpperCase()}] "${j.label}" (${j.cronExpr}) -> ${next}`;
+              }),
+              "",
+              "When a scheduled message arrives, treat it as a routine task trigger " +
+                "and execute the requested action.",
+            ].join("\n");
 
       return [
-        '## Scheduled Tasks',
-        '',
-        `The following cron jobs exist for this session:`,
-        lines,
-        '',
-        'When a scheduled message arrives, treat it as a routine task trigger ' +
-        'and execute the requested action. Use cron_list for up-to-date status.',
-      ].join('\n');
+        "## Cron Scheduling",
+        "",
+        "Schedule tasks with `cron_create`. The cron expression supports",
+        "5-field (minute-level) or 6-field (second-level) syntax:",
+        "",
+        "5-field:  minute hour day-of-month month day-of-week",
+        "6-field:  second minute hour day-of-month month day-of-week",
+        "",
+        "Examples:",
+        '  "*/5 * * * *"       every 5 minutes',
+        '  "0 9 * * 1"         every Monday at 09:00',
+        '  "*/30 * * * * *"    every 30 seconds',
+        "",
+        "Use `cron_list` for job status, `cron_update` to modify,",
+        "`cron_pause` / `cron_resume` to control firing, and `cron_delete`",
+        "to remove a job.",
+        jobList,
+      ].join("\n");
     },
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -109,36 +147,50 @@ export function createCronToolSet(adapter: CronManagerAdapter): ToolSet {
       // Wire stream so fired-job prompts become user messages.
       const stopFn = adapter.startListening(sessionId, (_jobId, prompt) => {
         helpers.sendMessage(prompt);
-        adapter.listJobs({ sessionId })
+        adapter
+          .listJobs({ sessionId })
           .then((jobs) => {
             cronStore.setJobs(sessionId, jobs);
             lastRefreshAt.set(sessionId, Date.now());
           })
-          .catch(() => { /* best-effort */ });
+          .catch(() => {
+            /* best-effort */
+          });
       });
       cronStore.setStopListening(sessionId, stopFn);
 
       // Sync backend state right away — persisted snapshot may be stale.
-      adapter.listJobs({ sessionId })
+      adapter
+        .listJobs({ sessionId })
         .then((jobs) => {
           cronStore.setJobs(sessionId, jobs);
           lastRefreshAt.set(sessionId, Date.now());
         })
-        .catch(() => { /* keep snapshot as fallback */ });
+        .catch(() => {
+          /* keep snapshot as fallback */
+        });
     },
 
     onRemove(ctx: ToolSetContext): void {
       if (!isMainConversation(ctx)) return;
 
       const sessionId = ctxKey(ctx);
+      // Stop the stream listener so no more fired events arrive.
       cronStore.stopListening(sessionId);
+      // Remove all in-memory state for this session.
       cronStore.remove(sessionId);
       lastRefreshAt.delete(sessionId);
     },
 
-    onReset(_ctx: ToolSetContext): void {
-      // Cron jobs are session-scoped autonomous entities — do NOT clear
-      // them on reset. Only onRemove tears everything down.
+    onReset(ctx: ToolSetContext): void {
+      if (!isMainConversation(ctx)) return;
+
+      // Stop the stream listener so no fired events arrive after reset.
+      // But keep the job list — cron jobs are autonomous session-scoped
+      // entities and should survive a conversation reset.
+      const sessionId = ctxKey(ctx);
+      cronStore.stopListening(sessionId);
+      cronStore.setStopListening(sessionId, undefined);
     },
 
     onBeforeRun(ctx: ToolSetContext): void {
@@ -153,13 +205,14 @@ export function createCronToolSet(adapter: CronManagerAdapter): ToolSet {
       const jobs = isMainConversation(ctx) ? cronStore.getJobs(sessionId) : [];
 
       return {
-        type: 'cron',
+        type: "cron",
         jobs,
+        cronAdapter: adapter,
         slots: isMainConversation(ctx)
           ? [
               {
-                type: 'panel',
-                label: 'Cron',
+                type: "panel",
+                label: "Cron",
                 showTab: (sc) => cronStore.getJobs(sc.sessionId).length > 0,
                 order: 30,
               },

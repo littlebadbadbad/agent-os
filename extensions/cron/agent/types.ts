@@ -41,6 +41,14 @@ export interface CronJob {
 export interface CronSymbolState extends PluginUiAdapter {
   readonly type: 'cron';
   readonly jobs: readonly CronJob[];
+  /**
+   * The adapter is exposed to UI via `onGetSymbolState` so that the
+   * iframe panel can call backend methods through the same adapter
+   * the ToolSet uses.  This keeps the UI code agnostic of the
+   * transport layer (IPC / HTTP) — identical to the browser and
+   * terminal extension patterns.
+   */
+  readonly cronAdapter: CronManagerAdapter;
 }
 
 // ── Adapter interface ─────────────────────────────────────────────────────────

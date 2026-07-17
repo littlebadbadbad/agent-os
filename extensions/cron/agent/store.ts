@@ -61,12 +61,13 @@ export const cronStore = {
     }
   },
 
-  setStopListening(sessionId: string, fn: () => void): void {
+  setStopListening(sessionId: string, fn: (() => void) | undefined): void {
     getOrCreate(sessionId).stopListening = fn;
   },
 
   stopListening(sessionId: string): void {
-    buckets.get(sessionId)?.stopListening?.();
+    const fn = buckets.get(sessionId)?.stopListening;
+    if (fn) fn();
   },
 
   reset(sessionId: string): void {

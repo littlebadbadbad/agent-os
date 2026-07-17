@@ -295,7 +295,11 @@ export function updateJob(id, sessionId, patch) {
  */
 export function deleteJob(id, sessionId) {
   const job = _jobs.get(id);
-  if (!job) return false;
+  if (!job) {
+    // Already deleted — idempotent: treat as success.
+    if (_log) _log.info('deleteJob: "' + id + '" already gone');
+    return true;
+  }
   if (sessionId !== undefined && job.sessionId !== sessionId) return false;
   if (job._cron) { job._cron.stop(); job._cron = null; }
   _jobs.delete(id);
@@ -313,6 +317,7 @@ export function pauseJob(id, sessionId) {
   const job = _jobs.get(id);
   if (!job) return null;
   if (sessionId !== undefined && job.sessionId !== sessionId) return null;
+  if (job.status === 'paused') return job; // already paused — idempotent
   if (job._cron) { job._cron.stop(); job._cron = null; }
   job.status = 'paused';
   job.nextFireAt = null;
@@ -356,17 +361,35 @@ export function getJob(id) {
 }
 
 /**
+ * Subscribe to fired events for a session.
+ *
+ * **Only one subscriber per sessionId is allowed.**
+ * If a previous subscriber exists, it is automatically replaced — this
+ * eliminates the "5 messages per fire" bug caused by stale backend
+ * subscriptions accumulating when the frontend reconnects.
+ *
  * @param {string} sessionId
  * @param {(jobId: string, prompt: string) => void} fn
  * @returns {() => void}
  */
 export function subscribe(sessionId, fn) {
-  let subs = _subscribers.get(sessionId);
-  if (!subs) { subs = new Set(); _subscribers.set(sessionId, subs); }
-  subs.add(fn);
+  // ── Deduplicate: replace any existing subscriber for this sessionId ──
+  const prev = _subscribers.get(sessionId);
+  if (prev) {
+    // Replace the old Set with a fresh one containing only the new fn.
+    // The old Set's members are orphaned — they'll never fire again.
+    _subscribers.set(sessionId, new Set([fn]));
+  } else {
+    const subs = new Set([fn]);
+    _subscribers.set(sessionId, subs);
+  }
+
   return () => {
-    subs.delete(fn);
-    if (subs.size === 0) _subscribers.delete(sessionId);
+    const subs = _subscribers.get(sessionId);
+    if (subs) {
+      subs.delete(fn);
+      if (subs.size === 0) _subscribers.delete(sessionId);
+    }
   };
 }
 

@@ -50,11 +50,16 @@ export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoo
     mkdirSync(pluginDataDir, { recursive: true });
   }
 
-  /**
-   * The `defineApi` object form: { methodName: handler, ... }
-   * Converting to the two-arg form for consistency.
-   */
+  /** Lazily-created logger — namespace = pluginId. */
+  let _logger = null;
+
   const host = {
+    /** Structured logger scoped to this plugin (created on first access). */
+    get logger() {
+      if (!_logger) _logger = createLogger(pluginId);
+      return _logger;
+    },
+
     defineApi(method, handler) {
       if (typeof method !== 'string') {
         log.error(`defineApi: method must be a string, got ${typeof method}`);

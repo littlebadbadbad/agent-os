@@ -17,7 +17,7 @@
 import { validateToolCall, executeValidatedToolCall } from "./execute";
 import { isAgentError, toErrorMessage } from "./errors";
 import type { ToolRegistry } from "./registry";
-import type { ToolSet, ToolSetContext } from "@agent-type";
+import { MAIN_CONVERSATION_ID, type ToolSet, type ToolSetContext } from "@agent-type";
 import type {
   ToolCall,
   ToolResult,
@@ -99,8 +99,8 @@ export function createToolCallPipeline(
       sessionId: ctx.sessionId,
       agentName: ctx.agentName,
       conversationId: ctx.conversationId,
-      sourceAgent: ctx.agentName as 'main' | string,
-      isSubAgent: ctx.agentName !== 'main',
+      sourceAgent: ctx.agentName,
+      isSubAgent: ctx.conversationId !== MAIN_CONVERSATION_ID,
       signal,
       handler,
       flushPersistence,

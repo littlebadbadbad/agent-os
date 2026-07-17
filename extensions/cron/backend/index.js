@@ -13,11 +13,10 @@
  * @param {import('@agent-type').BackendPluginHost} host
  */
 
-import { createLogger } from '../../../backend/lib/logger.js';
 import * as manager from './cron-manager/index.js';
 
 export function activate(host) {
-  const log = createLogger('cron-plugin');
+  const log = host.logger;
 
   // Initialise the cron manager with the plugin-scoped data directory.
   const dataDir = host.getPluginDataDir();

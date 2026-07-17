@@ -17,15 +17,13 @@ export function createCronTools(adapter: CronManagerAdapter) {
     name: 'cron_create',
     group: 'Scheduling',
     description:
-      'Schedule a recurring or one-shot task using a cron expression. ' +
-      'When the job fires, the given prompt is injected as a new user message, ' +
-      'driving the next agent turn automatically. ' +
-      'Use standard 5-field cron syntax: minute hour day-of-month month day-of-week. ' +
-      'Examples: "*/5 * * * *" (every 5 min), "0 9 * * 1" (every Monday at 09:00).',
+      'Schedule a recurring or one-shot cron task. ' +
+      'When the job fires, the prompt is injected as a new user message ' +
+      'driving the next agent turn.',
     parameters: z.object({
       cronExpr: z
         .string()
-        .describe('5-field cron expression, e.g. "0 */6 * * *" for every 6 hours.'),
+        .describe('Cron expression, see cron syntax docs for details.'),
       prompt: z
         .string()
         .describe('Message to inject as a user turn when the job fires.'),
@@ -144,14 +142,14 @@ export function createCronTools(adapter: CronManagerAdapter) {
     name: 'cron_update',
     group: 'Scheduling',
     description:
-      'Update mutable fields of an existing cron job without deleting and recreating it. ' +
-      'All fields are optional — only supplied fields are changed.',
+      'Update mutable fields of an existing cron job. ' +
+      'All fields are optional — only supplied fields change.',
     parameters: z.object({
       id: z.string().describe('The cron job ID to update.'),
       cronExpr: z
         .string()
         .optional()
-        .describe('New 5-field cron expression. Rescheduling takes effect immediately.'),
+        .describe('New cron expression. Rescheduling takes effect immediately.'),
       prompt: z
         .string()
         .optional()

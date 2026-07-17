@@ -162,6 +162,21 @@ export interface ProxyConfig {
   readonly connectTimeout: number;
 }
 
+// ── Logger interface ──────────────────────────────────────────────────────────
+
+/**
+ * Structured logger with colour-coded output and 5 levels.
+ *
+ * Plugins obtain a logger via `BackendPluginHost.logger`.
+ */
+export interface Logger {
+  info(msg: string, extras?: unknown): void;
+  ok(msg: string, extras?: unknown): void;
+  warn(msg: string, extras?: unknown): void;
+  error(msg: string, extras?: unknown): void;
+  debug(msg: string, extras?: unknown): void;
+}
+
 // ── Plugin host interfaces ────────────────────────────────────────────────────
 
 /**
@@ -218,6 +233,21 @@ export interface BackendPluginHost {
    * @returns    The configuration value.
    */
   getBackendConfig<T = unknown>(key: string): T;
+
+  /**
+   * Structured logger scoped to this plugin.
+   *
+   * Created lazily on first access — the namespace is automatically set to
+   * the plugin's manifest `id`.  Subsequent reads return the cached instance.
+   *
+   * Replaces direct imports of `backend/lib/logger.js`.
+   *
+   * @example
+   * ```ts
+   * host.logger.info('activated');
+   * ```
+   */
+  readonly logger: Logger;
 }
 
 /**

@@ -10,7 +10,6 @@
 import { randomBytes } from 'crypto';
 import { basename, join } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { createLogger } from '../../../../backend/lib/logger.js';
 
 // ── Terminal services (co-located in the same plugin) ──────────────────────
 import {
@@ -22,7 +21,18 @@ import {
   subscribeTerminalOutput,
 } from './terminals.js';
 
-const log = createLogger('plugin-upgrade');
+/** @type {import('../../../../agent-type/plugin.ts').Logger} */
+let log = { info() {}, ok() {}, warn() {}, error() {}, debug() {} };
+
+/**
+ * Initialise the upgrade module with a logger from the host.
+ * Called once during plugin activation — replaces the noop starter.
+ *
+ * @param {import('../../../../agent-type/plugin.ts').BackendPluginHost} host
+ */
+export function init(host) {
+  log = host.logger;
+}
 
 // ── Runtime mode ───────────────────────────────────────────────────────────
 

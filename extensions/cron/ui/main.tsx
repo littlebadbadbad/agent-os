@@ -5,13 +5,17 @@
  *   - Reads slotContext from window.__UAP_PLUGIN_HOST__ to know
  *     which slot instance it's rendering.
  *   - For panel slot: renders CronPanel with job list and actions.
- *   - Receives host->iframe messages via host.onSlotMessage().
+ *   - Reads the adapter from ToolSet's symbol state (exposed via
+ *     `onGetSymbolState`) and uses it for all backend calls.
+ *     NO `host.apiClient.call()` — follows the same adapter pattern
+ *     as browser/terminal extensions.
  */
 
-import { StrictMode, useSyncExternalStore } from "react";
+import { StrictMode, useState, useEffect, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import type { UiPluginHost, SlotHostMessage } from "@agent-type";
 import type { CronSymbolState } from "../agent/types";
+import type { CronJob } from "../agent/types";
 import { CronPanel } from "./CronPanel";
 
 declare global {
@@ -55,61 +59,86 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // Reactive store mirroring the ToolSet's symbol state.
-  let cronState = host.getPluginState()?.[1] as CronSymbolState | undefined ?? null;
-  const listeners = new Set<() => void>();
+  // ── Read the cron adapter from ToolSet symbol state ──────────────────
+  // This is the SAME adapter that the ToolSet uses internally.
+  // Every extension (browser, terminal, etc.) exposes its adapter this way.
+  const pluginState = host.getPluginState();
+  const cronSymbolState = pluginState?.[1] as CronSymbolState | undefined;
+  const cronAdapter = cronSymbolState?.cronAdapter;
+  if (!cronAdapter) {
+    console.warn("[cron-ui] cronAdapter not available from plugin state");
+  }
 
-  const emitChange = () => {
-    const state = host.getPluginState();
-    cronState = state?.[1] as CronSymbolState | undefined ?? null;
-    listeners.forEach((l) => l());
-  };
-
-  const subscribe = (cb: () => void): (() => void) => {
-    listeners.add(cb);
-    return () => { listeners.delete(cb); };
-  };
-
-  const getSnapshot = () => cronState;
-
-  // Subscribe to host->iframe state updates.
-  host.onSlotMessage((msg: SlotHostMessage) => {
-    if (msg.type === "panel") {
-      emitChange();
+  async function fetchJobs(): Promise<readonly CronJob[]> {
+    if (!cronAdapter) return [];
+    try {
+      return await cronAdapter.listJobs({ sessionId: slotCtx.sessionId });
+    } catch {
+      return [];
     }
-  });
+  }
 
-  // Also poll for state changes via subscribe pattern.
-  // (fallback when host doesn't push panel messages)
+  // ── Actions — all go through the adapter, never apiClient ────────────
 
-  // Actions - call backend directly via apiClient.
   const actions = {
-    pauseJob: async (id: string) => {
-      await host.apiClient.call("pauseJob", { id, sessionId: slotCtx.id });
-      emitChange();
+    pauseJob: async (_setJobs: (j: readonly CronJob[]) => void, id: string) => {
+      if (!cronAdapter) return;
+      await cronAdapter.pauseJob(id, slotCtx.sessionId);
+      _setJobs(await fetchJobs());
     },
-    resumeJob: async (id: string) => {
-      await host.apiClient.call("resumeJob", { id, sessionId: slotCtx.id });
-      emitChange();
+    resumeJob: async (_setJobs: (j: readonly CronJob[]) => void, id: string) => {
+      if (!cronAdapter) return;
+      await cronAdapter.resumeJob(id, slotCtx.sessionId);
+      _setJobs(await fetchJobs());
     },
-    deleteJob: async (id: string) => {
-      await host.apiClient.call("deleteJob", { id, sessionId: slotCtx.id });
-      emitChange();
+    deleteJob: async (_setJobs: (j: readonly CronJob[]) => void, id: string) => {
+      if (!cronAdapter) return;
+      await cronAdapter.deleteJob(id, slotCtx.sessionId);
+      _setJobs(await fetchJobs());
     },
   };
+
+  // ── App component ────────────────────────────────────────────────────
 
   const rootEl = document.getElementById("root");
 
   function App() {
-    const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-    const jobs = state?.jobs ?? [];
+    const [jobs, setJobs] = useState<readonly CronJob[]>([]);
+
+    // Load initial jobs from backend.
+    useEffect(() => {
+      fetchJobs().then(setJobs);
+    }, []);
+
+    // Listen for host→iframe panel messages — refresh from adapter.
+    useEffect(() => {
+      const unsub = host.onSlotMessage((msg: SlotHostMessage) => {
+        if (msg.type === "panel") {
+          fetchJobs().then(setJobs);
+        }
+      });
+      return unsub;
+    }, []);
+
+    const handlePause = useCallback(
+      (id: string) => actions.pauseJob(setJobs, id),
+      [],
+    );
+    const handleResume = useCallback(
+      (id: string) => actions.resumeJob(setJobs, id),
+      [],
+    );
+    const handleDelete = useCallback(
+      (id: string) => actions.deleteJob(setJobs, id),
+      [],
+    );
 
     return (
       <CronPanel
         jobs={jobs}
-        onPause={actions.pauseJob}
-        onResume={actions.resumeJob}
-        onDelete={actions.deleteJob}
+        onPause={handlePause}
+        onResume={handleResume}
+        onDelete={handleDelete}
       />
     );
   }
