@@ -77,8 +77,19 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     toUIMessages: agentMessagesToUI,
   });
 
+  // ── Auto-set session title from first user message ──────────────────────
+  function maybeSetTitle(text: string): void {
+    if (tracker.getFullHistory().length === 0 && text.length > 0) {
+      const title = text.length <= 60 ? text : text.slice(0, 57) + '…';
+      session.setTitle(title);
+    }
+  }
+
   const session: AgentSession = {
-    sendMessage: runner.sendMessage,
+    sendMessage: async (text, attachments) => {
+      maybeSetTitle(text);
+      await runner.sendMessage(text, attachments);
+    },
     editAndSendMessage: runner.editAndSendMessage,
     injectToolResult: runner.injectToolResult,
 

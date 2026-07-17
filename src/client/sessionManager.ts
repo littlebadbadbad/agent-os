@@ -61,7 +61,7 @@ export function createSessionManager(
 
   function addEntry(data: SessionEntryData): AgentSession {
     const session = sessionFactory(data);
-    entries.set(data.id, { id: data.id, title: data.title, session });
+    entries.set(data.id, { id: data.id, title: data.title, createdAt: new Date().toISOString(), session });
     order.push(data.id);
     return session;
   }
@@ -117,11 +117,6 @@ export function createSessionManager(
 
   if (order.length > 0) {
     activeSessionId = order[0];
-  } else {
-    // Always start with at least one session so the UI is never empty.
-    const id = generateId();
-    addEntry({ id, title: 'New Chat' });
-    activeSessionId = id;
   }
 
   updateSnapshot();

@@ -13,6 +13,8 @@ export type { SessionEntryData, SessionEntryDataBase };
 export type SessionListEntry = {
   id: string;
   title: string;
+  /** ISO timestamp of when this entry was created. */
+  createdAt: string;
   session: AgentSession;
 };
 

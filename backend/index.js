@@ -146,9 +146,6 @@ async function handleRequest(req, res) {
   const { pathname: path } = new URL(req.url, `http://localhost:${PORT}`);
 
   try {
-    if (req.method === 'GET' && path === '/api/health') {
-      return send(res, 200, systemService.checkHealth());
-    }
 
     if (req.method === 'GET' && path === '/api/public-key') {
       return send(res, 200, systemService.getPublicKeyInfo());

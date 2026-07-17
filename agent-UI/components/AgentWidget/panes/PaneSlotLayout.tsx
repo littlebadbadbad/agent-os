@@ -35,35 +35,71 @@ export interface PaneSlotLayoutProps {
   /** Slot display context for badge / visibility callbacks. */
   readonly slotCtx: SlotDisplayContext;
 
-  /** The main content (chat + input). */
+  /** The main content (chat messages — no ChatInput; caller owns that). */
   readonly children: ReactNode;
+
+  // ── Main-agent extensions (optional, ignored by sub-agent callers) ─
+
+  /**
+   * When set, a "Sub-Agents" tab is shown.  This content is rendered when
+   * the user clicks that tab.  Only the main agent's SessionContent sets
+   * this; sub-agent conversations never have sub-agents of their own.
+   */
+  readonly subAgentPanel?: ReactNode;
+
+  /**
+   * Extra elements appended to the right end of the tab bar, e.g. a
+   * "Clear" button.  Rendered only when the chat view is active.
+   */
+  readonly tabBarExtra?: ReactNode;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+type View = 'chat' | 'subagents' | `plugin:${string}`;
+
 /**
  * Shared slot layout: headerBar → tab bar → content area.
  *
- * The tab bar shows a "Chat" tab plus one tab per visible panel slot.
- * Content area renders `children` (the chat view) or the selected
- * panel's SlotRenderer.
+ * Tab bar shows:
+ *   Chat  [plugin tabs]  [Sub-Agents]  [Clear…]
+ *
+ * Content area renders:
+ *   - `children` (chat) or the selected plugin panel or sub-agent panel.
+ *
+ * Chat messages are always mounted (CSS `display:none` when hidden) so
+ * scroll position is preserved across tab switches.
  */
 export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
-  const { slotSession, headerBarSlots, panelSlots, inlinePromptSlots, slotCtx, children } = props;
+  const {
+    slotSession,
+    headerBarSlots,
+    panelSlots,
+    inlinePromptSlots,
+    slotCtx,
+    children,
+    subAgentPanel,
+    tabBarExtra,
+  } = props;
 
-  const [paneView, setPaneView] = useState<string>('chat');
+  const [paneView, setPaneView] = useState<View>('chat');
 
-  // Reset to chat when the selected panel is no longer available.
-  const effectiveView = useMemo(() => {
-    if (paneView === 'chat') return 'chat';
+  // Clamp to a valid view when the selected panel disappears.
+  const effectiveView = useMemo<View>(() => {
+    if (paneView === 'chat' || paneView === 'subagents') return paneView;
     const pluginId = paneView.slice('plugin:'.length);
-    return panelSlots.some((p) => p.pluginId === pluginId) ? paneView : 'chat';
+    if (panelSlots.some((p) => p.pluginId === pluginId)) return paneView;
+    return 'chat';
   }, [paneView, panelSlots]);
+
+  const hasPluginTabs = panelSlots.length > 0;
+  const hasSubAgentTab = subAgentPanel !== undefined;
+  const showTabBar = hasPluginTabs || hasSubAgentTab;
+  const isChatActive = effectiveView === 'chat';
 
   return (
     <>
-      {/* HeaderBar slots — thin full-width bars above the tab bar.
-          shouldRender is checked inside SlotRenderer via slotRegistry. */}
+      {/* HeaderBar slots — thin full-width bars above the tab bar. */}
       {slotSession && headerBarSlots.map((entry) => (
         <SlotRenderer
           key={`${entry.pluginId}:${entry.slotId}`}
@@ -75,59 +111,82 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
         />
       ))}
 
-      {/* Tab bar: Chat + one tab per visible panel slot. */}
-      {panelSlots.length > 0 && (
+      {/* Tab bar */}
+      {showTabBar && (
         <div className={styles['tab-bar']}>
           <button
             type="button"
-            className={`${styles['tab']}${effectiveView === 'chat' ? ` ${styles['tab--active']}` : ''}`}
+            className={`${styles['tab']}${isChatActive ? ` ${styles['tab--active']}` : ''}`}
             onClick={() => setPaneView('chat')}
           >
             Chat
           </button>
-          {panelSlots.map((entry) => {
-            const v = `plugin:${entry.pluginId}`;
-            const badge = entry.declaration.badge?.(slotCtx) ?? null;
-            return (
-              <button
-                key={entry.pluginId}
-                type="button"
-                className={`${styles['tab']}${effectiveView === v ? ` ${styles['tab--active']}` : ''}`}
-                onClick={() => setPaneView(v)}
-              >
-                {entry.declaration.icon && <span className={styles['tab-icon']}>{entry.declaration.icon}</span>}
-                {entry.declaration.label}
-                {badge && <span className={styles['tab-badge']}>{badge}</span>}
-              </button>
-            );
-          })}
+
+          {/* Plugin panel tabs */}
+          {hasPluginTabs && panelSlots
+            .slice()
+            .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100))
+            .map((entry) => {
+              const v: View = `plugin:${entry.pluginId}`;
+              const badge = entry.declaration.badge?.(slotCtx) ?? null;
+              return (
+                <button
+                  key={entry.pluginId}
+                  type="button"
+                  className={`${styles['tab']}${effectiveView === v ? ` ${styles['tab--active']}` : ''}`}
+                  onClick={() => setPaneView(v)}
+                >
+                  {entry.declaration.icon && <span className={styles['tab-icon']}>{entry.declaration.icon}</span>}
+                  {entry.declaration.label}
+                  {badge && <span className={styles['tab-badge']}>{badge}</span>}
+                </button>
+              );
+            })}
+
+          {/* Sub-Agents tab (main agent only) */}
+          {hasSubAgentTab && (
+            <button
+              type="button"
+              className={`${styles['tab']}${effectiveView === 'subagents' ? ` ${styles['tab--active']}` : ''}`}
+              onClick={() => setPaneView('subagents')}
+            >
+              Sub-Agents
+            </button>
+          )}
+
+          {/* Extra actions rendered only in chat view */}
+          {isChatActive && tabBarExtra}
         </div>
       )}
 
-      {/* Content area: chat view or selected panel.
-          Uses CSS display:none (styles['hidden']) instead of unmounting so
-          that the chat panel retains its scroll position when switching
-          to a plugin tab and back. */}
-      <div
-        className={effectiveView === 'chat' ? styles['chat-panel'] : styles['hidden']}
-      >
+      {/* Content area: chat messages — always mounted, hidden via CSS. */}
+      <div className={isChatActive ? styles['chat-panel'] : styles['hidden']}>
         {children}
       </div>
-      {effectiveView !== 'chat' && slotSession && panelSlots
-        .filter((p) => `plugin:${p.pluginId}` === effectiveView)
-        .map((entry) => (
-          <SlotRenderer
-            key={entry.pluginId}
-            pluginId={entry.pluginId}
-            slotType="panel"
-            slotId={entry.slotId}
-            toolSetSymbol={entry.toolSetSymbol}
-            session={slotSession}
-          />
-        ))}
 
-      {/* InlinePrompt slots — overlay iframes (pending-input prompts, etc.).
-          shouldRender is checked inside SlotRenderer via declaration prop. */}
+      {/* Plugin panel slot */}
+      {!isChatActive && effectiveView !== 'subagents' && slotSession &&
+        panelSlots
+          .filter((p) => `plugin:${p.pluginId}` === effectiveView)
+          .map((entry) => (
+            <SlotRenderer
+              key={entry.pluginId}
+              pluginId={entry.pluginId}
+              slotType="panel"
+              slotId={entry.slotId}
+              toolSetSymbol={entry.toolSetSymbol}
+              session={slotSession}
+            />
+          ))}
+
+      {/* Sub-agents panel — always mounted when present, hidden via CSS. */}
+      {hasSubAgentTab && (
+        <div className={effectiveView === 'subagents' ? styles['chat-panel'] : styles['hidden']}>
+          {subAgentPanel}
+        </div>
+      )}
+
+      {/* InlinePrompt slots — overlay iframes. */}
       {slotSession && inlinePromptSlots.map((entry) => (
         <SlotRenderer
           key={`${entry.pluginId}:${entry.slotId}`}

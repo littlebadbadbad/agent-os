@@ -24,12 +24,14 @@ function makeMockHandler(): AgentHandler {
 }
 
 function createAgent(toolSets: any[] = []) {
-  return createAgentClient({
+  const agent = createAgentClient({
     handler: makeMockHandler(),
     systemPrompt: '',
     tools: [],
     toolSets,
   });
+  agent.getSessionManager().createSession();
+  return agent;
 }
 
 function addAssistantWithToolCall(
@@ -150,6 +152,7 @@ describe('AgentSession.injectToolResult', () => {
       handler,
       systemPrompt: '',
     });
+    agent.getSessionManager().createSession();
     const session = agent.getSessionManager().getActiveSession()!;
 
     expect(handler).not.toHaveBeenCalled();

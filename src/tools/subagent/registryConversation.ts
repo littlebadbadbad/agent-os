@@ -26,6 +26,7 @@ export type MutableConvState = {
   id: string;
   agentName: string;
   title: string;
+  createdAt: string;
   isLoading: boolean;
   streamingText: string;
   /** Unified dual-buffer history tracker (live LLM context + full append-only record). */
@@ -98,6 +99,7 @@ export function makeConversation(
     id: conversationId,
     agentName,
     title,
+    createdAt: new Date().toISOString(),
     isLoading: false,
     streamingText: '',
     tracker: createHistoryTracker(),
@@ -144,6 +146,7 @@ export function makeConversation(
           agentName: state.agentName,
           conversationId: state.id,
           title: state.title,
+          createdAt: state.createdAt,
           isLoading: state.isLoading,
           streamingText: state.streamingText,
           history: state.tracker.getFullHistory(),

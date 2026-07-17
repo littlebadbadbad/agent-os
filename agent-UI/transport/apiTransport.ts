@@ -192,8 +192,6 @@ function createIpcApiTransport(): ApiTransport {
   // `toParams` transform so backend handlers receive the correct business
   // parameters (e.g. `{ agentId }` for session-load) instead of raw URL parts.
   const ROUTES: IpcRouteEntry[] = [
-    // ── Health ─────────────────────────────────────────────────────────────
-    { method: 'GET',    pattern: '/api/health',                exact: true,  channel: 'health:check' },
     // ── Public key ─────────────────────────────────────────────────────────
     { method: 'GET',    pattern: '/api/public-key',            exact: true,  channel: 'publicKey:get' },
     // ── Proxy ──────────────────────────────────────────────────────────────

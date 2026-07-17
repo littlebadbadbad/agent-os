@@ -37,23 +37,6 @@ vi.hoisted(() => {
 import { apiTransport } from '../transport/apiTransport';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Health
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe('GET /api/health', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('calls health:check with empty params', async () => {
-    mockInvoke.mockResolvedValue({ status: 'ok' });
-
-    const result = await apiTransport.get('/api/health');
-
-    expect(mockInvoke).toHaveBeenCalledWith('health:check', {});
-    expect(result).toEqual({ status: 'ok' });
-  });
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
 // Public key
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -278,11 +261,5 @@ describe('Route errors', () => {
     await expect(
       apiTransport.get('/api/nonexistent'),
     ).rejects.toThrow(/No route for GET \/api\/nonexistent/);
-  });
-
-  it('throws on method mismatch', async () => {
-    await expect(
-      apiTransport.post('/api/health'),
-    ).rejects.toThrow(/No route for POST \/api\/health/);
   });
 });

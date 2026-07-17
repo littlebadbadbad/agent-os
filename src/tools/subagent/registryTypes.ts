@@ -33,6 +33,8 @@ export type SubAgentSerializedConversation = {
   /** Name of the sub-agent that owns this conversation. */
   agentName: string;
   title: string;
+  /** ISO timestamp of when this conversation was created. */
+  createdAt?: string;
   /** Full conversation history (all messages, for UI display). */
   history: AgentMessage[];
   /**
@@ -94,6 +96,8 @@ export type SubAgentConversationState = {
   readonly conversationId: string;
   /** Human-readable title (auto-generated or provided at creation). */
   readonly title: string;
+  /** ISO timestamp of when this conversation was created. */
+  readonly createdAt: string;
   /** Whether the sub-agent is currently executing a task in this conversation. */
   readonly isLoading: boolean;
   /**

@@ -56,7 +56,7 @@ export interface PluginProviderProps {
    * The active session to derive slot state from.
    * When undefined (no active session), the registry is empty.
    */
-  readonly session: SlotSession | undefined;
+  readonly session?: SlotSession | null;
   readonly children: ReactNode;
 }
 

@@ -33,14 +33,6 @@ function makeAgent(toolSets: any[]) {
   });
 }
 
-// ── VariableToolSet ─────────────────────────────────────────────────────────
-
-    agent.getSessionManager().createSession();
-    const sessions = agent.getSessionManager().getState().sessions;
-    const session2State = sessions[sessions.length - 1].session.getState();
-  });
-});
-
 // ── VariableToolSet ───────────────────────────────────────────────────────────
 
 describe('createAgentClient + VariableToolSet', () => {

@@ -87,6 +87,12 @@ export function createExecutionFunctions(
       return { output: '', turns: 0, toolCallCount: 0, history: conv._state.tracker.getLiveHistory() } satisfies SubAgentResult;
     }
 
+    // Auto-set conversation title from first user message.
+    if (conv._state.tracker.getFullHistory().length === 0 && message.length > 0) {
+      const title = message.length <= 60 ? message : message.slice(0, 57) + '…';
+      conv._state.title = title;
+    }
+
     // Delegate to the persistent ConversationRunner — exactly like the
     // main agent's `AgentSession.sendMessage`.
     if (!conv._state.runner) {

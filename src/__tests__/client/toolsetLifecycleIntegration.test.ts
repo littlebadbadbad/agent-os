@@ -164,6 +164,8 @@ function createTestAgent(spyName = 'spy', spySym?: symbol) {
     tools: [],
     toolSets: [spy, sub],
   });
+  // Create an initial session so tests can reference it.
+  agent.getSessionManager().createSession();
   return { spy, sub, agent };
 }
 
@@ -633,6 +635,7 @@ describe('ToolSet lifecycle �?main agent vs sub-agent parity', () => {
         toolSets: [varTs, sub],
       });
 
+      agent.getSessionManager().createSession();
       const session = agent.getSessionManager().getActiveSession()!;
       const sessionId = session.getState().id;
       const state = session.getState() as any;
@@ -677,6 +680,7 @@ describe('Multiple ToolSets coexist with correct lifecycle', () => {
       toolSets: [spy1, spy2, sub],
     });
 
+    agent.getSessionManager().createSession();
     const session = agent.getSessionManager().getActiveSession()!;
     const state = session.getState() as any;
 

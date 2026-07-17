@@ -45,12 +45,12 @@ function makeFactory() {
 describe('createSessionManager', () => {
   // ── Initialization ────────────────────────────────────────────────────────
 
-  it('starts with one auto-created session when no initialSessions given', () => {
+  it('starts with an empty session list when no initialSessions given', () => {
     const { factory } = makeFactory();
     const mgr = createSessionManager(factory);
     const state = mgr.getState();
-    expect(state.sessions).toHaveLength(1);
-    expect(state.activeSessionId).toBeDefined();
+    expect(state.sessions).toHaveLength(0);
+    expect(state.activeSessionId).toBeUndefined();
   });
 
   it('uses provided initialSessions and activates the first one', () => {
