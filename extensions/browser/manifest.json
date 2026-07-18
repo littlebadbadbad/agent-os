@@ -5,7 +5,5 @@
   "description": "Playwright browser automation",
   "agentEntry": "activate.js",
   "backendEntry": "backend.cjs",
-  "uiEntry": "ui/index.html",
-  "privileged": true,
-  "tools": ["browser"]
+  "uiEntry": "ui/index.html"
 }

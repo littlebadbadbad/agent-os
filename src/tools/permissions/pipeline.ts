@@ -62,12 +62,14 @@ export function matchPermissionRule(
  * Resolve a permission rule set's action for a given tool name.
  *
  * Iterates rules in insertion order and returns the action of the first
- * matching rule.  Returns `undefined` when no rule matches.
+ * matching rule.  Returns `undefined` when no rule matches or rules is
+ * null/undefined.
  */
 export function resolveRuleAction(
   rules: Record<string, 'allow' | 'deny' | 'ask'>,
   toolName: string,
 ): 'allow' | 'deny' | 'ask' | undefined {
+  if (!rules) return undefined;
   for (const [pattern, action] of Object.entries(rules)) {
     if (matchPermissionRule(pattern, toolName)) {
       return action;

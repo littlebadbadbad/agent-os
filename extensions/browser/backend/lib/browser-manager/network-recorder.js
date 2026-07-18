@@ -20,6 +20,8 @@
  * ```
  */
 
+/** @import { Request, Response, Page } from 'playwright' */
+
 const DEFAULT_MAX_ENTRIES = 1000;
 /** Maximum bytes stored per request or response body. Bodies exceeding this are truncated. */
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
@@ -86,7 +88,7 @@ export class NetworkRecorder {
   /**
    * Tracks in-flight requests: maps a Playwright Request object to the
    * corresponding entry so we can fill in response details when they arrive.
-   * @type {Map<import('playwright').Request, NetworkEntry>}
+   * @type {Map<Request, NetworkEntry>}
    */
   #pending = new Map();
 
@@ -95,11 +97,11 @@ export class NetworkRecorder {
   #onResponse;
   #onRequestFailed;
 
-  /** @type {import('playwright').Page} */
+  /** @type {Page} */
   #page;
 
   /**
-   * @param {import('playwright').Page} page
+   * @param {Page} page
    * @param {{ tabIndex: number; getNextId: () => number; maxEntries?: number }} opts
    */
   constructor(page, { tabIndex, getNextId, maxEntries = DEFAULT_MAX_ENTRIES }) {
@@ -120,7 +122,7 @@ export class NetworkRecorder {
 
   // ── Private event handlers ─────────────────────────────────────────────────
 
-  /** @param {import('playwright').Request} request */
+  /** @param {Request} request */
   #handleRequest(request) {
     const rawPostData = request.postData();
     const requestBody = rawPostData
@@ -150,7 +152,7 @@ export class NetworkRecorder {
     this.#pushEntry(entry);
   }
 
-  /** @param {import('playwright').Response} response */
+  /** @param {Response} response */
   async #handleResponse(response) {
     const request = response.request();
     const entry   = this.#pending.get(request);
@@ -186,7 +188,7 @@ export class NetworkRecorder {
     this.#pending.delete(request);
   }
 
-  /** @param {import('playwright').Request} request */
+  /** @param {Request} request */
   #handleRequestFailed(request) {
     const entry = this.#pending.get(request);
     if (!entry) return;

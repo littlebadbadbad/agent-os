@@ -19,25 +19,6 @@ export type {
 export { createToolSearchToolSet } from './tools/toolSearch';
 export type { ToolSet, ToolSetState, ToolSetContext, ToolSetStateContext, AgentQueryFns, AgentClientLike, ToolContextPatch, SystemPromptContext, CompactionResult, CompactionNotice } from '@agent-type';
 export { MAIN_CONVERSATION_ID, ctxKey } from './tools/toolSet';
-export { createFileTools, createFileToolSet } from './tools/file';
-export type {
-  FileAdapter,
-  HttpFileAdapterConfig,
-  ReadFileResult,
-  WriteFileResult,
-  StrReplaceResult,
-  ReplaceAllResult,
-  DeleteFileResult,
-  MoveFileResult,
-  DirEntry,
-  ListDirResult,
-  SearchFilesResult,
-  SearchMatch,
-  WorkspaceRootResult,
-} from './tools/file';
-export { defaultHttpFileAdapter as createHttpFileAdapter } from './tools/file';
-export { createIpcFileAdapter } from './tools/file';
-export type { IpcFileAdapterConfig } from './tools/file';
 export {
   toOpenAIMessages,
   toAnthropicMessages,
@@ -61,16 +42,6 @@ export type {
 } from './tools/subagent';
 export { createToolResultCompressorToolSet } from './tools/historyProcessing';
 export type { ToolResultCompressorOptions } from './tools/historyProcessing';
-
-// ── Dynamic tool management ───────────────────────────────────────────────────
-export { createDynamicToolset, createHttpDynamicToolAdapter, createIpcDynamicToolAdapter } from './tools/dynamicTool';
-export type {
-  DynamicToolRuntime,
-  DynamicToolEntry,
-  DynamicToolAdapter,
-  HttpDynamicToolAdapterConfig,
-  IpcDynamicToolAdapterConfig,
-} from './tools/dynamicTool';
 
 // ── Permissions ───────────────────────────────────────────────────────────────
 export { createPermissionsToolSet } from './tools/permissions';
@@ -170,15 +141,4 @@ export {
 } from './tools/errors';
 export type { AgentError, AgentErrorCode } from './tools/errors';
 
-// ── Git management ───────────────────────────────────────────────────────────
-export { createGitToolSet, createHttpGitAdapter, createIpcGitAdapter } from './tools/git';
-export type {
-  GitAdapter,
-  GitFileEntry,
-  GitStatusResult,
-  GitDiffResult,
-  GitLogEntry,
-  GitCommitResult,
-  HttpGitAdapterConfig,
-  IpcGitAdapterConfig,
-} from './tools/git';
+

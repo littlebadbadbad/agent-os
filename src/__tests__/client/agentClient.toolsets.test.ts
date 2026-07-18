@@ -25,12 +25,14 @@ function makeMockHandler(): AgentHandler {
 // ── Agent factory helper ──────────────────────────────────────────────────────
 
 function makeAgent(toolSets: any[]) {
-  return createAgentClient({
+  const agent = createAgentClient({
     handler: makeMockHandler(),
     systemPrompt: '',
     tools: [],
     toolSets,
   });
+  agent.createSession();
+  return agent;
 }
 
 // ── VariableToolSet ───────────────────────────────────────────────────────────

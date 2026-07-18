@@ -16,12 +16,12 @@
 
 import { useState, useCallback, useSyncExternalStore, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import type { Attachment, SubAgentRegistry, SubAgentEntrySnapshot } from '@agent-sdk';
+import type { Attachment, SubAgentRegistry, SubAgentEntrySnapshot, SubAgentConversationState } from '@agent-sdk';
 import type { SlotDisplayContext, PanelSlotDeclaration, SlotSession } from '@agent-type';
 import type { SlotEntry } from '../../../slots/registry';
 import { ChatMessages } from '../chat/ChatMessages';
 import { ConversationNavigator, formatTimeAgo } from '../navigator';
-import type { ConversationItem } from '../navigator';
+import type { ConversationItem, SessionHandle } from '../navigator';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
 import { PaneSlotLayout } from '../panes/PaneSlotLayout';
 import { buildSlotDisplayContextFromState } from '../../../slots/context';
@@ -105,27 +105,43 @@ function ConversationChat({ registry, agentName, convId, sessionId }: Conversati
 interface AgentNavigatorProps {
   registry: SubAgentRegistry;
   agentName: string;
-  conversations: readonly import('@agent-sdk').SubAgentConversationState[];
+  conversations: readonly SubAgentConversationState[];
   sessionId: string;
 }
 
 function AgentNavigator({ registry, agentName, conversations, sessionId }: AgentNavigatorProps): ReactElement {
-  // Build conversation items for the navigator.
   const items: readonly ConversationItem[] = useMemo(
     () => conversations.map((c) => ({
       id: c.conversationId,
       title: c.title,
       subtitle: formatTimeAgo(c.createdAt),
-      isLoading: c.isLoading,
     })),
     [conversations],
   );
 
-  const [selectedConvId, setSelectedConvId] = useState<string | undefined>(undefined);
+  const [selectedConvId, setSelectedConvId] = useState<string | undefined>();
 
   const selectedConv = selectedConvId
     ? conversations.find((c) => c.conversationId === selectedConvId)
     : undefined;
+
+  // Build reactive SessionHandle — loading state flows through
+  // subscribe/getState so ConversationNavigator doesn't need isLoading prop.
+  const activeSession: SessionHandle | null = useMemo(() => {
+    if (!selectedConv) return null;
+    const rawConv = registry.getConversation(agentName, selectedConv.conversationId);
+    if (!rawConv) return null;
+    return {
+      id: selectedConv.conversationId,
+      title: selectedConv.title,
+      subscribe: rawConv.subscribe.bind(rawConv),
+      getState: () => ({ isLoading: selectedConv.isLoading, enableAttachments: false }),
+      sendMessage: (text, attachments) =>
+        registry.sendConversationMessage(agentName, selectedConv.conversationId, text, attachments),
+      cancelMessage: () =>
+        registry.cancelConversationMessage(agentName, selectedConv.conversationId),
+    };
+  }, [selectedConv, registry, agentName]);
 
   const handleSelect = useCallback((id: string) => {
     registry.setActiveConversation(agentName, id);
@@ -151,23 +167,15 @@ function AgentNavigator({ registry, agentName, conversations, sessionId }: Agent
     [],
   );
 
-  const handleSendMessage = useCallback(
+  const handleCreateSession = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      if (selectedConvId) {
-        await registry.sendConversationMessage(agentName, selectedConvId, text, attachments);
-      } else {
-        const newConv = registry.createConversation(agentName);
-        const newId = newConv.getState().conversationId;
-        setSelectedConvId(newId);
-        await registry.sendConversationMessage(agentName, newId, text, attachments);
-      }
+      const newConv = registry.createConversation(agentName);
+      const newId = newConv.getState().conversationId;
+      setSelectedConvId(newId);
+      await registry.sendConversationMessage(agentName, newId, text, attachments);
     },
-    [registry, agentName, selectedConvId],
+    [registry, agentName],
   );
-
-  const handleCancel = useCallback(() => {
-    if (selectedConvId) registry.cancelConversationMessage(agentName, selectedConvId);
-  }, [registry, agentName, selectedConvId]);
 
   const renderPanel = useCallback(
     (id: string): ReactNode => (
@@ -184,12 +192,13 @@ function AgentNavigator({ registry, agentName, conversations, sessionId }: Agent
 
   return (
     <ConversationNavigator
+      activeSession={activeSession}
       items={items}
-      selectedId={selectedConvId}
       onSelect={handleSelect}
       onBack={handleBack}
       onDelete={handleDelete}
       onRename={handleRename}
+      onCreateSession={handleCreateSession}
       listTitle={agentName}
       emptyState={
         <div className={styles['tools-empty']}>
@@ -197,9 +206,6 @@ function AgentNavigator({ registry, agentName, conversations, sessionId }: Agent
         </div>
       }
       renderPanel={renderPanel}
-      onSendMessage={handleSendMessage}
-      onCancel={handleCancel}
-      isLoading={selectedConv?.isLoading ?? false}
     />
   );
 }

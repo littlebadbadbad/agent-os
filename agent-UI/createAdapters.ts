@@ -1,34 +1,12 @@
 /**
  * agent-UI/createAdapters.ts — Environment-aware adapter factories
  *
- * Detects the runtime environment (Electron IPC vs standalone HTTP) and
- * creates the appropriate adapters for every backend service.
- *
- * All HTTP adapters use `baseUrl: '/api'` (proxied by Vite in dev, same-origin
- * in production).  All IPC adapters use `window.electronAPI.invoke()`.
+ * File, Git, and Dynamic-Tool adapters are now provided via the plugin system.
+ * Each plugin creates its own adapter from the pre-bound PluginApiClient,
+ * so direct adapter factories are no longer needed here.
  */
 
 import { IS_ELECTRON_IPC } from './env';
-
-// ── File adapter ───────────────────────────────────────────────────────────────
-import { createHttpFileAdapter, createIpcFileAdapter } from '@agent-sdk';
-import type { FileAdapter } from '@agent-sdk';
-
-export function createFileAdapter(): FileAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcFileAdapter()
-    : createHttpFileAdapter({ baseUrl: '' });
-}
-
-// ── Dynamic tool adapter ───────────────────────────────────────────────────────
-import { createHttpDynamicToolAdapter, createIpcDynamicToolAdapter } from '@agent-sdk';
-import type { DynamicToolAdapter } from '@agent-sdk';
-
-export function createDynamicToolAdapter(): DynamicToolAdapter {
-  return IS_ELECTRON_IPC
-    ? createIpcDynamicToolAdapter()
-    : createHttpDynamicToolAdapter({ baseUrl: '/api' });
-}
 
 // ── Session store ──────────────────────────────────────────────────────────────
 import type { SessionEntryData } from '@agent-sdk';
@@ -47,6 +25,4 @@ export function createSessionStore(): SessionStore {
 // ── Singleton instances ────────────────────────────────────────────────────────
 // Created once at module load time, shared across all agents.
 
-export const fileAdapter = createFileAdapter();
-export const dynamicToolAdapter = createDynamicToolAdapter();
 export const sessionStore = createSessionStore();

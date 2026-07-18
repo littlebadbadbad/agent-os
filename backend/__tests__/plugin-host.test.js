@@ -31,6 +31,7 @@ const mockRouter = {
 };
 
 import { createPluginHost } from '../lib/plugin-host.js';
+import { pluginRouter } from '../lib/plugin-router.js';
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -146,27 +147,25 @@ describe('getPluginDataDir', () => {
 describe('integration with real router', () => {
   it('defineApi makes methods callable via the router', async () => {
     // Use fresh real router
-    const { pluginRouter: realRouter } = await import('../lib/plugin-router.js');
-    realRouter.clear();
+    pluginRouter.clear();
 
-    const host = createPluginHost('integ-test', manifest, realRouter, tmpPluginsDir, tmpDataDir);
+    const host = createPluginHost('integ-test', manifest, pluginRouter, tmpPluginsDir, tmpDataDir);
     host.defineApi('hello', async (params) => ({ msg: `Hello ${params.name}` }));
 
-    const match = realRouter.matchHttpRoute('/api/plugin/integ-test/hello');
+    const match = pluginRouter.matchHttpRoute('/api/plugin/integ-test/hello');
     expect(match).not.toBe(false);
     const result = await match.handler({ name: 'World' });
     expect(result).toEqual({ msg: 'Hello World' });
   });
 
   it('defineStream makes handlers available via the router', async () => {
-    const { pluginRouter: realRouter } = await import('../lib/plugin-router.js');
-    realRouter.clear();
+    pluginRouter.clear();
 
     const handler = vi.fn();
-    const host = createPluginHost('integ-test', manifest, realRouter, tmpPluginsDir, tmpDataDir);
+    const host = createPluginHost('integ-test', manifest, pluginRouter, tmpPluginsDir, tmpDataDir);
     host.defineStream('events', handler);
 
-    const match = realRouter.matchWsPath('/api/plugin/integ-test/events');
+    const match = pluginRouter.matchWsPath('/api/plugin/integ-test/events');
     expect(match).not.toBe(false);
     expect(match.handler).toBe(handler);
   });

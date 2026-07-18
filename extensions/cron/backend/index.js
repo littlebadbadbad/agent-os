@@ -9,9 +9,9 @@
  *
  * Stream:
  *   fired - pushes { sessionId, jobId, prompt } when a cron job fires
- *
- * @param {import('@agent-type').BackendPluginHost} host
  */
+
+/** @import { BackendPluginHost } from '@agent-type' */
 
 import * as manager from './cron-manager/index.js';
 

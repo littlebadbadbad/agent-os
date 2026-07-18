@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useSyncExternalStore, useState, useCallback, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { Attachment } from '@agent-sdk';
 import type { WidgetIcon, WidgetTheme, SessionManager, SessionListEntry } from '@agent-sdk';
@@ -6,7 +6,7 @@ import { Widget } from '../../Widget';
 import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
 import { ConversationNavigator, formatTimeAgo } from '../navigator';
-import type { ConversationItem } from '../navigator';
+import type { ConversationItem, SessionHandle } from '../navigator';
 import styles from '../AgentWidget.module.scss';
 import { PluginProvider } from '../../../plugin/PluginContext';
 
@@ -37,50 +37,49 @@ export function MultiSessionWidget({
   initialWidth?: number;
   sessionManager: SessionManager;
 }): ReactElement {
-  const { sessions, activeSessionId } = useSyncExternalStore(
+  const { sessions } = useSyncExternalStore(
     sessionManager.subscribe,
     sessionManager.getState,
     sessionManager.getState,
   );
 
-  // ── Panel navigation state ──────────────────────────────────────────────
-  // `panelSessionId` controls whether the navigator shows list (undefined) or
-  // panel (set). Always start at the list view.
-  const [panelSessionId, setPanelSessionId] = useState<string | undefined>(
-    undefined,
-  );
-
-  // When an external action creates a session (e.g. SDK persistence restore),
-  // navigate to its panel.  Only react to `activeSessionId` — do NOT depend
-  // on `panelSessionId` so that user-initiated back-navigation is not overridden.
-  const panelSessionRef = useRef(panelSessionId);
-  panelSessionRef.current = panelSessionId;
-  useEffect(() => {
-    if (activeSessionId && activeSessionId !== panelSessionRef.current) {
-      setPanelSessionId(activeSessionId);
-    }
-  }, [activeSessionId]);
-
-  // Agent ID is stable (set once from config.id).
-  const agentId = sessions[0]?.session.getState().agentId;
-
-  // Build conversation items for the navigator.
-  const items: readonly ConversationItem[] = useMemo(
-    () => sessions.map((s: SessionListEntry) => ({
-      id: s.id,
-      title: s.title,
-      subtitle: formatTimeAgo(s.createdAt),
-      isLoading: s.session.getState().isLoading,
-    })),
-    [sessions],
-  );
+  const [panelSessionId, setPanelSessionId] = useState<string | undefined>();
 
   // The session currently shown in the panel view.
   const panelEntry = panelSessionId
     ? sessions.find((s) => s.id === panelSessionId)
     : undefined;
   const panelSession = panelEntry?.session;
-  const isPanelLoading = panelSession?.getState().isLoading ?? false;
+  const agentId = sessions[0]?.session.getState().agentId;
+
+  // Build reactive SessionHandle — ConversationNavigator subscribes
+  // internally so the parent never passes isLoading/enableAttachments.
+  const activeSession: SessionHandle | null = useMemo(
+    () => panelEntry
+      ? {
+          id: panelEntry.id,
+          title: panelEntry.title,
+          subscribe: panelEntry.session.subscribe.bind(panelEntry.session),
+          getState: () => {
+            const s = panelEntry.session.getState();
+            return { isLoading: s.isLoading, enableAttachments: s.enableAttachments ?? true };
+          },
+          sendMessage: panelEntry.session.sendMessage.bind(panelEntry.session),
+          cancelMessage: panelEntry.session.cancelMessage.bind(panelEntry.session),
+        }
+      : null,
+    [panelEntry],
+  );
+
+  // Build list items (no isLoading — that's on SessionHandle).
+  const items: readonly ConversationItem[] = useMemo(
+    () => sessions.map((s: SessionListEntry) => ({
+      id: s.id,
+      title: s.title,
+      subtitle: formatTimeAgo(s.createdAt),
+    })),
+    [sessions],
+  );
 
   // ── Navigation handlers ─────────────────────────────────────────────────
 
@@ -113,24 +112,15 @@ export function MultiSessionWidget({
 
   // ── Message sending ─────────────────────────────────────────────────────
 
-  const handleSendMessage = useCallback(
+  const handleCreateSession = useCallback(
     async (text: string, attachments?: readonly Attachment[]) => {
-      if (panelSessionId && panelSession) {
-        // Panel view: send to current session.
-        await panelSession.sendMessage(text, attachments);
-      } else {
-        // List view: create new session and switch to panel.
-        const session = sessionManager.createSession();
-        setPanelSessionId(session.getState().id);
-        await session.sendMessage(text, attachments);
-      }
+      const session = sessionManager.createSession();
+      const newId = session.getState().id;
+      setPanelSessionId(newId);
+      await session.sendMessage(text, attachments);
     },
-    [panelSessionId, panelSession, sessionManager],
+    [sessionManager],
   );
-
-  const handleCancel = useCallback(() => {
-    panelSession?.cancelMessage();
-  }, [panelSession]);
 
   // ── Render panel content ────────────────────────────────────────────────
 
@@ -160,19 +150,16 @@ export function MultiSessionWidget({
       >
         <div className={styles['chat']}>
           <ConversationNavigator
+            activeSession={activeSession}
             items={items}
-            selectedId={panelSessionId}
+            listTitle="Sessions"
+            emptyState={<WelcomeState />}
+            renderPanel={renderPanel}
             onSelect={handleSelect}
             onBack={handleBack}
             onDelete={handleDelete}
             onRename={handleRename}
-            listTitle="Sessions"
-            emptyState={<WelcomeState />}
-            renderPanel={renderPanel}
-            onSendMessage={handleSendMessage}
-            onCancel={handleCancel}
-            isLoading={isPanelLoading}
-            enableAttachments={panelSession?.getState().enableAttachments ?? true}
+            onCreateSession={handleCreateSession}
           />
         </div>
       </Widget>

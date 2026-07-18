@@ -10,8 +10,10 @@
  *     the dedicated /screenshot endpoint, not via the AI tool)
  */
 
-/** @typedef {import('playwright').Browser} Browser */
-/** @typedef {import('playwright').Page} Page */
+/** @import { Browser, Page, BrowserContext, BrowserContextOptions } from 'playwright' */
+/** @import { WebSocket } from 'ws' */
+/** @import { WebContents } from 'electron' */
+/** @import { NetworkEntry } from './network-recorder.js' */
 
 const DEFAULT_MAX_BUF = 500 * 1024; // 500 KB
 
@@ -93,12 +95,12 @@ export class BrowserInstance {
   #launchConfig;
   /** @type {Browser|null} */
   #browser  = null;
-  /** @type {import('playwright').BrowserContext|null} */
+  /** @type {BrowserContext|null} */
   #context  = null;
   /**
    * All pages (tabs) open in this session.
    * Index 0 is always the first tab opened at launch.
-   * @type {import('playwright').Page[]}
+   * @type {Page[]}
    */
   #pages    = [];
   /** Index into #pages of the currently active (visible/streaming) tab. */
@@ -117,7 +119,7 @@ export class BrowserInstance {
   /**
    * Per-page network recorders.  Keyed by the Playwright Page object itself so
    * the correct recorder is always found regardless of tab reordering.
-   * @type {Map<import('playwright').Page, NetworkRecorder>}
+   * @type {Map<Page, NetworkRecorder>}
    */
   #networkRecorders = new Map();
   /**
@@ -156,7 +158,7 @@ export class BrowserInstance {
 
   /**
    * Wire console/error/close listeners onto a newly created page.
-   * @param {import('playwright').Page} page
+   * @param {Page} page
    */
   #hookPage(page) {
     page.on('console', (msg) => {
@@ -259,7 +261,7 @@ export class BrowserInstance {
     }
     this.#browser = await chromium.launch(launchOpts);
 
-    /** @type {import('playwright').BrowserContextOptions} */
+    /** @type {BrowserContextOptions} */
     const ctxOpts = {
       userAgent:         cfg.userAgent,
       viewport:          cfg.viewport ?? null,
@@ -550,7 +552,7 @@ export class BrowserInstance {
       const url   = page?.url() ?? null;
       const title = page ? await page.title().catch(() => null) : null;
       const tabs  = await this.#getTabListAsync();
-      /** @type {{ type: string; url: string|null; title: string|null; tabs: import('./browser-instance.js').TabInfo[]; activeTabIndex: number; consoleOutput?: string; consoleAppend?: string }} */
+      /** @type {{ type: string; url: string|null; title: string|null; tabs: TabInfo[]; activeTabIndex: number; consoleOutput?: string; consoleAppend?: string }} */
       const msg   = { type: 'info', url, title, tabs, activeTabIndex: this.#activeTabIndex };
       if (consoleOutput !== undefined) msg.consoleOutput = consoleOutput;
       if (consoleAppend)               msg.consoleAppend = consoleAppend;
@@ -627,7 +629,7 @@ export class BrowserInstance {
    *   { type:'keyup',      key }
    *   { type:'type',       text }
    *
-   * @param {import('ws').WebSocket} ws
+   * @param {WebSocket} ws
    * @returns {() => void} cleanup — call to stop the stream
    */
   startStreaming(ws) {
@@ -649,7 +651,7 @@ export class BrowserInstance {
    * Start streaming JPEG frames to an Electron renderer via `webContents.send()`.
    * Used by the IPC transport layer when running inside Electron.
    *
-   * @param {import('electron').WebContents} webContents
+   * @param {WebContents} webContents
    * @returns {() => void} cleanup — call to stop the stream
    */
   startStreamingToWebContents(webContents) {
@@ -838,7 +840,7 @@ export class BrowserInstance {
    * @param {string}   [opts.bodyKeyword]     - Substring filter on request/response body.
    * @param {string}   [opts.headerKeyword]   - Substring filter on request/response header values.
    * @param {number}   [opts.bodyMaxBytes]    - Truncate returned body strings to this many bytes.
-   * @returns {{ entries: import('./network-recorder.js').NetworkEntry[]; totalCount: number; hasMore: boolean }}
+   * @returns {{ entries: NetworkEntry[]; totalCount: number; hasMore: boolean }}
    */
   getNetworkRequests({
     tabIndex,

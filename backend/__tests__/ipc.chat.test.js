@@ -39,6 +39,7 @@ vi.mock('../services/chat.js', () => ({
 // ── Import AFTER mocks ────────────────────────────────────────────────────────
 
 import { registerChatHandlers } from '../transports/ipc/chat.js';
+import { streamRegistry } from '../lib/stream-registry.js';
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
@@ -71,8 +72,7 @@ let ipcMain;
 beforeEach(async () => {
   vi.clearAllMocks();
   // Clear any leftover stream state from previous tests
-  const mod = await import('../lib/stream-registry.js');
-  mod.streamRegistry.clearAll();
+  streamRegistry.clearAll();
   ipcMain = createMockIpcMain();
   registerChatHandlers(ipcMain);
 });

@@ -4,11 +4,15 @@
  * Renders a toolCard slot as a sandboxed iframe.
  *
  * Uses {@link useSlotHostBridge} for host creation and session subscription.
- * On iframe load, pushes {@link ToolCardHostMessage} with the
+ * On iframe load, pushes the initial {@link ToolCardHostMessage} with the
  * tool call information via `host._pushToIframe`.
+ *
+ * Subsequently, whenever `toolCallInfo` changes (e.g. status transitions
+ * from "running" to "done"), the new payload is pushed reactively via
+ * a `useEffect` — ensuring the iframe always shows the latest state.
  */
 
-import { useRef, useCallback, type ReactElement } from "react";
+import { useRef, useCallback, useEffect, type ReactElement } from "react";
 import type { ToolCardHostMessage, SlotSession, UiPluginHostInternal } from "@agent-type";
 import type { ToolCallInfo } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
@@ -46,13 +50,13 @@ export function ToolCardSlotRenderer(
 
   hostRef.current = host;
 
+  // ── On iframe ready: push initial payload ───────────────────────────────────
+
   const handleReady = useCallback(
     (_iframe: HTMLIFrameElement) => {
       const h = hostRef.current;
       if (!h) return;
 
-      // Push initial toolCallInfo. If the iframe hasn't registered an
-      // onSlotMessage subscriber yet, the host buffers and replays it.
       const initMsg: ToolCardHostMessage = {
         version: 1,
         type: "toolCard",
@@ -63,6 +67,21 @@ export function ToolCardSlotRenderer(
     },
     [slotId, toolCallInfo],
   );
+
+  // ── Reactive updates: push whenever toolCallInfo changes ────────────────────
+
+  useEffect(() => {
+    const h = hostRef.current;
+    if (!h) return;
+
+    const msg: ToolCardHostMessage = {
+      version: 1,
+      type: "toolCard",
+      slotId,
+      payload: { toolCallInfo },
+    };
+    h._pushToIframe(msg);
+  }, [toolCallInfo, slotId]);
 
   return (
     <IframeSandbox

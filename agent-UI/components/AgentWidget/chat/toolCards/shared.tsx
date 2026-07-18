@@ -1,9 +1,6 @@
 import type { ReactElement, ReactNode, CSSProperties } from 'react';
 import type { ToolCallStatus, ToolCallInfo } from '../../types';
-import {
-  isFileTool, isAskUserTool,
-  isDynamicTool, isSubAgentMetaTool,
-} from './identifiers';
+import { isSubAgentMetaTool } from './identifiers';
 import styles from '../../AgentWidget.module.scss';
 
 // ── Result formatter ──────────────────────────────────────────────────────────
@@ -60,15 +57,11 @@ export function resStr(result: unknown): string | null {
 
 // ── Family accent colours ─────────────────────────────────────────────────────
 
-export type CardFamily =
-  | 'file' | 'ask'
-  | 'dynamic' | 'meta-agent';
+export type CardFamily = 'generic' | 'meta-agent';
 
 const ACCENT: Record<CardFamily, string> = {
-  file:          '#d97706',   // amber
-  ask:           '#ea580c',   // orange
-  dynamic:       '#4f46e5',   // indigo
-  'meta-agent':  '#6d28d9',   // purple
+  generic:      '#d97706',   // amber (fallback)
+  'meta-agent': '#6d28d9',   // purple
 };
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
@@ -209,67 +202,35 @@ export function PlainResult({ result }: { result: unknown }): ReactElement {
 
 // ── Tool metadata helpers ──────────────────────────────────────────────────────
 
-/** Per-family display metadata. */
 const FAMILY_META: Record<CardFamily, { icon: string; label: string }> = {
-  file:          { icon: '📄', label: 'File' },
-  ask:           { icon: '💬', label: 'Ask' },
-  dynamic:       { icon: '⚡', label: 'Tool' },
-  'meta-agent':  { icon: '🤖', label: 'Agent' },
-};
-
-/** Per-operation label overrides for file tools. */
-const FILE_LABEL: Record<string, string> = {
-  read_file:          'Read File',
-  write_file:         'Write File',
-  str_replace:        'Edit File',
-  delete_file:        'Delete File',
-  move_file:          'Move File',
-  list_dir:           'List Dir',
-  search_files:       'Search Files',
-  get_workspace_root: 'Workspace Root',
-  set_workspace_root: 'Set Root',
+  generic:      { icon: '\u2699', label: 'Tool' },
+  'meta-agent': { icon: '\uD83E\uDD16', label: 'Agent' },
 };
 
 /** Returns icon, human-readable label, card family, and accent colour for any tool. */
 export function getToolMeta(name: string): { icon: string; label: string; family: CardFamily; accent: string } {
-  let family: CardFamily;
-  let label: string;
-
-  if (isFileTool(name)) {
-    family = 'file';
-    label = FILE_LABEL[name] ?? name;
-  } else if (isAskUserTool(name)) {
-    family = 'ask';
-    label = 'Ask User';
-  } else if (isDynamicTool(name)) {
-    family = 'dynamic';
-    label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  } else if (isSubAgentMetaTool(name)) {
-    family = 'meta-agent';
-    label = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  } else {
-    family = 'file';
-    label = name;
-  }
-
+  const family: CardFamily = isSubAgentMetaTool(name) ? 'meta-agent' : 'generic';
+  const label = family === 'meta-agent'
+    ? name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : name;
   const { icon } = FAMILY_META[family];
   return { icon, label, family, accent: ACCENT[family] };
 }
 
 /** Extracts a concise one-line summary from a tool call's arguments.
  *  Returns an empty string when no meaningful summary is available. */
-export function getCompactSummary({ name, arguments: args }: ToolCallInfo): string {
-  // Path-based tools: shorten to last 2 path segments.
-  const path = argStr(args, 'path') ?? argStr(args, 'from') ?? argStr(args, 'file_path');
+export function getCompactSummary({ arguments: args }: ToolCallInfo): string {
+  const path = argStr(args, 'path') ?? argStr(args, 'from');
   if (path) {
     const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
-    return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : path;
+    return parts.length > 2 ? `\u2026/${parts.slice(-2).join('/')}` : path;
   }
 
-  // Generic: use the first non-empty string argument value.
-  for (const v of Object.values(args)) {
-    if (typeof v === 'string' && v.trim()) {
-      return v.length > 50 ? `${v.slice(0, 50)}…` : v;
+  if (args) {
+    for (const v of Object.values(args)) {
+      if (typeof v === 'string' && v.trim()) {
+        return v.length > 50 ? `${v.slice(0, 50)}…` : v;
+      }
     }
   }
 

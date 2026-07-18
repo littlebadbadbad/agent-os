@@ -78,21 +78,37 @@ export function createToolCallPipeline(
     // registered after pipeline creation (e.g. via agent.registerToolSet) is
     // always visible at the point of the actual call.
     const reg = typeof registry === "function" ? registry() : registry;
-    const tsets = typeof toolSets === "function" ? toolSets() : toolSets;
+    const resolvedTsets = typeof toolSets === "function" ? toolSets() : toolSets;
+
+    // Guard: ensure tsets is iterable — for...of on null/undefined throws
+    // "Cannot convert undefined or null to object" (V8 TypeError).
+    const tsets: readonly ToolSet[] = resolvedTsets ?? [];
+
+    // Guard: ensure call.arguments is always a proper object so downstream
+    // spread / Object.entries / Object.keys never receive null/undefined.
+    const safeArgs: Record<string, unknown> =
+      call.arguments !== null && typeof call.arguments === 'object'
+        ? call.arguments
+        : {};
 
     // ── Stage 1: Resolve arguments ─────────────────────────────────────────
-    let args = call.arguments;
+    let args: Record<string, unknown> = safeArgs;
     for (const ts of tsets) {
-      args = ts.onResolveToolArgs?.(ctx, call.name, args) ?? args;
+      const resolved = ts.onResolveToolArgs?.(ctx, call.name, args);
+      if (resolved !== null && resolved !== undefined) args = resolved;
     }
     const resolvedCall =
-      args !== call.arguments ? { ...call, arguments: args } : call;
+      args !== safeArgs || call.arguments !== safeArgs
+        ? { ...call, arguments: args }
+        : call;
 
     // ── Stage 2: Build execution context ────────────────────────────────────
     let ctxPatch: Partial<ToolExecutionContext> = {};
     for (const ts of tsets) {
       const patch = ts.onPatchToolContext?.(ctx, signal);
-      if (patch) ctxPatch = { ...ctxPatch, ...patch };
+      if (patch !== null && patch !== undefined) {
+        ctxPatch = { ...ctxPatch, ...patch };
+      }
     }
 
     const baseContext: ToolExecutionContext = {

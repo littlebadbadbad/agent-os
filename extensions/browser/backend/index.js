@@ -11,15 +11,17 @@
 import * as svc from './services/browser.js';
 import { setProxyGetter } from './proxy-host.js';
 
+/** @import { BackendPluginHost, ProxyConfig, StreamConnection } from '../../../../agent-type/plugin.ts' */
+
 /**
  * Activate the browser plugin backend.
  * Registers all API methods.  Each receives params as Record<string, unknown>.
  *
- * @param {import('../../../../agent-type/plugin.ts').BackendPluginHost} host
+ * @param {BackendPluginHost} host
  */
 export function activate(host) {
   // Inject proxy getter — the ONLY bridge to backend proxy config.
-  setProxyGetter(() => /** @type {import('../../../../agent-type/plugin.ts').ProxyConfig} */ (host.getBackendConfig('proxy')));
+  setProxyGetter(() => /** @type {ProxyConfig} */ (host.getBackendConfig('proxy')));
 
   // ── CRUD sessions ──────────────────────────────────────────────────────
   host.defineApi('listSessions', async (_params) => ({ sessions: svc.getBrowserList() }));
@@ -87,7 +89,7 @@ export function activate(host) {
     const { id, config } = params || {};
     if (!id) throw new Error('browserStream: id is required');
 
-    /** @type {import('../../../../agent-type/plugin.ts').StreamConnection} */
+    /** @type {StreamConnection} */
     const conn = {
       onClientMessage(msg) {
         if (!msg || typeof msg !== 'object') return;

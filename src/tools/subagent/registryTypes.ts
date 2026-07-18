@@ -20,6 +20,7 @@ import type { AgentMessage } from '@agent-type';
 import type { Attachment } from '@agent-type';
 import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
 import type { SubAgentResult } from './types';
+import type { Message } from '@agent-sdk/tools/messageList';
 
 
 // ── Serialization types (for persistence) ─────────────────────────────────────
@@ -115,7 +116,7 @@ export type SubAgentConversationState = {
    * tool-call result bubbles.  Replaces the old {@code streamingText} +
    * {@code agentMessagesToUI(history)} pattern.
    */
-  readonly messages: import('@agent-sdk/tools/messageList').Message[];
+  readonly messages: Message[];
   /**
    * Symbol-keyed plugin state slices.
    *

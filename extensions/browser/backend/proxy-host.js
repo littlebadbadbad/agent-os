@@ -13,9 +13,9 @@
  * Usage in browser-instance.js:
  *   import { getProxy } from '../../proxy-host.js';
  *   const proxyCfg = getProxy();
- *
- * @typedef {import('../../../../agent-type/plugin.ts').ProxyConfig} ProxyConfig
  */
+
+/** @import { ProxyConfig } from '../../../../agent-type/plugin.ts' */
 
 /** @type {() => ProxyConfig} */
 let _getProxy = () => ({

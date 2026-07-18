@@ -5,6 +5,5 @@
   "description": "Interactive terminal management and self-upgrade workflow. Provides terminal_list, terminal_create, terminal_read, terminal_send, terminal_remove, terminal_wait, terminal_sleep tools with PTY-backed shells, plus upgrade_get_version, upgrade_build, upgrade_restart, upgrade_dev_start, upgrade_dev_stop, upgrade_run_tests, upgrade_complete.",
   "agentEntry": "activate.js",
   "backendEntry": "backend.cjs",
-  "uiEntry": "ui/index.html",
-  "tools": ["terminal", "upgrade"]
+  "uiEntry": "ui/index.html"
 }

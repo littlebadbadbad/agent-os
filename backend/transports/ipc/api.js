@@ -19,7 +19,9 @@ import * as proxyService from '../../services/proxy.js';
 import { callAdoProxy, uploadAdoProxy } from '../../services/ado-proxy.js';
 import * as modelConfigService from '../../services/model-config.js';
 
-/** @param {import('electron').IpcMain} ipcMain */
+/** @import { IpcMain } from 'electron' */
+
+/** @param {IpcMain} ipcMain */
 export function registerApiHandlers(ipcMain) {
   // ── Models ─────────────────────────────────────────────────────────────────
   ipcMain.handle('api:models:list', async (_event, { provider }) => {

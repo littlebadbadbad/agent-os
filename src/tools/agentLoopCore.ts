@@ -12,6 +12,7 @@ import type {
   AgentTurnResponse,
   AgentStreamChunk,
   Tool,
+  Attachment,
 } from '@agent-type';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -148,6 +149,88 @@ export type AgentLoopCoreResult = {
   completed: boolean;
 };
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Append tool results to history and return the total count added.
+ * Shared between the streaming and non-streaming paths.
+ */
+function pushToolResultsToHistory(
+  history: AgentMessage[],
+  pairs: readonly { call: ToolCall; result: ToolResult }[],
+): number {
+  for (const { call, result } of pairs) {
+    history.push({
+      role: 'tool',
+      toolCallId: result.toolCallId,
+      name: call.name,
+      content: result.result,
+      ...(result.attachments?.length ? { attachments: result.attachments } : {}),
+    });
+  }
+  return pairs.length;
+}
+
+/**
+ * Run the `onAfterTurn` compaction hook and return the compacted history
+ * (or the original if unchanged). Shared between both paths.
+ */
+async function runAfterTurn(
+  history: AgentMessage[],
+  usage: TokenUsage | undefined,
+  signal: AbortSignal,
+  onAfterTurn: NonNullable<AgentLoopHooks['onAfterTurn']>,
+): Promise<AgentMessage[]> {
+  const compacted = await onAfterTurn([...history], usage, signal);
+  return compacted ? [...compacted] : history;
+}
+
+/**
+ * Build an assistant message entry from text, thinking, tool calls, and attachments.
+ * Shared shape used by both streaming and non-streaming results.
+ */
+function buildAssistantMessage(
+  text: string,
+  thinking: string | undefined | null,
+  toolCalls: readonly ToolCall[],
+  attachments: readonly Attachment[] = [],
+): AgentMessage {
+  return {
+    role: 'assistant',
+    content: text,
+    // Preserve thinking / reasoning_content so thinking models can echo it
+    // back. Use != null (not &&) so empty-string thinking is still included.
+    ...(thinking != null ? { thinking } : {}),
+    ...(toolCalls.length && { toolCalls }),
+    ...(attachments.length && { attachments }),
+  } satisfies AgentMessage;
+}
+
+/**
+ * Execute a single tool call with error isolation and hook dispatch.
+ * Returns a ToolResult regardless of whether the tool throws.
+ */
+function createSafeExecutor(
+  callToolFn: (call: ToolCall) => Promise<ToolResult>,
+  onAfterToolCall: NonNullable<AgentLoopHooks['onAfterToolCall']> | undefined,
+): (call: ToolCall) => Promise<ToolResult> {
+  return async (call) => {
+    try {
+      const res = await callToolFn(call);
+      onAfterToolCall?.(call, res);
+      return res;
+    } catch (err) {
+      const res: ToolResult = {
+        toolCallId: call.id,
+        name: call.name,
+        result: `Error: ${toErrorMessage(err)}`,
+      };
+      onAfterToolCall?.(call, res);
+      return res;
+    }
+  };
+}
+
 // ── Engine ─────────────────────────────────────────────────────────────────────
 
 export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<AgentLoopCoreResult> {
@@ -195,21 +278,11 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
 
       onAssistantText?.(result.text, result.thinking ?? null);
 
-      history.push({
-        role: 'assistant',
-        content: result.text,
-        // Preserve thinking / reasoning_content so thinking models can echo it
-        // back. Use != null (not &&) so empty-string thinking is still included.
-        ...(result.thinking != null ? { thinking: result.thinking } : {}),
-        ...(turnToolCalls.length && { toolCalls: turnToolCalls }),
-      });
+      history.push(buildAssistantMessage(result.text, result.thinking, turnToolCalls));
 
       if (turnToolCalls.length === 0) {
         // Natural completion — model finished without requesting any tools.
-        if (onAfterTurn) {
-          const compacted = await onAfterTurn([...history], result.usage, signal);
-          if (compacted) history = [...compacted];
-        }
+        if (onAfterTurn) history = await runAfterTurn(history, result.usage, signal, onAfterTurn);
         completed = true;
         break;
       }
@@ -222,28 +295,13 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
       onBeforeToolCalls?.(turnToolCalls);
 
       // Execute tool calls, partitioning by concurrency safety.
-      // Safe calls → parallel; unsafe calls → serial.
-      const executeOne = async (call: ToolCall): Promise<ToolResult> => {
-        try {
-          const res = await callTool(call);
-          onAfterToolCall?.(call, res);
-          return res;
-        } catch (err) {
-          const res: ToolResult = {
-            toolCallId: call.id,
-            name: call.name,
-            result: `Error: ${toErrorMessage(err)}`,
-          };
-          onAfterToolCall?.(call, res);
-          return res;
-        }
-      };
+      const executeOne = createSafeExecutor(callTool, onAfterToolCall);
 
       const isCallConcurrencySafe = (call: ToolCall): boolean => {
         if (!resolveTool) return true; // default: all safe (backward compat)
         const tool = resolveTool(call.name);
         if (!tool) return true;
-        return resolveToolField(tool.isConcurrencySafe, call.arguments, false);
+        return resolveToolField(tool.isConcurrencySafe, call.arguments ?? {}, false);
       };
 
       const toolResults: ToolResult[] = [];
@@ -266,8 +324,6 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
         const unsafeCalls = turnToolCalls.filter((c) => !isCallConcurrencySafe);
 
         if (safeCalls.length > 0) {
-          // Safe batch — parallel (no abort race needed; the signal check
-          // before each serial step is sufficient).
           const safeResults = await Promise.all(safeCalls.map(executeOne));
           toolResults.push(...safeResults);
         }
@@ -278,32 +334,21 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
         }
       }
 
-      totalToolCalls += toolResults.length;
-      for (const res of toolResults) {
-        history.push({
-          role: 'tool',
-          toolCallId: res.toolCallId,
-          name: res.name,
-          content: res.result,
-          ...(res.attachments?.length ? { attachments: res.attachments } : {}),
-        });
-      }
+      totalToolCalls += pushToolResultsToHistory(
+        history,
+        toolResults.map((res) => ({ call: turnToolCalls.find((c) => c.id === res.toolCallId) ?? { id: res.toolCallId, name: res.name, arguments: {} }, result: res })),
+      );
 
-      if (onAfterTurn) {
-        const compacted = await onAfterTurn([...history], result.usage, signal);
-        if (compacted) history = [...compacted];
-      }
+      if (onAfterTurn) history = await runAfterTurn(history, result.usage, signal, onAfterTurn);
     } else {
       // ── Streaming path ──────────────────────────────────────────────────────
-      // Track pre-executed call IDs so onAfterToolCall fires only for
-      // SDK-executed calls (pre-executed ones are covered by onPreExecutedResult).
       const preExecutedIds = new Set<string>();
 
       const streamingHooks = {
         onTextDelta,
         onThinkingDelta,
         onFirstToolSeen,
-        onPreExecutedResult: (call: import('@agent-type').ToolCall, res: import('@agent-type').ToolResult) => {
+        onPreExecutedResult: (call: ToolCall, res: ToolResult) => {
           preExecutedIds.add(call.id);
           onPreExecutedResult?.(call, res);
         },
@@ -311,18 +356,11 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
         onBeforeAwaitResults: (
           streamText: string,
           streamThinking: string,
-          streamToolCalls: readonly import('@agent-type').ToolCall[],
+          streamToolCalls: readonly ToolCall[],
         ) => {
-          // Construct what the assistant message WILL look like once all tool
-          // results arrive — text, thinking, and toolCalls are already known.
-          const snapshot: import('@agent-type').AgentMessage[] = [
+          const snapshot: AgentMessage[] = [
             ...history,
-            {
-              role: 'assistant',
-              content: streamText,
-              ...(streamThinking ? { thinking: streamThinking } : {}),
-              ...(streamToolCalls.length ? { toolCalls: [...streamToolCalls] } : {}),
-            },
+            buildAssistantMessage(streamText, streamThinking, streamToolCalls),
           ];
           onTurnSnapshot?.(snapshot);
         },
@@ -340,32 +378,11 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
         }
       }
 
-      history.push({
-        role: 'assistant',
-        content: text,
-        ...(thinking ? { thinking } : {}),
-        ...(toolCalls.length && { toolCalls }),
-        ...(attachments.length && { attachments }),
-      });
-      for (const { call, result: res } of toolResultPairs) {
-        history.push({
-          role: 'tool',
-          toolCallId: res.toolCallId,
-          name: call.name,
-          content: res.result,
-          ...(res.attachments?.length ? { attachments: res.attachments } : {}),
-        });
-      }
-      totalToolCalls += toolCalls.length;
+      history.push(buildAssistantMessage(text, thinking, toolCalls, attachments));
+      totalToolCalls += pushToolResultsToHistory(history, toolResultPairs);
 
-      if (onAfterTurn) {
-        const compacted = await onAfterTurn([...history], usage, signal);
-        if (compacted) history = [...compacted];
-      }
+      if (onAfterTurn) history = await runAfterTurn(history, usage, signal, onAfterTurn);
 
-      // When tool calls were made, always continue — post-tool text is
-      // speculative (generated before tools completed). The model needs
-      // another turn with actual tool results to produce a grounded response.
       if (!shouldContinue) {
         completed = true;
         break;
@@ -374,17 +391,11 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
   }
 
   // ── Final output fallback ──────────────────────────────────────────────────
-  // When the last turn produced only tool calls (no text), `finalText` is empty.
-  // Fall back to the last non-empty assistant text from the conversation history.
-  // This prevents `send_stream_message` from returning `{ response: "" }` when
-  // the model consumed all turns making tool calls without producing a summary.
   const effectiveOutput = finalText || (() => {
-    // 1. Look for the last assistant message with non-empty content.
     for (let i = history.length - 1; i >= 0; i--) {
       const m = history[i];
       if (m.role === 'assistant' && m.content) return m.content;
     }
-    // 2. If no assistant message had text but tool calls were made, note it.
     if (totalToolCalls > 0) {
       return `[Sub-agent completed ${totalToolCalls} tool call(s) across ${history.filter((m) => m.role === 'assistant').length} turn(s). No summary text was produced.]`;
     }

@@ -14,8 +14,10 @@
  *   (which does respect setGlobalDispatcher) makes all bare fetch() calls in
  *   every module go through the proxy.
  *
- * @typedef {import('../../agent-type/plugin.ts').ProxyConfig} ProxyConfig
+ * @typedef {ProxyConfig} ProxyConfig
  */
+
+/** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
 
 import { setGlobalDispatcher, ProxyAgent, Agent, fetch as undiciFetch } from 'undici';
 import { createLogger } from './logger.js';

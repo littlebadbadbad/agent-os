@@ -7,9 +7,11 @@
 
 import { getProxyConfig, setProxyConfig, testProxy, validateProxyUpdate, validateTestTarget } from '../lib/proxy.js';
 
+/** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
+
 /**
  * Get the current proxy configuration.
- * @returns {import('../../agent-type/plugin.ts').ProxyConfig}
+ * @returns {ProxyConfig}
  */
 export function getConfig() {
   return getProxyConfig();
@@ -17,8 +19,8 @@ export function getConfig() {
 
 /**
  * Validate and update the proxy configuration.
- * @param {import('../../agent-type/plugin.ts').ProxyConfig} partial - Partial proxy config fields
- * @returns {{ config: import('../../agent-type/plugin.ts').ProxyConfig }}
+ * @param {ProxyConfig} partial - Partial proxy config fields
+ * @returns {{ config: ProxyConfig }}
  */
 export function updateConfig(partial) {
   const valid = validateProxyUpdate(partial);

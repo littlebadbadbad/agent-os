@@ -60,17 +60,6 @@ export type IpcChannel =
   // ── Sessions ──
   | 'sessions:load'
   | 'sessions:save'
-  // ── Files ──
-  | 'files:read'
-  | 'files:write'
-  | 'files:strReplace'
-  | 'files:replaceAll'
-  | 'files:delete'
-  | 'files:move'
-  | 'files:listDir'
-  | 'files:search'
-  | 'files:workspaceGet'
-  | 'files:workspaceSet'
   // ── Browser ──
   | 'browser:list'
   | 'browser:create'
@@ -85,20 +74,10 @@ export type IpcChannel =
   | 'browser:switchTab'
   | 'browser:networkRequests'
   | 'browser:clearNetworkRequests'
-  // ── Dynamic tools ──
-  | 'tools:list'
-  | 'tools:create'
-  | 'tools:update'
-  | 'tools:delete'
-  | 'tools:execute'
-  // ── Git ──
-  | 'git:status'
-  | 'git:diff'
-  | 'git:log'
-  | 'git:stage'
-  | 'git:unstage'
-  | 'git:commit'
-  | 'git:discard';
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // Plugin IPC channels (git, file, tools) are now handled via the plugin router
+  // as plugin:<pluginId>:<method> — see plugin-router.js.
+  // The typed IpcChannel union above covers only built-in non-plugin channels.
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Type-safe invoke helper

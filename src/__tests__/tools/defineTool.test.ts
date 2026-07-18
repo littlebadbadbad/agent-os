@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { defineTool } from '@agent-type/defineTool';
+import { defineTool, resolveToolSetTools } from '@agent-type/defineTool';
+import type { ToolSet, Tool } from '@agent-type';
 
 describe('defineTool', () => {
   it('returns the same tool shape', () => {
@@ -81,5 +82,66 @@ describe('defineTool', () => {
 
     expect(tool.group).toBe('myGroup');
     expect(tool.rawParametersSchema).toBe(rawSchema);
+  });
+});
+
+// ── resolveToolSetTools ─────────────────────────────────────────────────────────
+
+describe('resolveToolSetTools', () => {
+  it('returns the tools array when tools is a static array', () => {
+    const ts: ToolSet = {
+      name: 'test',
+      tools: [{ name: 't1', description: 'd1', parameters: z.object({}), execute: async () => 'ok' }],
+    };
+    const result = resolveToolSetTools(ts);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('t1');
+  });
+
+  it('returns tools from a factory function', () => {
+    const tools = [{ name: 't1', description: 'd1', parameters: z.object({}), execute: async () => 'ok' }];
+    const ts: ToolSet = {
+      name: 'test',
+      tools: () => tools,
+    };
+    const result = resolveToolSetTools(ts);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('t1');
+  });
+
+  it('returns empty array when tools is undefined', () => {
+    const ts = {
+      name: 'test',
+      // No `tools` property at all
+    } as unknown as ToolSet;
+    const result = resolveToolSetTools(ts);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when tools is null', () => {
+    const ts: ToolSet = {
+      name: 'test',
+      tools: null as unknown as readonly Tool[],
+    };
+    const result = resolveToolSetTools(ts);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when tools factory returns null', () => {
+    const ts: ToolSet = {
+      name: 'test',
+      tools: (() => null) as unknown as () => readonly Tool[],
+    };
+    const result = resolveToolSetTools(ts);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when tools factory returns undefined', () => {
+    const ts: ToolSet = {
+      name: 'test',
+      tools: (() => undefined) as unknown as () => readonly Tool[],
+    };
+    const result = resolveToolSetTools(ts);
+    expect(result).toEqual([]);
   });
 });

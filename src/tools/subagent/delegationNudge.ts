@@ -58,7 +58,9 @@ export function createDelegationNudgeToolSet(): ToolSet {
       // Count tool results whose string representation exceeds the threshold.
       const value = result.result;
       const resultStr =
-        typeof value === 'string' ? value : JSON.stringify(value);
+        typeof value === 'string'
+          ? value
+          : (value !== undefined ? JSON.stringify(value) : 'null');
       if (resultStr.length >= LARGE_RESULT_THRESHOLD) {
         const prev = runCounters.get(key(ctx)) ?? 0;
         runCounters.set(key(ctx), prev + 1);

@@ -11,6 +11,7 @@ import {
   resolveConvId,
 } from '../../tools/subagent/subAgentHelpers';
 import type { AgentQueryFns } from '@agent-type';
+import type { SubAgentRegistryState } from '../../tools/subagent/registryTypes';
 
 // ── parentFromContext ─────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ describe('parentFromContext', () => {
 
 describe('getCallerToolNames', () => {
   it('returns null when caller is the main agent (not a sub-agent)', () => {
-    const getState = vi.fn(() => ({ subAgents: [] })) as unknown as () => import('../../tools/subagent/registryTypes').SubAgentRegistryState;
+    const getState = vi.fn(() => ({ subAgents: [] })) as unknown as () => SubAgentRegistryState;
     const result = getCallerToolNames(getState, 'sess-1', 'main');
     expect(result).toBeNull();
   });
@@ -40,7 +41,7 @@ describe('getCallerToolNames', () => {
       subAgents: [
         { name: 'worker', toolNames: ['tool_a', 'tool_b'] },
       ],
-    })) as unknown as () => import('../../tools/subagent/registryTypes').SubAgentRegistryState;
+    })) as unknown as () => SubAgentRegistryState;
     const result = getCallerToolNames(getState, 'sess-1', 'worker');
     expect(result).toEqual(new Set(['tool_a', 'tool_b']));
   });
@@ -50,7 +51,7 @@ describe('getCallerToolNames', () => {
       subAgents: [
         { name: 'worker', toolNames: ['tool_a'] },
       ],
-    })) as unknown as () => import('../../tools/subagent/registryTypes').SubAgentRegistryState;
+    })) as unknown as () => SubAgentRegistryState;
     const result = getCallerToolNames(getState, 'sess-1', 'unknown');
     expect(result).toBeNull();
   });

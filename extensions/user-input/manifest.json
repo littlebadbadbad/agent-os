@@ -4,6 +4,5 @@
   "version": "0.1.0",
   "description": "Inline user-input prompting and message queuing. Provides ask_user tool, requestUserInput context injection, and pending-input interjection during agent loops.",
   "agentEntry": "activate.js",
-  "uiEntry": "ui/index.html",
-  "tools": ["user-input"]
+  "uiEntry": "ui/index.html"
 }

@@ -9,6 +9,8 @@ import type {
   ToolSetContext, SessionReadyHelpers, PluginApiClient, PluginStreamClient,
 } from '@agent-type';
 import type { CronJob, CronManagerAdapter, CronSymbolState } from '../agent/types';
+import type * as StoreModule from '../agent/store';
+import type * as CronBackendModule from '../backend/cron-manager/index.js';
 
 // ── Top-level mocks (hoisted before module evaluation) ─────────────────────
 
@@ -52,7 +54,7 @@ function sampleJob(overrides: Partial<CronJob> = {}): CronJob {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('cronStore', () => {
-  let store: typeof import('../agent/store').cronStore;
+  let store: typeof StoreModule.cronStore;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -324,7 +326,7 @@ describe('createCronTools', () => {
 
 describe('createCronToolSet', () => {
   let adapter: CronManagerAdapter;
-  let store: typeof import('../agent/store').cronStore;
+  let store: typeof StoreModule.cronStore;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -730,7 +732,7 @@ describe('cron activate', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('cron-manager (backend)', () => {
-  let manager: typeof import('../backend/cron-manager/index.js');
+  let manager: typeof CronBackendModule;
 
   beforeEach(async () => {
     vi.resetModules();

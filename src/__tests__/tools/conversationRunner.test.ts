@@ -667,7 +667,7 @@ describe('ConversationRunner', () => {
       expect((assistantMsgs[0] as { toolCalls?: unknown[] }).toolCalls).toHaveLength(1);
 
       // ✅ VERIFY: tool call ID is preserved
-      const toolCalls = (assistantMsgs[0] as { toolCalls?: readonly import('@agent-type').ToolCall[] }).toolCalls;
+      const toolCalls = (assistantMsgs[0] as { toolCalls?: readonly ToolCall[] }).toolCalls;
       expect(toolCalls?.[0]?.id).toBe('call-ask');
       expect(toolCalls?.[0]?.name).toBe('ask_user');
 

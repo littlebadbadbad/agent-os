@@ -119,7 +119,9 @@ export function buildTool<
 /**
  * Resolve the `tools` field of a ToolSet to a concrete readonly array.
  * Handles both the static-array and factory-function forms.
+ * Returns an empty array when `tools` is null or undefined.
  */
 export function resolveToolSetTools(ts: ToolSet): readonly Tool[] {
-  return typeof ts.tools === "function" ? ts.tools() : ts.tools;
+  const tools = typeof ts.tools === "function" ? ts.tools() : ts.tools;
+  return tools ?? [];
 }

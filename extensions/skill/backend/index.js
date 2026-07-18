@@ -12,11 +12,13 @@ import { createSkillStore } from './lib/skill-store/index.js';
 import { createSkillFs } from './lib/skill-store/skill-fs.js';
 import { createSkillService } from './services/skills.js';
 
+/** @import { BackendPluginHost } from '../../../../agent-type/plugin.ts' */
+
 /**
  * Activate the skill plugin backend.
  * Registers all API methods.  Each receives params as Record<string, unknown>.
  *
- * @param {import('../../../../agent-type/plugin.ts').BackendPluginHost} host
+ * @param {BackendPluginHost} host
  */
 export function activate(host) {
   // Determine the agent directory for skill storage.

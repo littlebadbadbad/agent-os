@@ -17,18 +17,15 @@ import { contextBridge, ipcRenderer } from 'electron';
  *
  * chat:       async, stream:start, stream:stop
  *             Push events: chat:stream:chunk, chat:stream:done, chat:stream:error
- * files:      read, write, strReplace, replaceAll, delete, move, listDir, search,
- *             workspaceGet, workspaceSet
  * browser:    list, create, remove, navigate, evaluate, readOutput, snapshot,
  *             screenshotData, wait, setLaunchConfig, switchTab,
  *             networkRequests, clearNetworkRequests
- * tools:      list, create, update, delete, execute
- * toolModules: list, get, create, update, delete
- * toolDeps:   list, install, remove
  * sessions:   load, save
- * git:        status, diff, log, stage, unstage, commit, discard
  * health:     check
  * publicKey:  get
+ * plugin:     <pluginId>:<method> — handled dynamically via plugin-router.js
+ *             (git, file, and dynamic-tool IPC are registered by their
+ *             respective plugin backend's activate() function)
  */
 
 interface ElectronAPI {

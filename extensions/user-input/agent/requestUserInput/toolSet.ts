@@ -8,6 +8,8 @@ import {
   type Attachment,
   type PluginUiAdapter,
   type PluginSlotDeclaration,
+  type CompactToolCardDescriptor,
+  type ToolCallInfo,
   type UserInputMode,
   ctxKey,
 } from "@agent-type";
@@ -19,6 +21,11 @@ import type { UserInputAdapter, InlinePromptEntry } from "./types";
 // ── Symbol ────────────────────────────────────────────────────────────────────
 
 export const USER_INPUT_SYMBOL: unique symbol = Symbol("user-input");
+
+function userInputDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
+  const summary = info.status === 'running' ? 'ask_user\u2026' : 'ask_user';
+  return { icon: '\uD83D\uDCAC', label: 'Ask User', summary, status: info.status };
+}
 
 // ── Symbol-state shape ────────────────────────────────────────────────────────
 
@@ -292,7 +299,9 @@ export function createUserInputToolSet(
             type: "inlinePrompt" as const,
             shouldRender: (ctx) => store.getAll(ctxKey(ctx)).length > 0,
           },
-        ],
+          { type: "toolCard" as const, toolNames: ['ask_user'] },
+          { type: "compactToolCard" as const, toolNames: ['ask_user'], getDescriptor: userInputDescriptor },
+        ] satisfies readonly PluginSlotDeclaration[],
       };
     },
 

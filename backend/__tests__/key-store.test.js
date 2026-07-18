@@ -137,8 +137,8 @@ describe('key-store', () => {
   it('handles corrupted persisted file gracefully', async () => {
     existsSync.mockReturnValue(true);
     readFileSync.mockReturnValue('not-json');
-    // Should not throw
     const { getApiKey } = await importKeyStore();
+    // Should not throw
     expect(getApiKey('any')).toBeNull();
   });
 });

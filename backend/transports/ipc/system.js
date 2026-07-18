@@ -7,7 +7,9 @@
 
 import * as systemService from '../../services/system.js';
 
-/** @param {import('electron').IpcMain} ipcMain */
+/** @import { IpcMain } from 'electron' */
+
+/** @param {IpcMain} ipcMain */
 export function registerSystemHandlers(ipcMain) {
   ipcMain.handle('health:check', async () => systemService.checkHealth());
   ipcMain.handle('publicKey:get', async () => systemService.getPublicKeyInfo());

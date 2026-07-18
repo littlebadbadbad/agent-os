@@ -56,6 +56,7 @@ import { createHash } from 'crypto';
 import { join, resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { run, buildEnv, applyDotEnv, resolveVcInstallDir, resolveGypPython } from './runtime.mjs';
+import { packager } from '@electron/packager';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT      = resolve(__dirname, '..');
@@ -348,7 +349,6 @@ if (fileUriSrc) {
 console.log('\n=== Step 7: Package Electron app (@electron/packager) ===');
 rmSync(DIST_ELECTRON_APP, { recursive: true, force: true });
 
-const { packager } = await import('@electron/packager');
 const [WIN_UNPACKED] = await packager({
   dir: DIST_ELECTRON,
   out: DIST_ELECTRON_APP,

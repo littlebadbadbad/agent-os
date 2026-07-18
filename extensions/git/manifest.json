@@ -1,0 +1,8 @@
+{
+  "id": "git",
+  "name": "Git",
+  "version": "0.1.0",
+  "description": "Git status, diff, log, stage, unstage, commit, and discard operations.",
+  "agentEntry": "activate.js",
+  "backendEntry": "backend.cjs"
+}

@@ -1,6 +1,6 @@
 import './types';
 import { ctxKey } from '@agent-type';
-import type { ToolSet, ToolSetContext, Tool } from '@agent-type';
+import type { ToolSet, ToolSetContext, Tool, AgentRunOutcome } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
 import { planStore } from './store';
 import { createPlanTools } from './tools';
@@ -144,7 +144,7 @@ export function createPlanToolSet(): ToolSet {
      * After a successful agent run, clear any pending approval that was
      * consumed — it was already shown in the system prompt for that turn.
      */
-    onAfterRun(ctx: ToolSetContext, _outcome: import("@agent-type").AgentRunOutcome): void {
+    onAfterRun(ctx: ToolSetContext, _outcome: AgentRunOutcome): void {
       if (planStore.getPendingApproval(key(ctx))) {
         planStore.setPendingApproval(key(ctx), null);
       }

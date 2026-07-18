@@ -15,7 +15,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createAgentClient } from '@agent-sdk';
-import type { AgentHandler, Tool, ToolResultMessage } from '@agent-type';
+import type { AgentHandler, Tool, ToolResultMessage, AgentMessage, AssistantMessage } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ function createAgent(toolSets: any[] = []) {
 }
 
 function addAssistantWithToolCall(
-  session: { sendMessage: (text: string) => Promise<void>; getHistory: () => readonly import('@agent-type').AgentMessage[] },
+  session: { sendMessage: (text: string) => Promise<void>; getHistory: () => readonly AgentMessage[] },
   toolCallId: string,
   toolName: string,
   args: Record<string, unknown>,
@@ -43,7 +43,7 @@ function addAssistantWithToolCall(
   // Simulate an existing assistant message by pushing directly into history.
   // We use the internal injectToolResult test setup — manually push a message
   // that the real agent loop would have produced.
-  const msg: import('@agent-type').AssistantMessage = {
+  const msg: AssistantMessage = {
     role: 'assistant',
     content: '',
     toolCalls: [{ id: toolCallId, name: toolName, arguments: args }],
@@ -83,7 +83,7 @@ describe('AgentSession.injectToolResult', () => {
     // to pair with the tool result — this is by design (tool result must be
     // preceded by its corresponding tool-call message in the LLM history).
     const injectedAssistants = history.filter(
-      (m): m is import('@agent-type').AssistantMessage =>
+      (m): m is AssistantMessage =>
         m.role === 'assistant' && (m.toolCalls?.length ?? 0) > 0,
     );
     expect(injectedAssistants).toHaveLength(1);
@@ -103,7 +103,7 @@ describe('AgentSession.injectToolResult', () => {
 
     // Exactly ONE synthetic assistant (from the first injection)
     const injectedAssistants = history.filter(
-      (m): m is import('@agent-type').AssistantMessage =>
+      (m): m is AssistantMessage =>
         m.role === 'assistant' && (m.toolCalls?.length ?? 0) > 0,
     );
     expect(injectedAssistants).toHaveLength(1);

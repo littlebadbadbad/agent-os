@@ -8,7 +8,7 @@
  * enabling isolated state injection via `onGetSymbolState`.
  */
 
-import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { PluginStateExtension, PluginUiAdapter, AgentHandler } from '@agent-type';
 import type {
   TokenBudgetState,
   TokenBudgetConfig,
@@ -88,5 +88,5 @@ export type TokenBudgetToolSetOptions = {
    * getSummarizationHandler: (base) => cheapModelHandler,
    * ```
    */
-  getSummarizationHandler?: (baseHandler: import('@agent-type').AgentHandler) => import('@agent-type').AgentHandler;
+  getSummarizationHandler?: (baseHandler: AgentHandler) => AgentHandler;
 };

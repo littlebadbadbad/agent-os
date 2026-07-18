@@ -2326,6 +2326,38 @@
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
+// ── Compact pill + dev copy button row ───────────────────────────────────────
+
+.tool-call-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dev-copy-btn-compact {
+  all: unset;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--bg-tertiary, var(--bg-tertiary));
+  color: var(--text-secondary, var(--text-secondary));
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 1;
+    background: var(--bg-secondary, var(--bg-secondary));
+    color: var(--text-primary, var(--text-primary));
+  }
+}
+
 // ── Tool detail modal ─────────────────────────────────────────────────────────
 // Portal overlay; renders on document.body above everything.
 

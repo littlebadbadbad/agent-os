@@ -95,16 +95,12 @@ export interface PluginManifest {
    */
   readonly backendEntry?: string;
   /**
-   * Relative path to the UI entry point (runs in browser).
+   * Path to the UI entry point (runs in browser iframe).
+   * Can be a relative path (served from /plugins/<id>/<path>) or an
+   * absolute URL (http://, https://, or protocol-relative //).
    * The module is expected to export an `activate` function.
    */
   readonly uiEntry?: string;
-  /**
-   * Whether this plugin has elevated privileges.
-   * Privileged plugins can access system resources (file system, network).
-   * Default: `false`.
-   */
-  readonly privileged?: boolean;
   /**
    * Configuration schema for this plugin.
    * Declares the configuration properties the plugin accepts,

@@ -4,9 +4,9 @@
  * One function per API method registered in backend/index.js.
  * ALL business logic lives in the mcp-manager library; this file
  * just wraps it in the shape expected by the activation entry.
- *
- * @param {import('../lib/mcp-manager/index.js').McpManager} manager
  */
+
+/** @import { McpManager } from '../lib/mcp-manager/index.js' */
 
 export function createMcpService(manager) {
   return {

@@ -1,2 +1,3 @@
 packages:
+  - 'agent-type'
   - 'extensions/*'

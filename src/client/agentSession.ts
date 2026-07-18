@@ -78,8 +78,12 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   });
 
   // ── Auto-set session title from first user message ──────────────────────
+  // Only set when the title is still the default placeholder, so restored
+  // sessions with messages also get a proper title.
   function maybeSetTitle(text: string): void {
-    if (tracker.getFullHistory().length === 0 && text.length > 0) {
+    if (!text) return;
+    const current = state.title;
+    if (current === 'New Chat' || current === `Session ${1}`) {
       const title = text.length <= 60 ? text : text.slice(0, 57) + '…';
       session.setTitle(title);
     }
@@ -117,11 +121,11 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
       return () => subscribers.delete(fn);
     },
 
-    getHistory(): import('@agent-type').AgentMessage[] {
+    getHistory(): AgentMessage[] {
       return tracker.getFullHistory();
     },
 
-    getLiveHistory(): import('@agent-type').AgentMessage[] {
+    getLiveHistory(): AgentMessage[] {
       return tracker.getLiveHistory();
     },
   };

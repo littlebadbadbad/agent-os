@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.ts', 'extensions/**/__tests__/**/*.test.ts'],
+    include: ['src/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.ts', 'extensions/**/__tests__/**/*.test.ts', 'extensions/**/__tests__/**/*.test.tsx'],
     exclude: ['extensions/browser/**'],
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],

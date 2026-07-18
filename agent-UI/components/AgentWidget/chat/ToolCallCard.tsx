@@ -2,9 +2,6 @@ import { useState } from "react";
 import type { ReactElement } from "react";
 import type { ToolCallInfo } from "../types";
 import type { SlotSession } from "@agent-type";
-import { FileToolCard } from "./toolCards/FileToolCard";
-import { AskUserCard } from "./toolCards/AskUserCard";
-import { DynamicToolCard } from "./toolCards/DynamicToolCard";
 import { SubAgentMetaCard } from "./toolCards/SubAgentMetaCard";
 import { SlotRenderer } from "../../../slots/SlotRenderer";
 import {
@@ -17,9 +14,6 @@ import {
   getCompactSummary,
 } from "./toolCards/shared";
 import {
-  isFileTool,
-  isAskUserTool,
-  isDynamicTool,
   isSubAgentMetaTool,
 } from "./toolCards/identifiers";
 import { CompactToolCard } from "./CompactToolCard";
@@ -29,12 +23,27 @@ import { useSlotRegistry } from "../../../plugin/PluginContext";
 
 export { formatResult };
 
+// ── Dev-mode helpers ──────────────────────────────────────────────────────────
+
+const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+
+function devCopy(info: ToolCallInfo): void {
+  if (!IS_DEV) return;
+  const data = JSON.stringify({
+    name: info.name,
+    arguments: info.arguments,
+    result: info.result,
+    error: info.error,
+  }, null, 2);
+  void navigator.clipboard.writeText(data).catch(() => { /* ignore */ });
+}
+
 // ── Generic fallback card (used in detail modal only) ─────────────────────────
 
 function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
   const { name, arguments: args, status, result, error } = info;
 
-  const hasArgs = Object.keys(args).length > 0;
+  const hasArgs = args ? Object.keys(args).length > 0 : false;
   const argsJson = hasArgs ? JSON.stringify(args, null, 2) : null;
   const argsLineCount = argsJson ? argsJson.split("\n").length : 0;
   const isLargeArgs = argsLineCount > 4;
@@ -42,7 +51,7 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
   const [argsExpanded, setArgsExpanded] = useState(!isLargeArgs);
 
   return (
-    <CardShell family="file">
+    <CardShell family="generic">
       <CardHeader
         icon="⚙"
         label={name}
@@ -70,6 +79,17 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
         ) : (
           <PlainResult result={result} />
         ))}
+      {IS_DEV && (
+        <button
+          type="button"
+          className={styles["dev-copy-btn-compact"]}
+          style={{ position: "absolute", top: 4, right: 4 }}
+          title="Copy tool call data (dev mode)"
+          onClick={() => devCopy(info)}
+        >
+          {"\u{1F4CB}"}
+        </button>
+      )}
     </CardShell>
   );
 }
@@ -81,12 +101,9 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
 function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSession }): ReactElement {
   const { getByType } = useSlotRegistry();
   const { name } = info;
-  if (isFileTool(name)) return <FileToolCard info={info} />;
-  if (isAskUserTool(name)) return <AskUserCard info={info} />;
-  if (isDynamicTool(name)) return <DynamicToolCard info={info} />;
-  if (isSubAgentMetaTool(name)) return <SubAgentMetaCard info={info} />;
 
-  // Generic plugin tool-card path: match tool name to plugin.
+  // Plugin tool-card slot: if a plugin declares a toolCard slot whose
+  // toolNames include this tool, route to the plugin's iframe renderer.
 
   const slot = getByType('toolCard')
       .find((entry) => entry.declaration.toolNames.includes(info.name));
@@ -102,6 +119,9 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
       />
     );
   }
+
+  // Non-plugin tools (sub-agent meta-operations).
+  if (isSubAgentMetaTool(name)) return <SubAgentMetaCard info={info} />;
 
   return <GenericCard info={info} />;
 }

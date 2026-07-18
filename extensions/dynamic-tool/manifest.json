@@ -1,0 +1,9 @@
+{
+  "id": "dynamic-tool",
+  "name": "Dynamic Tool",
+  "version": "0.1.0",
+  "description": "Create, update, and delete dynamic agent tools. Manage shared ESM modules and npm dependencies.",
+  "agentEntry": "activate.js",
+  "backendEntry": "backend.cjs",
+  "uiEntry": "ui/index.html"
+}

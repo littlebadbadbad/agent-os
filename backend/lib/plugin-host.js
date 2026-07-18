@@ -16,6 +16,9 @@
  *   const host = createPluginHost('browser', manifest, router, pluginsDir);
  */
 
+/** @import { ProxyConfig, PluginManifest, BackendPluginHost } from '../../agent-type/plugin.ts' */
+/** @import { pluginRouter } from './plugin-router.js' */
+
 import { join } from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import { createLogger } from './logger.js';
@@ -27,20 +30,20 @@ const log = createLogger('plugin-host');
  * Extend this to expose more backend capabilities to plugins.
  *
  * @typedef {Object} BackendServices
- * @property {() => import('../../agent-type/plugin.ts').ProxyConfig} [proxy]  - Current proxy configuration.
+ * @property {() => ProxyConfig} [proxy]  - Current proxy configuration.
  */
 
 /**
  * Create a BackendPluginHost for a given plugin.
  *
  * @param {string} pluginId   - Unique plugin identifier (kebab-case, matches manifest.id).
- * @param {import('../../agent-type/plugin.ts').PluginManifest} manifest - Parsed plugin manifest.
- * @param {import('./plugin-router.js').pluginRouter} router - Shared plugin router instance.
+ * @param {PluginManifest} manifest - Parsed plugin manifest.
+ * @param {pluginRouter} router - Shared plugin router instance.
  * @param {string} pluginsDir   - Absolute path to the plugins directory.
  * @param {string} dataRoot     - Absolute path to the data root directory (for plugin data dirs).
  * @param {BackendServices} [backendServices]  - Optional map of backend service accessors.
  * @param {string} [agentDir]   - Absolute path to the `.agent/` directory.
- * @returns {import('../../agent-type/plugin.ts').BackendPluginHost}
+ * @returns {BackendPluginHost}
  */
 export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
   const pluginDataDir = join(dataRoot, 'plugin-data', pluginId);

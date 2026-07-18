@@ -5,6 +5,10 @@
  * ALL business logic lives here.
  */
 
+/** @import { WebContents } from 'electron' */
+/** @import { WebSocket } from 'ws' */
+/** @import { StreamIO } from '../lib/browser-manager/browser-instance.js' */
+
 import {
   createBrowser,
   getBrowser,
@@ -163,7 +167,7 @@ export async function dispatchBrowserInput({ id, event }) {
  * Start streaming browser frames to an Electron WebContents.
  * Transport layer provides the webContents — this function just wires them up.
  *
- * @param {{ id: string, config?: object, webContents: import('electron').WebContents }} opts
+ * @param {{ id: string, config?: object, webContents: WebContents }} opts
  * @returns {() => void} Cleanup function
  */
 export function startBrowserStreamToWebContents({ id, config, webContents }) {
@@ -193,7 +197,7 @@ export async function takeRawScreenshot({ id, quality = 70 }) {
  * Start streaming to a WebSocket — returns stop function.
  * Used by the HTTP transport's WebSocket upgrade handler.
  *
- * @param {{ id: string, ws: import('ws').WebSocket, config?: object }} opts
+ * @param {{ id: string, ws: WebSocket, config?: object }} opts
  * @returns {() => void} Stop function
  */
 export function startBrowserStreamToWebSocket({ id, ws, config }) {
@@ -210,7 +214,7 @@ export function startBrowserStreamToWebSocket({ id, ws, config }) {
  * StreamIO from the plugin's StreamCallbacks so the streaming loop is
  * transport-agnostic.
  *
- * @param {{ id: string, io: import('../lib/browser-manager/browser-instance.js').StreamIO, config?: object }} opts
+ * @param {{ id: string, io: StreamIO, config?: object }} opts
  * @returns {() => void} Stop function
  */
 export function startBrowserStream({ id, io, config }) {

@@ -2,25 +2,19 @@ import {
   createAgentClient,
   createToolSearchToolSet,
   createPermissionsToolSet,
-  createFileTools,
-  createDynamicToolset,
   createSubAgentToolset,
   createVariableToolSet,
   createMemoryGraphToolSet,
   createToolResultCompressorToolSet,
   createDelegationNudgeToolSet,
 } from "@agent-sdk";
-import { defineTool } from "@agent-type/defineTool";
 import { createPluginSystem } from "./plugin";
 import type { AgentPluginContext } from "./plugin/host";
-import { z } from "zod";
 import { asyncHandler } from "./handlers/asyncHandler";
 import { streamHandler } from "./handlers/streamHandler";
 import { providerStore } from "./store/providerStore";
 import { providerConfigStore } from "./store/providerConfigStore";
 import {
-  fileAdapter,
-  dynamicToolAdapter,
   sessionStore,
 } from "./createAdapters";
 import { createDefaultUIRenderer } from "./defaultRenderUI";
@@ -80,42 +74,10 @@ const SYSTEM_PROMPT = "";
 // ── Shared tools ──────────────────────────────────────────────────────────────
 // Defined before agent creation so they can be passed via `tools:` config.
 
-const getCurrentTime = defineTool({
-  name: "get_current_time",
-  group: "Utilities",
-  description:
-    "Get the current date and time (useful for setting iteration dates and deadlines).",
-  parameters: z.object({
-    timezone: z
-      .string()
-      .optional()
-      .describe('IANA timezone, e.g. "Asia/Shanghai". Defaults to UTC.'),
-  }),
-  execute: async ({ timezone }) => {
-    const now = new Date();
-    return {
-      time: now.toLocaleString("en-US", {
-        timeZone: timezone ?? "UTC",
-        dateStyle: "full",
-        timeStyle: "long",
-      }),
-      iso: now.toISOString(),
-      date: now.toISOString().slice(0, 10),
-      timezone: timezone ?? "UTC",
-    };
-  },
-});
-
-const fileTools = createFileTools(fileAdapter);
-
 const variableToolSet = createVariableToolSet();
 const toolResultCompressorToolSet = createToolResultCompressorToolSet({ keepRecentResults: 3 });
 const delegationNudgeToolSet = createDelegationNudgeToolSet();
 const memoryGraphToolSet = createMemoryGraphToolSet();
-const sharedTools = [getCurrentTime, ...fileTools];
-
-// Dynamic tools (create_tool / list_dynamic_tools / update_tool / delete_tool)
-export const dynamicToolset = createDynamicToolset(dynamicToolAdapter);
 
 // Sub-agent meta-tools — each handler variant gets its own set.
 // The tool pool is derived lazily from each agent's live registered tools.
@@ -128,42 +90,9 @@ const streamSubAgentToolset = createSubAgentToolset("stream", {
 const toolSearchToolSet = createToolSearchToolSet();
 
 // ── Permission rules ──────────────────────────────────────────────────────────
-// Git write ops: always ask.  git_discard is additionally blocked by the
-// adapter because it is irreversible.
 
 const permissionsToolSet = createPermissionsToolSet({
-  context: {
-    mode: 'default',
-    alwaysAllowRules: {
-      // Read-only git ops never need a prompt.
-      'git_status': 'allow',
-      'git_diff':   'allow',
-      'git_log':    'allow',
-    },
-    alwaysDenyRules: {},
-    alwaysAskRules: {
-      'git_discard': 'ask',
-    },
-  },
-  adapter: {
-    async checkPermission(toolName, args, _tool, _ctx) {
-      // ── Git: gate discard behind an extra confirmation ────────────────────
-      if (toolName === 'git_discard') {
-        const paths = Array.isArray(args['paths']) ? (args['paths'] as string[]).join(', ') : '(unknown)';
-        return {
-          behavior: 'ask',
-          message: `⚠️ git_discard will permanently discard unstaged changes in: ${paths}. Allow?`,
-        };
-      }
-
-      // ── Read-only git tools: always allow ─────────────────────────────────
-      const ALWAYS_ALLOW = new Set(['git_status', 'git_diff', 'git_log']);
-      if (ALWAYS_ALLOW.has(toolName)) return { behavior: 'allow' };
-
-      // ── Everything else: default allow ────────────────────────────────────
-      return { behavior: 'allow' };
-    },
-  },
+  context: { mode: 'default' },
 });
 const sharedToolSets = [
   toolSearchToolSet,
@@ -171,7 +100,6 @@ const sharedToolSets = [
   toolResultCompressorToolSet,
   variableToolSet,
   memoryGraphToolSet,
-  dynamicToolset,
   delegationNudgeToolSet,
 ];
 
@@ -252,7 +180,7 @@ export const asyncAgent = createAgentClient({
   handler: asyncHandler,
   systemPrompt: SYSTEM_PROMPT,
   toolSets: [...sharedToolSets, asyncSubAgentToolset],
-  tools: sharedTools,
+  tools: [],
   onSessionsChange: makeDebouncedSave('async-agent'),
   renderUI: createDefaultUIRenderer({
     icon: "⚡",
@@ -271,7 +199,7 @@ export const streamAgent = createAgentClient({
   handler: streamHandler,
   systemPrompt: SYSTEM_PROMPT,
   toolSets: [...sharedToolSets, streamSubAgentToolset],
-  tools: sharedTools,
+  tools: [],
   onSessionsChange: makeDebouncedSave('stream-agent'),
   renderUI: createDefaultUIRenderer({
     icon: "🌊",

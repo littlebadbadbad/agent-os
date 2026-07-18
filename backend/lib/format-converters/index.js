@@ -15,7 +15,7 @@
  */
 
 import { createLogger } from '../logger.js';
-import { getMergedModelConfig } from '../../services/model-config.js';
+import { getMergedModelConfig, getMergedProvider } from '../../services/model-config.js';
 import { resolveApiKey } from './resolve-key.js';
 
 // Static imports ensure converter modules are loaded before any code runs.
@@ -100,7 +100,6 @@ export function resolveEndpoint(providerName, model) {
  * @returns {string} — defaults to 'chat-completions'
  */
 export async function resolveApiType(providerName) {
-  const { getMergedProvider } = await import('../../services/model-config.js');
   const provider = getMergedProvider(providerName);
   const apiType = provider?.apiType ?? 'chat-completions';
   if (!REGISTRY[apiType]) {

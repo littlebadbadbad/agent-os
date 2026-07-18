@@ -1,4 +1,4 @@
-import type { UserInputRequest } from "@agent-type";
+import type { UserInputRequest, UserInputMode } from "@agent-type";
 
 // ── InlinePromptEntry (UI-facing prompt snapshot) ──────────────────────────────
 
@@ -33,7 +33,7 @@ export interface InlinePromptEntry {
    * - `'bound'` (default): Promise suspends, answer is injected as a tool result.
    * - `'detached'`:        Promise resolves immediately, answer is a user message.
    */
-  readonly mode?: import('@agent-type').UserInputMode;
+  readonly mode?: UserInputMode;
   /**
    * The original tool-call ID for the prompt.
    * - Bound mode: used after restore to synthesise a tool-call + tool-result pair

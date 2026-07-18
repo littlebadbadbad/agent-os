@@ -4,6 +4,5 @@
   "version": "0.1.0",
   "description": "Planning tools for structured task execution. Provides plan_write, plan_checkpoint, plan_enter, plan_exit, plan_verify tools with markdown plan tracking and plan-mode restrictions.",
   "agentEntry": "activate.js",
-  "uiEntry": "ui/index.html",
-  "tools": ["plan"]
+  "uiEntry": "ui/index.html"
 }

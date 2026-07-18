@@ -16,6 +16,7 @@
  */
 
 import type { AgentPluginHost, PluginApiClient, ToolSet, ModelMeta } from '@agent-type';
+import type { Tool } from '@agent-type/core';
 import type { PluginConfigClient } from './configClient';
 
 // ── Agent context ─────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ export interface AgentPluginContext {
   /** All ToolSets currently registered. */
   getRegisteredToolSets(): readonly ToolSet[];
   /** All master tools (unfiltered). */
-  getTools(): readonly import('@agent-type/core').Tool[];
+  getTools(): readonly Tool[];
   /** The agent's name/identifier. */
   readonly agentName: string;
 }
@@ -81,7 +82,7 @@ export function createAgentPluginHost(params: AgentPluginHostParams): AgentPlugi
       return agentContext.getRegisteredToolSets();
     },
 
-    getTools(): readonly import('@agent-type/core').Tool[] {
+    getTools(): readonly Tool[] {
       return agentContext.getTools();
     },
 

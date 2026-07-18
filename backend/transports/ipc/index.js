@@ -12,9 +12,6 @@
 
 import { ipcMain } from 'electron';
 import { createLogger } from '../../lib/logger.js';
-import { registerFileHandlers } from './files.js';
-import { registerToolHandlers } from './tools.js';
-import { registerGitHandlers } from './git.js';
 import { registerSessionHandlers } from './sessions.js';
 import { registerSystemHandlers } from './system.js';
 import { registerChatHandlers } from './chat.js';
@@ -26,9 +23,6 @@ const log = createLogger('ipc');
 export function registerIpcHandlers(pluginRouter) {
   log.info('Registering IPC handlers…');
 
-  registerFileHandlers(ipcMain);
-  registerToolHandlers(ipcMain);
-  registerGitHandlers(ipcMain);
   registerSessionHandlers(ipcMain);
   registerSystemHandlers(ipcMain);
   registerChatHandlers(ipcMain);
@@ -36,6 +30,9 @@ export function registerIpcHandlers(pluginRouter) {
 
   // Plugin IPC handlers — registered after all built-in handlers.
   // This registers handlers for all currently active plugin API methods.
+  // Git, File, and Dynamic-Tool IPC handlers are now registered via
+  // their respective plugin backend activate() functions through the
+  // pluginRouter.
   registerPluginIpcHandlers(ipcMain, pluginRouter);
 
   log.info('IPC handlers registered');

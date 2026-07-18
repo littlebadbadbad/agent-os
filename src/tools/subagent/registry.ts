@@ -86,10 +86,10 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
   // execution is created.  This avoids a circular dependency between lifecycle
   // (which needs these for onSessionReady) and execution (which lifecycle creates).
   const sendMessageRef: {
-    current?: (agentName: string, convId: string, text: string, opts: import('./registryExecution').SendMessageOpts) => Promise<import('./types').SubAgentResult>
+    current?: (agentName: string, convId: string, text: string, opts: SendMessageOpts) => Promise<SubAgentResult>
   } = {};
   const injectToolResultRef: {
-    current?: (agentName: string, convId: string, toolCallId: string, name: string, result: unknown) => Promise<import('./types').SubAgentResult>
+    current?: (agentName: string, convId: string, toolCallId: string, name: string, result: unknown) => Promise<SubAgentResult>
   } = {};
 
   const lifecycle = createLifecycleFunctions(
@@ -111,7 +111,16 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     if (!entry) throw new Error(`Sub-agent "${agentName}" not found.`);
     const conv = entry.conversations.get(convId);
     if (!conv) throw new Error(`Conversation "${convId}" not found on sub-agent "${agentName}".`);
-
+    // Guard: if the conversation is currently processing a turn, skip the
+    // injection — the agent will process the answer when it reads the
+    // restored ghost entry from the user-input store on the next turn.
+    // This mirrors the ConversationRunner's own isLoading guard.
+    if (conv._state.isLoading) {
+      return Promise.resolve({
+        output: '', turns: 0, toolCallCount: 0,
+        history: conv._state.tracker.getLiveHistory(),
+      } satisfies SubAgentResult);
+    }
     // Delegate to the persistent runner — same as the main agent path.
     if (!conv._state.runner) {
       throw new Error(`Conversation "${convId}" has no runner.`);

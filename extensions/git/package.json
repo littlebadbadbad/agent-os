@@ -1,0 +1,14 @@
+{
+  "name": "@uap/plugin-git",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/compile-plugins.mjs git",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@agent-type": "workspace:*"
+  }
+}

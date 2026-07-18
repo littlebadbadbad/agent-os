@@ -7,7 +7,7 @@ import { truncateAtUserMessage } from '../historyUtils';
 import type { InternalEntry } from './registryInternal';
 import type { ConversationHandle } from './registryConversation';
 import type { ToolSetScope } from '@agent-sdk/tools/toolSetScope';
-import type { ToolSetContext, Tool } from '@agent-type';
+import type { ToolSetContext, Tool, AgentHandler } from '@agent-type';
 
 // ── Execution options ────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ export function createExecutionFunctions(
   deps: {
     subCtx: (agentName: string, conversationId: string) => ToolSetContext;
     resolveTools: (toolNames: readonly string[]) => Tool[];
-    handler: import('@agent-type').AgentHandler;
+    handler: AgentHandler;
     scope: ToolSetScope;
   },
   entries: Map<string, InternalEntry>,
@@ -88,7 +88,9 @@ export function createExecutionFunctions(
     }
 
     // Auto-set conversation title from first user message.
-    if (conv._state.tracker.getFullHistory().length === 0 && message.length > 0) {
+    // Only set when the title is still the auto-generated default, so
+    // restored/renamed conversations keep their existing title.
+    if (message.length > 0 && conv._state.title.startsWith('Conversation ')) {
       const title = message.length <= 60 ? message : message.slice(0, 57) + '…';
       conv._state.title = title;
     }

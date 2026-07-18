@@ -6,7 +6,7 @@
  * `agent-UI/` (UI layer) import from this single module.
  */
 
-import type { ToolCallInfo } from '@agent-type';
+import type { ToolCallInfo, Attachment } from '@agent-type';
 
 // ── ID generation ─────────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ export type Message = {
   /** Present only when role === 'tool'. */
   readonly toolCall?: ToolCallInfo;
   /** Multimodal attachments attached by the user or produced by the assistant. */
-  readonly attachments?: readonly import('@agent-type').Attachment[];
+  readonly attachments?: readonly Attachment[];
 };
 
 export type { ToolCallInfo } from '@agent-type';

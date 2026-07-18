@@ -22,6 +22,10 @@ import { createPluginConfigStore } from '../../lib/plugin-config-store.js';
 import { streamRegistry } from '../../lib/stream-registry.js';
 import { DATA_ROOT } from '../../lib/paths.js';
 
+/** @import { StreamConnection } from '../../../../agent-type/plugin.ts' */
+/** @import { IpcMain } from 'electron' */
+/** @import { pluginRouter } from '../../lib/plugin-router.js' */
+
 const log = createLogger('ipc-plugin');
 const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
 
@@ -34,7 +38,7 @@ const _registeredChannels = new Set();
 /**
  * Active stream connections keyed by connection id.
  * Used by stream message/disconnect handlers to find the connection object.
- * @type {Map<string, import('../../../../agent-type/plugin.ts').StreamConnection>}
+ * @type {Map<string, StreamConnection>}
  */
 const _activeStreamConnections = new Map();
 
@@ -43,8 +47,8 @@ const _activeStreamConnections = new Map();
  * Also registers built-in plugin config handlers.
  * Call this AFTER plugin bootstrap.
  *
- * @param {import('electron').IpcMain} ipcMain
- * @param {import('../../lib/plugin-router.js').pluginRouter} router
+ * @param {IpcMain} ipcMain
+ * @param {pluginRouter} router
  */
 export function registerPluginIpcHandlers(ipcMain, router) {
   // ── Built-in: plugin config handlers ────────────────────────────────────
@@ -197,8 +201,8 @@ export function registerPluginIpcHandlers(ipcMain, router) {
  * Unregister and re-register all plugin IPC handlers.
  * Call this when plugins are activated or deactivated at runtime.
  *
- * @param {import('electron').IpcMain} ipcMain
- * @param {import('../../lib/plugin-router.js').pluginRouter} router
+ * @param {IpcMain} ipcMain
+ * @param {pluginRouter} router
  */
 export function refreshPluginIpcHandlers(ipcMain, router) {
   // Clear all previously registered channels.

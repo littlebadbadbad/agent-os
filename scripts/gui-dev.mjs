@@ -3,8 +3,9 @@
  * scripts/gui-dev.mjs  —  Start Electron in GUI development mode
  *
  * Orchestrates a two-way concurrent process:
- *   1. Vite dev server (frontend with HMR, proxying /api to backend)
- *   2. Electron window, which loads the backend source directly via
+ *   1. Interactive plugin selection (new! — space to toggle, arrow keys to move)
+ *   2. Vite dev server (frontend with HMR, proxying /api to backend)
+ *   3. Electron window, which loads the backend source directly via
  *      dynamic import() (no pre-bundling step needed)
  *
  * Usage
@@ -12,9 +13,12 @@
  *   node scripts/gui-dev.mjs
  *   pnpm run gui:dev
  *
- * The script compiles Electron entry points (main + preload) FIRST, then
- * starts Vite + Electron concurrently.  The backend is loaded by Electron
- * itself from source at runtime — no esbuild bundling of backend/index.js.
+ * Plugin selection supports:
+ *   • Space to toggle individual plugins
+ *   • Arrow keys (↑/↓) to navigate
+ *   • Ctrl+A to select all / Ctrl+R to toggle all
+ *   • Type to filter
+ *   • Default: none selected (skips plugin compilation)
  *
  * Environment overrides
  * ─────────────────────
@@ -26,6 +30,7 @@
 import { execSync, spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { selectPlugins } from './plugin-selector.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -84,10 +89,18 @@ async function main() {
   console.log('\n=== Step 1: Compile Electron entry points ===');
   run('node scripts/compile-electron.mjs');
 
-  // ── Step 1.5: Compile plugins ────────────────────────────────────────────
-  // Ensures plugin artifacts in plugins/ are up-to-date before backend boots.
-  console.log('\n=== Step 1.5: Compile plugins ===');
-  run('node scripts/compile-plugins.mjs');
+  // ── Step 1.5: Interactive plugin selection + compile ────────────────────
+  // Ask the user which plugins to bundle before booting the backend.
+  console.log('\n=== Step 1.5: Select plugins to bundle ===');
+  const selectedPluginNames = await selectPlugins();
+
+  if (selectedPluginNames.length > 0) {
+    process.env.PLUGIN_FILTER = selectedPluginNames.join(',');
+    console.log(`\n=== Step 1.5b: Compile selected plugins (${selectedPluginNames.length}) ===`);
+    run('node scripts/compile-plugins.mjs');
+  } else {
+    console.log('  ℹ  No plugins selected — skipping plugin compilation.');
+  }
 
   // ── Step 2: Start Vite dev server ────────────────────────────────────────
   // (Backend is loaded by Electron itself from source — no bundling needed.)

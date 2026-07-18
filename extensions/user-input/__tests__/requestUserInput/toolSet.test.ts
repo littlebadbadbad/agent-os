@@ -265,11 +265,13 @@ describe('createUserInputToolSet — onGetSymbolState', () => {
     expect(typeof state.respondUserInput).toBe('function');
   });
 
-  it('returns inlinePrompt slot', () => {
+  it('returns inlinePrompt, toolCard, and compactToolCard slots', () => {
     const ts = createUserInputToolSet();
     const state = ts.onGetSymbolState!(MINIMAL_CTX);
-    expect(state.slots).toHaveLength(1);
+    expect(state.slots).toHaveLength(3);
     expect(state.slots[0].type).toBe('inlinePrompt');
+    expect(state.slots[1].type).toBe('toolCard');
+    expect(state.slots[2].type).toBe('compactToolCard');
   });
 
   it('uses ctxKey for isolation across contexts', () => {

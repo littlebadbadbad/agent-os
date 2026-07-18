@@ -18,9 +18,11 @@ import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('ipc-chat');
 
+/** @import { IpcMain } from 'electron' */
+
 /**
  * Register chat IPC handlers on the given ipcMain instance.
- * @param {import('electron').IpcMain} ipcMain
+ * @param {IpcMain} ipcMain
  */
 export function registerChatHandlers(ipcMain) {
   // ── Async (non-streaming) ─────────────────────────────────────────────────

@@ -11,12 +11,14 @@
 import { createMcpManager } from './lib/mcp-manager/index.js';
 import { createMcpService } from './services/mcp.js';
 
+/** @import { BackendPluginHost } from '../../../../agent-type/plugin.ts' */
+
 /**
  * Activate the MCP plugin backend.
  * Creates an isolated MCP manager scoped to the agent directory,
  * then registers all API methods.
  *
- * @param {import('../../../../agent-type/plugin.ts').BackendPluginHost} host
+ * @param {BackendPluginHost} host
  */
 export function activate(host) {
   const agentDir = host.getAgentDir();

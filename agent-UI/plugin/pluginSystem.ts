@@ -68,9 +68,10 @@ export interface PluginDescriptor {
   /** Whether this plugin has a UI entry point. */
   readonly hasUiEntry: boolean;
   /**
-   * URL path to the plugin's UI entry HTML file.
+   * URL to the plugin's UI entry HTML file.
+   * Can be a relative path (`/plugins/<id>/ui/index.html`) or an
+   * absolute URL (`https://example.com/plugin-ui/`).
    * Only present when hasUiEntry is true.
-   * Example: `/plugins/<id>/ui/index.html`
    */
   readonly uiEntryUrl?: string;
   symbols: symbol[];

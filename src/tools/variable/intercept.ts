@@ -69,8 +69,9 @@ export function interceptResult(
     : undefined;
 
   // ── Body size check ───────────────────────────────────────────────────────
-  const serialized = JSON.stringify(result.result);
-  let body: unknown = result.result;
+  const rawResult = result.result;
+  const serialized = rawResult !== undefined ? JSON.stringify(rawResult) : 'null';
+  let body: unknown = rawResult;
 
   if (serialized.length > threshold) {
     const handle = store.store(

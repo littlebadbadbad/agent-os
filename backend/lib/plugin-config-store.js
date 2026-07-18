@@ -15,6 +15,8 @@
  *   const config = store.load('browser', manifest);
  */
 
+/** @import { PluginManifest } from '../../agent-type/plugin.ts' */
+
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { createLogger } from './logger.js';
@@ -45,7 +47,7 @@ export function createPluginConfigStore(dataRoot) {
    * Load a plugin's saved config, merged with manifest defaults.
    *
    * @param {string} pluginId
-   * @param {import('../../agent-type/plugin.ts').PluginManifest} [manifest]
+   * @param {PluginManifest} [manifest]
    * @returns {Record<string, unknown>}
    */
   function load(pluginId, manifest) {
@@ -99,7 +101,7 @@ export function createPluginConfigStore(dataRoot) {
 /**
  * Compute the default configuration from the manifest's configuration schema.
  *
- * @param {import('../../agent-type/plugin.ts').PluginManifest} [manifest]
+ * @param {PluginManifest} [manifest]
  * @returns {Record<string, unknown>}
  */
 function computeDefaults(manifest) {

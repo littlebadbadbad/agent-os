@@ -21,14 +21,16 @@ import {
   subscribeTerminalOutput,
 } from './terminals.js';
 
-/** @type {import('../../../../agent-type/plugin.ts').Logger} */
+/** @import { Logger, BackendPluginHost } from '../../../../agent-type/plugin.ts' */
+
+/** @type {Logger} */
 let log = { info() {}, ok() {}, warn() {}, error() {}, debug() {} };
 
 /**
  * Initialise the upgrade module with a logger from the host.
  * Called once during plugin activation — replaces the noop starter.
  *
- * @param {import('../../../../agent-type/plugin.ts').BackendPluginHost} host
+ * @param {BackendPluginHost} host
  */
 export function init(host) {
   log = host.logger;

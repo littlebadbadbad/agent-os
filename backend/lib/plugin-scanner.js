@@ -20,7 +20,7 @@
  *   if (match) return send(res, 200, await match.handler(params));
  */
 
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import { createLogger } from './logger.js';
@@ -58,6 +58,10 @@ function isBuiltInPlugin(id) {
 
 export { isBuiltInPlugin };
 
+/** @import { PluginManifest } from '../../agent-type/plugin.ts' */
+/** @import { pluginRouter } from './plugin-router.js' */
+/** @import { BackendServices } from './plugin-host.js' */
+
 const log = createLogger('plugin-scanner');
 
 // ── Plugin state constants (keep in sync with @agent-type) ───────────────────
@@ -76,23 +80,23 @@ const STATE_DISABLED = 'disabled';
 /**
  * Create a plugin scanner bound to a specific directory and router.
  *
- * @param {import('./plugin-router.js').pluginRouter} router  - Shared PluginRouter instance.
+ * @param {pluginRouter} router  - Shared PluginRouter instance.
  * @param {string} pluginsDir  - Absolute path to the plugins/ directory.
  * @param {string} dataRoot    - Absolute path to the data/ directory.
- * @param {import('./plugin-host.js').BackendServices} [backendServices]  - Optional backend service accessors.
+ * @param {BackendServices} [backendServices]  - Optional backend service accessors.
  * @param {string} [agentDir]  - Optional `.agent/` directory path (passed through to BackendPluginHost.getAgentDir).
  * @returns {{
  *   bootstrap: () => Promise<void>,
- *   scan: () => Promise<import('../../agent-type/plugin.ts').PluginManifest[]>,
+ *   scan: () => Promise<PluginManifest[]>,
  *   activate: (id: string) => Promise<boolean>,
  *   deactivate: (id: string) => Promise<boolean>,
  *   getState: (id: string) => string,
- *   getActivePlugins: () => Array<{ manifest: import('../../agent-type/plugin.ts').PluginManifest, state: string }>,
- *   getPluginManifest: (id: string) => import('../../agent-type/plugin.ts').PluginManifest | undefined,
+ *   getActivePlugins: () => Array<{ manifest: PluginManifest, state: string }>,
+ *   getPluginManifest: (id: string) => PluginManifest | undefined,
  * }}
  */
 export function createPluginScanner(router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
-  /** @type {Map<string, { manifest: import('../../agent-type/plugin.ts').PluginManifest, state: string }>} */
+  /** @type {Map<string, { manifest: PluginManifest, state: string }>} */
   const _plugins = new Map();
 
   /** Persisted state (disabled flags survive restarts). */
@@ -156,12 +160,11 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
     /**
      * Scan the plugins directory for valid manifests.
      * Returns a list of parsed manifests.
-     * @returns {Promise<import('../../agent-type/plugin.ts').PluginManifest[]>}
+     * @returns {Promise<PluginManifest[]>}
      */
     async scan() {
-      const { readdirSync, statSync } = await import('fs');
 
-      /** @type {import('../../agent-type/plugin.ts').PluginManifest[]} */
+      /** @type {PluginManifest[]} */
       const manifests = [];
 
       if (!existsSync(pluginsDir)) {
@@ -322,7 +325,7 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
 
     /**
      * Get all tracked plugins and their current state.
-     * @returns {Array<{ manifest: import('../../agent-type/plugin.ts').PluginManifest, state: string }>}
+     * @returns {Array<{ manifest: PluginManifest, state: string }>}
      */
     getActivePlugins() {
       return Array.from(_plugins.values());
@@ -331,7 +334,7 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
     /**
      * Get a plugin's parsed manifest.
      * @param {string} id
-     * @returns {import('../../agent-type/plugin.ts').PluginManifest | undefined}
+     * @returns {PluginManifest | undefined}
      */
     getPluginManifest(id) {
       return _plugins.get(id)?.manifest;

@@ -29,6 +29,16 @@ const ROOT           = resolve(__dirname, '..');
 const EXTENSIONS_DIR = resolve(ROOT, 'extensions');
 const PLUGINS_DIR    = resolve(ROOT, 'plugins');
 
+// ── Recursive guard ────────────────────────────────────────────────────────────
+// Some plugins (dynamic-tool, file, git) have a build script that calls back into
+// compile-plugins.mjs with their own name.  Without a guard this creates infinite
+// recursion:  compile-plugins → run build script → compile-plugins → run build …
+// When PLUGIN_COMPILE_IN_PROGRESS is set, this is a child process spawned by the
+// orchestrator to build a single plugin — just exit and let the parent finish it.
+if (process.env.PLUGIN_COMPILE_IN_PROGRESS) {
+  process.exit(0);
+}
+
 /** Read and parse a JSON file, returning null on ENOENT. */
 function readJSON(path) {
   try {
@@ -71,9 +81,26 @@ function listDirs(parent) {
   );
 }
 
-const pluginNames = listDirs(EXTENSIONS_DIR);
+let pluginNames = listDirs(EXTENSIONS_DIR);
 
-if (pluginNames.length === 0) {
+// ── Apply filter ──────────────────────────────────────────────────────────────
+// Priority: CLI positional args > PLUGIN_FILTER env var
+const cliFilter = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const filterStr = cliFilter.length > 0
+  ? cliFilter.join(',')
+  : (process.env.PLUGIN_FILTER ?? '');
+
+if (filterStr) {
+  const included = new Set(
+    filterStr.split(',').map((s) => s.trim()).filter(Boolean),
+  );
+  pluginNames = pluginNames.filter((name) => included.has(name));
+
+  if (pluginNames.length === 0) {
+    console.log('No matching plugins found — skipping plugin compilation.');
+    process.exit(0);
+  }
+} else if (pluginNames.length === 0) {
   console.log('No plugins found — extensions/ directory is empty.');
   process.exit(0);
 }
@@ -125,6 +152,7 @@ for (const name of pluginNames) {
           ...process.env,
           PLUGIN_OUT_DIR: outDir,
           PLUGIN_NAME: name,
+          PLUGIN_COMPILE_IN_PROGRESS: name,
         },
       }, { label: name });
       console.log(`  ✔  ${name} build succeeded`);

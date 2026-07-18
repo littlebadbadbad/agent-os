@@ -1,0 +1,9 @@
+{
+  "id": "file",
+  "name": "File",
+  "version": "0.1.0",
+  "description": "File read/write, search, workspace management, and filesystem browser.",
+  "agentEntry": "activate.js",
+  "backendEntry": "backend.cjs",
+  "uiEntry": "ui/index.html"
+}

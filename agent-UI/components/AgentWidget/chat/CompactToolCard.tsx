@@ -1,9 +1,24 @@
 import { type ReactElement, type CSSProperties, useRef, useEffect, useCallback } from 'react';
 import type { ToolCallInfo, CompactToolCardDescriptor } from '@agent-type';
 import type { SlotSession } from '@agent-type';
-import { StatusBadge, getToolMeta, getCompactSummary } from './toolCards/shared';
+import { StatusBadge, getToolMeta, getCompactSummary, formatResult } from './toolCards/shared';
 import { useSlotRegistry } from '../../../plugin/PluginContext';
 import styles from '../AgentWidget.module.scss';
+
+// ── Dev-mode detection ────────────────────────────────────────────────────────
+
+const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+
+function devCopy(info: ToolCallInfo): void {
+  if (!IS_DEV) return;
+  const data = JSON.stringify({
+    name: info.name,
+    arguments: info.arguments,
+    result: info.result,
+    error: info.error,
+  }, null, 2);
+  void navigator.clipboard.writeText(data).catch(() => { /* ignore */ });
+}
 
 
 interface CompactToolCardProps {
@@ -51,19 +66,31 @@ export function CompactToolCard({ info, onOpen }: CompactToolCardProps): ReactEl
 
     const desc: CompactToolCardDescriptor = pluginSlot.declaration.getDescriptor(info);
     return (
-      <button
-        type="button"
-        className={styles['tool-call-compact']}
-        onClick={handleOpen}
-        title={`${desc.label} — ${desc.summary}`}
-      >
-        <span className={styles['tool-call-compact-icon']} aria-hidden="true">
-          {desc.icon}
-        </span>
-        <span className={styles['tool-call-compact-label']}>{desc.label}</span>
-        <span className={styles['tool-call-compact-summary']}>{desc.summary}</span>
-        <StatusBadge status={desc.status} />
-      </button>
+      <div className={styles['tool-call-compact-row']}>
+        <button
+          type="button"
+          className={styles['tool-call-compact']}
+          onClick={handleOpen}
+          title={`${desc.label} — ${desc.summary}`}
+        >
+          <span className={styles['tool-call-compact-icon']} aria-hidden="true">
+            {desc.icon}
+          </span>
+          <span className={styles['tool-call-compact-label']}>{desc.label}</span>
+          <span className={styles['tool-call-compact-summary']}>{desc.summary}</span>
+          <StatusBadge status={desc.status} />
+        </button>
+        {IS_DEV && (
+          <button
+            type="button"
+            className={styles['dev-copy-btn-compact']}
+            title="Copy tool call data (dev mode)"
+            onClick={() => devCopy(info)}
+          >
+            {'\u{1F4CB}'}
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -72,21 +99,33 @@ export function CompactToolCard({ info, onOpen }: CompactToolCardProps): ReactEl
   const summary = getCompactSummary(info);
 
   return (
-    <button
-      type="button"
-      className={styles['tool-call-compact']}
-      style={{ '--tc-accent': meta.accent } as CSSProperties}
-      onClick={handleOpen}
-      title={`${meta.label}${summary ? ` — ${summary}` : ''}`}
-    >
-      <span className={styles['tool-call-compact-icon']} aria-hidden="true">
-        {meta.icon}
-      </span>
-      <span className={styles['tool-call-compact-label']}>{meta.label}</span>
-      {summary && (
-        <span className={styles['tool-call-compact-summary']}>{summary}</span>
+    <div className={styles['tool-call-compact-row']}>
+      <button
+        type="button"
+        className={styles['tool-call-compact']}
+        style={{ '--tc-accent': meta.accent } as CSSProperties}
+        onClick={handleOpen}
+        title={`${meta.label}${summary ? ` — ${summary}` : ''}`}
+      >
+        <span className={styles['tool-call-compact-icon']} aria-hidden="true">
+          {meta.icon}
+        </span>
+        <span className={styles['tool-call-compact-label']}>{meta.label}</span>
+        {summary && (
+          <span className={styles['tool-call-compact-summary']}>{summary}</span>
+        )}
+        <StatusBadge status={info.status} />
+      </button>
+      {IS_DEV && (
+        <button
+          type="button"
+          className={styles['dev-copy-btn-compact']}
+          title="Copy tool call data (dev mode)"
+          onClick={() => devCopy(info)}
+        >
+          {'\u{1F4CB}'}
+        </button>
       )}
-      <StatusBadge status={info.status} />
-    </button>
+    </div>
   );
 }

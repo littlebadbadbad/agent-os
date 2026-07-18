@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createDelegationNudgeToolSet } from '../../tools/subagent/delegationNudge';
-import type { ToolSetContext } from '@agent-type';
+import type { ToolResult, ToolSetContext } from '@agent-type';
 
 describe('createDelegationNudgeToolSet', () => {
   const CTX: ToolSetContext = { sessionId: 'sess-1', agentName: 'main', conversationId: 'main' };
@@ -94,5 +94,23 @@ describe('createDelegationNudgeToolSet', () => {
     expect(ts.onGetSystemPrompt?.(ctxA, {} as any, [])).toContain('Delegation reminder');
     // Session B should not (no large results in B)
     expect(ts.onGetSystemPrompt?.(ctxB, {} as any, [])).toBeUndefined();
+  });
+
+  it('handles undefined result gracefully', () => {
+    const ts = createDelegationNudgeToolSet();
+    ts.onBeforeRun?.(CTX, []);
+
+    // result.result is undefined — JSON.stringify(undefined) returns undefined
+    // which used to cause "Cannot read properties of undefined (reading 'length')"
+    const result: ToolResult = { toolCallId: 'tc-1', name: 'test', result: undefined as unknown as string };
+    expect(() => ts.onToolResult?.(CTX, 'test', result)).not.toThrow();
+  });
+
+  it('handles null result gracefully', () => {
+    const ts = createDelegationNudgeToolSet();
+    ts.onBeforeRun?.(CTX, []);
+
+    const result: ToolResult = { toolCallId: 'tc-1', name: 'test', result: null };
+    expect(() => ts.onToolResult?.(CTX, 'test', result)).not.toThrow();
   });
 });

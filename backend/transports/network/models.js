@@ -8,9 +8,11 @@
 import { send } from '../../lib/http.js';
 import { listModels } from '../../services/models.js';
 
+/** @import { IncomingMessage, ServerResponse } from 'http' */
+
 /**
- * @param {import('http').IncomingMessage} req
- * @param {import('http').ServerResponse}  res
+ * @param {IncomingMessage} req
+ * @param {ServerResponse}  res
  * @param {string} path
  * @returns {Promise<boolean>} false if route did not match
  */

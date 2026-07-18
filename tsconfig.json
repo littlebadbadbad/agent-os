@@ -24,6 +24,6 @@
       "@agent-type/*": ["./agent-type/*"]
     }
   },
-  "include": ["src", "demo", "agent-UI", "agent-type"],
+  "include": ["src", "demo", "agent-UI", "agent-type", "extensions/git/agent", "extensions/file/agent", "extensions/dynamic-tool/agent"],
   "exclude": ["node_modules", "dist"]
 }

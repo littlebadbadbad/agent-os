@@ -3,7 +3,7 @@ import { runAgentLoopCore } from './agentLoopCore';
 import { runEngine, type EngineRefs } from './conversationEngine';
 import { makeBatchedAppender } from './streamingBatcher';
 import { truncateAtUserMessage } from './historyUtils';
-import { wrapOnBeforeInvoke } from './agentRuntime';
+import { createTurnHooks } from './turnHooks';
 import type { MessageList, Message } from './messageList';
 import { assistantMsg, toolMsg } from './messageList';
 import type {
@@ -14,7 +14,6 @@ import type {
   Attachment,
   ToolCall,
   ToolResult,
-  TokenUsage,
   ToolSetContext,
 } from '@agent-type';
 import type { ToolSetScope } from './toolSetScope';
@@ -62,8 +61,6 @@ export function createConversationRunner(deps: ConversationRunnerDeps): Conversa
     notify, invokeHandler, runToolCall,
   } = deps;
 
-  const toUI = deps.toUIMessages ?? defaultToUI;
-
   /** Expose the most recent loop result for callers that need turn/toolCall counts. */
   let lastRunResult: { turns: number; toolCallCount: number; completed: boolean } | undefined;
 
@@ -78,24 +75,6 @@ export function createConversationRunner(deps: ConversationRunnerDeps): Conversa
     const mainThinking = makeBatchedAppender((delta) => {
       msgList.update(turnRef.assistantId, (m) => m ? { ...m, thinking: (m.thinking ?? '') + delta } : m);
     });
-
-    async function handleAfterTurn(
-      historySnapshot: AgentMessage[],
-      usage: TokenUsage | undefined,
-      signal: AbortSignal,
-    ): Promise<AgentMessage[] | void> {
-      const result = await scope.composeAfterTurn(historySnapshot, tsCtx, usage, signal);
-      if (result.changed || result.notices.length > 0) {
-        tracker.advanceTurn([...result.history]);
-        for (const notice of result.notices) {
-          msgList.push({ ...assistantMsg(createId(), notice.content), attachments: notice.attachments });
-          deps.onCompactionNotices?.([notice]);
-        }
-        return result.history;
-      }
-      tracker.advanceTurn([...historySnapshot]);
-    }
-
 
     await runEngine(
       refs,
@@ -114,139 +93,17 @@ export function createConversationRunner(deps: ConversationRunnerDeps): Conversa
             invokeHandler: (msgs, sig) =>
               deps.invokeHandler(msgs as AgentMessage[], sig, userText),
             callTool: (call) => runToolCall(call),
-            hooks: {
-              onTurnSnapshot: (history) => {
-                const turnStart = tracker.getTurnStart();
-                if (turnStart >= history.length) return;
-                tracker.advanceTurn(history);
-              },
-
-              onTurnBegin(turn) {
-                if (turn > 0) {
-                  mainContent.flush();
-                  mainThinking.flush();
-                  turnRef.followUpId = '';
-                  turnRef.assistantId = createId();
-                  msgList.push(assistantMsg(turnRef.assistantId, '', true));
-                }
-              },
-
-              onAssistantText(text, thinking) {
-                msgList.update(turnRef.assistantId, (m) =>
-                  m ? { ...assistantMsg(turnRef.assistantId, text), thinking: thinking ?? undefined } : m,
-                );
-              },
-
-              onStreamEnd() {
-                mainContent.flush();
-                mainThinking.flush();
-              },
-
-              onTextDelta(delta, hasSeenTool) {
-                if (!hasSeenTool) {
-                  mainContent.append(delta);
-                } else {
-                  if (!turnRef.followUpId) {
-                    mainContent.flush();
-                    turnRef.followUpId = createId();
-                    msgList.push(assistantMsg(turnRef.followUpId, delta, true));
-                  } else {
-                    mainContent.append(delta);
-                  }
-                }
-              },
-
-              onThinkingDelta(delta, hasSeenTool) {
-                if (!hasSeenTool) mainThinking.append(delta);
-              },
-
-              onFirstToolSeen() {
-                mainContent.flush();
-                mainThinking.flush();
-                msgList.update(turnRef.assistantId, (m) =>
-                  m ? { ...m, isStreaming: false } : m,
-                );
-              },
-
-              onBeforeToolCalls(calls) {
-                for (const call of calls) {
-                  msgList.push(toolMsg({
-                    toolCallId: call.id,
-                    name: call.name,
-                    arguments: call.arguments,
-                    status: 'running',
-                  }));
-                }
-              },
-
-              onAfterToolCall(call, result) {
-                const isError = typeof result.result === 'string' && result.result.startsWith('Error: ');
-                const exists = msgList.messages.some((m) => m.id === call.id);
-                if (exists) {
-                  msgList.update(call.id, (m) =>
-                    m?.toolCall
-                      ? {
-                          ...m,
-                          toolCall: {
-                            ...m.toolCall,
-                            status: isError ? 'error' : 'done',
-                            ...(isError ? { error: result.result as string } : { result: result.result }),
-                            ...(result.attachments?.length ? { attachments: [...result.attachments] } : {}),
-                          },
-                        }
-                      : m,
-                  );
-                } else {
-                  // Streaming path: no beforeToolCalls ran, create card now.
-                  msgList.push(toolMsg({
-                    toolCallId: call.id,
-                    name: call.name,
-                    arguments: call.arguments,
-                    status: isError ? 'error' : 'done',
-                    ...(isError ? { error: result.result as string } : { result: result.result }),
-                    ...(result.attachments?.length ? { attachments: [...result.attachments] } : {}),
-                  }));
-                }
-              },
-
-              onPreExecutedResult(call, res) {
-                msgList.push(toolMsg({
-                  toolCallId: call.id,
-                  name: call.name,
-                  arguments: call.arguments,
-                  status: 'done',
-                  result: res.result,
-                }));
-              },
-
-              onAttachment(attachment) {
-                const targetId = turnRef.followUpId || turnRef.assistantId;
-                msgList.update(targetId, (m) =>
-                  m ? { ...m, attachments: [...(m.attachments ?? []), attachment] } : m,
-                );
-              },
-
-              onBeforeInvoke: wrapOnBeforeInvoke(
-                () => scope.beforeInvoke(tsCtx),
-                tracker,
-                (injected) => {
-                  const uiMsgs = toUI(injected.filter((m) => m.role === 'user'));
-                  if (uiMsgs.length > 0) {
-                    // Insert queued user messages just before the last streaming
-                    // message (or at the end if none is streaming).
-                    const idx = msgList.lastStreamingIndex();
-                    msgList.replace((prev) => {
-                      const newMsgs = uiMsgs as Message[];
-                      return idx === -1
-                        ? [...prev, ...newMsgs]
-                        : [...prev.slice(0, idx), ...newMsgs, ...prev.slice(idx)];
-                    });
-                  }
-                },
-              ),
-
-              onAfterTurn: handleAfterTurn,
-            },
+            hooks: createTurnHooks({
+              turnRef,
+              msgList,
+              mainContent,
+              mainThinking,
+              scope,
+              tsCtx,
+              tracker,
+              onCompactionNotices: deps.onCompactionNotices,
+              toUIMessages: deps.toUIMessages,
+            }),
           });
 
           lastRunResult = {
@@ -385,16 +242,4 @@ export function createConversationRunner(deps: ConversationRunnerDeps): Conversa
     injectToolResult,
     get lastRun() { return lastRunResult; },
   };
-}
-
-function defaultToUI(msgs: AgentMessage[]): readonly Message[] {
-  return msgs
-    .filter((m) => m.role === 'user')
-    .map((m) => ({
-      id: createId(),
-      role: 'user' as const,
-      content: typeof m.content === 'string' ? m.content : '',
-      isStreaming: false,
-      attachments: m.attachments,
-    }));
 }

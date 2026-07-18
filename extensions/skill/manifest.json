@@ -5,6 +5,5 @@
   "description": "Skill management with install_skill, list_skills, remove_skill, read_skill_file tools. Provides a dropdown button panel and slash-command autocomplete.",
   "agentEntry": "activate.js",
   "backendEntry": "backend.cjs",
-  "uiEntry": "ui/index.html",
-  "tools": ["skill"]
+  "uiEntry": "ui/index.html"
 }

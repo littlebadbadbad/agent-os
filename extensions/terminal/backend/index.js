@@ -14,9 +14,11 @@
 import * as terminals from './services/terminals.js';
 import * as upgrade from './services/upgrade.js';
 
+/** @import { BackendPluginHost, StreamConnection } from '@agent-type' */
+
 /**
  * Activate the terminal plugin backend.
- * @param {import('@agent-type').BackendPluginHost} host
+ * @param {BackendPluginHost} host
  */
 export function activate(host) {
   upgrade.init(host);
@@ -133,7 +135,7 @@ export function activate(host) {
       throw new Error(`Terminal "${id}" not found`);
     }
 
-    /** @type {import('@agent-type').StreamConnection} */
+    /** @type {StreamConnection} */
     const conn = {
       subscribe: () => {
         // io captured from handler param — no temporal coupling.

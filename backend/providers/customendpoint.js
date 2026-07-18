@@ -14,6 +14,7 @@
  */
 
 import { createLogger } from '../lib/logger.js';
+import { getConverter as lookupConverter, resolveApiType } from '../lib/format-converters/index.js';
 
 const log = createLogger('customendpoint');
 
@@ -27,7 +28,6 @@ const log = createLogger('customendpoint');
  * @returns {object} converter with { callAsync, callStream }
  */
 async function getConverter(model, providerName) {
-  const { getConverter: lookupConverter, resolveApiType } = await import('../lib/format-converters/index.js');
   const apiType = providerName ? await resolveApiType(providerName) : 'chat-completions';
   const converter = lookupConverter(apiType);
   log.info(`Resolved apiType="${apiType}" for provider="${providerName}" model="${model}"`);

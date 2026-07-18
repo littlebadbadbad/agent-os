@@ -99,6 +99,9 @@
       "ansi-styles": "^6.2.3",
       "wrap-ansi": "^8.1.0"
     },
+    "peerDependencyRules": {
+      "deny": ["jsdom"]
+    },
     "onlyBuiltDependencies": [
       "@babel/code-frame",
       "@babel/generator",
@@ -715,6 +718,7 @@
     "electron": "42.3.0",
     "esbuild": "^0.28.0",
     "happy-dom": "^20.10.6",
+    "@inquirer/prompts": "^7.5.1",
     "node-gyp": "^12.4.0",
     "node-pty": "^1.1.0",
     "playwright": "^1.59.1",

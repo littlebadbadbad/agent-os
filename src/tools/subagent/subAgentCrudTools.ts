@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import { defineTool } from '@agent-type/defineTool';
-import type { Tool } from '@agent-type';
+import type { Tool, AgentQueryFns } from '@agent-type';
 import type { SubAgentRegistry } from './registryTypes';
 import {
   parentFromContext,
@@ -25,7 +25,7 @@ export type CrudToolDeps = {
   excludedNames: Set<string>;
   getRegistry: (sessionId: string) => SubAgentRegistry;
   getEffectivePool: () => Map<string, Tool>;
-  getAgent: () => import('@agent-type').AgentQueryFns;
+  getAgent: () => AgentQueryFns;
   /**
    * Optional callback to clean up scrollback cursors scoped to a sub-agent.
    * Called before the agent is deleted from the registry.

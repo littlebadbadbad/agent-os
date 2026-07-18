@@ -5,6 +5,5 @@
   "description": "Scheduled task management with cron_create, cron_update, cron_list, cron_delete, cron_pause, cron_resume tools. Provides a panel tab with job list and inline prompt cards for fired events.",
   "agentEntry": "activate.js",
   "backendEntry": "backend.cjs",
-  "uiEntry": "ui/index.html",
-  "tools": ["cron"]
+  "uiEntry": "ui/index.html"
 }

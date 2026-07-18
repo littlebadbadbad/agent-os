@@ -17,9 +17,11 @@ import type {
   UiPluginHost,
   SlotHostMessage,
   PluginStateExtension,
+  ToolCallInfo,
 } from "@agent-type";
 import { UserInputPrompt } from "./UserInputPrompt";
 import { PendingInputStrip } from "./PendingInputStrip";
+import { AskUserCard } from "./AskUserCard";
 import type {
   UserInputPromptState,
   PendingInputStripState,
@@ -76,41 +78,62 @@ waitForHost()
   });
 
 function bootApp(host: Host): void {
+  const slotCtx = host.getSlotContext();
+
   // ── Reactive store ────────────────────────────────────────────────────────
 
   let toolSetState: UserInputPluginState | null = null;
+  let toolCallInfo: ToolCallInfo | null = null;
   const listeners = new Set<() => void>();
 
   const readState = () => {
     const state = host.getPluginState();
-    // state is [SessionStateLike, UserInputPluginState & PluginUiAdapter]
     toolSetState = state?.[1] ?? null;
   };
 
   readState();
-
-  const subscribe = (cb: () => void): (() => void) => {
-    listeners.add(cb);
-    return () => {
-      listeners.delete(cb);
-    };
-  };
 
   const emitChange = () => {
     readState();
     listeners.forEach((l) => l());
   };
 
+  const subscribe = (cb: () => void): (() => void) => {
+    listeners.add(cb);
+    return () => { listeners.delete(cb); };
+  };
+  const getToolCallSnapshot = () => toolCallInfo;
+  const getStateSnapshot = () => toolSetState;
+
   // ── Host→iframe messages ──────────────────────────────────────────────────
 
-  host.onSlotMessage((_msg: SlotHostMessage) => {
-    emitChange();
+  host.onSlotMessage((msg: SlotHostMessage) => {
+    if (msg.type === 'toolCard') {
+      toolCallInfo = msg.payload.toolCallInfo ?? null;
+      listeners.forEach((l) => l());
+    } else {
+      emitChange();
+    }
   });
 
   // ── App component ──────────────────────────────────────────────────────────
 
   function UserInputPluginApp() {
-    const _ = useSyncExternalStore(subscribe, () => toolSetState);
+    // toolCard slot: render AskUserCard
+    if (slotCtx.slotType === 'toolCard') {
+      const info = useSyncExternalStore(subscribe, getToolCallSnapshot);
+      if (!info) {
+        return (
+          <div style={{ padding: 16, color: '#858585', fontFamily: 'system-ui' }}>
+            Waiting for tool call info...
+          </div>
+        );
+      }
+      return <AskUserCard info={info} />;
+    }
+
+    // panel / inlinePrompt slots: original rendering
+    const _ = useSyncExternalStore(subscribe, getStateSnapshot);
 
     if (!toolSetState) return null;
 

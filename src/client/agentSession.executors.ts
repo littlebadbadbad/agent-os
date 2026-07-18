@@ -16,7 +16,7 @@ export function buildRunToolCall(
     const info: ToolCallInfo = {
       toolCallId: call.id,
       name: call.name,
-      arguments: call.arguments,
+      arguments: call.arguments ?? {},
       status: 'running',
     };
     setMessages((prev) => [...prev, toolMsg(info)]);

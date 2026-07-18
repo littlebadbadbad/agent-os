@@ -4,6 +4,5 @@
   "version": "0.1.0",
   "description": "Tool enable/disable management. Provides per-scope tool state control with persistent preferences.",
   "agentEntry": "activate.js",
-  "uiEntry": "ui/index.html",
-  "tools": ["tool-state"]
+  "uiEntry": "ui/index.html"
 }

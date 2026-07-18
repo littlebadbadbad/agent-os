@@ -39,23 +39,29 @@ export function collectAllToolSetStates(
   for (const ts of toolSets) {
     // ── onGetState ────────────────────────────────────────────────────────
     if (ts.onGetState) {
-      for (const [k, v] of Object.entries(ts.onGetState(ctx, stateCtx))) {
-        plain[k] =
-          Array.isArray(v) && Array.isArray(plain[k])
-            ? [...(plain[k] as unknown[]), ...v]
-            : v;
+      const state = ts.onGetState(ctx, stateCtx);
+      if (state) {
+        for (const [k, v] of Object.entries(state)) {
+          plain[k] =
+            Array.isArray(v) && Array.isArray(plain[k])
+              ? [...(plain[k] as unknown[]), ...v]
+              : v;
+        }
       }
     }
 
     // ── onGetSymbolState ──────────────────────────────────────────────────
     if (ts.symbol && ts.onGetSymbolState) {
-      const existingSymbol = symbol[ts.symbol];
-      const merged = Object.assign(
-        {},
-        existingSymbol !== undefined ? { ...existingSymbol } : {},
-        ts.onGetSymbolState(ctx, stateCtx),
-      );
-      symbol[ts.symbol] = merged as PluginStateExtension & PluginUiAdapter;
+      const state = ts.onGetSymbolState(ctx, stateCtx);
+      if (state) {
+        const existingSymbol = symbol[ts.symbol];
+        const merged = Object.assign(
+          {},
+          existingSymbol ?? {},
+          state,
+        );
+        symbol[ts.symbol] = merged;
+      }
     }
   }
 

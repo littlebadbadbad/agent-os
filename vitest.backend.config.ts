@@ -10,7 +10,8 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['backend/__tests__/**/*.test.js'],
+    include: ['backend/__tests__/**/*.test.js', 'extensions/**/__tests__/**/*.test.js'],
+    exclude: ['extensions/browser/**'],
     environment: 'node',
     reporters: ['verbose'],
   },

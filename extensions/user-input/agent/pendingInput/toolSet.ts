@@ -20,6 +20,7 @@ import type {
   PluginSlotDeclaration,
   PluginUiAdapter,
   PluginStateExtension,
+  SlotDisplayContext,
 } from "@agent-type";
 import type { Attachment } from "@agent-type";
 import { ctxKey, MAIN_CONVERSATION_ID } from "@agent-type";
@@ -126,7 +127,7 @@ export function createPendingInputToolSet(
         slots: [
           {
             type: "inlinePrompt" as const,
-            shouldRender: (slotCtx: import("@agent-type").SlotDisplayContext) => store.getQueue(ctxKey({ sessionId: slotCtx.sessionId, agentName: slotCtx.agentName, conversationId: slotCtx.conversationId })).length > 0,
+            shouldRender: (slotCtx: SlotDisplayContext) => store.getQueue(ctxKey({ sessionId: slotCtx.sessionId, agentName: slotCtx.agentName, conversationId: slotCtx.conversationId })).length > 0,
           },
         ],
       }

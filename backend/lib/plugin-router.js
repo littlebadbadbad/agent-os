@@ -17,6 +17,8 @@
 
 import { createLogger } from './logger.js';
 
+/** @import { StreamConnection } from '../../agent-type/plugin.ts' */
+
 const log = createLogger('plugin-router');
 
 // ── Internal state ───────────────────────────────────────────────────────────
@@ -31,7 +33,7 @@ const _methods = new Map();
 /**
  * Map key → stream handler factory.
  * Key format: "<pluginId>:<streamName>" for streams.
- * @type {Map<string, () => import('../../agent-type/plugin.ts').StreamConnection>}
+ * @type {Map<string, () => StreamConnection>}
  */
 const _streams = new Map();
 
@@ -77,7 +79,7 @@ export const pluginRouter = {
    *
    * @param {string} pluginId
    * @param {string} streamName
-   * @param {() => import('../../agent-type/plugin.ts').StreamConnection} handler
+   * @param {() => StreamConnection} handler
    */
   registerStream(pluginId, streamName, handler) {
     const key = `${pluginId}:${streamName}`;

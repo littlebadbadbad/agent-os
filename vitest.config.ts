@@ -12,9 +12,11 @@ export default defineConfig({
   test: {
     include: [
       'backend/__tests__/**/*.test.js',
+      'extensions/**/__tests__/**/*.test.js',
       'demo/**/__tests__/**/*.test.ts',
       'demo/**/__tests__/**/*.test.tsx',
     ],
+    exclude: ['extensions/browser/**'],
     environment: 'node',
     setupFiles: ['demo/components/workItems/__tests__/setup.ts'],
     reporters: ['verbose'],

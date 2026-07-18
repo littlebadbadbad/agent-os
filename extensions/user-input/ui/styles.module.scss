@@ -1,0 +1,178 @@
+/**
+ * extensions/user-input/ui/styles.module.scss — Ask User tool card styles
+ */
+
+.tool-call-card {
+  position: relative;
+  border: 1px solid var(--border, #3c3c3c);
+  border-left: 3px solid var(--tc-accent, #ea580c);
+  border-radius: 7px;
+  background: var(--bg-tertiary, #2d2d30);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  overflow: hidden;
+  align-self: stretch;
+}
+
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, #ea580c 10%, var(--bg-tertiary, #2d2d30));
+  border-bottom: 1px solid var(--border, #3c3c3c);
+}
+
+.tool-icon { font-size: 11px; opacity: 0.7; }
+
+.tool-name {
+  font-weight: 600;
+  color: var(--text-primary, #cccccc);
+  letter-spacing: 0.01em;
+  flex: 1;
+}
+
+.tc-body { display: flex; flex-direction: column; }
+
+.tc-ask-question {
+  padding: 8px 10px 4px;
+  font-size: 12px;
+  color: var(--text-primary, #cccccc);
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.tc-ask-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 10px;
+}
+
+.tc-ask-option {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: var(--bg-secondary, #1e1e1e);
+  border: 1px solid var(--border, #3c3c3c);
+  color: var(--text-primary, #cccccc);
+  &--chosen {
+    background: color-mix(in srgb, #7c3aed 20%, transparent);
+    border-color: #7c3aed;
+    color: #c4b5fd;
+  }
+}
+
+.tc-ask-answer {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px dashed var(--border, #3c3c3c);
+  margin-top: 4px;
+
+  &--error { color: var(--red, #f87171); }
+  &--cancel { color: var(--text-secondary, #858585); font-style: italic; }
+}
+
+.tc-ask-answer-label {
+  color: var(--text-secondary, #858585);
+  font-weight: 500;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tc-ask-answer-value {
+  color: var(--text-primary, #cccccc);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:global(.tool-status) {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  font-weight: 500;
+
+  &[data-status='running'] {
+    background: color-mix(in srgb, #ea580c 15%, transparent);
+    color: #fb923c;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  &[data-status='done'] {
+    background: var(--green-subtle, #1a3a2a);
+    color: var(--green, #4caf50);
+  }
+  &[data-status='error'] {
+    background: var(--red-subtle, #3a1a1a);
+    color: var(--red, #f87171);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.tool-result {
+  padding: 2px 10px 6px;
+  border-top: 1px dashed var(--border, #3c3c3c);
+  margin-top: 4px;
+  pre {
+    margin: 0;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    color: var(--text-primary, #cccccc);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  &[data-error] pre { color: var(--red-light, #fca5a5); }
+}
+
+.tc-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  color: var(--text-secondary, #858585);
+}
+
+.tc-chip {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 18px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--chip-color, #8b5cf6) 20%, transparent);
+  color: var(--chip-color, #8b5cf6);
+  font-weight: 500;
+  &[data-mono] { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+}
+
+.muted { color: var(--text-secondary, #858585); }
+
+:global(.dev-copy-btn) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border, #3c3c3c);
+  border-radius: 4px;
+  background: var(--bg-tertiary, #2d2d30);
+  color: var(--text-secondary, #858585);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  &:hover {
+    opacity: 1;
+    background: var(--bg-secondary, #1e1e1e);
+    color: var(--text-primary, #cccccc);
+  }
+}

@@ -14,11 +14,9 @@ import { join, extname } from 'path';
 import { setCORS, send, readBody } from './lib/http.js';
 import './lib/proxy.js';   // side-effect: initialises global dispatcher
 import { handleChatAsync, handleChatStream } from './transports/network/chat.js';
-import { handleToolRoutes } from './transports/network/tools.js';
 import { handleChatLogRoutes } from './transports/network/chat-logs.js';
 import { handleProxyRoutes } from './transports/network/proxy.js';
 import { handleAdoProxyRoutes } from './transports/network/ado-proxy.js';
-import { handleFileRoutes } from './transports/network/files.js';
 import { createLogger } from './lib/logger.js';
 import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
 import * as systemService from './services/system.js';
@@ -26,7 +24,6 @@ import { handleApiKeyRoutes } from './transports/network/api-keys.js';
 import { handleModelRoutes } from './transports/network/models.js';
 import { handleModelConfigRoutes } from './transports/network/model-config.js';
 import { handleSessionRoutes } from './transports/network/sessions.js';
-import { handleGitRoutes } from './transports/network/git.js';
 import { WebSocketServer } from 'ws';
 import { pluginRouter } from './lib/plugin-router.js';
 import { createPluginScanner } from './lib/plugin-scanner.js';
@@ -130,6 +127,16 @@ function servePluginFile(req, res, urlPath) {
 
 // ── Constants ─────────────────────────────────────────────────────────────────────
 
+// ── URL helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether a string is an absolute URL (http://, https://, or protocol-relative //).
+ * Used to distinguish remote URLs from relative plugin asset paths.
+ */
+function isAbsoluteUrl(s) {
+  return /^(https?:)?\/\//i.test(s);
+}
+
 const PORT = process.env.PORT ?? 3001;
 
 // ── Request router ──────────────────────────────────────────────────────────────
@@ -164,15 +171,8 @@ async function handleRequest(req, res) {
     const adoProxyRouteMatched = await handleAdoProxyRoutes(req, res, path);
     if (adoProxyRouteMatched !== false) return;
 
-    const toolRouteMatched = await handleToolRoutes(req, res, path);
-    if (toolRouteMatched !== false) return;
-
     const chatLogRouteMatched = await handleChatLogRoutes(req, res, path);
     if (chatLogRouteMatched !== false) return;
-
-    const fileRouteMatched = await handleFileRoutes(req, res, path);
-    if (fileRouteMatched !== false) return;
-
 
     const apiKeyRouteMatched = await handleApiKeyRoutes(req, res, path);
     if (apiKeyRouteMatched !== false) return;
@@ -185,9 +185,6 @@ async function handleRequest(req, res) {
 
     const sessionRouteMatched = await handleSessionRoutes(req, res, path);
     if (sessionRouteMatched !== false) return;
-
-    const gitRouteMatched = await handleGitRoutes(req, res, path);
-    if (gitRouteMatched !== false) return;
 
     // ── Plugin introspection ───────────────────────────────────────────────
     if (req.method === 'GET' && path === '/api/plugins') {
@@ -206,7 +203,9 @@ async function handleRequest(req, res) {
             : undefined,
           hasUiEntry: !!manifest.uiEntry,
           uiEntryUrl: manifest.uiEntry
-            ? `/plugins/${manifest.id}/${manifest.uiEntry.replace(/\\/g, '/')}`
+            ? isAbsoluteUrl(manifest.uiEntry)
+              ? manifest.uiEntry
+              : `/plugins/${manifest.id}/${manifest.uiEntry.replace(/\\/g, '/')}`
             : undefined,
         };
       });
