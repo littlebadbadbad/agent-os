@@ -5,8 +5,6 @@
  * so the ToolSet's state can be carried through session snapshots.
  */
 
-import type { PluginUiAdapter } from '@agent-type';
-
 // ── Experience types ──────────────────────────────────────────────────────────
 
 export type ExperienceItem = {
@@ -37,7 +35,7 @@ export type ExperienceStore = {
   importFromClipboard(): Promise<{ imported: number; skipped: number }>;
 };
 
-export type ExperienceSymbolState = PluginUiAdapter & {
+export type ExperienceSymbolState = {
   readonly type: 'experience';
   readonly experiences: readonly ExperienceItem[];
   readonly experienceStore: ExperienceStore | undefined;

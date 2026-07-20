@@ -6,12 +6,12 @@
  *
  * With per-toolset slot isolation, each iframe receives a 2-tuple:
  *   getPluginState()[0] → SessionStateLike (base)
- *   getPluginState()[1] → UserInputPluginState & PluginUiAdapter (single toolset)
+ *   getPluginState()[1] → UserInputPluginState (single toolset)
  *
  * The `type` discriminant determines which component to render.
  */
 
-import type { PluginStateExtension, PluginUiAdapter } from "@agent-type";
+import type { PluginStateExtension } from "@agent-type";
 import type {
   UserInputPromptState,
   PendingInputStripState,
@@ -37,11 +37,11 @@ export interface PromptInputState {
 
 
 /** Type guard: `UserInputPromptState` — has pending prompts. */
-export function isUserInputPromptState(v: UserInputPluginState | undefined): v is UserInputPromptState & PluginUiAdapter {
+export function isUserInputPromptState(v: UserInputPluginState | undefined): v is UserInputPromptState {
   return v !== undefined && v.type === "requestUserInput";
 }
 
 /** Type guard: `PendingInputStripState` — has queued messages. */
-export function isPendingInputStripState(v: UserInputPluginState | undefined): v is PendingInputStripState & PluginUiAdapter {
+export function isPendingInputStripState(v: UserInputPluginState | undefined): v is PendingInputStripState {
   return v !== undefined && v.type === "pendingInput";
 }

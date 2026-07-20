@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { PluginStateExtension } from '@agent-type';
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ export type TodoPriority = 'low' | 'medium' | 'high';
  * Stored under `state[TODO_SYMBOL]` in the session state, isolating
  * todo state from the root `AgentSessionState`.
  */
-export interface TodoSymbolState extends PluginStateExtension, PluginUiAdapter {
+export interface TodoSymbolState extends PluginStateExtension {
   readonly type: 'todo';
   readonly todos: readonly TodoItem[];
 }

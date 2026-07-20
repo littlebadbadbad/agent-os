@@ -4,11 +4,11 @@
  * Moved from src/tools/track/tokenTracker.ts (type exports) and
  * src/tools/track/tokenBudgetToolSet.ts (options type).
  *
- * Defines the symbol state interface that extends PluginUiAdapter,
+ * Defines the symbol state interface for the token-budget plugin,
  * enabling isolated state injection via `onGetSymbolState`.
  */
 
-import type { PluginStateExtension, PluginUiAdapter, AgentHandler } from '@agent-type';
+import type { PluginStateExtension, AgentHandler } from '@agent-type';
 import type {
   TokenBudgetState,
   TokenBudgetConfig,
@@ -35,7 +35,7 @@ export type {
  * The `slots` array declares a `headerBar` slot that renders the token
  * progress bar in the host UI.
  */
-export interface TokenBudgetSymbolState extends PluginStateExtension, PluginUiAdapter {
+export interface TokenBudgetSymbolState extends PluginStateExtension {
   readonly type: 'tokenBudget';
   /** Current token budget state (undefined when no tracker is active). */
   readonly tokenBudget: TokenBudgetState | undefined;

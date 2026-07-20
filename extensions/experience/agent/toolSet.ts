@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import type { ToolSet, ToolSetContext, Tool, ToolCallInfo, CompactToolCardDescriptor } from '@agent-type';
+import type { ToolSet, ToolSetContext, Tool, ToolCallInfo, CompactToolCardDescriptor, PluginSlotDeclaration } from '@agent-type';
 import { ctxKey, MAIN_CONVERSATION_ID } from '@agent-type';
 import { buildExperienceSectionContent, EXPERIENCE_SECTION_ID } from './prompt';
 import type { ExperienceItem, ExperienceInput, ExperienceStore, ExperienceSymbolState } from './types';
@@ -224,6 +224,28 @@ export function createExperienceToolSet(): ToolSet {
 
   const toolNames = ['experience_add', 'experience_update', 'experience_delete', 'experience_list'];
 
+  const slotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: 'panel',
+      label: 'Experience',
+      showTab: () => true,
+      order: 20,
+      badge: () => {
+        if (globalItems.length === 0) return null;
+        return String(globalItems.length);
+      },
+    },
+    {
+      type: 'toolCard',
+      toolNames,
+    },
+    {
+      type: 'compactToolCard',
+      toolNames,
+      getDescriptor: toolDescriptor,
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
+
   // ── ToolSet interface ─────────────────────────────────────────────────────
 
   return {
@@ -259,27 +281,6 @@ export function createExperienceToolSet(): ToolSet {
         type: 'experience',
         experiences: globalItems,
         experienceStore: globalStore,
-        slots: [
-          {
-            type: 'panel',
-            label: 'Experience',
-            showTab: () => true,
-            order: 20,
-            badge: () => {
-              if (globalItems.length === 0) return null;
-              return String(globalItems.length);
-            },
-          },
-          {
-            type: 'toolCard',
-            toolNames,
-          },
-          {
-            type: 'compactToolCard',
-            toolNames,
-            getDescriptor: toolDescriptor,
-          },
-        ],
       };
     },
 
@@ -291,5 +292,7 @@ export function createExperienceToolSet(): ToolSet {
     onBuildSnapshot() {
       return globalItems.length ? { experiences: [...globalItems] } : {};
     },
-  };
+
+    slotDeclarations,
+  } as ToolSet & { readonly slotDeclarations: readonly PluginSlotDeclaration[] };
 }

@@ -11,8 +11,9 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
+import { resolveToolSetTools } from '@agent-type';
 import { createBrowserPluginAdapter } from './pluginAdapter';
-import { createBrowserToolSet } from './toolSet';
+import { createBrowserToolSet, getBrowserSlotDeclarations } from './toolSet';
 
 /**
  * Activate the browser plugin.
@@ -29,7 +30,8 @@ export function activate(host: AgentPluginHost): void {
 
   // Build the browser ToolSet using this adapter.
   const toolSet = createBrowserToolSet(adapter);
+  const slots = getBrowserSlotDeclarations(resolveToolSetTools(toolSet).map((t) => t.name));
 
-  // Register the ToolSet on the agent.
-  host.registerToolSet(toolSet);
+  // Register the ToolSet and its slot declarations on the agent.
+  host.registerToolSet(toolSet, slots);
 }

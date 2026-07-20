@@ -18,7 +18,7 @@ import {
   resolveToolSetTools,
   type AgentPluginHost,
   type PluginManifest,
-  type PluginUiAdapter,
+  type PluginSlotDeclaration,
 } from "@agent-type";
 import { createPluginApiClient } from "./apiClient";
 import { createPluginConfigClient } from "./configClient";
@@ -104,6 +104,8 @@ export interface PluginSystem {
 
 export interface ActivatedPluginInfo extends PluginDescriptor {
   readonly host: AgentPluginHost;
+  /** Slot declarations registered by this plugin's ToolSets. */
+  readonly slotDeclarations: Map<symbol, readonly PluginSlotDeclaration[]>;
 }
 
 // ── Internal state ────────────────────────────────────────────────────────────
@@ -228,7 +230,10 @@ async function activatePlugin(
     };
     const configClient = createPluginConfigClient(manifest, apiClient);
 
-    // Step 4: Create the sandboxed host.
+    // Step 4: Create storage for standalone slot declarations.
+    const slotDeclarations = new Map<symbol, readonly PluginSlotDeclaration[]>();
+
+    // Step 5: Create the sandboxed host.
     const host = createAgentPluginHost({
       pluginId: plugin.id,
       pluginName: plugin.name,
@@ -241,13 +246,17 @@ async function activatePlugin(
           plugin.symbols.push(toolSet.symbol);
         }
       },
+      storeSlotDeclarations: (toolSetSymbol, slots) => {
+        slotDeclarations.set(toolSetSymbol, slots);
+      },
       getSelectedModel: () => providerStore.getSelectedModel(),
     });
-    // Step 5: Call activate — this is where the plugin registers ToolSets.
+    // Step 6: Call activate — this is where the plugin registers ToolSets.
     await Promise.resolve(loadResult.module.activate(host));
 
     state.activePlugins.push({
       host,
+      slotDeclarations,
       ...plugin,
     });
     console.info(

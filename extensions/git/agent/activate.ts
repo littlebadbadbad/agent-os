@@ -3,10 +3,13 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
+import { resolveToolSetTools } from '@agent-type';
 import { createGitPluginAdapter } from './pluginAdapter';
-import { createGitToolSet } from './toolSet';
+import { createGitToolSet, getGitSlotDeclarations } from './toolSet';
 
 export function activate(host: AgentPluginHost): void {
   const adapter = createGitPluginAdapter(host.apiClient);
-  host.registerToolSet(createGitToolSet(adapter));
+  const toolSet = createGitToolSet(adapter);
+  const slots = getGitSlotDeclarations(resolveToolSetTools(toolSet).map((t) => t.name));
+  host.registerToolSet(toolSet, slots);
 }

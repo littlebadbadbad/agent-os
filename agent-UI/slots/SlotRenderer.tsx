@@ -39,6 +39,7 @@ import type {
   ToolCallInfo,
   SlotSession,
   PluginSlotDeclaration,
+  PluginStateExtension,
 } from "@agent-type";
 import type { SlotRegistry } from "./registry";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
@@ -72,6 +73,7 @@ function checkShouldRender(
   slotId: string,
   session: SlotSession,
   getSlot: SlotRegistry["getSlot"],
+  toolSetSymbol: symbol,
   declaration?: PluginSlotDeclaration,
 ): boolean {
   const decl = declaration ?? getSlot(pluginId, slotId)?.declaration;
@@ -79,7 +81,8 @@ function checkShouldRender(
   if (!decl || decl.type === "compactToolCard" || decl.type === "autocomplete") return true;
   if (!decl.shouldRender) return true;
   const ctx = buildSlotDisplayContext(session);
-  return decl.shouldRender(ctx);
+  const state = session.getState()[toolSetSymbol] as PluginStateExtension | undefined;
+  return decl.shouldRender(ctx, state);
 }
 
 // ── Base fields shared by every iframe slot renderer ──────────────────────────
@@ -139,7 +142,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
 
   // ── shouldRender gate — evaluated before dispatch ─────────────────────────
   const { getSlot } = useSlotRegistry();
-  if (!checkShouldRender(pluginId, slotId, session, getSlot, declaration)) {
+  if (!checkShouldRender(pluginId, slotId, session, getSlot, toolSetSymbol, declaration)) {
     return null;
   }
 

@@ -2,14 +2,20 @@
  * agent-type/ui-slot/types.ts — Slot declaration types
  *
  * Three-layer architecture:
- *   1. ToolSet declares slots via `PluginUiAdapter.slots` — "what capabilities"
+ *   1. ToolSet registers slots via `host.registerToolSet(toolSet, slots)` — "what capabilities"
  *   2. Plugin UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
  *   3. Host renders slots via `SlotRenderer` + `SlotRegistry` — "where it goes"
  *
  * This file contains all slot declaration interfaces, the routing context
  * passed to display-control functions, and the SlotContext injected into iframes.
+ *
+ * Slots are registered independently from session state so that slot types
+ * like `toolButton` can be discovered even without an active session.
+ * Slot display callbacks receive the ToolSet's symbol state as an optional
+ * second parameter (may be `undefined` when no session is active).
  */
 
+import { PluginStateExtension } from "@agent-type";
 import type { ToolCallInfo } from "../plugin";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -77,7 +83,7 @@ export interface IframeConfig {
    * When undefined, the slot always renders.
    * Receives routing context so plugins can filter by agent.
    */
-  readonly shouldRender?: (ctx: SlotDisplayContext) => boolean;
+  readonly shouldRender?: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
   /**
    * Preferred containing width for this slot.
    * Defaults vary by slot type (see each declaration's doc).
@@ -106,7 +112,7 @@ export interface PanelSlotDeclaration extends IframeConfig {
   readonly label: string;
   /** Whether to show a tab for this panel. Called on every state update.
    *  Receives routing context so plugins can differentiate main vs sub-agent. */
-  readonly showTab: (ctx: SlotDisplayContext) => boolean;
+  readonly showTab: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
   /** Optional emoji/icon for the tab. */
   readonly icon?: string;
   /** Sort order in the tab bar (lower = first). Default 100. */
@@ -114,9 +120,9 @@ export interface PanelSlotDeclaration extends IframeConfig {
   /**
    * Optional badge text shown next to the tab label.
    * Return `null` to hide the badge. Called on every state update.
-   * Receives routing context for agent-scoped badge logic.
+   * Receives routing context and optional toolset state.
    */
-  readonly badge?: (ctx: SlotDisplayContext) => string | null;
+  readonly badge?: (ctx: SlotDisplayContext, state?: PluginStateExtension) => string | null;
 }
 
 /**
@@ -206,12 +212,12 @@ export interface ToolButtonSlotDeclaration extends IframeConfig {
   /** Sort order in the AIControlBar (lower = first). Default 100. */
   readonly order?: number;
   /** Whether to show this button. Called on every state update. */
-  readonly showBtn: (ctx: SlotDisplayContext) => boolean;
+  readonly showBtn: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
   /**
    * Optional badge text shown next to the button label.
    * Return `null` to hide the badge. Called on every state update.
    */
-  readonly badge?: (ctx: SlotDisplayContext) => string | null;
+  readonly badge?: (ctx: SlotDisplayContext, state?: PluginStateExtension) => string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -282,7 +288,8 @@ export type IframeSlotDeclaration =
 /**
  * Discriminated union of all slot declarations.
  *
- * A plugin's ToolSet returns this array via `PluginUiAdapter.slots`.
+ * A plugin's ToolSet returns this array as the second argument to
+ * `host.registerToolSet(toolSet, slots)`.
  */
 export type PluginSlotDeclaration = InlineSlotDeclaration | IframeSlotDeclaration;
 
@@ -315,30 +322,4 @@ export interface SlotContext {
   readonly agentName: string;
   /** The conversation id — `"main"` for the primary conversation. */
   readonly conversationId: string;
-}
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Plugin UI adapter (ToolSet → host slot declaration bridge)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Marker interface for plugin adapters injected into session state.
- *
- * Plugins that provide UI capabilities inject their adapter into
- * `AgentSessionState` via `onGetSymbolState`. The host UI iterates
- * declared slot declarations to dynamically render injection points —
- * no plugin name is hardcoded in the host UI.
- *
- * Concrete adapters (e.g. `BrowserAdapter`) extend this interface with
- * their plugin-specific methods.
- */
-export interface PluginUiAdapter {
-  /**
-   * UI injection points declared by this plugin's ToolSets.
-   *
-   * Each slot declares a type ("panel", "toolCard", etc.) and an id.
-   * The host reads this array to determine where and how to render
-   * the plugin's UI.  Multiple ToolSets from the same plugin can
-   * contribute different slots — the host merges them.
-   */
-  readonly slots?: readonly PluginSlotDeclaration[];
 }

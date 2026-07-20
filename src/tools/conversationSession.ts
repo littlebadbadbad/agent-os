@@ -11,7 +11,7 @@
  */
 
 import type { Attachment, AgentMessage } from '@agent-type';
-import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { PluginStateExtension } from '@agent-type';
 import type { Message } from '../utils/shared';
 
 // ── Session state ─────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export type ConversationSessionState = {
    * state by the plugin's symbol — no plugin-specific fields are
    * hardcoded on this type.
    */
-  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
+  readonly [key: symbol]: PluginStateExtension;
 };
 
 // ── Session interface ─────────────────────────────────────────────────────────

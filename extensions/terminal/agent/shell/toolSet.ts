@@ -64,24 +64,29 @@ export function createTerminalToolSet(
     onGetSymbolState: (ctx: ToolSetContext) => ({
       type: 'terminal' as const,
       terminalAdapter: adapter,
-      slots: [
-        {
-          type: 'panel' as const,
-          label: 'Terminals',
-          showTab: (scx) => scx.conversationId === MAIN_CONVERSATION_ID,
-        },
-        {
-          type: 'toolCard' as const,
-          toolNames: tools.map((t) => t.name),
-        },
-        {
-          type: 'compactToolCard' as const,
-          toolNames: tools.map((t) => t.name),
-          getDescriptor: terminalDescriptor,
-        },
-      ] satisfies readonly PluginSlotDeclaration[],
     }),
 
     adapter,
   };
+}
+
+export function getTerminalSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    {
+      type: 'panel' as const,
+      label: 'Terminals',
+      showTab: (scx) => scx.conversationId === MAIN_CONVERSATION_ID,
+    },
+    {
+      type: 'toolCard' as const,
+      toolNames,
+    },
+    {
+      type: 'compactToolCard' as const,
+      toolNames,
+      getDescriptor: terminalDescriptor,
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
 }

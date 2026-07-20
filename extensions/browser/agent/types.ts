@@ -1,6 +1,5 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-import { PluginUiAdapter } from "@agent-type";
 import type { StreamConfig } from "./streamConfig";
 import { BROWSER_SYMBOL } from "./toolSet";
 export type { StreamConfig };

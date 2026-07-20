@@ -17,6 +17,9 @@ import { createUserInputToolSet } from "./requestUserInput";
 import { createPendingInputToolSet } from "./pendingInput";
 
 export function activate(host: AgentPluginHost): void {
-  host.registerToolSet(createUserInputToolSet());
-  host.registerToolSet(createPendingInputToolSet());
+  const userInputBundle = createUserInputToolSet();
+  host.registerToolSet(userInputBundle.toolSet, userInputBundle.slotDeclarations);
+
+  const pendingInputBundle = createPendingInputToolSet();
+  host.registerToolSet(pendingInputBundle.toolSet, pendingInputBundle.slotDeclarations);
 }

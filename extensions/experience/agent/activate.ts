@@ -5,10 +5,10 @@
  * Registers the experience ToolSet on the agent.
  */
 
-import type { AgentPluginHost } from '@agent-type';
+import type { AgentPluginHost, ToolSet, PluginSlotDeclaration } from '@agent-type';
 import { createExperienceToolSet } from './toolSet';
 
 export function activate(host: AgentPluginHost): void {
-  const toolSet = createExperienceToolSet();
-  host.registerToolSet(toolSet);
+  const toolSet = createExperienceToolSet() as ToolSet & { readonly slotDeclarations: readonly PluginSlotDeclaration[] };
+  host.registerToolSet(toolSet, toolSet.slotDeclarations);
 }

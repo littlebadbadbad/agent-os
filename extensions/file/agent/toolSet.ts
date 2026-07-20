@@ -25,10 +25,15 @@ export function createFileToolSet(adapter: FileAdapter): ToolSet {
 
     onGetSymbolState: (_ctx: ToolSetContext) => ({
       type: 'file' as const,
-      slots: [
-        { type: 'toolCard' as const, toolNames: tools.map((t) => t.name) },
-        { type: 'compactToolCard' as const, toolNames: tools.map((t) => t.name), getDescriptor: fileDescriptor },
-      ] satisfies readonly PluginSlotDeclaration[],
     }),
   };
+}
+
+export function getFileSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    { type: 'toolCard' as const, toolNames },
+    { type: 'compactToolCard' as const, toolNames, getDescriptor: fileDescriptor },
+  ] satisfies readonly PluginSlotDeclaration[];
 }

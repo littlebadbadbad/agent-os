@@ -2,7 +2,7 @@ import { useSyncExternalStore, useCallback, useMemo } from "react";
 import type { ReactElement } from "react";
 import type { Attachment, AgentSession } from "@agent-sdk";
 import type { SlotEntry } from "../../../slots/registry";
-import type { PanelSlotDeclaration } from "@agent-type";
+import type { PanelSlotDeclaration, PluginStateExtension } from "@agent-type";
 import { ChatMessages } from "../chat/ChatMessages";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
 import { PaneSlotLayout } from "../panes/PaneSlotLayout";
@@ -68,20 +68,34 @@ export function SessionContent({
     [slotCtx, getByType],
   );
 
+  // Build a symbol-state lookup for slot callbacks.
+  const getToolSetState = useCallback(
+    (symbol: symbol): PluginStateExtension | undefined => {
+      return state[symbol] as PluginStateExtension | undefined;
+    },
+    [state],
+  );
+
   const panelSlots = useMemo<readonly SlotEntry<PanelSlotDeclaration>[]>(
     () =>
-      getByType("panel").filter((s) => s.declaration.showTab(slotCtx)) as readonly SlotEntry<PanelSlotDeclaration>[],
+      getByType("panel").filter((s) => {
+        const toolSetState = state[s.toolSetSymbol] as PluginStateExtension | undefined;
+        return s.declaration.showTab(slotCtx, toolSetState);
+      }) as readonly SlotEntry<PanelSlotDeclaration>[],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slotCtx, getByType],
+    [slotCtx, getByType, state],
   );
 
   const inlinePromptSlots = useMemo(
     () =>
       getByType("inlinePrompt").filter(
-        (s) => s.declaration.shouldRender?.(slotCtx) !== false,
+        (s) => {
+          const toolSetState = state[s.toolSetSymbol] as PluginStateExtension | undefined;
+          return s.declaration.shouldRender?.(slotCtx, toolSetState) !== false;
+        },
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slotCtx, getByType],
+    [slotCtx, getByType, state],
   );
 
   const hasSubAgents = subAgentRegistry !== null;
@@ -94,6 +108,7 @@ export function SessionContent({
       panelSlots={panelSlots}
       inlinePromptSlots={inlinePromptSlots}
       slotCtx={slotCtx}
+      getToolSetState={getToolSetState}
       subAgentPanel={
         hasSubAgents ? (
           <SubAgentsPanel registry={subAgentRegistry!} sessionId={sessionStateId} />

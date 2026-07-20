@@ -1,4 +1,4 @@
-import { MAIN_CONVERSATION_ID, type ToolSet, type ToolSetContext, type CompactToolCardDescriptor, type ToolCallInfo } from "@agent-type";
+import { MAIN_CONVERSATION_ID, type ToolSet, type ToolSetContext, type CompactToolCardDescriptor, type ToolCallInfo, type PluginSlotDeclaration } from "@agent-type";
 import type { BrowserAdapter } from "./types";
 import { createBrowserTools } from "./tools";
 
@@ -130,23 +130,28 @@ export function createBrowserToolSet(adapter: BrowserAdapter): ToolSet {
     onGetSystemPrompt: getSystemPrompt,
     onGetSymbolState: (_ctx: ToolSetContext) => ({
       browserAdapter: adapter,
-      slots: [
-        {
-          type: "panel",
-          label: "Browser",
-          showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
-          order: 50,
-        },
-        {
-          type: "compactToolCard",
-          toolNames: tools.map((t) => t.name),
-          getDescriptor: browserDescriptor,
-        },
-        {
-          type: "toolCard",
-          toolNames: tools.map((t) => t.name),
-        },
-      ],
     }),
   };
+}
+
+export function getBrowserSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    {
+      type: "panel",
+      label: "Browser",
+      showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
+      order: 50,
+    },
+    {
+      type: "compactToolCard",
+      toolNames,
+      getDescriptor: browserDescriptor,
+    },
+    {
+      type: "toolCard",
+      toolNames,
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
 }

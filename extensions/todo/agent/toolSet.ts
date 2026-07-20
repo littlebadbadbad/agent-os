@@ -12,7 +12,7 @@
 
 // ── Module augmentation ───────────────────────────────────────────────────────
 import type { TodoItem } from './types';
-import type { ToolSet, ToolSetContext, SessionEntryExtension } from '@agent-type';
+import type { ToolSet, ToolSetContext, SessionEntryExtension, PluginSlotDeclaration, PluginStateExtension } from '@agent-type';
 
 export { };
 
@@ -104,6 +104,31 @@ export function createTodoTools(): ToolSet {
 
   const toolNames = [todoWrite.name, todoRead.name];
 
+  const todoSlotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: 'panel',
+      label: 'Todo',
+      showTab: (_ctx, state) => (state?.todos?.length ?? 0) > 0,
+      order: 30,
+      badge: (_ctx, state) => {
+        const items = state?.todos;
+        if (!items || items.length === 0) return null;
+        const done = items.filter((t) => t.status === 'completed').length;
+        const active = items.filter((t) => t.status === 'in-progress').length;
+        return active > 0 ? `${done}/${items.length} ◎` : `${done}/${items.length}`;
+      },
+    },
+    {
+      type: 'toolCard',
+      toolNames,
+    },
+    {
+      type: 'compactToolCard',
+      toolNames,
+      getDescriptor: todoDescriptor,
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
+
   // ── ToolSet interface ────────────────────────────────────────────────────────
 
   const toolSet: ToolSet = {
@@ -148,29 +173,6 @@ export function createTodoTools(): ToolSet {
       return {
         type: 'todo',
         todos: items,
-        slots: [
-          {
-            type: 'panel',
-            label: 'Todo',
-            showTab: (_ctx) => items.length > 0,
-            order: 30,
-            badge: () => {
-              if (items.length === 0) return null;
-              const done = items.filter((t) => t.status === 'completed').length;
-              const active = items.filter((t) => t.status === 'in-progress').length;
-              return active > 0 ? `${done}/${items.length} ◎` : `${done}/${items.length}`;
-            },
-          },
-          {
-            type: 'toolCard',
-            toolNames,
-          },
-          {
-            type: 'compactToolCard',
-            toolNames,
-            getDescriptor: todoDescriptor,
-          },
-        ],
       };
     },
 
@@ -184,6 +186,7 @@ export function createTodoTools(): ToolSet {
       const items = sessionTodos.get(ctxKey(ctx));
       return items?.length ? { todos: [...items] } : {};
     },
-  };
+    todoSlotDeclarations,
+  } as ToolSet & { readonly todoSlotDeclarations: readonly PluginSlotDeclaration[] };
   return toolSet;
 }

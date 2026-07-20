@@ -6,7 +6,7 @@
  * across session restarts without backend refetch.
  */
 
-import type { PluginUiAdapter, SessionEntryExtension } from '@agent-type';
+import type { SessionEntryExtension } from '@agent-type';
 
 export { };
 
@@ -38,7 +38,7 @@ export interface CronJob {
 
 // ── Symbol state ──────────────────────────────────────────────────────────────
 
-export interface CronSymbolState extends PluginUiAdapter {
+export interface CronSymbolState {
   readonly type: 'cron';
   readonly jobs: readonly CronJob[];
   /**

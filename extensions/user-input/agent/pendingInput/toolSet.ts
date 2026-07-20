@@ -18,7 +18,6 @@ import type {
   SessionEntryData,
   SessionReadyHelpers,
   PluginSlotDeclaration,
-  PluginUiAdapter,
   PluginStateExtension,
   SlotDisplayContext,
 } from "@agent-type";
@@ -52,25 +51,28 @@ export interface PendingInputToolSetOptions {
  * Shape exposed via `onGetSymbolState`.
  * Host reads from `sessionState[PENDING_INPUT_SYMBOL]`.
  *
- * Extends {@link PluginUiAdapter} so the host's `SlotRegistry` discovers
- * `slots` without needing a per-plugin-type hardcoded check.
+ * Slot declarations are now registered via `registerToolSet(toolSet, slots)`
+ * and stored independently from session state.
  */
-export interface PendingInputSymbolState extends PluginUiAdapter {
+export interface PendingInputSymbolState {
   readonly type: "pendingInput";
   readonly queueUserInput: (text: string) => void;
   readonly pendingInputCount: number;
   readonly pendingInputMessages: ReadonlyArray<{ id: string; text: string }>;
   readonly cancelQueuedInput: (id: string) => void;
   readonly resumeQueuedInputs: () => void;
-  /** Slot declarations for the host to discover. */
-  readonly slots: readonly PluginSlotDeclaration[];
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
+export interface PendingInputToolSetBundle {
+  readonly toolSet: ToolSet<PendingInputStripState>;
+  readonly slotDeclarations: readonly PluginSlotDeclaration[];
+}
+
 export function createPendingInputToolSet(
   options: PendingInputToolSetOptions = {},
-): ToolSet<PendingInputStripState> {
+): PendingInputToolSetBundle {
   const store: PendingInputStore = options.store ?? createPendingInputStore();
 
   // ── Stable per-key callbacks ──────────────────────────────────────────────
@@ -104,7 +106,7 @@ export function createPendingInputToolSet(
     return cbs;
   }
 
-  return {
+  const toolSet = {
     symbol: PENDING_INPUT_SYMBOL,
     name: "pending-input",
     tools: [],
@@ -124,12 +126,6 @@ export function createPendingInputToolSet(
         pendingInputMessages: queue.map((e) => ({ id: e.id, text: e.text })),
         cancelQueuedInput,
         resumeQueuedInputs,
-        slots: [
-          {
-            type: "inlinePrompt" as const,
-            shouldRender: (slotCtx: SlotDisplayContext) => store.getQueue(ctxKey({ sessionId: slotCtx.sessionId, agentName: slotCtx.agentName, conversationId: slotCtx.conversationId })).length > 0,
-          },
-        ],
       }
     },
 
@@ -200,5 +196,21 @@ export function createPendingInputToolSet(
       const inputs = entryData?.pendingInputs;
       if (inputs?.length) store.restore(ctxKey(ctx), inputs);
     },
-  };
+  } as ToolSet<PendingInputStripState>;
+
+  const slotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: "inlinePrompt" as const,
+      shouldRender: (slotCtx: SlotDisplayContext) =>
+        store.getQueue(
+          ctxKey({
+            sessionId: slotCtx.sessionId,
+            agentName: slotCtx.agentName,
+            conversationId: slotCtx.conversationId,
+          }),
+        ).length > 0,
+    },
+  ];
+
+  return { toolSet, slotDeclarations };
 }

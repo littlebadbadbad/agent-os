@@ -25,7 +25,7 @@ All cross-layer shared types live here. Import via `@agent-type/<file>`. No runt
 | `message.ts` | `UserMessage`, `AssistantMessage` (content, toolCalls?, thinking?, attachments?), `ToolResultMessage`, `AgentMessage` union, `ToolChoice` (`auto\|required\|none\|{type:'function',name}`) |
 | `toolset.ts` | `ToolSet` interface (~20 lifecycle hooks), `ToolSetContext` (sessionId, agentName, conversationId), `ctxKey()`, `MAIN_CONVERSATION_ID`, `SystemPromptContext` (has `suppressToolSetPrompt`), `SectionId` (prompt ordering/dedup), `CompactionResult`, `AgentRunOutcome`, `AgentClientLike`, `AgentQueryFns` |
 | `plugin.ts` | `PluginManifest` (3 entries: agentEntry/backendEntry/uiEntry), `BackendPluginHost` (defineApi/defineStream/getPluginDataDir/getAgentDir/getBackendConfig), `AgentPluginHost` (registerToolSet/apiClient/getConfig), `UiPluginHost`/`UiPluginHostInternal` (getPluginState/getSlotContext/onSlotMessage — buffered), `PluginApiClient`, `ToolCallInfo`, `StreamHandler`, `StreamConnection`, `PluginConfiguration` |
-| `ui-slot/types.ts` | 7 `SlotType` values: `panel\|toolCard\|inlinePrompt\|headerBar\|toolButton\|compactToolCard\|autocomplete`. `PluginUiAdapter` (slots[]), `SlotContext`, `SlotDisplayContext` (sessionId/agentName/conversationId) |
+| `ui-slot/types.ts` | 7 `SlotType` values: `panel\|toolCard\|inlinePrompt\|headerBar\|toolButton\|compactToolCard\|autocomplete`. Slot declarations, `SlotContext`, `SlotDisplayContext` (sessionId/agentName/conversationId) |
 | `ui-slot/protocol.ts` | Per-slot host→iframe message types |
 | `ui-slot/index.ts` | Barrel |
 | `vendor.ts` | `OpenAIToolParam`, `AnthropicToolParam`, `GeminiFunctionDeclaration` + message wire formats |
@@ -119,7 +119,7 @@ pluginSystem.ts: fetch enabled plugins → loader.ts (dynamic import agent entri
   → host.ts: create AgentPluginHost (registerToolSet, apiClient, getConfig) → activate()
   → uiHost.ts: UiPluginHost (same-realm injection, NOT postMessage; message buffering eliminates races)
   → uiLoader.ts: iframe sandbox creation
-  → discoverSlots.ts: iterate plugin symbol-keyed state slices → collect PluginUiAdapter.slots[]
+  → discoverSlots.ts: collect standalone slot declarations from active plugins' slotDeclarations map
 ```
 
 `apiClient.ts`: Pre-bound cross-environment API client. HTTP: `fetch(POST /api/plugin/<name>/<method>)`. IPC: `electronAPI.invoke('plugin:<name>:<method>')`.
@@ -131,7 +131,7 @@ pluginSystem.ts: fetch enabled plugins → loader.ts (dynamic import agent entri
 - **iframe-based**: `panel`, `toolCard`, `inlinePrompt`, `headerBar`, `toolButton`
 - **inline**: `compactToolCard`, `autocomplete`
 
-Slots declared via `PluginUiAdapter.slots[]` in ToolSet's `onGetSymbolState`.
+Slots declared via `host.registerToolSet(toolSet, slots)` second parameter — stored independently from session state.
 
 ### Adapters (`createAdapters.ts`)
 Env detector → creates HTTP or IPC adapters for: file, terminal, browser, dynamicTool, skill, mcp, upgrade. Each adapter: two impls switching on `IS_ELECTRON_IPC`.

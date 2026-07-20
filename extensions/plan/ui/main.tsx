@@ -100,7 +100,7 @@ function bootApp(host: UiPluginHost): void {
 
   const readState = () => {
     const state = host.getPluginState();
-    // state is [SessionStateLike, PlanSymbolState & PluginUiAdapter]
+    // state is [SessionStateLike, PlanSymbolState]
     planState = state?.[1] ?? null;
   };
 

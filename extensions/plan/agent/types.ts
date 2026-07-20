@@ -1,7 +1,6 @@
 // ── Module augmentation ───────────────────────────────────────────────────────
 export {};
 
-import type { PluginUiAdapter } from '@agent-type';
 import type { PendingApproval } from './store';
 
 declare module '@agent-type' {
@@ -23,7 +22,7 @@ declare module '@agent-type' {
  * Stored under `state[PLAN_SYMBOL]` in the session state, isolating
  * plan state from the root `AgentSessionState`.
  */
-export interface PlanSymbolState extends PluginUiAdapter {
+export interface PlanSymbolState {
   readonly type: 'plan';
   readonly plan?: string;
   readonly planMode?: boolean;

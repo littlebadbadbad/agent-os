@@ -13,7 +13,7 @@ import type {
 } from "./core";
 import type { AgentMessage } from "./message";
 import type { AgentHandler } from "./handler";
-import type { PluginUiAdapter } from "./ui-slot";
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Shared constants & helpers (used by both core and extensions)
@@ -676,7 +676,7 @@ export type ToolSet<
   onGetSymbolState?(
     ctx: ToolSetContext,
     stateCtx?: ToolSetStateContext,
-  ): State & PluginUiAdapter;
+  ): State;
   /**
    * Subscribe to this ToolSet's state changes for a session.
    *

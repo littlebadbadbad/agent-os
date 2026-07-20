@@ -8,7 +8,8 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
-import { createPlanToolSet } from './toolSet';
+import { resolveToolSetTools } from '@agent-type';
+import { createPlanToolSet, getPlanSlotDeclarations } from './toolSet';
 
 /**
  * Activate the plan plugin.
@@ -19,5 +20,6 @@ import { createPlanToolSet } from './toolSet';
  */
 export function activate(host: AgentPluginHost): void {
   const toolSet = createPlanToolSet();
-  host.registerToolSet(toolSet);
+  const slots = getPlanSlotDeclarations(resolveToolSetTools(toolSet).map((t) => t.name));
+  host.registerToolSet(toolSet, slots);
 }

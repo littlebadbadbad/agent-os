@@ -1,6 +1,6 @@
 import type { ToolSet } from "./toolset";
 import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool, Attachment } from "./core";
-import type { PluginSlotDeclaration, SlotContext, SlotHostMessage, PluginUiAdapter } from "./ui-slot";
+import type { PluginSlotDeclaration, SlotContext, SlotHostMessage } from "./ui-slot";
 import type { ModelMeta } from "./model";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -254,10 +254,12 @@ export interface BackendPluginHost {
  */
 export interface AgentPluginHost {
   /**
-   * Register a ToolSet on the agent.
+   * Register a ToolSet and its associated slot declarations on the agent.
+   * Slots are stored independently from the session state so they can be
+   * discovered even without an active session (e.g. toolButton slots).
    * Returns an unregister function.
    */
-  registerToolSet(toolSet: ToolSet): () => void;
+  registerToolSet(toolSet: ToolSet, slots?: readonly PluginSlotDeclaration[]): () => void;
 
   /**
    * All ToolSets currently registered on the agent.
@@ -368,9 +370,9 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
    * Read the current session state and the ToolSet-specific state slice
    * for the ToolSet that owns this slot.
    *
-   * Returns a 2-tuple: `[SessionStateLike, TState & PluginUiAdapter]`.
+   * Returns a 2-tuple: `[SessionStateLike, TState]`.
    */
-  getPluginState(): [SessionStateLike, TState & PluginUiAdapter] | undefined;
+  getPluginState(): [SessionStateLike, TState] | undefined;
 
   /**
    * Returns the current slot context so the plugin UI knows which

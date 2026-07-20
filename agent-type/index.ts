@@ -124,7 +124,6 @@ export type {
   ToolButtonSlotDeclaration,
   AutocompleteSlotDeclaration,
   AutocompleteItem,
-  PluginUiAdapter,
   SlotType,
   InlineSlotType,
   IframeSlotType,

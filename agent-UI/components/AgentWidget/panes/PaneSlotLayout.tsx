@@ -11,8 +11,8 @@
  * those remain in the caller's control via the `children` prop.
  */
 
-import { type ReactElement, type ReactNode, useState, useMemo } from 'react';
-import type { SlotSession, SlotDisplayContext, PanelSlotDeclaration } from '@agent-type';
+import { type ReactElement, type ReactNode, useState, useMemo, useCallback } from 'react';
+import type { SlotSession, SlotDisplayContext, PanelSlotDeclaration, PluginStateExtension } from '@agent-type';
 import { SlotRenderer } from '../../../slots/SlotRenderer';
 import type { SlotEntry } from '../../../slots/registry';
 import styles from '../AgentWidget.module.scss';
@@ -34,6 +34,12 @@ export interface PaneSlotLayoutProps {
 
   /** Slot display context for badge / visibility callbacks. */
   readonly slotCtx: SlotDisplayContext;
+
+  /**
+   * Resolve a ToolSet's symbol state for slot callbacks.
+   * Returns `undefined` when no session is active or the symbol is not found.
+   */
+  readonly getToolSetState?: (symbol: symbol) => PluginStateExtension | undefined;
 
   /** The main content (chat messages — no ChatInput; caller owns that). */
   readonly children: ReactNode;
@@ -77,6 +83,7 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
     panelSlots,
     inlinePromptSlots,
     slotCtx,
+    getToolSetState,
     children,
     subAgentPanel,
     tabBarExtra,
@@ -128,7 +135,8 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
             .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100))
             .map((entry) => {
               const v: View = `plugin:${entry.pluginId}`;
-              const badge = entry.declaration.badge?.(slotCtx) ?? null;
+              const state = getToolSetState?.(entry.toolSetSymbol);
+              const badge = entry.declaration.badge?.(slotCtx, state) ?? null;
               return (
                 <button
                   key={entry.pluginId}

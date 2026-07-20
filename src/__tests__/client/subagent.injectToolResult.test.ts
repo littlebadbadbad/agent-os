@@ -5,17 +5,7 @@ import { createSubAgentRegistry } from '../../tools/subagent/registry';
 import { createUserInputToolSet } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
 import { USER_INPUT_SYMBOL } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
 import { createPendingInputToolSet } from '../../../extensions/user-input/agent/pendingInput/toolSet';
-import type { ToolSet, ToolSetContext, AgentQueryFns, SessionEntryData, SessionReadyHelpers, PluginUiAdapter, PluginStateExtension } from '@agent-type';
-import type { InlinePromptEntry } from '../../../extensions/user-input/agent/requestUserInput/types';
-
-// Module augmentation so the test can access user-input ToolSet fields
-// on symbol-keyed state without 'as any' hacks.
-declare module '@agent-type' {
-  interface PluginStateExtension {
-    pendingUserInputs: readonly InlinePromptEntry[];
-    respondUserInput: (id: string, value: string | null) => void;
-  }
-}
+import type { ToolSet, ToolSetContext, AgentQueryFns, SessionEntryData, SessionReadyHelpers } from '@agent-type';
 
 // ── Stubs ─────────────────────────────────────────────────────────────────────
 

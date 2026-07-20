@@ -18,7 +18,7 @@ declare module '@agent-type' {
 
 import type { AgentMessage } from '@agent-type';
 import type { Attachment } from '@agent-type';
-import type { PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { PluginStateExtension } from '@agent-type';
 import type { SubAgentResult } from './types';
 import type { Message } from '@agent-sdk/tools/messageList';
 
@@ -125,7 +125,7 @@ export type SubAgentConversationState = {
    * state by the plugin's symbol — no plugin-specific fields are
    * hardcoded on this type.
    */
-  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
+  readonly [key: symbol]: PluginStateExtension;
 };
 
 /**
@@ -182,7 +182,7 @@ export type SubAgentEntrySnapshot = {
    * state by the plugin's symbol — no plugin-specific fields are
    * hardcoded on this type.
    */
-  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
+  readonly [key: symbol]: PluginStateExtension;
 };
 
 /** Observable state of the entire sub-agent registry. */

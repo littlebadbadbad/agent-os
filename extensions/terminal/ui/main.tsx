@@ -19,7 +19,6 @@ import type {
   SlotHostMessage,
   ToolCallInfo,
   PluginStateExtension,
-  PluginUiAdapter,
 } from "@agent-type";
 import type { TerminalManagerAdapter } from "../agent/shell/types";
 import { TerminalPanel } from "./TerminalPanel";
@@ -77,11 +76,11 @@ function bootApp(host: Host): void {
 
   // ── Reactive store ──────────────────────────────────────────────────────
 
-  let terminalState: (TerminalPluginState & PluginUiAdapter) | null = null;
+  let terminalState: TerminalPluginState | null = null;
   let sessionState = host.getPluginState()?.[0] ?? null;
   const listeners = new Set<() => void>();
 
-  function readState(): (TerminalPluginState & PluginUiAdapter) | null {
+  function readState(): TerminalPluginState | null {
     return host.getPluginState()?.[1] ?? null;
   }
 

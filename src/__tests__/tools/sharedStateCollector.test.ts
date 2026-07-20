@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { collectAllToolSetStates, collectSnapshotData, mergeAllToolSetStates } from '../../tools/sharedStateCollector';
-import type { ToolSet, ToolSetContext, ToolSetStateContext, PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { ToolSet, ToolSetContext, ToolSetStateContext, PluginStateExtension } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -3,7 +3,6 @@ import type { AgentHandler } from "./handler";
 // AgentMessage needed by SessionEntryDataBase; message.ts imports from core.ts
 // (Attachment, ToolCall) — circular import type is safe in TypeScript.
 import type { AgentMessage } from "./message";
-import type { PluginUiAdapter } from "./ui-slot";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Attachment types  (来自 src/tools/types/attachment.ts)
@@ -235,7 +234,7 @@ export type UserInputRequest = {
  * and will be merged into session state by the agent client automatically.
  */
 export interface AgentSessionExtension extends Record<string, unknown> {
-  [key: ToolSetSymbol]: PluginStateExtension & PluginUiAdapter;
+  [key: ToolSetSymbol]: PluginStateExtension;
 }
 /** Minimum discriminant every plugin symbol state must provide. */
 export interface PluginStateExtension {}
@@ -310,8 +309,8 @@ export type PluginId = string;
  * `state.conversationId` are typed as `string` without casts.
  *
  * Plugins access their own state slices via the symbol-keyed index
- * signature (`state[symbol]`), which returns `PluginStateExtension &
- * PluginUiAdapter` — the same type as `AgentSessionExtension` provides.
+ * signature (`state[symbol]`), which returns `PluginStateExtension` —
+ * the same type as `AgentSessionExtension` provides.
  */
 export interface SessionStateLike {
   /** Whether the agent is currently processing a turn. */
@@ -326,7 +325,7 @@ export interface SessionStateLike {
    * Symbol-keyed plugin state slices.
    * Each registered ToolSet contributes state under its own symbol.
    */
-  readonly [key: symbol]: PluginStateExtension & PluginUiAdapter;
+  readonly [key: symbol]: PluginStateExtension;
 }
 
 /**

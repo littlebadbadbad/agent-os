@@ -3,10 +3,13 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
+import { resolveToolSetTools } from '@agent-type';
 import { createDynamicToolPluginAdapter } from './pluginAdapter';
-import { createDynamicToolset } from './toolSet';
+import { createDynamicToolset, getDynamicToolSlotDeclarations } from './toolSet';
 
 export function activate(host: AgentPluginHost): void {
   const adapter = createDynamicToolPluginAdapter(host.apiClient);
-  host.registerToolSet(createDynamicToolset(adapter));
+  const toolSet = createDynamicToolset(adapter);
+  const slots = getDynamicToolSlotDeclarations(resolveToolSetTools(toolSet).map((t) => t.name));
+  host.registerToolSet(toolSet, slots);
 }

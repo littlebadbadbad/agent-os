@@ -103,10 +103,15 @@ export function createDynamicToolset(adapter: DynamicToolAdapter): ToolSet {
 
     onGetSymbolState: (_ctx: ToolSetContext) => ({
       type: 'dynamic-tool' as const,
-      slots: [
-        { type: 'toolCard' as const, toolNames: tools.map((t) => t.name) },
-        { type: 'compactToolCard' as const, toolNames: tools.map((t) => t.name), getDescriptor: dynamicToolDescriptor },
-      ] satisfies readonly PluginSlotDeclaration[],
     }),
   };
+}
+
+export function getDynamicToolSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    { type: 'toolCard' as const, toolNames },
+    { type: 'compactToolCard' as const, toolNames, getDescriptor: dynamicToolDescriptor },
+  ] satisfies readonly PluginSlotDeclaration[];
 }

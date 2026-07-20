@@ -22,6 +22,7 @@ import type {
   PluginSlotDeclaration,
   CompactToolCardDescriptor,
   ToolCallInfo,
+  PluginStateExtension,
 } from "@agent-type";
 import type { UpgradePluginAdapter, VersionInfo } from "./types";
 import { upgradeStore } from "./store";
@@ -51,6 +52,18 @@ export interface UpgradeToolSetOptions {
 }
 
 // ── Factory ────────────────────────────────────────────────────────────────
+
+export function getUpgradeSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    {
+      type: "compactToolCard" as const,
+      toolNames,
+      getDescriptor: upgradeDescriptor,
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
+}
 
 export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
   const { adapter, terminal } = options;
@@ -123,13 +136,6 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
         upgradeDevRunning: bucket?.devRunning,
         upgradeDevTerminalId: bucket?.devTerminalId,
         upgradeFrozen: bucket?.frozen,
-        slots: [
-          {
-            type: "compactToolCard" as const,
-            toolNames: tools.map((t) => t.name),
-            getDescriptor: upgradeDescriptor,
-          },
-        ] satisfies readonly PluginSlotDeclaration[],
       };
     },
 

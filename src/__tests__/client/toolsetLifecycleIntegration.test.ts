@@ -28,7 +28,6 @@ import type {
   SessionReadyHelpers,
   SessionEntryExtension,
   PluginStateExtension,
-  PluginUiAdapter,
 } from '@agent-type';
 
 // ── LifecycleSpyToolSet ───────────────────────────────────────────────────────
@@ -126,11 +125,9 @@ function makeSpyToolSet(name: string, sym?: symbol): ToolSet & { calls: HookCall
       record('onGetState', ctx);
       return { [`spy_${name}_field`]: `value-from-${name}` };
     },
-    onGetSymbolState(ctx: ToolSetContext, _stateCtx?: ToolSetStateContext): PluginStateExtension & PluginUiAdapter | void {
+    onGetSymbolState(ctx: ToolSetContext, _stateCtx?: ToolSetStateContext): PluginStateExtension | void {
       record('onGetSymbolState', ctx);
-      // The ToolSet type requires returning PluginStateExtension & PluginUiAdapter.
-      // We return a minimal valid value for type compatibility.
-      if (sym) return {} as PluginStateExtension & PluginUiAdapter;
+      if (sym) return {} as PluginStateExtension;
       return undefined;
     },
     onSubscribe(ctx: ToolSetContext, _fn: () => void): (() => void) | void {

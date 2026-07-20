@@ -9,8 +9,11 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
+import { resolveToolSetTools } from '@agent-type';
 import { createTerminalPluginAdapter, createTerminalToolSet } from './shell';
 import { createUpgradePluginAdapter, createUpgradeToolSet } from './upgrade';
+import { getTerminalSlotDeclarations } from './shell/toolSet';
+import { getUpgradeSlotDeclarations } from './upgrade/toolSet';
 
 /**
  * Activate the terminal plugin.
@@ -23,21 +26,21 @@ import { createUpgradePluginAdapter, createUpgradeToolSet } from './upgrade';
 export function activate(host: AgentPluginHost): void {
   // ── Terminal ToolSet ───────────────────────────────────────────────────
   const terminalAdapter = createTerminalPluginAdapter(host.apiClient);
-  host.registerToolSet(createTerminalToolSet(terminalAdapter));
+  const terminalToolSet = createTerminalToolSet(terminalAdapter);
+  host.registerToolSet(terminalToolSet, getTerminalSlotDeclarations(resolveToolSetTools(terminalToolSet).map((t) => t.name)));
 
   // ── Upgrade ToolSet ────────────────────────────────────────────────────
   // Uses the same apiClient (pre-bound to 'terminal' plugin) for RPC calls,
   // plus the terminal adapter for terminal polling during build/dev/test.
   const upgradeAdapter = createUpgradePluginAdapter(host.apiClient);
-  host.registerToolSet(
-    createUpgradeToolSet({
-      adapter: upgradeAdapter,
-      terminal: {
-        readOutput: (id: string, offset: number) =>
-          terminalAdapter.readOutput(id, offset, ""),
-        sendInput: (id: string, text: string) =>
-          terminalAdapter.sendInput(id, text, ""),
-      },
-    }),
-  );
+  const upgradeToolSet = createUpgradeToolSet({
+    adapter: upgradeAdapter,
+    terminal: {
+      readOutput: (id: string, offset: number) =>
+        terminalAdapter.readOutput(id, offset, ""),
+      sendInput: (id: string, text: string) =>
+        terminalAdapter.sendInput(id, text, ""),
+    },
+  });
+  host.registerToolSet(upgradeToolSet, getUpgradeSlotDeclarations(resolveToolSetTools(upgradeToolSet).map((t) => t.name)));
 }

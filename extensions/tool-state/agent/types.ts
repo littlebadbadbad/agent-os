@@ -1,5 +1,5 @@
 // ── Module augmentation ───────────────────────────────────────────────────────
-import type { PluginUiAdapter } from '@agent-type';
+
 
 /** Snapshot of a single tool's enabled/disabled state. */
 export interface ToolStateEntry {
@@ -20,7 +20,7 @@ declare module '@agent-type' {
 
 // ── Symbol state interface ────────────────────────────────────────────────────
 
-export interface ToolStateSymbolState extends PluginUiAdapter {
+export interface ToolStateSymbolState {
   readonly type: 'toolState';
   readonly toolStates: readonly ToolStateEntry[];
   readonly toggleTool: (name: string) => void;

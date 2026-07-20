@@ -13,7 +13,7 @@ import type { Tool, ToolResult, ToolExecutionContext, SystemPromptContext } from
 import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
 import { ctxKey, resolveToolSetTools } from '@agent-type';
 import type { ToolStateEntry, ToolStateSymbolState } from './types';
-import type { PluginSlotDeclaration } from '@agent-type';
+import type { PluginSlotDeclaration, PluginStateExtension } from '@agent-type';
 
 // ── Brand symbol ──────────────────────────────────────────────────────────────
 
@@ -79,6 +79,21 @@ export function createToolStateToolSet(): ToolStateToolSet {
     subsMap.delete(key);
   }
 
+  const toolStateSlotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: 'panel' as const,
+      label: 'Tools',
+      showTab: () => true,
+      shouldRender: () => true,
+      badge: (_ctx, state) => {
+        const ts = (state as ToolStateSymbolState | undefined)?.toolStates;
+        if (!ts || ts.length === 0) return null;
+        const enabled = ts.filter((t) => t.enabled).length;
+        return enabled < ts.length ? `${enabled}/${ts.length}` : `${ts.length}`;
+      },
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
+
   function onGetSymbolState(ctx: ToolSetContext, stateCtx?: { readonly tools: readonly Tool[] }): ToolStateSymbolState {
     const key = ctxKey(ctx);
     const tools = stateCtx?.tools ?? toolCache.get(key) ?? [];
@@ -93,20 +108,6 @@ export function createToolStateToolSet(): ToolStateToolSet {
       type: 'toolState',
       toolStates,
       toggleTool: (name: string) => toggleTool(ctx, name),
-      slots: [
-        {
-          type: 'panel' as const,
-          label: 'Tools',
-          showTab: () => true,
-          shouldRender: () => true,
-          badge: () => {
-            const total = toolStates.length;
-            if (total === 0) return null;
-            const enabled = toolStates.filter((t) => t.enabled).length;
-            return enabled < total ? `${enabled}/${total}` : `${total}`;
-          },
-        },
-      ] satisfies readonly PluginSlotDeclaration[],
     };
   }
 
@@ -251,7 +252,9 @@ export function createToolStateToolSet(): ToolStateToolSet {
     disableGroup,
     enableGroup,
     getDisabledNames,
-  };
+
+    toolStateSlotDeclarations,
+  } as ToolStateToolSet & { readonly toolStateSlotDeclarations: readonly PluginSlotDeclaration[] };
 
   return toolStateSelf;
 }

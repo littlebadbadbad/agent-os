@@ -1,41 +1,21 @@
 /**
- * agent-UI/plugin/discoverSlots.ts — Shared slot discovery
+ * agent-UI/plugin/discoverSlots.ts — Slot declaration discovery
  *
- * Iterates active plugins' symbol-keyed state slices and collects all
- * {@link PluginSlotDeclaration}s registered via {@link PluginUiAdapter.slots}.
+ * Collects {@link PluginSlotDeclaration}s from each plugin's standalone
+ * slot registry (populated at plugin activation time via
+ * `host.registerToolSet(toolSet, slots)`).
  *
- * Used by both the main-agent slot registry and sub-agent conversation panes.
- * The only difference between the two callers is the output target:
- *   - `pluginSystem.refreshSlots()` → calls `slotRegistry.register()` per entry
- *   - `discoverSubAgentSlots()` → returns entries as a flat array for inline rendering
+ * Slots are stored independently from session state so they can be
+ * discovered even without an active session — the session state is
+ * only needed to provide toolset state to display callbacks.
  *
- * This function lives here so both callers delegate to a single implementation.
- *
- * Why `state` is typed as `object`:
- *
- * The function only needs `Reflect.get` access on the state to read
- * symbol-keyed plugin slices. Both `AgentSessionState` and
- * `SubAgentConversationState` are objects at runtime, and `object` is
- * the most precise static type that both satisfy without type assertions.
+ * This is the single source of slot declarations for both the main-agent
+ * slot registry and sub-agent conversation panes.
  */
 
 import type { PluginSlotDeclaration } from "@agent-type";
 import type { SlotEntry } from "../slots/registry";
 import type { ActivatedPluginInfo } from "./pluginSystem";
-
-/**
- * Runtime check: does the value look like it has a `slots` array?
- * @returns The `slots` array, or `undefined`.
- */
-function tryGetSlots(
-  value: unknown,
-): readonly PluginSlotDeclaration[] | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  if (!("slots" in value)) return undefined;
-  const obj = value as { readonly slots: unknown };
-  if (!Array.isArray(obj.slots)) return undefined;
-  return obj.slots as readonly PluginSlotDeclaration[];
-}
 
 /**
  * Auto-generate a unique slot id from plugin + toolset symbol + index.
@@ -50,7 +30,7 @@ function generateSlotId(
 }
 
 /**
- * A raw slot entry discovered from state — before registration.
+ * A raw slot entry discovered from a plugin's slot registry.
  */
 export interface DiscoveredSlotEntry {
   readonly pluginId: string;
@@ -60,37 +40,28 @@ export interface DiscoveredSlotEntry {
 }
 
 /**
- * Discover all plugin slot declarations from a session/conversation state.
+ * Collect all slot declarations from active plugins' standalone registries.
  *
- * @param state   Session or conversation state snapshot.  Typed as
- *                `unknown` because the main-agent and sub-agent state
- *                types use incompatible index signatures; runtime guards
- *                handle both uniformly.
- * @param plugins Active plugins whose symbol-keyed state to inspect.
+ * Unlike the old state-based discovery, this function reads from the
+ * `slotDeclarations` map that was populated during plugin activation.
+ * No session state is required — slots are always discoverable.
+ *
+ * @param plugins Active plugins whose slot declarations to inspect.
  * @returns Flat list of `{ pluginId, toolSetSymbol, slotIndex, declaration }` entries.
  */
-export function discoverSlots(
-  state: object,
+export function collectStandaloneSlots(
   plugins: readonly ActivatedPluginInfo[],
 ): readonly DiscoveredSlotEntry[] {
-  // Guard: must be a non-null object for Reflect.get to work safely.
-  if (typeof state !== "object" || state === null) {
-    return [];
-  }
-
   const entries: DiscoveredSlotEntry[] = [];
   for (const plugin of plugins) {
-    for (const sym of plugin.symbols) {
-      const slots = tryGetSlots(Reflect.get(state, sym));
-      if (slots) {
-        for (let i = 0; i < slots.length; i++) {
-          entries.push({
-            pluginId: plugin.id,
-            toolSetSymbol: sym,
-            slotIndex: i,
-            declaration: slots[i],
-          });
-        }
+    for (const [sym, slots] of plugin.slotDeclarations) {
+      for (let i = 0; i < slots.length; i++) {
+        entries.push({
+          pluginId: plugin.id,
+          toolSetSymbol: sym,
+          slotIndex: i,
+          declaration: slots[i],
+        });
       }
     }
   }

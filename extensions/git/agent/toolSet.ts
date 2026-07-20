@@ -26,10 +26,15 @@ export function createGitToolSet(adapter: GitAdapter): ToolSet {
 
     onGetSymbolState: (_ctx: ToolSetContext) => ({
       type: 'git' as const,
-      slots: [
-        { type: 'toolCard' as const, toolNames: tools.map((t) => t.name) },
-        { type: 'compactToolCard' as const, toolNames: tools.map((t) => t.name), getDescriptor: gitDescriptor },
-      ] satisfies readonly PluginSlotDeclaration[],
     }),
   };
+}
+
+export function getGitSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    { type: 'toolCard' as const, toolNames },
+    { type: 'compactToolCard' as const, toolNames, getDescriptor: gitDescriptor },
+  ] satisfies readonly PluginSlotDeclaration[];
 }

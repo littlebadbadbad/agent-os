@@ -2,7 +2,7 @@
  * agent-type/ui-slot/index.ts — Slot-based plugin UI injection point types
  *
  * Three-layer architecture:
- *   1. ToolSet declares slots via `PluginUiAdapter.slots` — "what capabilities"
+ *   1. ToolSet registers slots via `host.registerToolSet(toolSet, slots)` — "what capabilities"
  *   2. Plugin UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
  *   3. Host renders slots via `SlotRenderer` + `SlotRegistry` — "where it goes"
  *
@@ -38,8 +38,6 @@ export type {
   InlineSlotDeclaration,
   IframeSlotDeclaration,
   PluginSlotDeclaration,
-  // ── Plugin UI adapter bridge ──
-  PluginUiAdapter,
   // ── Iframe context ──
   SlotContext,
 } from "./types";

@@ -6,7 +6,7 @@
  * (`registrySnapshot.ts`).  Both callers now delegate here.
  */
 
-import type { ToolSet, ToolSetContext, ToolSetStateContext, PluginStateExtension, PluginUiAdapter } from '@agent-type';
+import type { ToolSet, ToolSetContext, ToolSetStateContext, PluginStateExtension } from '@agent-type';
 
 // ── Results ───────────────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ export type CollectedStates = {
   /** Merged `onGetState` results from every ToolSet. */
   readonly plain: Record<string, unknown>;
   /** Merged `onGetSymbolState` results, keyed by each ToolSet's `symbol`. */
-  readonly symbol: Record<symbol, PluginStateExtension & PluginUiAdapter>;
+  readonly symbol: Record<symbol, PluginStateExtension>;
 };
 
 // ── Collector ─────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ export function collectAllToolSetStates(
   existing?: Record<string, unknown>,
 ): CollectedStates {
   const plain: Record<string, unknown> = existing ? { ...existing } : {};
-  const symbol: Record<symbol, PluginStateExtension & PluginUiAdapter> = {};
+  const symbol: Record<symbol, PluginStateExtension> = {};
 
   for (const ts of toolSets) {
     // ── onGetState ────────────────────────────────────────────────────────

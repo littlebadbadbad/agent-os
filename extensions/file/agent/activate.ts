@@ -3,10 +3,13 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
+import { resolveToolSetTools } from '@agent-type';
 import { createFilePluginAdapter } from './pluginAdapter';
-import { createFileToolSet } from './toolSet';
+import { createFileToolSet, getFileSlotDeclarations } from './toolSet';
 
 export function activate(host: AgentPluginHost): void {
   const adapter = createFilePluginAdapter(host.apiClient);
-  host.registerToolSet(createFileToolSet(adapter));
+  const toolSet = createFileToolSet(adapter);
+  const slots = getFileSlotDeclarations(resolveToolSetTools(toolSet).map((t) => t.name));
+  host.registerToolSet(toolSet, slots);
 }

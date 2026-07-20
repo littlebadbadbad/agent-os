@@ -6,7 +6,6 @@ import {
   type UserInputRequest,
   type SessionReadyHelpers,
   type Attachment,
-  type PluginUiAdapter,
   type PluginSlotDeclaration,
   type CompactToolCardDescriptor,
   type ToolCallInfo,
@@ -29,11 +28,10 @@ function userInputDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
 
 // ── Symbol-state shape ────────────────────────────────────────────────────────
 
-export interface UserInputSymbolState extends PluginUiAdapter {
+export interface UserInputSymbolState {
   readonly type: "requestUserInput";
   readonly pendingUserInputs: ReadonlyArray<InlinePromptEntry>;
   readonly respondUserInput: (id: string, value: string | null) => void;
-  readonly slots: readonly PluginSlotDeclaration[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -118,9 +116,14 @@ export interface UserInputToolSetOptions {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
+export interface UserInputToolSetBundle {
+  readonly toolSet: ToolSet;
+  readonly slotDeclarations: readonly PluginSlotDeclaration[];
+}
+
 export function createUserInputToolSet(
   options: UserInputToolSetOptions = {},
-): ToolSet {
+): UserInputToolSetBundle {
   const { adapter } = options;
   const store = createUserInputStore();
 
@@ -255,7 +258,16 @@ export function createUserInputToolSet(
     "`context.cancelUserInput?(id)` — cancel a pending prompt programmatically.\n" +
     "`context.sendMessage?(text)` — send a user message into the conversation.";
 
-  return {
+  const slotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: "inlinePrompt" as const,
+      shouldRender: (ctx) => store.getAll(ctxKey(ctx)).length > 0,
+    },
+    { type: "toolCard" as const, toolNames: ['ask_user'] },
+    { type: "compactToolCard" as const, toolNames: ['ask_user'], getDescriptor: userInputDescriptor },
+  ];
+
+  const toolSet = {
     symbol: USER_INPUT_SYMBOL,
     name: "user-input",
     description: "Ask user for input",
@@ -294,14 +306,6 @@ export function createUserInputToolSet(
         type: "requestUserInput" as const,
         pendingUserInputs: store.getAll(sessionKey),
         respondUserInput: store.getResponder(sessionKey),
-        slots: [
-          {
-            type: "inlinePrompt" as const,
-            shouldRender: (ctx) => store.getAll(ctxKey(ctx)).length > 0,
-          },
-          { type: "toolCard" as const, toolNames: ['ask_user'] },
-          { type: "compactToolCard" as const, toolNames: ['ask_user'], getDescriptor: userInputDescriptor },
-        ] satisfies readonly PluginSlotDeclaration[],
       };
     },
 
@@ -418,5 +422,6 @@ export function createUserInputToolSet(
       const prompts = store.serialize(ctxKey(ctx));
       return prompts.length ? { pendingUserInputs: prompts } : {};
     },
-  };
+  } as ToolSet;
+  return { toolSet, slotDeclarations };
 }

@@ -1,5 +1,5 @@
 import { type ReactElement, useMemo, useSyncExternalStore } from 'react';
-import type { SlotDisplayContext, SlotSession } from '@agent-type';
+import type { SlotDisplayContext, SlotSession, PluginStateExtension } from '@agent-type';
 import { ProxyButton } from '../ProxyManager/ProxyButton';
 import { ProviderSelector } from '../ProviderSelector/ProviderSelector';
 import { SlotRenderer } from '../../slots/SlotRenderer';
@@ -39,6 +39,17 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
 
   const { getByType } = useSlotRegistry();
 
+  // Derive toolset state lookup from session state.
+  const toolSetState = useMemo<Record<symbol, PluginStateExtension> | null>(() => {
+    if (!sessionState) return null;
+    const result: Record<symbol, PluginStateExtension> = Object.create(null);
+    const symbols = Object.getOwnPropertySymbols(sessionState);
+    for (const sym of symbols) {
+      result[sym] = sessionState[sym] as PluginStateExtension;
+    }
+    return result;
+  }, [sessionState]);
+
   const toolButtonSlots = getByType('toolButton')
     .slice()
     .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100));
@@ -48,9 +59,10 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
       <ProviderSelector />
       <ProxyButton />
       {toolButtonSlots.map((entry) => {
-        const show = entry.declaration.showBtn(slotCtx);
+        const state = toolSetState?.[entry.toolSetSymbol];
+        const show = entry.declaration.showBtn(slotCtx, state);
         if (!show) return null;
-        const badgeText = entry.declaration.badge?.(slotCtx) ?? null;
+        const badgeText = entry.declaration.badge?.(slotCtx, state) ?? null;
         return (
           <DropdownPanel
             key={entry.slotId}

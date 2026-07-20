@@ -10,7 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "outDir": "./dist",
     "paths": {
       "@agent-type": ["../../agent-type"],
       "@agent-type/*": ["../../agent-type/*"]

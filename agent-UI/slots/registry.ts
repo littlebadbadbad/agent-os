@@ -3,9 +3,10 @@
  *
  * Central registry of all plugin UI injection points.
  *
- * Populated at render time by reading session state's plugin adapters.
- * The registry is a cache — slot declarations originate from
- * `PluginUiAdapter.slots` in each ToolSet's `onGetSymbolState` return.
+ * Populated at render time from standalone slot declarations registered
+ * via `host.registerToolSet(toolSet, slots)` at plugin activation time.
+ * Slots are stored independently from session state so they can be
+ * discovered even without an active session.
  *
  * Thread-safe for concurrent reads/writes (single-threaded runtime).
  */

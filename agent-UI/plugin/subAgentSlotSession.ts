@@ -23,7 +23,7 @@ import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
 import type { SubAgentConversation, SubAgentConversationState } from "@agent-sdk";
 import type { SlotEntry } from "../slots/registry";
 import type { ActivatedPluginInfo } from "./pluginSystem";
-import { discoverSlots, toSlotEntries } from "./discoverSlots";
+import { collectStandaloneSlots, toSlotEntries } from "./discoverSlots";
 
 export function createSubAgentSlotSession(
   conv: SubAgentConversation,
@@ -35,8 +35,8 @@ export function createSubAgentSlotSession(
 }
 
 export function discoverSubAgentSlots(
-  convState: SubAgentConversationState,
+  _convState: SubAgentConversationState,
   activePlugins: readonly ActivatedPluginInfo[],
 ): readonly SlotEntry[] {
-  return toSlotEntries(discoverSlots(convState, activePlugins));
+  return toSlotEntries(collectStandaloneSlots(activePlugins));
 }

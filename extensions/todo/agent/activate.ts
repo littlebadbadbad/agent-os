@@ -7,7 +7,7 @@
  * The plugin receives an AgentPluginHost and registers its ToolSet.
  */
 
-import type { AgentPluginHost } from '@agent-type';
+import type { AgentPluginHost, ToolSet, PluginSlotDeclaration } from '@agent-type';
 import { createTodoTools } from './toolSet';
 
 /**
@@ -18,6 +18,6 @@ import { createTodoTools } from './toolSet';
  * @param host  The AgentPluginHost for this plugin.
  */
 export function activate(host: AgentPluginHost): void {
-  const toolSet = createTodoTools();
-  host.registerToolSet(toolSet);
+  const toolSet = createTodoTools() as ToolSet & { readonly todoSlotDeclarations: readonly PluginSlotDeclaration[] };
+  host.registerToolSet(toolSet, toolSet.todoSlotDeclarations);
 }

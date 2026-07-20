@@ -1,6 +1,6 @@
 import './types';
 import { ctxKey } from '@agent-type';
-import type { ToolSet, ToolSetContext, Tool, AgentRunOutcome } from '@agent-type';
+import type { ToolSet, ToolSetContext, Tool, AgentRunOutcome, PluginSlotDeclaration } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
 import { planStore } from './store';
 import { createPlanTools } from './tools';
@@ -96,23 +96,6 @@ export function createPlanToolSet(): ToolSet {
         plan: currentPlan,
         planMode: inPlanMode,
         pendingApproval: planStore.getPendingApproval(key(ctx)),
-        slots: [
-          {
-            type: 'panel' as const,
-            label: 'Plan',
-            showTab: () => true,
-            shouldRender: () => !!currentPlan,
-          },
-          {
-            type: 'toolCard' as const,
-            toolNames: tools.map((t) => t.name),
-          },
-          {
-            type: 'compactToolCard' as const,
-            toolNames: tools.map((t) => t.name),
-            getDescriptor: planDescriptor,
-          },
-        ] satisfies readonly PluginSlotDeclaration[],
       };
     },
 
@@ -181,4 +164,26 @@ export function createPlanToolSet(): ToolSet {
       return `## Planning\n\n[Current Plan]\n${content}\n\nCall \`plan_checkpoint\` before executing steps on an unapproved plan.`;
     },
   };
+}
+
+export function getPlanSlotDeclarations(
+  toolNames: readonly string[],
+): readonly PluginSlotDeclaration[] {
+  return [
+    {
+      type: 'panel' as const,
+      label: 'Plan',
+      showTab: () => true,
+      shouldRender: (_ctx, state) => !!state?.plan,
+    },
+    {
+      type: 'toolCard' as const,
+      toolNames,
+    },
+    {
+      type: 'compactToolCard' as const,
+      toolNames,
+      getDescriptor: planDescriptor,
+    },
+  ] satisfies readonly PluginSlotDeclaration[];
 }

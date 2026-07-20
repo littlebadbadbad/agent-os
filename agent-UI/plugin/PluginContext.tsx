@@ -1,17 +1,19 @@
 /**
  * agent-UI/plugin/PluginContext.tsx — React Provider + hooks for plugin system
  *
- * Replaces the old global-singleton + imperative refreshSlots() pattern with
- * a reactive React Context approach:
+ * Slot declarations are now stored independently from session state (populated
+ * at plugin activation time via `host.registerToolSet(toolSet, slots)`).
+ * The registry is always populated regardless of whether a session exists,
+ * enabling slot types like `toolButton` to appear even without an active session.
  *
- *   - {@link PluginProvider} wraps the widget content, subscribes to session
- *     state via `useSyncExternalStore`, and reactively builds a read-only
- *     {@link SlotRegistry} from the current session state's plugin slots.
+ * Session state is still subscribed to reactively so that slot display callbacks
+ * can read the current toolset state.
+ *
+ *   - {@link PluginProvider} wraps the widget content, collects standalone slot
+ *     declarations from active plugins, and builds a read-only
+ *     {@link SlotRegistry} — no session dependency required.
  *   - {@link usePluginSystem} returns the global {@link PluginSystem} singleton.
  *   - {@link useSlotRegistry} returns the session-scoped {@link SlotRegistry}.
- *
- * No more `pluginSystem.refreshSlots(activeSession)` called on every render.
- * No more global `slotRegistry` singleton.  All components consume via hooks.
  *
  * Usage:
  * ```tsx
@@ -30,9 +32,9 @@
 
 import { createContext, useContext, useMemo, type ReactElement, type ReactNode } from "react";
 import { useSyncExternalStore } from "react";
-import type { SlotSession } from "@agent-type";
+import type { SlotSession, PluginStateExtension } from "@agent-type";
 import { createSlotRegistry, type SlotRegistry } from "../slots/registry";
-import { discoverSlots, toSlotEntries } from "./discoverSlots";
+import { collectStandaloneSlots, toSlotEntries } from "./discoverSlots";
 import { pluginSystem } from "@agent-UI/agents";
 import type { PluginSystem } from "./pluginSystem";
 
@@ -41,8 +43,13 @@ import type { PluginSystem } from "./pluginSystem";
 interface PluginContextValue {
   /** Global plugin system singleton (stable reference). */
   readonly pluginSystem: PluginSystem;
-  /** Session-scoped slot registry — rebuilt on every state change. */
+  /** Slot registry — always populated from standalone slot declarations. */
   readonly slotRegistry: SlotRegistry;
+  /**
+   * Current session state, or null when no session is active.
+   * Passed to slot display callbacks so they can read the toolset's state.
+   */
+  readonly sessionState: Record<string | symbol, unknown> | null;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -53,8 +60,8 @@ const PluginCtx = createContext<PluginContextValue | null>(null);
 
 export interface PluginProviderProps {
   /**
-   * The active session to derive slot state from.
-   * When undefined (no active session), the registry is empty.
+   * The active session to derive toolset state from.
+   * When undefined, slot callbacks receive `undefined` state.
    */
   readonly session?: SlotSession | null;
   readonly children: ReactNode;
@@ -64,28 +71,30 @@ export interface PluginProviderProps {
  * PluginProvider — provides {@link usePluginSystem} and {@link useSlotRegistry}
  * to the widget subtree.
  *
- * Subscribes to session state reactively via `useSyncExternalStore` and
- * recomputes the slot registry whenever session state or active plugins change.
+ * Slot declarations are collected from standalone plugin registries (no session
+ * dependency). Session state is subscribed to reactively so slot display
+ * callbacks can read the current toolset state.
  */
 export function PluginProvider({ session, children }: PluginProviderProps): ReactElement {
   // Subscribe to session state changes reactively.
-  const sessionState = useSyncExternalStore(
+  const rawState = useSyncExternalStore(
     session?.subscribe ?? (() => () => {}),
     () => session?.getState() ?? null,
     () => session?.getState() ?? null,
   );
 
-  // Recompute slot registry whenever state or active plugins change.
-  const slotRegistry = useMemo(() => {
-    if (!sessionState) return createSlotRegistry();
-    const discovered = discoverSlots(sessionState, pluginSystem.activePlugins);
-    return createSlotRegistry(toSlotEntries(discovered));
-  }, [sessionState]);
+  const sessionState = rawState as Record<string | symbol, unknown> | null;
 
-  // Memoize context value so children don't re-render when only sessionState changes.
+  // Build slot registry from standalone declarations (always available).
+  const slotRegistry = useMemo(() => {
+    const discovered = collectStandaloneSlots(pluginSystem.activePlugins);
+    return createSlotRegistry(toSlotEntries(discovered));
+  }, []);
+
+  // Memoize context value.
   const value = useMemo<PluginContextValue>(
-    () => ({ pluginSystem, slotRegistry }),
-    [slotRegistry],
+    () => ({ pluginSystem, slotRegistry, sessionState }),
+    [slotRegistry, sessionState],
   );
 
   return (
@@ -111,8 +120,7 @@ export function usePluginSystem(): PluginSystem {
 
 /**
  * Access the session-scoped {@link SlotRegistry}.
- * The registry is rebuilt from the current session state on every state change,
- * so slots are always up to date without manual refresh calls.
+ * Slots are always available regardless of session state.
  *
  * Must be called within a {@link PluginProvider}.
  */
@@ -122,4 +130,25 @@ export function useSlotRegistry(): SlotRegistry {
     throw new Error("useSlotRegistry() must be used within a <PluginProvider>");
   }
   return ctx.slotRegistry;
+}
+
+/**
+ * Resolve a ToolSet's symbol state from the current session state.
+ * Returns the state slice for the given symbol, or `undefined` when
+ * no session is active or the symbol is not found.
+ *
+ * Slot display callbacks use this to receive toolset state as their
+ * second parameter.
+ *
+ * @param toolSetSymbol The ToolSet's symbol to look up.
+ * @returns The toolset's state contribution, or `undefined`.
+ */
+export function useToolSetState(
+  toolSetSymbol: symbol,
+): PluginStateExtension | undefined {
+  const ctx = useContext(PluginCtx);
+  if (!ctx) return undefined;
+  if (!ctx.sessionState) return undefined;
+  const state = ctx.sessionState[toolSetSymbol];
+  return state as PluginStateExtension | undefined;
 }
