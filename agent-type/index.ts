@@ -154,6 +154,8 @@ export {
   buildTool,
   TOOL_DEFAULTS,
   resolveToolSetTools,
+  resolveToolField,
+  resolveFactory,
 } from "./defineTool";
 export type { ToolDef } from "./defineTool";
 

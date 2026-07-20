@@ -17,7 +17,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createAgentClient, createSubAgentToolset, createVariableToolSet, MAIN_CONVERSATION_ID } from '@agent-sdk';
+import { createAgentClient, createSubAgentToolset, MAIN_CONVERSATION_ID } from '@agent-sdk';
+import { createVariableToolSet } from '../../../extensions/variable/agent/toolSet';
 import type {
   ToolSet,
   ToolSetContext,

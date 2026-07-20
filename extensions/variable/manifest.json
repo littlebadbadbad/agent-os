@@ -1,0 +1,7 @@
+{
+  "id": "variable",
+  "name": "Variable Store",
+  "version": "0.1.0",
+  "description": "JSON variable store with handle-based reference, expansion, and auto-attachment capture. Provides var_write, var_expand, var_read_path, var_list, var_delete tools.",
+  "agentEntry": "activate.js"
+}

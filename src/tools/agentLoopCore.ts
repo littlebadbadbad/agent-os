@@ -1,7 +1,8 @@
 /** Core agentic turn loop shared by AgentSession and sub-agent conversations. */
 
 import { drainAgentStream } from './agentLoop';
-import { isAgentTurnResponse, resolveToolField } from './types';
+import { isAgentTurnResponse } from './types';
+import { resolveToolField } from '@agent-type';
 import { toErrorMessage } from './errors';
 import type { AgentStreamHooks } from './agentLoop';
 import type {

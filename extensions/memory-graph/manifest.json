@@ -1,0 +1,7 @@
+{
+  "id": "memory-graph",
+  "name": "Memory Graph",
+  "version": "0.1.0",
+  "description": "Knowledge graph for session memory. Extracts entities and relationships from conversation, enables memory_recall and memory_distill tools for context management.",
+  "agentEntry": "activate.js"
+}

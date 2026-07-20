@@ -1,0 +1,7 @@
+{
+  "id": "tool-search",
+  "name": "Tool Search",
+  "version": "0.1.0",
+  "description": "Semantic tool discovery. Filters the tool list when it exceeds the threshold, keeping only core tools visible and deferring the rest behind the tool_search tool.",
+  "agentEntry": "activate.js"
+}

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createSubAgentToolset } from '../../tools/subagent/metaTools';
+import { createSubAgentToolset } from '../../tools/subagent/subAgentToolset';
 import { createSubAgentRegistry } from '../../tools/subagent/registry';
 import { createUserInputToolSet } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
 import { USER_INPUT_SYMBOL } from '../../../extensions/user-input/agent/requestUserInput/toolSet';

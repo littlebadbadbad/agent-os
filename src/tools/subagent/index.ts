@@ -10,4 +10,3 @@ export type {
 export { createSubAgentToolset } from './subAgentToolset';
 export { createSubAgentRegistry } from './registry';
 export type { CreateSubAgentRegistryOptions } from './registry';
-export { createDelegationNudgeToolSet } from './delegationNudge';

@@ -1,18 +1,11 @@
 import {
   createAgentClient,
-  createToolSearchToolSet,
-  createPermissionsToolSet,
   createSubAgentToolset,
-  createVariableToolSet,
-  createMemoryGraphToolSet,
-  createToolResultCompressorToolSet,
-  createDelegationNudgeToolSet,
 } from "@agent-sdk";
 import { createPluginSystem } from "./plugin";
 import type { AgentPluginContext } from "./plugin/host";
 import { asyncHandler } from "./handlers/asyncHandler";
 import { streamHandler } from "./handlers/streamHandler";
-import { providerStore } from "./store/providerStore";
 import { providerConfigStore } from "./store/providerConfigStore";
 import {
   sessionStore,
@@ -72,12 +65,9 @@ const SYSTEM_PROMPT = "";
 // Restore persisted sessions from the backend.
 
 // ── Shared tools ──────────────────────────────────────────────────────────────
-// Defined before agent creation so they can be passed via `tools:` config.
-
-const variableToolSet = createVariableToolSet();
-const toolResultCompressorToolSet = createToolResultCompressorToolSet({ keepRecentResults: 3 });
-const delegationNudgeToolSet = createDelegationNudgeToolSet();
-const memoryGraphToolSet = createMemoryGraphToolSet();
+// Sub-agent meta-tools only.
+// Core ToolSets (variable, memory-graph, tool-search, tool-result-compressor,
+// permissions, delegation-nudge) are registered as plugins via the plugin system.
 
 // Sub-agent meta-tools — each handler variant gets its own set.
 // The tool pool is derived lazily from each agent's live registered tools.
@@ -87,21 +77,8 @@ const asyncSubAgentToolset = createSubAgentToolset("async", {
 const streamSubAgentToolset = createSubAgentToolset("stream", {
   withVariables: true,
 });
-const toolSearchToolSet = createToolSearchToolSet();
 
-// ── Permission rules ──────────────────────────────────────────────────────────
-
-const permissionsToolSet = createPermissionsToolSet({
-  // context: { mode: 'default' },
-});
-const sharedToolSets = [
-  toolSearchToolSet,
-  permissionsToolSet,
-  toolResultCompressorToolSet,
-  variableToolSet,
-  memoryGraphToolSet,
-  delegationNudgeToolSet,
-];
+const sharedToolSets: [] = [];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,7 @@
+{
+  "id": "permissions",
+  "name": "Permissions",
+  "version": "0.1.0",
+  "description": "Tool permission checking with onBeforeToolExecute lifecycle hook. Supports adapter pattern for custom permission logic and declarative allow/deny/ask rules.",
+  "agentEntry": "activate.js"
+}

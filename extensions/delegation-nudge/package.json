@@ -1,0 +1,12 @@
+{
+  "name": "@uap/plugin-delegation-nudge",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "*"
+  }
+}

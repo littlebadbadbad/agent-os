@@ -24,6 +24,6 @@
       "@agent-type/*": ["./agent-type/*"]
     }
   },
-  "include": ["src", "demo", "agent-UI", "agent-type", "extensions/git/agent", "extensions/file/agent", "extensions/dynamic-tool/agent"],
+  "include": ["src", "demo", "agent-OS", "agent-UI", "agent-type", "extensions/git/agent", "extensions/file/agent", "extensions/dynamic-tool/agent", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

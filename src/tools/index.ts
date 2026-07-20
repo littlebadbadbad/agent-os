@@ -45,20 +45,4 @@ export {
 export { executeToolCall, validateToolCall, executeValidatedToolCall } from './execute';
 export type { ValidatedToolCall } from './execute';
 
-// ── Variable store ────────────────────────────────────────────────────────────
-export { createVariableToolSet, isVariableHandle, extractHandles } from './variable';
-export type {
-  VariableToolSetOptions,
-  VariableHandle,
-  VariableEntry,
-  JsonVariable,
-  AttachmentVariable,
-  Variable,
-  JsonValue,
-  JsonObject,
-  JsonArray,
-  JsonPrimitive,
-  VariableStore,
-  VariableStoreRef,
-  SerializedVariable,
-} from './variable';
+

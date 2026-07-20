@@ -16,7 +16,6 @@ export type {
 } from './client/sessionManager.types';
 
 // ── Tool primitives ───────────────────────────────────────────────────────────
-export { createToolSearchToolSet } from './tools/toolSearch';
 export type { ToolSet, ToolSetState, ToolSetContext, ToolSetStateContext, AgentQueryFns, AgentClientLike, ToolContextPatch, SystemPromptContext, CompactionResult, CompactionNotice } from '@agent-type';
 export { MAIN_CONVERSATION_ID, ctxKey } from './tools/toolSet';
 export {
@@ -27,7 +26,6 @@ export {
 export {
   createSubAgentToolset,
   createSubAgentRegistry,
-  createDelegationNudgeToolSet,
 } from './tools/subagent';
 export type {
   SubAgentConfig,
@@ -40,30 +38,7 @@ export type {
   SubAgentRegistry,
   CreateSubAgentRegistryOptions,
 } from './tools/subagent';
-export { createToolResultCompressorToolSet } from './tools/historyProcessing';
-export type { ToolResultCompressorOptions } from './tools/historyProcessing';
-
 // ── Permissions ───────────────────────────────────────────────────────────────
-export { createPermissionsToolSet } from './tools/permissions';
-export type {
-  PermissionsToolSetOptions,
-  PermissionsAdapter,
-  PermissionMode,
-  PermissionResult,
-  PermissionRules,
-  ToolPermissionContext,
-} from './tools/permissions';
-
-// ── Token tracking & summarization ────────────────────────────────────────────
-export { createMemoryGraphToolSet } from './tools/memoryGraph';
-export type {
-  KnowledgeNode,
-  KnowledgeEdge,
-  KnowledgeGraph,
-  SerializedMemoryGraph,
-  MemoryGraphState,
-  MemoryGraphToolSetOptions,
-} from './tools/memoryGraph';
 export type {
   HandlerContext,
   OpenAIToolParam,
@@ -112,24 +87,6 @@ export {
 
 // ── History converter ─────────────────────────────────────────────────────────
 export { agentMessagesToUI } from './client/historyConverter';
-
-// ── Variable store ────────────────────────────────────────────────────────────
-export { createVariableToolSet, isVariableHandle, extractHandles } from './tools/variable';
-export type {
-  VariableToolSetOptions,
-  VariableHandle,
-  VariableEntry,
-  JsonVariable,
-  AttachmentVariable,
-  Variable,
-  JsonValue,
-  JsonObject,
-  JsonArray,
-  JsonPrimitive,
-  VariableStore,
-  VariableStoreRef,
-  SerializedVariable,
-} from './tools/variable';
 
 // ── Structured error types ────────────────────────────────────────────────────
 export {
