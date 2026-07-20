@@ -7,6 +7,7 @@
  */
 
 import type { ReactElement, ReactNode } from 'react';
+import { displayTitle } from './types';
 import styles from './styles.module.scss';
 
 interface SessionPanelProps {
@@ -20,7 +21,7 @@ export function SessionPanel({ title, onBack, children }: SessionPanelProps): Re
     <div className={styles['panel']}>
       <div className={styles['panel-nav']}>
         <button type="button" className={styles['panel-back-btn']} onClick={onBack} aria-label="Back to session list">←</button>
-        <span className={styles['panel-title']}>{title}</span>
+        <span className={styles['panel-title']}>{displayTitle(title)}</span>
       </div>
       <div className={styles['panel-content']}>{children}</div>
     </div>

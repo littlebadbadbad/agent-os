@@ -1,6 +1,6 @@
 import './types';
 import { ctxKey } from '@agent-type';
-import type { ToolSet, ToolSetContext, Tool, AgentRunOutcome, PluginSlotDeclaration } from '@agent-type';
+import type { ToolSet, ToolSetContext, Tool, AgentRunOutcome, PluginSlotDeclaration, ToolCallInfo, CompactToolCardDescriptor } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
 import { planStore } from './store';
 import { createPlanTools } from './tools';

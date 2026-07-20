@@ -188,7 +188,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
 
       // Create the initial conversation after onInitSession — onInitConversation
       // may read state that onInitSession just set up.
-      const firstConv = lifecycle.createConversationForEntry('Conversation 1', entry);
+      const firstConv = lifecycle.createConversationForEntry('', entry);
       entry.conversations.set(firstConv._state.id, firstConv);
       entry.activeConversationId = firstConv._state.id;
 
@@ -226,7 +226,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       const entry = entries.get(subAgentName);
       if (!entry) throw new Error(`Sub-agent "${subAgentName}" not found.`);
 
-      const title = options?.title ?? `Conversation ${entry.conversations.size + 1}`;
+      const title = options?.title ?? '';    // '' means no custom title yet
       const conv = lifecycle.createConversationForEntry(title, entry);
       entry.conversations.set(conv._state.id, conv);
       // Only switch active when explicitly requested. Default keeps the

@@ -8,6 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ReactElement, ReactNode, MouseEvent, KeyboardEvent } from 'react';
 import type { ConversationItem } from './types';
+import { displayTitle } from './types';
 import styles from './styles.module.scss';
 
 interface SessionListProps {
@@ -104,12 +105,15 @@ export function SessionList({
           ) : (
             <>
               <div className={styles['list-item-body']}>
-                <span
-                  className={styles['list-item-title']}
-                  onDoubleClick={(e) => startEditing(e, item)}
-                  title="Double-click to rename"
-                >
-                  {item.title}
+                <span className={styles['list-item-title-row']}>
+                  {item.isLoading && <span className={styles['list-item-spinner']} />}
+                  <span
+                    className={styles['list-item-title']}
+                    onDoubleClick={(e) => startEditing(e, item)}
+                    title="Double-click to rename"
+                  >
+                    {displayTitle(item.title)}
+                  </span>
                 </span>
                 <span className={styles['list-item-subtitle']}>{item.subtitle}</span>
               </div>
@@ -117,7 +121,7 @@ export function SessionList({
                 type="button"
                 className={styles['list-item-delete']}
                 onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                aria-label={`Delete ${item.title}`}
+                aria-label={`Delete ${displayTitle(item.title)}`}
                 tabIndex={-1}
               >
                 ×

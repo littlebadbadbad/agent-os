@@ -115,6 +115,7 @@ function AgentNavigator({ registry, agentName, conversations, sessionId }: Agent
       id: c.conversationId,
       title: c.title,
       subtitle: formatTimeAgo(c.createdAt),
+      isLoading: c.isLoading,
     })),
     [conversations],
   );

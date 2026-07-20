@@ -212,7 +212,7 @@ export function createLifecycleFunctions(
       if (remaining.length > 0) {
         entry.activeConversationId = remaining[remaining.length - 1];
       } else {
-        const fallback = createConversationForEntry("Conversation 1", entry);
+        const fallback = createConversationForEntry('', entry);
         entry.conversations.set(fallback._state.id, fallback);
         entry.activeConversationId = fallback._state.id;
       }

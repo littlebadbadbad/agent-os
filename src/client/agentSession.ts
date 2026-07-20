@@ -30,7 +30,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     agentName: config.agentName,
     conversationId: config.conversationId,
     agentId: config.agentId,
-    title: config.title ?? 'New Chat',
+    title: config.title ?? '',           // '' means no custom title yet
     toolStates: [],
     subAgentRegistry: null,
     enableAttachments: config.enableAttachments,
@@ -78,15 +78,12 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   });
 
   // ── Auto-set session title from first user message ──────────────────────
-  // Only set when the title is still the default placeholder, so restored
-  // sessions with messages also get a proper title.
+  // Empty title means no custom title has been set yet — replace with the
+  // actual first message text, truncating to 60 characters.
   function maybeSetTitle(text: string): void {
-    if (!text) return;
-    const current = state.title;
-    if (current === 'New Chat' || current === `Session ${1}`) {
-      const title = text.length <= 60 ? text : text.slice(0, 57) + '…';
-      session.setTitle(title);
-    }
+    if (!text || state.title) return;
+    const title = text.length <= 60 ? text : text.slice(0, 57) + '…';
+    session.setTitle(title);
   }
 
   const session: AgentSession = {

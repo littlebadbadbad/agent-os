@@ -1,8 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./agent"
+    "rootDir": "../..",
+    "paths": {
+      "@agent-type": ["../../agent-type/index.ts"],
+      "@agent-type/*": ["../../agent-type/*"]
+    }
   },
   "include": ["agent"]
 }

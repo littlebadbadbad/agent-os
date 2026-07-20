@@ -61,8 +61,20 @@ export function createSessionManager(
 
   function addEntry(data: SessionEntryData): AgentSession {
     const session = sessionFactory(data);
-    entries.set(data.id, { id: data.id, title: data.title, createdAt: new Date().toISOString(), session });
+    const entry: SessionListEntry = { id: data.id, title: data.title, createdAt: new Date().toISOString(), session };
+    entries.set(data.id, entry);
     order.push(data.id);
+    // Forward any session state change (title, isLoading, etc.) to the
+    // session-manager snapshot so the list view stays in sync.
+    session.subscribe(() => {
+      const stored = entries.get(data.id);
+      if (!stored) return;
+      const s = stored.session.getState();
+      if (stored.title !== s.title) {
+        entries.set(data.id, { ...stored, title: s.title });
+      }
+      notify();
+    });
     return session;
   }
 
@@ -75,7 +87,7 @@ export function createSessionManager(
 
   function createSession(data: Partial<SessionEntryData> = {}): AgentSession {
     const id = data.id ?? generateId();
-    const title = data.title ?? `Session ${order.length + 1}`;
+    const title = data.title ?? '';    // '' means no custom title yet — display fallback in UI
     const session = addEntry({ ...data, id, title });
     activeSessionId = id;
     notify();

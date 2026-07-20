@@ -16,11 +16,11 @@ import { ExperienceToolCard } from './ExperienceToolCard';
 
 declare global {
   interface Window {
-    __UAP_PLUGIN_HOST__?: UiPluginHost;
+    __UAP_PLUGIN_HOST__?: UiPluginHost<ExperienceSymbolState>;
   }
 }
 
-function waitForHost(timeout = 10000): Promise<UiPluginHost> {
+function waitForHost(timeout = 10000): Promise<UiPluginHost<ExperienceSymbolState>> {
   return new Promise((resolve, reject) => {
     if (window.__UAP_PLUGIN_HOST__) {
       resolve(window.__UAP_PLUGIN_HOST__);
@@ -52,7 +52,7 @@ waitForHost()
     }
   });
 
-function bootApp(host: UiPluginHost): void {
+function bootApp(host: UiPluginHost<ExperienceSymbolState>): void {
   const slotCtx = host.getSlotContext();
 
   let expState: ExperienceSymbolState | null = host.getPluginState()?.[1] ?? null;

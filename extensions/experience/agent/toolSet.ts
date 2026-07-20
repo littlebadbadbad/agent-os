@@ -228,7 +228,7 @@ export function createExperienceToolSet(): ToolSet {
     {
       type: 'panel',
       label: 'Experience',
-      showTab: () => true,
+      showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
       order: 20,
       badge: () => {
         if (globalItems.length === 0) return null;

@@ -88,11 +88,14 @@ export function createExecutionFunctions(
     }
 
     // Auto-set conversation title from first user message.
-    // Only set when the title is still the auto-generated default, so
-    // restored/renamed conversations keep their existing title.
-    if (message.length > 0 && conv._state.title.startsWith('Conversation ')) {
-      const title = message.length <= 60 ? message : message.slice(0, 57) + '…';
-      conv._state.title = title;
+    // Empty title means no custom title has been set yet — replace with the
+    // actual first message text, truncating to 60 characters.
+    // Notify immediately so the ConversationNavigator title bar reflects
+    // the change without waiting for the runner to complete.
+    if (message.length > 0 && !conv._state.title) {
+      const t = message.length <= 60 ? message : message.slice(0, 57) + '…';
+      conv._state.title = t;
+      conv._notifyRegistry();
     }
 
     // Delegate to the persistent ConversationRunner — exactly like the

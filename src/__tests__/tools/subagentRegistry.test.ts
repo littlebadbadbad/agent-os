@@ -133,11 +133,11 @@ describe('createSubAgentRegistry', () => {
       })).toThrow('Unknown tool');
     });
 
-    it('creates an initial conversation titled "Conversation 1"', () => {
+    it('creates an initial conversation with empty title', () => {
       const conv = registry.createSubAgent({
         name: 'x', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
       });
-      expect(conv.getState().title).toBe('Conversation 1');
+      expect(conv.getState().title).toBe('');
     });
   });
 

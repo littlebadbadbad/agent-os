@@ -57,26 +57,26 @@ export function MultiSessionWidget({
   const activeSession: SessionHandle | null = useMemo(
     () => panelEntry
       ? {
-          id: panelEntry.id,
-          title: panelEntry.title,
-          subscribe: panelEntry.session.subscribe.bind(panelEntry.session),
-          getState: () => {
-            const s = panelEntry.session.getState();
-            return { isLoading: s.isLoading, enableAttachments: s.enableAttachments ?? true };
-          },
-          sendMessage: panelEntry.session.sendMessage.bind(panelEntry.session),
-          cancelMessage: panelEntry.session.cancelMessage.bind(panelEntry.session),
-        }
+        id: panelEntry.id,
+        title: panelEntry.title,
+        subscribe: panelEntry.session.subscribe.bind(panelEntry.session),
+        getState: () => {
+          const s = panelEntry.session.getState();
+          return { isLoading: s.isLoading, enableAttachments: s.enableAttachments ?? true };
+        },
+        sendMessage: panelEntry.session.sendMessage.bind(panelEntry.session),
+        cancelMessage: panelEntry.session.cancelMessage.bind(panelEntry.session),
+      }
       : null,
     [panelEntry],
   );
 
-  // Build list items (no isLoading — that's on SessionHandle).
   const items: readonly ConversationItem[] = useMemo(
     () => sessions.map((s: SessionListEntry) => ({
       id: s.id,
       title: s.title,
       subtitle: formatTimeAgo(s.createdAt),
+      isLoading: s.session.getState().isLoading,
     })),
     [sessions],
   );
@@ -141,6 +141,7 @@ export function MultiSessionWidget({
 
   return (
     <PluginProvider session={panelSession ?? null}>
+      {/****/}
       <Widget
         id={agentId}
         icon={icon}
