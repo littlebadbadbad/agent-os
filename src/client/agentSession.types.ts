@@ -9,6 +9,8 @@ declare module '@agent-type' {
     messages: Message[];
     agentId: string | undefined;
     title: string;
+    subtitle: string;
+    updatedAt: string;
     enableAttachments: boolean;
   }
 }
@@ -39,6 +41,7 @@ export type AgentSession = {
   cancelMessage(): void;
   clearHistory(): void;
   setTitle(title: string): void;
+  setSubtitle(subtitle: string): void;
   getState(): AgentSessionState;
   subscribe(fn: () => void): () => void;
   getHistory(): AgentMessage[];

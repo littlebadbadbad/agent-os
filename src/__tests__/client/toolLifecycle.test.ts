@@ -11,7 +11,7 @@ function makeTsCtx(sessionId: string) {
   return { sessionId, agentName: AGENT_ID, conversationId: MAIN_CONVERSATION_ID };
 }
 
-/** Minimal AgentClientLike stub ï¿?enough for onAttach calls in tests. */
+/** Minimal AgentClientLike stub ï¿½?enough for onAttach calls in tests. */
 const stubAgentClient: AgentClientLike = {
   registerTool: vi.fn(() => () => {}),
   registerToolSet: vi.fn(() => () => {}),
@@ -44,7 +44,14 @@ function makeSlots(...ids: string[]) {
 function makeSessionMgr(sessionIds: string[]) {
   return {
     getState: () => ({
-      sessions: sessionIds.map((id) => ({ id, title: `Session ${id}`, session: {} as never })),
+      sessions: sessionIds.map((id) => ({
+        id,
+        title: `Session ${id}`,
+        subtitle: '',
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        session: {} as never,
+      })),
       activeSessionId: sessionIds[0],
     }),
   };

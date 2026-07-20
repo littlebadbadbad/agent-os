@@ -271,6 +271,10 @@ export interface SessionEntryExtension {}
 export type SessionEntryDataBase = {
   readonly id: string;
   readonly title: string;
+  /** User-editable subtitle; empty means no subtitle. */
+  readonly subtitle?: string;
+  /** ISO timestamp of last activity — for sorting and relative-time display. */
+  readonly updatedAt?: string;
   /** Conversation history (raw LLM-facing messages) to restore. */
   readonly messages?: readonly AgentMessage[];
   /**

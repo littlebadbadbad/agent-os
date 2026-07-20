@@ -47,6 +47,7 @@ import { ToolCardSlotRenderer } from "./renderers/ToolCardSlotRenderer";
 import { InlinePromptSlotRenderer } from "./renderers/InlinePromptSlotRenderer";
 import { HeaderBarSlotRenderer } from "./renderers/HeaderBarSlotRenderer";
 import { ToolButtonSlotPanel } from "./renderers/ToolButtonSlotPanel";
+import { AppSlotPanel } from "./renderers/AppSlotPanel";
 import { buildSlotDisplayContext } from "./context";
 import { useSlotRegistry } from "../plugin/PluginContext";
 
@@ -127,6 +128,9 @@ export type SlotRendererProps =
     }
   | IframeSlotRendererBase & {
       readonly slotType: "toolButton";
+    }
+  | IframeSlotRendererBase & {
+      readonly slotType: "app";
     };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -215,6 +219,18 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
     case "toolButton":
       return (
         <ToolButtonSlotPanel
+          pluginId={pluginId}
+          slotId={slotId}
+          session={session}
+          toolSetSymbol={toolSetSymbol}
+          className={className}
+        />
+      );
+
+    case "app":
+      // App slots accept null session — the window renders without it.
+      return (
+        <AppSlotPanel
           pluginId={pluginId}
           slotId={slotId}
           session={session}

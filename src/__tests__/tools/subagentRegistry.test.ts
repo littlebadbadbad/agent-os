@@ -8,7 +8,16 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSubAgentRegistry } from '../../tools/subagent/registry';
-import type { Tool, AgentHandler } from '@agent-type';
+import type { Tool, AgentHandler, AgentTurnResponse } from '@agent-type';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function deferred<T = void>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (err: unknown) => void } {
+  let resolve!: (value: T) => void;
+  let reject!: (err: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
@@ -382,17 +391,131 @@ describe('createSubAgentRegistry', () => {
       });
       const id = registry.getState().subAgents[0].activeConversationId;
       await registry.sendConversationMessage('ui-agent', id, 'Hello');
-      // The mock handler doesn't produce real messages, but no throw = success
       expect(true).toBe(true);
     });
 
-    it('cancelConversationMessage aborts an active run', () => {
+    it('cancelConversationMessage is safe when nothing is running', () => {
       registry.createSubAgent({
         name: 'ui-agent', description: '', toolNames: ['tool_a'], maxTurns: 5, parent: 'main:main',
       });
       const id = registry.getState().subAgents[0].activeConversationId;
-      // This should not throw even if nothing is running
       expect(() => registry.cancelConversationMessage('ui-agent', id)).not.toThrow();
     });
+
+    it('cancelConversationMessage aborts handler signal during sendConversationMessage', async () => {
+      // Capture the AbortSignal that the handler receives
+      let handlerSignal: AbortSignal | null = null;
+      const handlerReady = deferred();
+
+      const abortTestHandler: AgentHandler = async (_msgs, { signal }) => {
+        handlerSignal = signal;
+        handlerReady.resolve();
+        // Wait until the signal is aborted
+        await new Promise<void>((r) => {
+          if (signal.aborted) r();
+          else signal.addEventListener('abort', () => r(), { once: true });
+        });
+        return { text: 'cancelled', toolCalls: [] } satisfies AgentTurnResponse;
+      };
+
+      const abortRegistry = createSubAgentRegistry({
+        sessionId: 'test-sess',
+        handler: abortTestHandler,
+        toolPool: () => new Map<string, Tool>(),
+        label: 'test',
+      });
+
+      abortRegistry.createSubAgent({
+        name: 'abort-agent', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      });
+      const convId = abortRegistry.getState().subAgents[0].activeConversationId;
+
+      // Start sending — handler will wait for abort
+      const sendPromise = abortRegistry.sendConversationMessage('abort-agent', convId, 'Hello');
+
+      // Wait for handler to start and capture signal
+      await handlerReady.promise;
+
+      // Cancel — this must propagate abort to the handler's signal
+      abortRegistry.cancelConversationMessage('abort-agent', convId);
+
+      // The send should complete after the abort
+      await sendPromise;
+
+      expect(handlerSignal).not.toBeNull();
+      expect(handlerSignal!.aborted).toBe(true);
+    });
+
+    it('editConversationMessage calls handler when conversation has history', async () => {
+      let handlerCallCount = 0;
+
+      const editTestHandler: AgentHandler = async (_msgs, { signal }) => {
+        handlerCallCount++;
+        return { text: 'ok', toolCalls: [] } satisfies AgentTurnResponse;
+      };
+
+      const editRegistry = createSubAgentRegistry({
+        sessionId: 'test-sess',
+        handler: editTestHandler,
+        toolPool: () => new Map<string, Tool>(),
+        label: 'test',
+      });
+
+      editRegistry.createSubAgent({
+        name: 'edit-agent', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      });
+      const convId = editRegistry.getState().subAgents[0].activeConversationId;
+
+      await editRegistry.sendConversationMessage('edit-agent', convId, 'Hello');
+      expect(handlerCallCount).toBe(1);
+
+      // Now try editing
+      await editRegistry.editConversationMessage('edit-agent', convId, 1, 'Edited', undefined);
+      expect(handlerCallCount).toBe(2);
+    }, 10000);
+
+    it('cancelConversationMessage aborts handler signal during editConversationMessage', async () => {
+      let handlerCallCount = 0;
+      const handlerReady = deferred();
+
+      const editTestHandler: AgentHandler = async (_msgs, { signal }) => {
+        handlerCallCount++;
+        if (handlerCallCount === 2) {
+          handlerReady.resolve();
+          await new Promise<void>((r) => {
+            if (signal.aborted) r();
+            else signal.addEventListener('abort', () => r(), { once: true });
+          });
+        }
+        return { text: 'ok', toolCalls: [] } satisfies AgentTurnResponse;
+      };
+
+      const editRegistry = createSubAgentRegistry({
+        sessionId: 'test-sess',
+        handler: editTestHandler,
+        toolPool: () => new Map<string, Tool>(),
+        label: 'test',
+      });
+
+      editRegistry.createSubAgent({
+        name: 'edit-agent', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      });
+      const convId = editRegistry.getState().subAgents[0].activeConversationId;
+
+      // Send initial message
+      await editRegistry.sendConversationMessage('edit-agent', convId, 'Hello');
+      expect(handlerCallCount).toBe(1);
+
+      // Try the edit and see if handler is called second time
+      try {
+        const editPromise = editRegistry.editConversationMessage('edit-agent', convId, 1, 'Edited', undefined);
+        await handlerReady.promise;
+        editRegistry.cancelConversationMessage('edit-agent', convId);
+        await editPromise;
+        expect(handlerCallCount).toBe(2);
+      } catch (err) {
+        throw new Error(`Edit failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }, 10000);
   });
 });

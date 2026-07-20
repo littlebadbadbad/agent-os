@@ -53,6 +53,9 @@ function makeConvHandle(overrides?: Partial<ConversationHandle>): ConversationHa
     id: 'conv-1',
     agentName: 'agent-x',
     title: 'Test Conv',
+    subtitle: '',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    createdAt: '2025-01-01T00:00:00.000Z',
     isLoading: false,
     streamingText: '',
     tracker: { getLiveHistory: vi.fn(() => []), getFullHistory: vi.fn(() => []) } as any,
@@ -67,6 +70,9 @@ function makeConvHandle(overrides?: Partial<ConversationHandle>): ConversationHa
       agentName: 'agent-x',
       conversationId: 'conv-1',
       title: 'Test Conv',
+      subtitle: '',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      createdAt: '2025-01-01T00:00:00.000Z',
       isLoading: false,
       streamingText: '',
       history: [],
@@ -74,6 +80,7 @@ function makeConvHandle(overrides?: Partial<ConversationHandle>): ConversationHa
     })),
     subscribe: vi.fn(() => vi.fn()),
     getHistory: vi.fn(() => []),
+    setSubtitle: vi.fn(),
     ...overrides,
   } as unknown as ConversationHandle;
 }

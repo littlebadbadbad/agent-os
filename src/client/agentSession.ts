@@ -31,6 +31,8 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
     conversationId: config.conversationId,
     agentId: config.agentId,
     title: config.title ?? '',           // '' means no custom title yet
+    subtitle: '',                        // '' means no custom subtitle yet
+    updatedAt: new Date().toISOString(),
     toolStates: [],
     subAgentRegistry: null,
     enableAttachments: config.enableAttachments,
@@ -89,6 +91,7 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
   const session: AgentSession = {
     sendMessage: async (text, attachments) => {
       maybeSetTitle(text);
+      setState((prev) => ({ ...prev, updatedAt: new Date().toISOString() }));
       await runner.sendMessage(text, attachments);
     },
     editAndSendMessage: runner.editAndSendMessage,
@@ -107,6 +110,10 @@ export function createAgentSession(config: AgentSessionConfig): AgentSession {
 
     setTitle(title: string): void {
       setState((prev) => ({ ...prev, title }));
+    },
+
+    setSubtitle(subtitle: string): void {
+      setState((prev) => ({ ...prev, subtitle }));
     },
 
     getState(): AgentSessionState {

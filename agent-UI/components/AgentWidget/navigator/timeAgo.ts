@@ -1,23 +1,23 @@
 /**
  * navigator/timeAgo.ts — Human-readable relative timestamps.
+ *
+ * No hardcoded fallback strings. Returns `''` when the timestamp
+ * is missing or unparseable so callers can hide the time row entirely.
  */
-
-/** Minimum subtitle for very recent items. */
-const JUST_NOW = 'Just now';
 
 /**
  * Format an ISO timestamp as a short relative string.
- * Falls back to `"Just now"` when the timestamp is missing or unparseable.
+ * Returns `''` when the timestamp is missing or unparseable.
  */
 export function formatTimeAgo(iso: string | undefined): string {
-  if (!iso) return JUST_NOW;
+  if (!iso) return '';
   const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return JUST_NOW;
+  if (Number.isNaN(then)) return '';
 
   const diffMs = Date.now() - then;
   const sec = Math.floor(diffMs / 1000);
 
-  if (sec < 60) return JUST_NOW;
+  if (sec < 60) return 'Just now';
   const min = Math.floor(sec / 60);
   if (min < 60) return `${min} min ago`;
   const hr = Math.floor(min / 60);

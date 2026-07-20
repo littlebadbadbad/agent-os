@@ -9,6 +9,7 @@ import type { SessionEntryData } from '../../client/sessionManager.types';
 function makeSession(id: string): AgentSession {
   const subs = new Set<() => void>();
   let currentTitle = 'Test';
+  let currentSubtitle = '';
   return {
     id,
     getState: () => ({
@@ -17,6 +18,8 @@ function makeSession(id: string): AgentSession {
       conversationId: 'main',
       agentId: undefined,
       title: currentTitle,
+      subtitle: currentSubtitle,
+      updatedAt: new Date().toISOString(),
       messages: [],
       isLoading: false,
       toolStates: [],
@@ -28,6 +31,7 @@ function makeSession(id: string): AgentSession {
     clearHistory: vi.fn(),
     getHistory: () => [],
     setTitle: (title: string) => { currentTitle = title; },
+    setSubtitle: (subtitle: string) => { currentSubtitle = subtitle; },
   } as unknown as AgentSession;
 }
 
@@ -176,28 +180,30 @@ describe('createSessionManager', () => {
 
   // ── renameSession ─────────────────────────────────────────────────────────
 
-  it('renameSession updates the session title', () => {
+  it('renameSession updates the session title and subtitle', () => {
     const { factory } = makeFactory();
     const mgr = createSessionManager(factory, { initialSessions: [{ id: 'r', title: 'Old' }] });
-    mgr.renameSession('r', 'New');
+    mgr.renameSession('r', 'New', 'My description');
     const entry = mgr.getState().sessions.find((s) => s.id === 'r');
     expect(entry?.title).toBe('New');
+    expect(entry?.subtitle).toBe('My description');
   });
 
-  it('renameSession syncs the new title into session state', () => {
+  it('renameSession syncs the new title and subtitle into session state', () => {
     const { factory } = makeFactory();
     const mgr = createSessionManager(factory, { initialSessions: [{ id: 'r', title: 'Old' }] });
-    mgr.renameSession('r', 'New');
+    mgr.renameSession('r', 'New', 'Desc');
     const session = mgr.getSession('r')!;
     expect(session.getState().title).toBe('New');
+    expect(session.getState().subtitle).toBe('Desc');
   });
 
-  it('renameSession is a no-op when title is unchanged', () => {
+  it('renameSession is a no-op when title and subtitle are unchanged', () => {
     const { factory } = makeFactory();
     const mgr = createSessionManager(factory, { initialSessions: [{ id: 'r', title: 'Same' }] });
     const listener = vi.fn();
     mgr.subscribe(listener);
-    mgr.renameSession('r', 'Same');
+    mgr.renameSession('r', 'Same', '');
     expect(listener).not.toHaveBeenCalled();
   });
 
@@ -273,7 +279,7 @@ describe('createSessionManager', () => {
     const mgr = createSessionManager(factory, { initialSessions: [{ id: 'r', title: 'Real' }] });
     const listener = vi.fn();
     mgr.subscribe(listener);
-    mgr.renameSession('ghost-id', 'Anything');
+    mgr.renameSession('ghost-id', 'Anything', '');
     expect(listener).not.toHaveBeenCalled();
   });
 });

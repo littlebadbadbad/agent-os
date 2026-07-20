@@ -174,7 +174,7 @@ describe('backend', () => {
 
   describe('loadSessions', () => {
     it('GETs sessions for an agent', async () => {
-      const sessions = [{ id: 's1', title: 'Session 1', messages: [], createdAt: 1000, updatedAt: 1000 }];
+      const sessions = [{ id: 's1', title: 'Session 1', subtitle: '', messages: [], createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z' }];
       mockGet.mockResolvedValue({ sessions });
       const result = await loadSessions('async-agent');
       expect(result).toEqual(sessions);
@@ -196,7 +196,7 @@ describe('backend', () => {
 
   describe('saveSessions', () => {
     it('PUTs sessions for an agent', async () => {
-      const sessions = [{ id: 's1', title: 'Session 1', messages: [], createdAt: 1000, updatedAt: 1000 }];
+      const sessions = [{ id: 's1', title: 'Session 1', subtitle: '', messages: [], createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z' }];
       mockPut.mockResolvedValue(undefined);
       await saveSessions('async-agent', sessions);
       expect(mockPut).toHaveBeenCalledWith('/api/agent-sessions/async-agent', { sessions });

@@ -2,6 +2,7 @@ import type { AgentMessage } from '@agent-type';
 import { createHistoryTracker, type HistoryTracker } from '@agent-sdk/tools/historyTracker';
 import { createMessageList, type MessageList } from '@agent-sdk/tools/messageList';
 import type { ConversationRunner } from '@agent-sdk/tools/conversationRunner';
+import type { EngineRefs } from '@agent-sdk/tools/conversationEngine';
 import type { SubAgentConversation, SubAgentConversationState } from './registryTypes';
 
 // ── ID generation ─────────────────────────────────────────────────────────────
@@ -26,6 +27,8 @@ export type MutableConvState = {
   id: string;
   agentName: string;
   title: string;
+  subtitle: string;
+  updatedAt: string;
   createdAt: string;
   isLoading: boolean;
   streamingText: string;
@@ -45,6 +48,13 @@ export type MutableConvState = {
    * throwaway runners on every execution call.
    */
   runner: ConversationRunner | null;
+  /**
+   * Reference to the EngineRefs used by the conversation runner's runEngine.
+   * Exposed here so registryExecution can propagate external abort signals
+   * (from cancelConversationMessage / convControllers) to the runner's
+   * active AbortController, stopping in-flight LLM requests.
+   */
+  engineRefs: EngineRefs;
 };
 
 /**
@@ -95,16 +105,20 @@ export function makeConversation(
   notifyRegistry: () => void,
   getExtraState?: () => Partial<SubAgentConversationState>,
 ): ConversationHandle {
+  const engineRefs: EngineRefs = { isLoading: false, abortController: null };
   const state: MutableConvState = {
     id: conversationId,
     agentName,
     title,
+    subtitle: '',
+    updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     isLoading: false,
     streamingText: '',
     tracker: createHistoryTracker(),
     msgList: createMessageList(),
     runner: null,
+    engineRefs,
   };
 
   // Bridge msgList mutations to conversation subscribers so UI re-renders
@@ -146,6 +160,8 @@ export function makeConversation(
           agentName: state.agentName,
           conversationId: state.id,
           title: state.title,
+          subtitle: state.subtitle,
+          updatedAt: state.updatedAt,
           createdAt: state.createdAt,
           isLoading: state.isLoading,
           streamingText: state.streamingText,
@@ -164,6 +180,11 @@ export function makeConversation(
 
     getHistory(): AgentMessage[] {
       return state.tracker.getLiveHistory();
+    },
+
+    setSubtitle(subtitle: string): void {
+      state.subtitle = subtitle;
+      notifyConv();
     },
   };
 }

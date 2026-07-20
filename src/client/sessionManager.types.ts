@@ -13,6 +13,10 @@ export type { SessionEntryData, SessionEntryDataBase };
 export type SessionListEntry = {
   id: string;
   title: string;
+  /** User-editable subtitle; empty means no subtitle displayed. */
+  subtitle: string;
+  /** ISO timestamp of last activity — for sorting and relative-time display. */
+  updatedAt: string;
   /** ISO timestamp of when this entry was created. */
   createdAt: string;
   session: AgentSession;
@@ -37,8 +41,8 @@ export type SessionManager = {
   removeSession(id: string): void;
   /** Switch the active (visible) session. */
   setActiveSession(id: string): void;
-  /** Rename a session in-place. */
-  renameSession(id: string, title: string): void;
+  /** Rename a session in-place (title + subtitle). */
+  renameSession(id: string, title: string, subtitle: string): void;
   /** Get a session by ID. */
   getSession(id: string): AgentSession | undefined;
   /** Get the currently active session (undefined only if all sessions were removed). */

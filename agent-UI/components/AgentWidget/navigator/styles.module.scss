@@ -48,7 +48,8 @@
   &:hover {
     background: var(--bg-hover, rgba(128, 128, 128, 0.08));
 
-    .list-item-delete { opacity: 1; }
+    .list-item-delete,
+    .list-item-edit { opacity: 1; }
   }
 
   &--active {
@@ -81,6 +82,13 @@
   line-height: 1.2;
 }
 
+.list-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
 // ── Title row (title + loading spinner) ─────────────────────────────────────
 
 .list-item-title-row {
@@ -102,6 +110,15 @@
 @keyframes spinner-pulse {
   0%, 100% { opacity: 0.3; transform: scale(0.8); }
   50%      { opacity: 1;   transform: scale(1); }
+}
+
+.list-item-edit-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0;
 }
 
 .list-item-input {
@@ -141,6 +158,39 @@
     opacity: 1 !important;
     background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
+  }
+}
+
+// ── List item action buttons container ─────────────────────────────────────
+
+.list-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.list-item-edit {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    opacity: 1 !important;
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-primary);
   }
 }
 

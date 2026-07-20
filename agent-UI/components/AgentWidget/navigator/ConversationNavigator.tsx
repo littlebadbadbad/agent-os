@@ -55,7 +55,8 @@ export interface ConversationNavigatorProps {
   /** Called when user presses the back button in panel view. */
   readonly onBack: () => void;
   readonly onDelete: (id: string) => void;
-  readonly onRename: (id: string, title: string) => void;
+  /** Rename a session: title + subtitle. */
+  readonly onRename: (id: string, title: string, subtitle: string) => void;
 
   /** Called when user sends a message from list view (creates new session). */
   readonly onCreateSession: (text: string, attachments?: readonly Attachment[]) => Promise<string | void>;

@@ -259,6 +259,18 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       notify();
     },
 
+    renameConversation(subAgentName, conversationId, title, subtitle) {
+      const entry = entries.get(subAgentName);
+      if (!entry) throw new Error(`Sub-agent "${subAgentName}" not found.`);
+      const conv = entry.conversations.get(conversationId);
+      if (!conv) {
+        throw new Error(`Conversation "${conversationId}" not found on sub-agent "${subAgentName}".`);
+      }
+      conv._state.title = title;
+      conv._state.subtitle = subtitle;
+      conv._notifyRegistry();
+    },
+
     clearConversationHistory(subAgentName, conversationId) {
       const entry = entries.get(subAgentName);
       if (!entry) throw new Error(`Sub-agent "${subAgentName}" not found.`);
@@ -361,6 +373,8 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
             id:          c._state.id,
             agentName:   c._state.agentName,
             title:       c._state.title,
+            subtitle:    c._state.subtitle || undefined,
+            updatedAt:   c._state.updatedAt,
             history:     c._state.tracker.getFullHistory(),
             liveHistory: c._state.tracker.getLiveHistory(),
             ...scope.collectSnapshot(subCtx(e.name, c._state.id)),

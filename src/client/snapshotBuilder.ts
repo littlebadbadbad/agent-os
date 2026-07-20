@@ -26,6 +26,8 @@ export function createSnapshotBuilder(deps: SnapshotBuilderDeps) {
     return {
       id: sessionId,
       title: entry.title,
+      subtitle: entry.subtitle || undefined,
+      updatedAt: entry.updatedAt,
       messages: session.getHistory(),
       liveHistory: session.getLiveHistory(),
       ...toolSetData,

@@ -34,6 +34,10 @@ export type SubAgentSerializedConversation = {
   /** Name of the sub-agent that owns this conversation. */
   agentName: string;
   title: string;
+  /** User-editable subtitle; empty means no subtitle. */
+  subtitle?: string;
+  /** ISO timestamp of last activity — for sorting and relative-time display. */
+  updatedAt?: string;
   /** ISO timestamp of when this conversation was created. */
   createdAt?: string;
   /** Full conversation history (all messages, for UI display). */
@@ -97,6 +101,10 @@ export type SubAgentConversationState = {
   readonly conversationId: string;
   /** Human-readable title (auto-generated or provided at creation). */
   readonly title: string;
+  /** User-editable subtitle; empty means no subtitle displayed. */
+  readonly subtitle: string;
+  /** ISO timestamp of last activity — for sorting and relative-time display. */
+  readonly updatedAt: string;
   /** ISO timestamp of when this conversation was created. */
   readonly createdAt: string;
   /** Whether the sub-agent is currently executing a task in this conversation. */
@@ -139,6 +147,8 @@ export type SubAgentConversation = {
   subscribe(fn: () => void): () => void;
   /** The raw LLM-facing message history. Pass to `initialHistory` on the next call to continue. */
   getHistory(): AgentMessage[];
+  /** Update the conversation subtitle. */
+  setSubtitle(subtitle: string): void;
 };
 
 // ── Registry entries ──────────────────────────────────────────────────────────
@@ -270,6 +280,12 @@ export type SubAgentRegistry = {
    * Throws if the sub-agent or conversation does not exist.
    */
   deleteConversation(subAgentName: string, conversationId: string): void;
+
+  /**
+   * Rename a conversation (title + subtitle).
+   * Throws if the sub-agent or conversation does not exist.
+   */
+  renameConversation(subAgentName: string, conversationId: string, title: string, subtitle: string): void;
 
   /**
    * Switch the active conversation for a sub-agent.

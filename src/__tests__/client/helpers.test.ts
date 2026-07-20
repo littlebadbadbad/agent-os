@@ -70,7 +70,14 @@ describe('wireSessionPersistence', () => {
 
     const mgr: SessionManager = {
       getState: () => ({
-        sessions: sessions.map((s) => ({ id: s.id, title: s.title, session: sessionObjs.get(s.id)! })),
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          title: s.title,
+          subtitle: '',
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          session: sessionObjs.get(s.id)!,
+        })),
         activeSessionId: sessions[0]?.id,
       }),
       subscribe: (fn: () => void) => { mgrSubs.add(fn); return () => mgrSubs.delete(fn); },
@@ -166,6 +173,9 @@ describe('wireSessionPersistence', () => {
         sessions: sessions.map((s) => ({
           id: s.id,
           title: s.title,
+          subtitle: '',
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
           session: (s.id === 's1' ? s1 : s2) as AgentSession,
         })),
         activeSessionId: sessions[0]?.id,
@@ -208,7 +218,14 @@ describe('wireSessionPersistence', () => {
 
     const mgr: SessionManager = {
       getState: () => ({
-        sessions: sessions.map((s) => ({ id: s.id, title: s.title, session: s1 as AgentSession })),
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          title: s.title,
+          subtitle: '',
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          session: s1 as AgentSession,
+        })),
         activeSessionId: sessions[0]?.id,
       }),
       subscribe: (fn: () => void) => { mgrSubs.add(fn); return () => mgrSubs.delete(fn); },
@@ -239,7 +256,14 @@ describe('wireSessionPersistence', () => {
     const mgrSubs = new Set<() => void>();
     const mgr: SessionManager = {
       getState: () => ({
-        sessions: [{ id: 'ghost', title: 'Ghost', session: {} as AgentSession }],
+        sessions: [{
+          id: 'ghost',
+          title: 'Ghost',
+          subtitle: '',
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          session: {} as AgentSession,
+        }],
         activeSessionId: 'ghost',
       }),
       subscribe: (fn: () => void) => { mgrSubs.add(fn); return () => mgrSubs.delete(fn); },

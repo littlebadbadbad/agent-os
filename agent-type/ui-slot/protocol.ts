@@ -107,6 +107,27 @@ export interface ToolButtonHostMessage {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  App — floating window iframe state
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Host pushes full session state to an app iframe on every change.
+ *
+ * Same payload shape as {@link PanelHostMessage} — the app iframe
+ * re-reads `host.getPluginState()` when notified.
+ */
+export interface AppHostMessage {
+  readonly version: 1;
+  readonly type: "app";
+  /** The slot being targeted. */
+  readonly slotId: string;
+  /** Current session state snapshot. */
+  readonly payload: {
+    readonly state: SessionStateLike;
+  };
+}
+
 /**
  * Discriminated union of all host → iframe messages.
  *
@@ -118,7 +139,8 @@ export type SlotHostMessage =
   | ToolCardHostMessage
   | InlinePromptHostMessage
   | HeaderBarHostMessage
-  | ToolButtonHostMessage;
+  | ToolButtonHostMessage
+  | AppHostMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Helpers: extract slot declarations by type

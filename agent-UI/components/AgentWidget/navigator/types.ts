@@ -6,8 +6,13 @@
 export interface ConversationItem {
   readonly id: string;
   readonly title: string;
-  /** Human-readable age, e.g. "2 min ago", "1 hour ago". */
+  /**
+   * User-editable subtitle; empty string means hidden.
+   * This is NOT the time-ago — that is computed from `updatedAt`.
+   */
   readonly subtitle: string;
+  /** ISO timestamp of last activity — for sorting and relative-time display. */
+  readonly updatedAt: string;
   /** Whether this session is currently processing a turn. */
   readonly isLoading?: boolean;
 }

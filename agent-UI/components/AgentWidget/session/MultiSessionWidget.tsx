@@ -5,7 +5,7 @@ import type { WidgetIcon, WidgetTheme, SessionManager, SessionListEntry } from '
 import { Widget } from '../../Widget';
 import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
-import { ConversationNavigator, formatTimeAgo } from '../navigator';
+import { ConversationNavigator } from '../navigator';
 import type { ConversationItem, SessionHandle } from '../navigator';
 import styles from '../AgentWidget.module.scss';
 import { PluginProvider } from '../../../plugin/PluginContext';
@@ -75,7 +75,8 @@ export function MultiSessionWidget({
     () => sessions.map((s: SessionListEntry) => ({
       id: s.id,
       title: s.title,
-      subtitle: formatTimeAgo(s.createdAt),
+      subtitle: s.subtitle,
+      updatedAt: s.updatedAt,
       isLoading: s.session.getState().isLoading,
     })),
     [sessions],
@@ -104,8 +105,8 @@ export function MultiSessionWidget({
   );
 
   const handleRename = useCallback(
-    (id: string, title: string) => {
-      sessionManager.renameSession(id, title);
+    (id: string, title: string, subtitle: string) => {
+      sessionManager.renameSession(id, title, subtitle);
     },
     [sessionManager],
   );

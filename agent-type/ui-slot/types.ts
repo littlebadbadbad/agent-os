@@ -57,7 +57,8 @@ export type IframeSlotType =
   | "toolCard"
   | "inlinePrompt"
   | "headerBar"
-  | "toolButton";
+  | "toolButton"
+  | "app";
 
 /**
  * Discriminant for all plugin UI injection points.
@@ -221,6 +222,37 @@ export interface ToolButtonSlotDeclaration extends IframeConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  App slot — Windows-style app launcher icon + floating window
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * An app slot renders an icon on the app launcher taskbar.
+ *
+ * Clicking the icon opens a floating, draggable, resizable window
+ * containing the plugin's sandboxed iframe.  Multiple app windows
+ * can be open simultaneously, independent of any chat session.
+ *
+ * The iframe receives state updates via {@link AppHostMessage}.
+ */
+export interface AppSlotDeclaration extends IframeConfig {
+  readonly type: "app";
+  /** Icon shown in the app launcher bar (emoji or text). */
+  readonly icon: string;
+  /** Display name shown in the app window title bar and tooltip. */
+  readonly label: string;
+  /** Sort order in the app launcher bar (lower = first). Default 100. */
+  readonly order?: number;
+  /** Default window width in pixels. Default 600. */
+  readonly defaultWidth?: number;
+  /** Default window height in pixels. Default 400. */
+  readonly defaultHeight?: number;
+  /** Whether the window can be resized. Default true. */
+  readonly resizable?: boolean;
+  /** Whether the window can be minimized. Default true. */
+  readonly minimizable?: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  Autocomplete slot — ChatInput native autocomplete (no iframe)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -283,7 +315,8 @@ export type IframeSlotDeclaration =
   | ToolCardSlotDeclaration
   | InlinePromptSlotDeclaration
   | HeaderBarSlotDeclaration
-  | ToolButtonSlotDeclaration;
+  | ToolButtonSlotDeclaration
+  | AppSlotDeclaration;
 
 /**
  * Discriminated union of all slot declarations.

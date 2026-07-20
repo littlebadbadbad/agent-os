@@ -20,7 +20,7 @@ import type { Attachment, SubAgentRegistry, SubAgentEntrySnapshot, SubAgentConve
 import type { SlotDisplayContext, PanelSlotDeclaration, SlotSession } from '@agent-type';
 import type { SlotEntry } from '../../../slots/registry';
 import { ChatMessages } from '../chat/ChatMessages';
-import { ConversationNavigator, formatTimeAgo } from '../navigator';
+import { ConversationNavigator } from '../navigator';
 import type { ConversationItem, SessionHandle } from '../navigator';
 import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
 import { PaneSlotLayout } from '../panes/PaneSlotLayout';
@@ -114,7 +114,8 @@ function AgentNavigator({ registry, agentName, conversations, sessionId }: Agent
     () => conversations.map((c) => ({
       id: c.conversationId,
       title: c.title,
-      subtitle: formatTimeAgo(c.createdAt),
+      subtitle: c.subtitle,
+      updatedAt: c.updatedAt,
       isLoading: c.isLoading,
     })),
     [conversations],
@@ -162,10 +163,10 @@ function AgentNavigator({ registry, agentName, conversations, sessionId }: Agent
   );
 
   const handleRename = useCallback(
-    (_id: string, _title: string) => {
-      // Sub-agent conversations are auto-titled; manual rename not supported.
+    (id: string, title: string, subtitle: string) => {
+      registry.renameConversation(agentName, id, title, subtitle);
     },
-    [],
+    [registry, agentName],
   );
 
   const handleCreateSession = useCallback(

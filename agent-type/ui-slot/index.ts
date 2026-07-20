@@ -31,6 +31,7 @@ export type {
   InlinePromptSlotDeclaration,
   HeaderBarSlotDeclaration,
   ToolButtonSlotDeclaration,
+  AppSlotDeclaration,
   AutocompleteSlotDeclaration,
   AutocompleteItem,
   CompactToolCardDescriptor,
@@ -49,6 +50,7 @@ export type {
   InlinePromptHostMessage,
   HeaderBarHostMessage,
   ToolButtonHostMessage,
+  AppHostMessage,
   SlotHostMessage,
   // ── Helpers ──
   FilterSlots,

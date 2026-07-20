@@ -15,7 +15,6 @@ import {
   SubAgentSerializedEntry,
 } from "./registryTypes";
 import { createConversationRunner } from "@agent-sdk/tools/conversationRunner";
-import type { EngineRefs } from "@agent-sdk/tools/conversationEngine";
 import { toDescriptors } from "../toDescriptor";
 import { emptyRegistry, withTool } from "../registry";
 
@@ -117,6 +116,13 @@ export function createLifecycleFunctions(
         ...collectSymbolState(resolveTools, entry.toolNames, scope, convCtx),
       }),
     );
+
+    // Restore persisted subtitle/updatedAt from serialized data.
+    if (entryData) {
+      if (entryData.subtitle) conv._state.subtitle = entryData.subtitle;
+      if (entryData.updatedAt) conv._state.updatedAt = entryData.updatedAt;
+    }
+
     const unsub = subscribeConv(convCtx, conv);
     convSubCleanups.set(id, unsub);
     scope.initScope(convCtx, entryData);
@@ -134,12 +140,10 @@ export function createLifecycleFunctions(
     let cachedUserText = '';
     let cachedSystemPrompt: string | undefined = '';
 
-    const refs: EngineRefs = { isLoading: false, abortController: null };
-
     const runner = createConversationRunner({
       msgList: conv._state.msgList,
       tracker: conv._state.tracker,
-      refs,
+      refs: conv._state.engineRefs,
       scope,
       tsCtx: convCtx,
       maxAgentTurns: entry.maxTurns,
@@ -165,7 +169,7 @@ export function createLifecycleFunctions(
         });
       },
 
-      runToolCall: (call) => pipeline(call, refs.abortController!.signal),
+      runToolCall: (call) => pipeline(call, conv._state.engineRefs.abortController!.signal),
 
       onInterceptMessage: (text, attachments, isLoading) =>
         scope.interceptMessage(convCtx, text, attachments, isLoading),
