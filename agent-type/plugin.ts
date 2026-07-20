@@ -4,6 +4,23 @@ import type { PluginSlotDeclaration, SlotContext, SlotHostMessage } from "./ui-s
 import type { ModelMeta } from "./model";
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  Agent API — ToolSet→UI method bridge
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Handler signature for agent-side APIs callable from plugin UI.
+ *
+ * ToolSets register these via {@link AgentPluginHost.registerAgentApi} to
+ * expose internal operations (e.g. `sync`, `connect`, `disconnect`) directly
+ * to the UI layer without going through the backend.
+ *
+ * The UI calls them via {@link UiPluginHost.callAgentApi}.
+ */
+export type AgentApiHandler = (
+  params?: Record<string, unknown>,
+) => Promise<unknown>;
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  Plugin manifest & lifecycle types
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -262,6 +279,18 @@ export interface AgentPluginHost {
   registerToolSet(toolSet: ToolSet, slots?: readonly PluginSlotDeclaration[]): () => void;
 
   /**
+   * Register an agent-side API method that the plugin UI can call directly
+   * via {@link UiPluginHost.callAgentApi}.
+   *
+   * Use this for ToolSet operations that need to coordinate backend calls
+   * with agent-level side effects (e.g. registering proxy tools after sync).
+   *
+   * @param method  Unique method name (namespaced per plugin).
+   * @param handler Async handler invoked when the UI calls this method.
+   */
+  registerAgentApi(method: string, handler: AgentApiHandler): void;
+
+  /**
    * All ToolSets currently registered on the agent.
    */
   getRegisteredToolSets(): readonly ToolSet[];
@@ -353,7 +382,7 @@ export interface SlotSession {
 
 export interface UiPluginHost<TState extends PluginStateExtension = PluginStateExtension> {
   /**
-   * API client for calling backend plugin methods (Link C).
+   * API client for calling backend plugin methods.
    */
   readonly apiClient: PluginApiClient;
 
@@ -407,6 +436,23 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
    * Returns an unsubscribe function.
    */
   onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void;
+
+  /**
+   * Call an agent-side API method registered by the ToolSet via
+   * {@link AgentPluginHost.registerAgentApi}.
+   *
+   * Use this to invoke ToolSet operations directly from the UI,
+   * bypassing the backend for operations that need agent-level side
+   * effects (e.g. registering proxy tools after sync).
+   *
+   * @param method  Method name registered by the ToolSet.
+   * @param params  Optional parameters forwarded to the handler.
+   * @returns       The value returned by the handler.
+   */
+  callAgentApi<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<T>;
 }
 
 /**

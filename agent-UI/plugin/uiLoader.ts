@@ -76,6 +76,7 @@ export function createUiPluginSandbox(
     iframe = document.createElement("iframe");
     iframe.sandbox.add("allow-scripts");
     iframe.sandbox.add("allow-same-origin");
+    iframe.sandbox.add("allow-forms");
     iframe.style.width = "100%";
     iframe.style.height = "100%";
     iframe.style.border = "none";

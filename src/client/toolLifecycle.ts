@@ -52,17 +52,25 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
       return tools;
     },
 
+    refreshExternalState(): void {
+      for (const tm of slots.values()) {
+        tm.externalRefresh?.();
+      }
+    },
+
     registerTool<T extends Tool>(tool: T): () => void {
       masterTools.push(tool);
       for (const tm of slots.values()) {
         tm.registerTool(tool);
       }
+      this.refreshExternalState();
       return () => {
         const idx = masterTools.indexOf(tool);
         if (idx !== -1) masterTools.splice(idx, 1);
         for (const tm of slots.values()) {
           tm.unregisterByName(tool.name);
         }
+        this.refreshExternalState();
       };
     },
     registerTools<T extends Tool>(tools: readonly T[]): () => void {
@@ -72,6 +80,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
           tm.registerTool(tool);
         }
       }
+      this.refreshExternalState();
       return () => {
         for (const tool of tools) {
           const idx = masterTools.indexOf(tool);  
@@ -80,6 +89,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
             tm.unregisterByName(tool.name);
           }
         }
+        this.refreshExternalState();
       };
     },
 

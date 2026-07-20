@@ -9,9 +9,13 @@
  *
  * Why backend?  Browser fetch is subject to CORS; Node.js fetch is not.
  *
- * Factory pattern: createMcpManager(agentDir) returns an isolated instance
- * scoped to the given agent directory. This allows the MCP plugin to be
- * instantiated per-agent without module-level singletons.
+ * Proxy support:
+ *   Each MCP server entry has a `useProxy` flag (default true).
+ *   When true, connections route through the globally configured proxy.
+ *   When false, the transport bypasses the proxy via undici's direct Agent.
+ *
+ * Factory pattern: createMcpManager(agentDir, proxyConfig) returns an isolated
+ * instance scoped to the given agent directory.
  *
  * Transport implementations live in sibling files:
  *   http-transport.js  — MCP spec 2025-03-26 (HTTP + SSE fallback)
@@ -37,11 +41,13 @@ const log = {
 /**
  * Create an isolated MCP connection manager.
  *
- * @param {string} agentDir  Absolute path to the `.agent/` directory.
- *                           Config is stored at `join(agentDir, 'mcp-servers.json')`.
+ * @param {string} agentDir     Absolute path to the `.agent/` directory.
+ *                              Config is stored at `join(agentDir, 'mcp-servers.json')`.
+ * @param {object} [proxyCfg]   Proxy configuration from host.getBackendConfig('proxy').
+ *                              Used to set the direct Agent's connect timeout.
  * @returns {McpManager}  An object with all CRUD and tool-execution methods.
  */
-export function createMcpManager(agentDir) {
+export function createMcpManager(agentDir, proxyCfg = null) {
   // Ensure .agent directory exists.
   try { mkdirSync(agentDir, { recursive: true }); } catch { /* ignore */ }
 
@@ -60,8 +66,8 @@ export function createMcpManager(agentDir) {
 
   function saveConfigs() {
     const serializable = [...configs.values()].map(
-      ({ id, name, url, transport, headers, includeTools, enabled }) =>
-        ({ id, name, url, transport, headers, includeTools, enabled }),
+      ({ id, name, url, transport, headers, includeTools, useProxy, enabled }) =>
+        ({ id, name, url, transport, headers, includeTools, useProxy, enabled }),
     );
     try {
       writeFileSync(CONFIG_FILE, JSON.stringify(serializable, null, 2), 'utf8');
@@ -72,7 +78,7 @@ export function createMcpManager(agentDir) {
 
   // ── In-memory state ───────────────────────────────────────────────────────
 
-  /** @type {Map<string, {id,name,url,transport,headers,includeTools,enabled}>} */
+  /** @type {Map<string, {id,name,url,transport,headers,includeTools,useProxy,enabled}>} */
   const configs = new Map();
 
   /** @type {Map<string, {listTools: ()=>Promise, callTool: (name,args)=>Promise<string>, close: ()=>void}>} */
@@ -106,10 +112,11 @@ export function createMcpManager(agentDir) {
     statusByServer.set(name, { status: 'connecting' });
     log.info(`connecting to MCP server "${name}" (${cfg.transport}) \u2192 ${cfg.url}`);
 
+    const transportOpts = { useProxy: cfg.useProxy !== false };
     try {
       const client = cfg.transport === 'http'
-        ? await createHttpClient(cfg.url, cfg.headers)
-        : await createSseClient(cfg.url, cfg.headers);
+        ? await createHttpClient(cfg.url, cfg.headers, transportOpts)
+        : await createSseClient(cfg.url, cfg.headers, transportOpts);
 
       let tools = await client.listTools();
       if (cfg.includeTools?.length) {
@@ -165,12 +172,12 @@ export function createMcpManager(agentDir) {
    * Register a new MCP server config and connect immediately.
    * Throws if a server with the same name already exists.
    */
-  async function addServer({ name, url, transport, headers, includeTools, enabled = true }) {
+  async function addServer({ name, url, transport, headers, includeTools, useProxy, enabled = true }) {
     if (configs.has(name)) {
       throw new Error(`An MCP server named "${name}" is already registered.`);
     }
     const id = `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const cfg = { id, name, url, transport, headers, includeTools, enabled };
+    const cfg = { id, name, url, transport, headers, includeTools, useProxy, enabled };
     configs.set(name, cfg);
     statusByServer.set(name, { status: 'disconnected' });
     saveConfigs();

@@ -35,6 +35,7 @@ import type {
   SlotContext,
   SlotHostMessage,
   SlotSession,
+  AgentApiHandler,
 } from "@agent-type";
 import type { PluginConfigClient } from "./configClient";
 import { PluginDescriptor } from "./pluginSystem";
@@ -55,6 +56,11 @@ export interface UiPluginHostParams {
   readonly slotContext: SlotContext;
   /** The ToolSet symbol whose state to expose via `getPluginState()`. */
   readonly toolSetSymbol: symbol;
+  /**
+   * Agent-side API handlers registered by ToolSets via `registerAgentApi`.
+   * Keyed by method name, callable from plugin UI via `callAgentApi`.
+   */
+  readonly agentApis: Map<string, AgentApiHandler>;
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
@@ -67,7 +73,7 @@ export interface UiPluginHostParams {
  * the `_`-prefixed methods are for host-side renderer use.
  */
 export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInternal {
-  const { plugin, apiClient, configClient, session, slotContext, toolSetSymbol } = params;
+  const { plugin, apiClient, configClient, session, slotContext, toolSetSymbol, agentApis } = params;
 
   // ── Host→iframe: subscribers + message buffer ───────────────────────────
   //
@@ -120,6 +126,19 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
 
     onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void {
       return configClient.onConfigChanged(cb);
+    },
+
+    // ── Agent API (ToolSet-registered methods) ───────────────────────────
+
+    async callAgentApi<T = unknown>(
+      method: string,
+      params?: Record<string, unknown>,
+    ): Promise<T> {
+      const handler = agentApis.get(method);
+      if (!handler) {
+        throw new Error(`Agent API method "${method}" not registered.`);
+      }
+      return handler(params) as Promise<T>;
     },
 
     // ── Internal: host-side renderer API ──────────────────────────────────

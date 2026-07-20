@@ -10,30 +10,13 @@
  *
  * The ToolSet captures agent references via `onAttach` when registered on an agent.
  *
- * State is exposed via `onGetSymbolState` which returns:
- *   servers  — reactive read-only view of server state (for UI components)
- *   connect  — UI callable: connect by server id
- *   disconnect — UI callable: disconnect by server id
- *   remove   — UI callable: remove by server id
- *   addServer — UI callable: add a new server
- *   sync     — pull latest state from backend and re-sync agent tools
- *   slots    — slot declarations for toolButton, toolCard, compactToolCard
+ * Slot declarations and agent APIs are returned alongside the ToolSet — see
+ * `createMcpToolset`.
  */
 
 import { z } from "zod";
 import { defineTool } from "@agent-type/defineTool";
-import type { Tool } from "@agent-type";
-import type {
-  ToolSet,
-  ToolSetContext,
-  AgentClientLike,
-  ToolButtonSlotDeclaration,
-  ToolCardSlotDeclaration,
-  CompactToolCardSlotDeclaration,
-  CompactToolCardDescriptor,
-  ToolCallInfo,
-} from "@agent-type";
-import { MAIN_CONVERSATION_ID } from "@agent-type";
+import type { Tool, ToolSet, AgentClientLike, PluginSlotDeclaration, AgentApiHandler, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
 import type { McpAdapter, McpServerEntry, McpToolDef } from "./types";
 import { createMcpStore } from "./store";
 
@@ -141,95 +124,67 @@ type RegisteredEntry = { toolNames: string[]; unregFns: (() => void)[] };
 // ── ToolSet factory ───────────────────────────────────────────────────────────
 
 /**
- * Build the MCP ToolSet.
+ * Build the MCP ToolSet and its standalone slot declarations.
  *
- * Register via `host.registerToolSet(mcpToolset)` — the ToolSet captures the
- * agent reference via `onAttach` and keeps proxy tools in sync whenever servers
- * connect or disconnect.
+ * Register via `host.registerToolSet(toolSet, slotDeclarations)` — the ToolSet
+ * captures the agent reference via `onAttach` and keeps proxy tools in sync
+ * whenever servers connect or disconnect.
+ *
+ * Slot declarations are returned as part of the bundle so they can be passed
+ * independently of session state.
  *
  * @param adapter  MCP backend adapter (use `createMcpPluginAdapter` for the default backend).
  */
-export function createMcpToolset(adapter: McpAdapter): ToolSet {
+export function createMcpToolset(adapter: McpAdapter): {
+  readonly toolSet: ToolSet;
+  readonly slotDeclarations: readonly PluginSlotDeclaration[];
+  readonly agentApis: Map<string, AgentApiHandler>;
+} {
   const store = createMcpStore();
 
-  /** Agents attached via onAttach — proxy tools are registered on all of them. */
-  const attachedAgents: AgentClientLike[] = [];
+  /**
+   * All attached agents (the `createCombinedPluginContext` fans out to both
+   * stream and async agents — `onAttach` fires once per agent).  Using a Set
+   * ensures proxy tools registered by `syncFromAdapter` land on EVERY agent,
+   * not just the last one that called `onAttach`.
+   */
+  const attachedAgents = new Set<AgentClientLike>();
 
-  // Per-agent registry: serverName → registered proxy tools + unregister fns.
-  const agentRegistries = new Map<
-    AgentClientLike,
-    Map<string, RegisteredEntry>
-  >();
-
-  /** Per-session UI subscribers — notified whenever the server list changes. */
-  const subscribers = new Map<string, Set<() => void>>();
-
-  function notify(): void {
-    for (const fns of subscribers.values()) {
-      for (const fn of fns) fn();
-    }
-  }
-
-  function getAgentRegistry(
-    agent: AgentClientLike,
-  ): Map<string, RegisteredEntry> {
-    if (!agentRegistries.has(agent)) agentRegistries.set(agent, new Map());
-    return agentRegistries.get(agent)!;
-  }
-
-  function registerServerToolsOnAgent(
-    agent: AgentClientLike,
-    serverName: string,
-    proxies: Tool[],
-  ): void {
-    unregisterServerToolsOnAgent(agent, serverName);
-    const registry = getAgentRegistry(agent);
-    const unregFns: (() => void)[] = [];
-    for (const proxy of proxies) {
-      try {
-        unregFns.push(agent.registerTool(proxy));
-      } catch {
-        /* already registered — skip */
-      }
-    }
-    registry.set(serverName, {
-      toolNames: proxies.map((t) => t.name),
-      unregFns,
-    });
-  }
-
-  function unregisterServerToolsOnAgent(
-    agent: AgentClientLike,
-    serverName: string,
-  ): void {
-    const registry = getAgentRegistry(agent);
-    const entry = registry.get(serverName);
-    if (!entry) return;
-    for (const fn of entry.unregFns) {
-      try {
-        fn();
-      } catch {
-        /* ignore */
-      }
-    }
-    registry.delete(serverName);
-  }
+  /** serverName → registered proxy tools + unregister fns. */
+  const serverRegistry = new Map<string, RegisteredEntry>();
 
   function registerServerTools(
     serverName: string,
     toolDefs: McpToolDef[],
   ): void {
+    if (attachedAgents.size === 0) return;
+    unregisterServerTools(serverName);
     const proxies = toolDefs.map((t) =>
       createMcpProxyTool(serverName, t, adapter),
     );
-    for (const agent of attachedAgents) {
-      registerServerToolsOnAgent(agent, serverName, proxies);
+    const unregFns: (() => void)[] = [];
+    for (const proxy of proxies) {
+      for (const agent of attachedAgents) {
+        try {
+          unregFns.push(agent.registerTool(proxy));
+        } catch {
+          /* already registered — skip */
+        }
+      }
     }
+    serverRegistry.set(serverName, {
+      toolNames: proxies.map((t) => t.name),
+      unregFns,
+    });
   }
 
-  function unregisterServerToolsAll(serverName: string): void {
-    for (const agent of attachedAgents)
-      unregisterServerToolsOnAgent(agent, serverName);
+  function unregisterServerTools(serverName: string): void {
+    const entry = serverRegistry.get(serverName);
+    if (!entry) return;
+    for (const fn of entry.unregFns) {
+      try { fn(); } catch { /* ignore */ }
+    }
+    serverRegistry.delete(serverName);
   }
 
   // ── Sync store + proxies from adapter ──────────────────────────────────────
@@ -245,11 +200,10 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
       if (server.status === "connected" && server.tools.length > 0) {
         registerServerTools(server.name, server.tools);
       } else {
-        unregisterServerToolsAll(server.name);
+        unregisterServerTools(server.name);
       }
     }
     store.setAll(servers);
-    notify();
     return servers;
   }
 
@@ -270,7 +224,7 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
     const entry = store.get(id);
     if (!entry) return;
     store.setStatus(id, "disconnected");
-    unregisterServerToolsAll(entry.name);
+    unregisterServerTools(entry.name);
     adapter
       .disconnectServer(entry.name)
       .then(() => syncFromAdapter())
@@ -280,7 +234,7 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
   function remove(id: string): void {
     const entry = store.get(id);
     if (!entry) return;
-    unregisterServerToolsAll(entry.name);
+    unregisterServerTools(entry.name);
     store.remove(id);
     adapter
       .removeServer(entry.name)
@@ -293,6 +247,7 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
       headers?: Record<string, string>;
       includeTools?: string[];
       enabled?: boolean;
+      useProxy?: boolean;
     },
   ): Promise<McpServerEntry> {
     const entry = await adapter.addServer({
@@ -305,15 +260,6 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
 
   async function sync(): Promise<McpServerEntry[]> {
     return syncFromAdapter();
-  }
-
-  // ── Connected tool names for slot declarations ────────────────────────────
-
-  function connectedToolNames(): string[] {
-    return store
-      .getAll()
-      .filter((s) => s.status === "connected")
-      .flatMap((s) => s.tools.map((t) => t.name));
   }
 
   // ── Agent meta-tools ──────────────────────────────────────────────────────
@@ -384,10 +330,13 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
           message: `MCP server "${name}" connected. ${entry.tools.length} tool(s) available.`,
         };
       } catch (err: unknown) {
-        return {
-          ok: false,
-          error: err instanceof Error ? err.message : String(err),
-        };
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err !== null && 'message' in err
+              ? String((err as { message: unknown }).message)
+              : String(err);
+        return { ok: false, error: msg };
       }
     },
   });
@@ -433,10 +382,13 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
           message: `MCP server "${name}" connected. ${updated?.tools.length ?? 0} tool(s) available.`,
         };
       } catch (err: unknown) {
-        return {
-          ok: false,
-          error: err instanceof Error ? err.message : String(err),
-        };
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err !== null && 'message' in err
+              ? String((err as { message: unknown }).message)
+              : String(err);
+        return { ok: false, error: msg };
       }
     },
   });
@@ -460,6 +412,39 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
 
   // ── ToolSet ───────────────────────────────────────────────────────────────
 
+  const MCP_TOOL_NAMES: readonly string[] = [
+    "list_mcp_servers",
+    "add_mcp_server",
+    "remove_mcp_server",
+    "connect_mcp_server",
+    "disable_mcp_server",
+  ];
+
+  const slotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: "toolButton",
+      label: "MCP",
+      icon: "\u{1F50C}",
+      order: 20,
+      showBtn: () => true,
+      badge: () => {
+        const connected = store
+          .getAll()
+          .filter((s) => s.status === "connected").length;
+        return connected > 0 ? `${connected}` : null;
+      },
+    },
+    {
+      type: "toolCard",
+      toolNames: MCP_TOOL_NAMES,
+    },
+    {
+      type: "compactToolCard",
+      toolNames: MCP_TOOL_NAMES,
+      getDescriptor: mcpDescriptor,
+    },
+  ];
+
   const toolset: ToolSet = {
     symbol: MCP_MANAGER_SYMBOL,
     name: "mcp-manager",
@@ -473,104 +458,69 @@ export function createMcpToolset(adapter: McpAdapter): ToolSet {
     ],
 
     onAttach(agent: AgentClientLike): () => void {
-      const firstAttach = attachedAgents.length === 0;
-      attachedAgents.push(agent);
-      // Register all currently-connected server proxy tools on this agent.
+      attachedAgents.add(agent);
+      // Register all currently-connected server proxy tools.
       for (const server of store.getAll()) {
         if (server.status === "connected" && server.tools.length > 0) {
-          const proxies = server.tools.map((t) =>
-            createMcpProxyTool(server.name, t, adapter),
-          );
-          registerServerToolsOnAgent(agent, server.name, proxies);
+          registerServerTools(server.name, server.tools);
         }
       }
-      // Auto-sync from backend on first agent attachment — no need for
-      // external sync() at startup.
-      if (firstAttach) {
-        syncFromAdapter().catch(() => {});
-      }
+      // Auto-sync from backend on first attach.
+      syncFromAdapter().catch(() => {});
       return () => {
-        const idx = attachedAgents.indexOf(agent);
-        if (idx !== -1) attachedAgents.splice(idx, 1);
-        // Clean up all server tools for this agent.
-        const registry = agentRegistries.get(agent);
-        if (registry) {
-          for (const entry of registry.values()) {
+        attachedAgents.delete(agent);
+        // Only clean up when ALL agents detach — single-agent cleanup would
+        // remove tools that the other agent still needs.
+        if (attachedAgents.size === 0) {
+          for (const entry of serverRegistry.values()) {
             for (const fn of entry.unregFns) {
-              try {
-                fn();
-              } catch {
-                /* ignore */
-              }
+              try { fn(); } catch { /* ignore */ }
             }
           }
-          agentRegistries.delete(agent);
+          serverRegistry.clear();
         }
       };
-    },
-
-    onGetSymbolState(_ctx: ToolSetContext) {
-      const btn: ToolButtonSlotDeclaration = {
-        type: "toolButton",
-        label: "MCP",
-        icon: "\u{1F50C}",
-        order: 20,
-        showBtn: () => true,
-        badge: () => {
-          const connected = store
-            .getAll()
-            .filter((s) => s.status === "connected").length;
-          return connected > 0 ? `${connected}` : null;
-        },
-      };
-      const card: ToolCardSlotDeclaration = {
-        type: "toolCard",
-        toolNames: [
-          "list_mcp_servers",
-          "add_mcp_server",
-          "remove_mcp_server",
-          "connect_mcp_server",
-          "disable_mcp_server",
-        ],
-      };
-      const compact: CompactToolCardSlotDeclaration = {
-        type: "compactToolCard",
-        toolNames: [
-          "list_mcp_servers",
-          "add_mcp_server",
-          "remove_mcp_server",
-          "connect_mcp_server",
-          "disable_mcp_server",
-        ],
-        getDescriptor: mcpDescriptor,
-      };
-      return {
-        type: "mcpManager" as const,
-        servers: store.getAll(),
-        store: store,
-        connect,
-        disconnect,
-        remove,
-        addServer,
-        sync: syncFromAdapter,
-        slots: [btn, card, compact],
-      };
-    },
-
-    onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-      let s = subscribers.get(ctx.sessionId);
-      if (!s) {
-        s = new Set();
-        subscribers.set(ctx.sessionId, s);
-      }
-      s.add(fn);
-      return () => s!.delete(fn);
-    },
-
-    onRemove(ctx: ToolSetContext): void {
-      subscribers.delete(ctx.sessionId);
     },
   };
 
-  return toolset;
+  // ── Agent APIs (callable from plugin UI) ────────────────────────────────
+
+  const agentApis = new Map<string, AgentApiHandler>([
+    ['sync', async () => syncFromAdapter()],
+    ['connect', async (params) => {
+      const name = params?.name;
+      if (typeof name === 'string') {
+        const entry = store.getByName(name);
+        if (entry) await connect(entry.id);
+      }
+    }],
+    ['disconnect', async (params) => {
+      const name = params?.name;
+      if (typeof name === 'string') {
+        const entry = store.getByName(name);
+        if (entry) disconnect(entry.id);
+      }
+    }],
+    ['remove', async (params) => {
+      const name = params?.name;
+      if (typeof name === 'string') {
+        const entry = store.getByName(name);
+        if (entry) remove(entry.id);
+      }
+    }],
+    ['addServer', async (params) => {
+      if (params && typeof params === 'object') {
+        return addServer({
+          name: String(params.name ?? ''),
+          url: String(params.url ?? ''),
+          transport: params.transport === 'sse' ? 'sse' : 'http',
+          headers: params.headers as Record<string, string> | undefined,
+          useProxy: typeof params.useProxy === 'boolean' ? params.useProxy : undefined,
+        });
+      }
+      throw new Error('addServer requires config parameters');
+    }],
+  ]);
+
+  return { toolSet: toolset, slotDeclarations, agentApis };
 }

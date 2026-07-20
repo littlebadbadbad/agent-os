@@ -5,12 +5,41 @@
  * POSTs JSON-RPC requests to the endpoint URL advertised by the server's
  * first `endpoint` event.  A background read loop correlates responses by
  * JSON-RPC id.
+ *
+ * Proxy support:
+ *   When `useProxy` is true (default), all connections route through the
+ *   globally configured proxy.  When false, connections bypass the proxy
+ *   entirely via undici's direct Agent.
  */
 
 import { CLIENT_INFO, serializeToolResult } from './transport-utils.js';
 
-export async function createSseClient(url, extraHeaders = {}) {
+// ── Direct fetch (lazily initialised, bypasses proxy) ────────────────────────
+
+let _directFetch = null;
+async function ensureDirectFetch() {
+  if (!_directFetch) {
+    const { fetch: undiciFetch, Agent } = await import('undici');
+    const agent = new Agent({ connect: { timeout: 10_000 } });
+    _directFetch = (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
+  }
+  return _directFetch;
+}
+
+/**
+ * @param {string} url
+ * @param {Record<string,string>} [extraHeaders]
+ * @param {{ useProxy?: boolean }} [options]
+ */
+export async function createSseClient(url, extraHeaders = {}, { useProxy = true } = {}) {
   let requestId = 0;
+
+  // Select fetch function once: proxy-aware global fetch, or direct bypass.
+  const requestFetch = useProxy
+    ? globalThis.fetch.bind(globalThis)
+    : await ensureDirectFetch();
+
+  // `url` is also used as the base for endpoint URL resolution below.
   /** @type {Map<number, {resolve: (v:any)=>void, reject:(e:Error)=>void}>} */
   const pending = new Map();
   let postUrl = '';
@@ -18,7 +47,7 @@ export async function createSseClient(url, extraHeaders = {}) {
   let sseReader = null;
 
   // Open the SSE stream (GET).
-  const sseResponse = await fetch(url, {
+  const sseResponse = await requestFetch(url, {
     headers: { Accept: 'text/event-stream', ...extraHeaders },
   });
   if (!sseResponse.ok) {
@@ -103,7 +132,7 @@ export async function createSseClient(url, extraHeaders = {}) {
     const id = ++requestId;
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
-      fetch(postUrl, {
+      requestFetch(postUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...extraHeaders },
         body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
@@ -115,7 +144,7 @@ export async function createSseClient(url, extraHeaders = {}) {
   }
 
   function sendNotification(method, params) {
-    fetch(postUrl, {
+    requestFetch(postUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...extraHeaders },
       body: JSON.stringify({ jsonrpc: '2.0', method, params }),

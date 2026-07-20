@@ -267,6 +267,21 @@
   margin-bottom: -6px;
 }
 
+.proxyToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 0;
+
+  input[type="checkbox"] {
+    accent-color: var(--blue-light);
+    cursor: pointer;
+  }
+}
+
 .addInput {
   width: 100%;
   padding: 5px var(--sp-2);

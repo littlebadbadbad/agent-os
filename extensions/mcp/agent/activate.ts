@@ -4,6 +4,9 @@ import { createMcpToolset } from './manager';
 
 export function activate(host: AgentPluginHost): void {
   const adapter = createMcpPluginAdapter(host.apiClient);
-  const toolSet = createMcpToolset(adapter);
-  host.registerToolSet(toolSet);
+  const { toolSet, slotDeclarations, agentApis } = createMcpToolset(adapter);
+  host.registerToolSet(toolSet, slotDeclarations);
+  for (const [method, handler] of agentApis) {
+    host.registerAgentApi(method, handler);
+  }
 }

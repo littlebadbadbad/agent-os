@@ -12,14 +12,15 @@
 import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession } from "@agent-type";
-import { usePluginSystem } from "../../plugin/PluginContext";
+import type { SlotSession, ToolButtonSlotDeclaration } from "@agent-type";
+import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
 import styles from "./ToolButtonSlotPanel.module.scss";
 
 export interface ToolButtonSlotPanelProps {
   readonly pluginId: string;
   readonly slotId: string;
-  readonly session: SlotSession;
+  /** Session — may be null for session-independent toolButton slots. */
+  readonly session?: SlotSession | null;
   readonly toolSetSymbol: symbol;
   readonly className?: string;
 }
@@ -32,6 +33,10 @@ export function ToolButtonSlotPanel(
   const { getPlugin } = usePluginSystem();
   const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
+
+  const { getSlot } = useSlotRegistry();
+  const slotEntry = getSlot(pluginId, slotId);
+  const decl = slotEntry?.declaration as ToolButtonSlotDeclaration | undefined;
 
   const { host, handleReady } = useSlotHostBridge({
     session,
@@ -49,6 +54,8 @@ export function ToolButtonSlotPanel(
       host={host}
       onReady={handleReady}
       sizing="fill"
+      containingWidth={decl?.containingWidth}
+      containingHeight={decl?.containingHeight}
     />
   );
 }

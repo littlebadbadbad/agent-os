@@ -41,6 +41,7 @@ export function activate(host) {
     url:     params?.url,
     name:    params?.name,
     content: params?.content,
+    useProxy: params?.useProxy,
   }));
   host.defineApi('removeSkill', async (params) => svc.removeSkillByName({ name: params?.name }));
   host.defineApi('readSkillFile', async (params) => svc.readSkillFileContent({

@@ -25,7 +25,7 @@ export function createSkillPluginAdapter(apiClient: PluginApiClient): SkillManag
       return apiClient.call<BackendSkill[]>('listSkills');
     },
 
-    async installSkill(input: { url?: string; name?: string; content?: string }): Promise<{ installed: string; message: string }> {
+    async installSkill(input: { url?: string; name?: string; content?: string; useProxy?: boolean }): Promise<{ installed: string; message: string }> {
       return apiClient.call<{ installed: string; message: string }>('installSkill', input);
     },
 

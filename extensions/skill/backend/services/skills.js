@@ -29,9 +29,9 @@ export function createSkillService(store) {
     return skill;
   }
 
-  async function installSkill({ url, name, content }) {
+  async function installSkill({ url, name, content, useProxy }) {
     if (url) {
-      const skill = await store.fetchAndInstallSkill(url);
+      const skill = await store.fetchAndInstallSkill(url, { useProxy });
       return { installed: skill.name, message: `Skill "${skill.name}" installed successfully.` };
     }
     if (!name || !content) throw new Error('name and content are required when installing from text');

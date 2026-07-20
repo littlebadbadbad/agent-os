@@ -13,31 +13,17 @@
  *   - Its static `tools` are the 4 management meta-tools (install / list / remove / read).
  *   - Skill tools are injected into attached agents dynamically via `agent.registerTool`
  *     when a skill is loaded, and removed via the returned cleanup fn when unloaded.
- *   - `onGetSystemPrompt` and `onGetSymbolState` aggregate over the live skill map so the
+ *   - `onGetSystemPrompt` aggregates over the live skill map so the
  *     agent always sees the current set of loaded skills without any secondary registration.
  */
 
 import { z } from "zod";
 import { defineTool } from "@agent-type/defineTool";
-import type { Tool } from "@agent-type";
-import type {
-  ToolSet,
-  ToolSetContext,
-  AgentClientLike,
-  SystemPromptContext,
-} from "@agent-type";
+import type { Tool, ToolSet, ToolSetContext, AgentClientLike, SystemPromptContext, PluginSlotDeclaration, AgentApiHandler, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
 import { MAIN_CONVERSATION_ID } from "@agent-type";
-import type {
-  ToolButtonSlotDeclaration,
-  AutocompleteSlotDeclaration,
-  ToolCardSlotDeclaration,
-  CompactToolCardSlotDeclaration,
-  CompactToolCardDescriptor,
-  ToolCallInfo,
-} from "@agent-type";
 import { defineSkill } from "./skill";
 import { resolveSkillTools } from "./skill";
-import type { Skill, SkillState } from "./skill";
+import type { Skill } from "./skill";
 import type { BackendSkill, SkillManagerAdapter } from "./types";
 
 // -- Types --------------------------------------------------------------------
@@ -48,8 +34,8 @@ type AgentEntry = AgentClientLike;
 type LoadedSkillEntry = {
   skill: Skill;
   resolvedTools: readonly Tool[];
-  /** Cleanup fns returned by `agent.registerTool` -- one array per agent. */
-  toolCleanupsByAgent: Map<AgentEntry, Array<() => void>>;
+  /** Cleanup fns returned by `agent.registerTool`. */
+  toolCleanupsByAgent: Array<() => void>;
 };
 
 // -- Symbol -------------------------------------------------------------------
@@ -77,10 +63,10 @@ function arrLen(v: unknown): number {
 }
 
 const COMPACT_LABEL: Record<string, string> = {
-  install_skill:    "Install Skill",
-  list_skills:      "List Skills",
-  remove_skill:     "Remove Skill",
-  read_skill_file:  "Read File",
+  install_skill: "Install Skill",
+  list_skills: "List Skills",
+  remove_skill: "Remove Skill",
+  read_skill_file: "Read File",
 };
 
 function skillDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
@@ -141,10 +127,10 @@ function toSdkSkill(entry: BackendSkill): Skill {
   if (entry.skillPath) {
     const pathNote = entry.scripts?.length
       ? `\n\n> **Skill directory**: \`${entry.skillPath}\`\n` +
-        `> To run scripts open a terminal with \`cwd\` set to this path, then:\n` +
-        entry.scripts
-          .map((s) => `>   \`${entry.skillPath}/scripts/${s}\``)
-          .join("\n")
+      `> To run scripts open a terminal with \`cwd\` set to this path, then:\n` +
+      entry.scripts
+        .map((s) => `>   \`${entry.skillPath}/scripts/${s}\``)
+        .join("\n")
       : `\n\n> **Skill directory**: \`${entry.skillPath}\``;
     systemPrompt = systemPrompt ? systemPrompt + pathNote : pathNote;
   }
@@ -173,45 +159,33 @@ function toSdkSkill(entry: BackendSkill): Skill {
  *
  * @param adapter  Skill backend adapter.
  */
-export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
-  /** Agents attached via onAttach — skills are loaded into all of them. */
-  const attachedAgents: AgentEntry[] = [];
+export function createSkillToolset(
+  adapter: SkillManagerAdapter,
+): {
+  readonly toolSet: ToolSet;
+  readonly slotDeclarations: readonly PluginSlotDeclaration[];
+  readonly agentApis: Map<string, AgentApiHandler>;
+} {
+  /** The single attached agent (global createCombinedPluginContext fans out internally). */
+  let attachedAgent: AgentEntry | null = null;
 
   /** Live skill state, keyed by skill name. */
   const loadedSkills = new Map<string, LoadedSkillEntry>();
 
-  /** Per-session UI subscribers -- notified whenever the skill list changes. */
-  const subscribers = new Map<string, Set<() => void>>();
-
-  function notify(): void {
-    for (const fns of subscribers.values()) {
-      for (const fn of fns) fn();
-    }
-  }
-
   function loadIntoAgents(skill: Skill): void {
-    // Unload any previous version first (re-install scenario).
     unloadFromAgents(skill.name);
     const resolvedTools = resolveSkillTools(skill);
-    const toolCleanupsByAgent = new Map<AgentEntry, Array<() => void>>();
-    for (const agent of attachedAgents) {
-      toolCleanupsByAgent.set(
-        agent,
-        resolvedTools.map((t) => agent.registerTool(t)),
-      );
-    }
-    loadedSkills.set(skill.name, { skill, resolvedTools, toolCleanupsByAgent });
-    notify();
+    const cleanups: (() => void)[] = attachedAgent
+      ? resolvedTools.map((t) => attachedAgent!.registerTool(t))
+      : [];
+    loadedSkills.set(skill.name, { skill, resolvedTools, toolCleanupsByAgent: cleanups });
   }
 
   function unloadFromAgents(name: string): void {
     const entry = loadedSkills.get(name);
     if (!entry) return;
-    for (const cleanups of entry.toolCleanupsByAgent.values()) {
-      for (const fn of cleanups) fn();
-    }
+    for (const fn of entry.toolCleanupsByAgent) fn();
     loadedSkills.delete(name);
-    notify();
   }
 
   // -- Startup hydration ------------------------------------------------------
@@ -233,13 +207,14 @@ export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
 
   // -- syncSkills -------------------------------------------------------------
 
-  async function syncSkills(): Promise<void> {
+  async function syncSkills(): Promise<BackendSkill[]> {
     const skills = await adapter.listSkills();
     const backendNames = new Set(skills.map((s) => s.name));
     for (const entry of skills) loadIntoAgents(toSdkSkill(entry));
     for (const name of [...loadedSkills.keys()]) {
       if (!backendNames.has(name)) unloadFromAgents(name);
     }
+    return skills;
   }
 
   // -- install_skill ----------------------------------------------------------
@@ -337,6 +312,48 @@ export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
 
   // -- ToolSet -----------------------------------------------------------------
 
+  const SKILL_TOOL_NAMES: readonly string[] = [
+    "install_skill",
+    "list_skills",
+    "remove_skill",
+    "read_skill_file",
+  ];
+
+  const slotDeclarations: readonly PluginSlotDeclaration[] = [
+    {
+      type: "toolButton",
+      label: "Skills",
+      icon: "🎞️",
+      showBtn: () => true,
+      order: 30,
+      containingHeight: "560px",
+      badge: () => {
+        const count = loadedSkills.size;
+        return count > 0 ? `${count}` : null;
+      },
+    },
+    {
+      type: "autocomplete",
+      prefix: "/",
+      getItems: () =>
+        [...loadedSkills.values()].map(({ skill }) => ({
+          id: skill.name,
+          label: "/" + skill.name,
+          description: skill.description,
+          insertText: "/" + skill.name + " ",
+        })),
+    },
+    {
+      type: "toolCard",
+      toolNames: SKILL_TOOL_NAMES,
+    },
+    {
+      type: "compactToolCard",
+      toolNames: SKILL_TOOL_NAMES,
+      getDescriptor: skillDescriptor,
+    },
+  ];
+
   const managerToolSet: ToolSet = {
     symbol: SKILL_MANAGER_SYMBOL,
     name: "skill-manager",
@@ -349,29 +366,16 @@ export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
     ],
 
     onAttach(agent: AgentClientLike): () => void {
-      attachedAgents.push(agent);
+      attachedAgent = agent;
       // Load all currently-installed skills into the newly attached agent.
-      for (const {
-        skill,
-        resolvedTools,
-        toolCleanupsByAgent,
-      } of loadedSkills.values()) {
-        toolCleanupsByAgent.set(
-          agent,
-          resolvedTools.map((t) => agent.registerTool(t)),
-        );
-        void skill;
+      for (const entry of loadedSkills.values()) {
+        entry.toolCleanupsByAgent = entry.resolvedTools.map((t) => agent.registerTool(t));
       }
       return () => {
-        const idx = attachedAgents.indexOf(agent);
-        if (idx !== -1) attachedAgents.splice(idx, 1);
-        // Unload skill tools for this agent only.
+        attachedAgent = null;
         for (const entry of loadedSkills.values()) {
-          const cleanups = entry.toolCleanupsByAgent.get(agent);
-          if (cleanups) {
-            for (const fn of cleanups) fn();
-            entry.toolCleanupsByAgent.delete(agent);
-          }
+          for (const fn of entry.toolCleanupsByAgent) fn();
+          entry.toolCleanupsByAgent = [];
         }
       };
     },
@@ -396,80 +400,28 @@ export function createSkillToolset(adapter: SkillManagerAdapter): ToolSet {
       }
       return parts.length ? parts.join("\n\n") : undefined;
     },
-
-    onGetSymbolState(_ctx: ToolSetContext) {
-      const skills: SkillState[] = [...loadedSkills.values()].map(
-        ({ skill, resolvedTools }) => ({
-          name: skill.name,
-          description: skill.description,
-          version: skill.version,
-          toolCount: resolvedTools.length,
-          toolNames: resolvedTools.map((t) => t.name),
-        }),
-      );
-      const btn: ToolButtonSlotDeclaration = {
-        type: "toolButton",
-        label: "Skills",
-        icon: "🎞️",
-        order: 30,
-        showBtn: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
-        badge: () => {
-          const count = loadedSkills.size;
-          return count > 0 ? `${count}` : null;
-        },
-      };
-      const auto: AutocompleteSlotDeclaration = {
-        type: "autocomplete",
-        prefix: "/",
-        getItems: () =>
-          [...loadedSkills.values()].map(({ skill }) => ({
-            id: skill.name,
-            label: "/" + skill.name,
-            description: skill.description,
-            insertText: "/" + skill.name + " ",
-          })),
-      };
-      const card: ToolCardSlotDeclaration = {
-        type: "toolCard",
-        toolNames: [
-          "install_skill",
-          "list_skills",
-          "remove_skill",
-          "read_skill_file",
-        ],
-      };
-      const compact: CompactToolCardSlotDeclaration = {
-        type: "compactToolCard",
-        toolNames: [
-          "install_skill",
-          "list_skills",
-          "remove_skill",
-          "read_skill_file",
-        ],
-        getDescriptor: skillDescriptor,
-      };
-      return {
-        type: "skillManager" as const,
-        skills,
-        sync: syncSkills,
-        slots: [btn, auto, card, compact],
-      };
-    },
-
-    onRemove(ctx: ToolSetContext): void {
-      subscribers.delete(ctx.sessionId);
-    },
-
-    onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
-      let s = subscribers.get(ctx.sessionId);
-      if (!s) {
-        s = new Set();
-        subscribers.set(ctx.sessionId, s);
-      }
-      s.add(fn);
-      return () => s!.delete(fn);
-    },
   };
 
-  return managerToolSet;
+  const agentApis = new Map<string, AgentApiHandler>([
+    ['sync', async () => syncSkills()],
+    ['install', async (params) => {
+      if (!params || typeof params !== 'object') throw new Error('install requires { url } or { name, content }');
+      const result = await adapter.installSkill({
+        url: params.url as string | undefined,
+        name: params.name as string | undefined,
+        content: params.content as string | undefined,
+        useProxy: typeof params.useProxy === 'boolean' ? params.useProxy : undefined,
+      });
+      await syncSkills();
+      return result;
+    }],
+    ['remove', async (params) => {
+      const name = params?.name;
+      if (typeof name !== 'string') throw new Error('remove requires skill name');
+      unloadFromAgents(name);
+      return adapter.removeSkill(name);
+    }],
+  ]);
+
+  return { toolSet: managerToolSet, slotDeclarations, agentApis };
 }

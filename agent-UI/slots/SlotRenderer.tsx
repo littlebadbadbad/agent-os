@@ -71,7 +71,7 @@ import { useSlotRegistry } from "../plugin/PluginContext";
 function checkShouldRender(
   pluginId: string,
   slotId: string,
-  session: SlotSession,
+  session: SlotSession | null | undefined,
   getSlot: SlotRegistry["getSlot"],
   toolSetSymbol: symbol,
   declaration?: PluginSlotDeclaration,
@@ -79,6 +79,18 @@ function checkShouldRender(
   const decl = declaration ?? getSlot(pluginId, slotId)?.declaration;
   // Inline slot types never use the iframe dispatch — skip silently.
   if (!decl || decl.type === "compactToolCard" || decl.type === "autocomplete") return true;
+
+  // When no session exists, only toolButton can render (session-independent).
+  // Evaluate shouldRender with empty context and undefined state.
+  if (!session) {
+    if (decl.type !== "toolButton") return false;
+    if (!decl.shouldRender) return true;
+    return decl.shouldRender(
+      { sessionId: "", agentName: "", conversationId: "" },
+      undefined,
+    );
+  }
+
   if (!decl.shouldRender) return true;
   const ctx = buildSlotDisplayContext(session);
   const state = session.getState()[toolSetSymbol] as PluginStateExtension | undefined;
@@ -90,7 +102,8 @@ function checkShouldRender(
 interface IframeSlotRendererBase {
   readonly pluginId: string;
   readonly slotId: string;
-  readonly session: SlotSession;
+  /** Session — may be null for session-independent slots (toolButton). */
+  readonly session?: SlotSession | null;
   readonly toolSetSymbol: symbol;
   readonly declaration?: PluginSlotDeclaration;
   readonly className?: string;
@@ -147,8 +160,10 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
   }
 
   // ── Dispatch to per-type renderer ─────────────────────────────────────────
+  // Only toolButton accepts null session; other slot types guard with early return.
   switch (props.slotType) {
     case "panel":
+      if (!session) return null;
       return (
         <PanelSlotRenderer
           pluginId={pluginId}
@@ -160,6 +175,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       );
 
     case "toolCard":
+      if (!session) return null;
       return (
         <ToolCardSlotRenderer
           pluginId={pluginId}
@@ -172,6 +188,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       );
 
     case "inlinePrompt":
+      if (!session) return null;
       return (
         <InlinePromptSlotRenderer
           pluginId={pluginId}
@@ -184,6 +201,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       );
 
     case "headerBar":
+      if (!session) return null;
       return (
         <HeaderBarSlotRenderer
           pluginId={pluginId}

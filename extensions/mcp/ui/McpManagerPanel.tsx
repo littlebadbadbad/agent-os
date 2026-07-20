@@ -1,9 +1,9 @@
 /**
  * extensions/mcp/ui/McpManagerPanel.tsx — dropdown panel for managing MCP servers.
  *
- * All operations go through the ToolSet state functions passed via props.
- * No global mcpToolset import — all data and mutations flow through the
- * ToolSet's onGetSymbolState contract.
+ * Self-contained component: manages its own server list state by calling
+ * agent-side APIs via `host.callAgentApi()`. No dependency on ToolSet state
+ * or direct backend calls.
  *
  * Capabilities:
  *  • List all servers with status indicator + tool count
@@ -12,7 +12,8 @@
  *  • Add a new server (inline form: name, url, transport, optional headers)
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import type { UiPluginHost } from "@agent-type";
 import type {
   McpTransport,
   McpServerStatus,
@@ -22,20 +23,11 @@ import type {
 const MCP_TRANSPORTS: McpTransport[] = ["http", "sse"];
 import styles from "./styles.module.scss";
 
-interface McpManagerPanelProps {
-  servers: McpServerEntry[];
-  connect: (id: string) => Promise<void>;
-  disconnect: (id: string) => void;
-  remove: (id: string) => void;
-  addServer: (config: {
-    name: string;
-    url: string;
-    transport: McpTransport;
-    headers?: Record<string, string>;
-    includeTools?: string[];
-    enabled?: boolean;
-  }) => Promise<McpServerEntry>;
-  onSync: () => Promise<McpServerEntry[]>;
+// ── Props ────────────────────────────────────────────────────────────────────
+
+export interface McpManagerPanelProps {
+  /** The UiPluginHost with a pre-bound apiClient for this plugin. */
+  readonly host: UiPluginHost;
 }
 
 // ── Status dot ────────────────────────────────────────────────────────────────
@@ -55,14 +47,15 @@ function StatusDot({ status }: { status: McpServerStatus }) {
 interface AddFormProps {
   onAdded: () => void;
   onCancel: () => void;
-  addServer: McpManagerPanelProps["addServer"];
+  host: UiPluginHost;
 }
 
-function AddServerForm({ onAdded, onCancel, addServer }: AddFormProps) {
+function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [transport, setTransport] = useState<McpTransport>("http");
   const [headersRaw, setHeadersRaw] = useState("");
+  const [useProxy, setUseProxy] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,11 +74,12 @@ function AddServerForm({ onAdded, onCancel, addServer }: AddFormProps) {
           );
         }
       }
-      await addServer({
+      await host.callAgentApi("addServer", {
         name: name.trim(),
         url: url.trim(),
         transport,
         headers,
+        useProxy,
       });
       onAdded();
     } catch (err) {
@@ -136,6 +130,16 @@ function AddServerForm({ onAdded, onCancel, addServer }: AddFormProps) {
         ))}
       </div>
 
+      <label className={styles.proxyToggle}>
+        <input
+          type="checkbox"
+          checked={useProxy}
+          onChange={(e) => setUseProxy(e.target.checked)}
+          disabled={saving}
+        />
+        Use proxy (enable to route through system proxy)
+      </label>
+
       <label className={styles.addLabel}>Headers (optional JSON)</label>
       <input
         className={styles.addInput}
@@ -170,19 +174,35 @@ function AddServerForm({ onAdded, onCancel, addServer }: AddFormProps) {
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export function McpManagerPanel({
-  servers,
-  connect,
-  disconnect,
-  remove,
-  addServer,
-  onSync,
-}: McpManagerPanelProps) {
+async function fetchFromAgent(host: UiPluginHost): Promise<McpServerEntry[]> {
+  try {
+    return await host.callAgentApi<McpServerEntry[]>("sync");
+  } catch {
+    return [];
+  }
+}
+
+export function McpManagerPanel({ host }: McpManagerPanelProps) {
+  const [servers, setServers] = useState<McpServerEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [opError, setOpError] = useState<Record<string, string>>({});
+
+  // Fetch server list on mount.
+  useEffect(() => {
+    fetchFromAgent(host).then((list) => {
+      setServers(list);
+      setLoading(false);
+    });
+  }, [host]);
+
+  const refresh = useCallback(async () => {
+    const list = await fetchFromAgent(host);
+    setServers(list);
+  }, [host]);
 
   async function withBusy(id: string, fn: () => Promise<void>) {
     setBusyId(id);
@@ -204,15 +224,18 @@ export function McpManagerPanel({
   }
 
   function handleConnect(s: McpServerEntry) {
-    withBusy(s.id, () => connect(s.id));
+    withBusy(s.id, async () => {
+      await host.callAgentApi("connect", { name: s.name });
+      await refresh();
+    });
   }
 
   function handleDisconnect(s: McpServerEntry) {
-    disconnect(s.id);
+    host.callAgentApi("disconnect", { name: s.name }).then(refresh).catch(() => {});
   }
 
   function handleReload(s: McpServerEntry) {
-    withBusy(s.id, () => connect(s.id));
+    handleConnect(s);
   }
 
   function handleDelete(s: McpServerEntry) {
@@ -221,7 +244,15 @@ export function McpManagerPanel({
       return;
     }
     setConfirmDeleteId(null);
-    remove(s.id);
+    host.callAgentApi("remove", { name: s.name }).then(refresh).catch(() => {});
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.panel}>
+        <div className={styles.empty}>Loading MCP servers...</div>
+      </div>
+    );
   }
 
   return (
@@ -231,7 +262,7 @@ export function McpManagerPanel({
         <div className={styles.panelHeaderActions}>
           <button
             className={styles.syncBtn}
-            onClick={() => onSync()}
+            onClick={() => refresh()}
             title="Sync status"
           >
             ↺
@@ -267,6 +298,9 @@ export function McpManagerPanel({
                   <span className={styles.serverName}>{s.name}</span>
                   <span className={styles.serverMeta}>
                     {s.transport.toUpperCase()}
+                    {s.useProxy === false
+                      ? " \u00B7 direct"
+                      : " \u00B7 proxy"}
                     {isConnected &&
                       s.tools.length > 0 &&
                       ` \u00B7 ${s.tools.length} tools`}
@@ -364,9 +398,9 @@ export function McpManagerPanel({
 
       {showAdd ? (
         <AddServerForm
-          addServer={addServer}
+          host={host}
           onAdded={async () => {
-            await onSync();
+            await refresh();
             setShowAdd(false);
           }}
           onCancel={() => setShowAdd(false)}

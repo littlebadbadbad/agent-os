@@ -4,7 +4,6 @@ export type {
   McpToolDef,
   McpServerEntry,
   McpAdapter,
-  McpStore,
 } from './types';
 export { createMcpStore } from './store';
 export { createMcpToolset } from './manager';

@@ -27,14 +27,15 @@ export function activate(host) {
       'The MCP plugin requires a project root to persist server configurations.');
   }
 
-  const manager = createMcpManager(agentDir);
+  const proxyConfig = host.getBackendConfig('proxy');
+  const manager = createMcpManager(agentDir, proxyConfig);
   const service = createMcpService(manager);
 
   // ── CRUD servers ─────────────────────────────────────────────────────────
   host.defineApi('listServers', async (_params) => service.getMcpServers());
   host.defineApi('addServer', async (params) => {
-    const { name, url = '', transport = 'http', headers, includeTools } = params || {};
-    return service.addMcpServer({ name, url, transport, headers, includeTools });
+    const { name, url = '', transport = 'http', headers, includeTools, useProxy } = params || {};
+    return service.addMcpServer({ name, url, transport, headers, includeTools, useProxy });
   });
   host.defineApi('removeServer', async (params) => {
     const { name } = params || {};

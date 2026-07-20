@@ -1,13 +1,14 @@
 /**
  * agent-UI/slots/renderers/ToolButtonSlotPanel.module.scss
  *
- * The iframe panel inside a DropdownPanel — gives the sandboxed iframe a
- * definite size reference so `height: 100%` resolves correctly inside.
+ * The iframe panel inside a DropdownPanel.
+ * Default width 380px, default height 480px.
+ * Plugins can override via `containingWidth`/`containingHeight` in
+ * their slot declaration — those values are passed to IframeSandbox
+ * which applies them as inline styles, overriding these defaults.
  *
- * DropdownPanel uses `position: fixed; overflow: hidden` with no explicit
- * height, which causes `sizing="fill"` iframes to collapse because the
- * flexible container has no definite height.  Giving this wrapper a fixed
- * outer dimension breaks the circular dependency.
+ * DropdownPanel now has `overflow-y: auto` and `max-height`, so
+ * content taller than the viewport can scroll.
  */
 
 .panel {

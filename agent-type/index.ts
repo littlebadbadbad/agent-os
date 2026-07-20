@@ -98,6 +98,7 @@ export type {
 // ── Plugin types ──────────────────────────────────────────────────────────────
 export type {
   Logger,
+  AgentApiHandler,
   PluginManifest,
   PluginState,
   PluginMethod,

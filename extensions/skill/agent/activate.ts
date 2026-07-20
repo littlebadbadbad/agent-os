@@ -21,12 +21,12 @@ import { createSkillToolset } from './manager';
  * @param host  The AgentPluginHost for this plugin.
  */
 export function activate(host: AgentPluginHost): void {
-  // Create a SkillManagerAdapter that talks to the backend via host.apiClient.
   const adapter = createSkillPluginAdapter(host.apiClient);
 
-  // Build the skill ToolSet using this adapter.
-  const toolSet = createSkillToolset(adapter);
+  const { toolSet, slotDeclarations, agentApis } = createSkillToolset(adapter);
 
-  // Register the ToolSet on the agent.
-  host.registerToolSet(toolSet);
+  host.registerToolSet(toolSet, slotDeclarations);
+  for (const [method, handler] of agentApis) {
+    host.registerAgentApi(method, handler);
+  }
 }

@@ -131,16 +131,29 @@ export function createSkillStore(agentDir, { SKILLS_DIR, readSkillDir, toWireEnt
    *   - GitHub folder URL (tree/:ref/:path) — uses GitHub Contents API
    *   - Any direct URL to a SKILL.md file
    * @param {string} url
+   * @param {{ useProxy?: boolean }} [options]
    * @returns {Promise<object>} SkillEntry
    */
-  async function fetchAndInstallSkill(url) {
+  async function fetchAndInstallSkill(url, { useProxy = true } = {}) {
     const parsed = new URL(url);
 
+    // Resolve the fetch function based on proxy preference.
+    // Dynamic import of undici bypasses the globally configured proxy.
+    const resolveFetch = useProxy
+      ? () => globalThis.fetch.bind(globalThis)
+      : async () => {
+          const { fetch: uf, Agent } = await import('undici');
+          const agent = new Agent({ connect: { timeout: 10_000 } });
+          return (input, init) => uf(input, { ...init, dispatcher: agent });
+        };
+
+    const requestFetch = await resolveFetch();
+
     if (parsed.hostname === 'github.com' && parsed.pathname.includes('/tree/')) {
-      return fetchGithubFolderSkill(url, parsed);
+      return fetchGithubFolderSkill(url, parsed, requestFetch);
     }
 
-    const resp = await fetch(url);
+    const resp = await requestFetch(url);
     if (!resp.ok) throw new Error(`Failed to fetch skill from ${url}: HTTP ${resp.status}`);
     const raw = await resp.text();
     const { meta, body } = parseFrontmatter(raw);
@@ -152,7 +165,13 @@ export function createSkillStore(agentDir, { SKILLS_DIR, readSkillDir, toWireEnt
     return writeSkill({ folderName, name, description, systemPrompt: body });
   }
 
-  async function fetchGithubFolderSkill(url, parsed) {
+  /**
+   * @param {string} url
+   * @param {URL} parsed
+   * @param {(input: RequestInfo, init?: RequestInit) => Promise<Response>} requestFetch
+   * @returns {Promise<object>}
+   */
+  async function fetchGithubFolderSkill(url, parsed, requestFetch) {
     const parts  = parsed.pathname.split('/').filter(Boolean);
     const owner  = parts[0];
     const repo   = parts[1];
@@ -163,13 +182,13 @@ export function createSkillStore(agentDir, { SKILLS_DIR, readSkillDir, toWireEnt
 
     async function fetchContents(dirPath) {
       const apiUrl = `${apiBase}/${dirPath}?ref=${encodeURIComponent(ref)}`;
-      const r = await fetch(apiUrl, { headers: { Accept: 'application/vnd.github+json' } });
+      const r = await requestFetch(apiUrl, { headers: { Accept: 'application/vnd.github+json' } });
       if (!r.ok) throw new Error(`GitHub API error for ${apiUrl}: HTTP ${r.status}`);
       return r.json();
     }
 
     async function downloadRaw(downloadUrl) {
-      const r = await fetch(downloadUrl);
+      const r = await requestFetch(downloadUrl);
       if (!r.ok) throw new Error(`Failed to download ${downloadUrl}: HTTP ${r.status}`);
       return r.text();
     }

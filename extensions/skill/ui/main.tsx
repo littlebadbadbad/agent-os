@@ -10,9 +10,13 @@
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
  *   `window.addEventListener("message")` directly. All communication
  *   with the host flows through the injected {@link UiPluginHost}.
+ *
+ * Unlike the old pattern, the Skill panel does NOT read data from
+ * `getPluginState()` — it calls agent-side APIs via
+ * `host.callAgentApi()` and manages its own state internally.
  */
 
-import { StrictMode, useSyncExternalStore } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import type {
   UiPluginHost,
@@ -63,39 +67,16 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // ── Reactive store ────────────────────────────────────────────────────────
-
-  let sessionState = host.getPluginState()?.[0] ?? null;
-  let skillState = host.getPluginState()?.[1] ?? null;
-  const listeners = new Set<() => void>();
-
-  const emitChange = () => {
-    const state = host.getPluginState();
-    sessionState = state?.[0] ?? null;
-    skillState = state?.[1] ?? null;
-    listeners.forEach((l) => l());
-  };
-
-  const subscribe = (cb: () => void): (() => void) => {
-    listeners.add(cb);
-    return () => { listeners.delete(cb); };
-  };
-
-  const getSnapshot = () => skillState;
-
   let toolCallInfo: ToolCallInfo | null = null;
+  const toolCallListeners = new Set<() => void>();
 
   // ── Host→iframe messages ──────────────────────────────────────────────────
 
   host.onSlotMessage((msg: SlotHostMessage) => {
     switch (msg.type) {
-      case "panel":
-      case "toolButton":
-        emitChange();
-        break;
       case "toolCard":
         toolCallInfo = msg.payload.toolCallInfo ?? null;
-        listeners.forEach((l) => l());
+        toolCallListeners.forEach((l) => l());
         break;
     }
   });
@@ -103,10 +84,6 @@ function bootApp(host: UiPluginHost): void {
   // ── App component ──────────────────────────────────────────────────────────
 
   function SkillPluginApp() {
-    const state = useSyncExternalStore(subscribe, getSnapshot);
-    const skills = state?.skills;
-    const sync = state?.sync;
-
     if (slotCtx.slotType === "toolCard") {
       if (toolCallInfo) return <SkillToolCard info={toolCallInfo} />;
       return (
@@ -116,9 +93,7 @@ function bootApp(host: UiPluginHost): void {
       );
     }
 
-    return (
-      <SkillManagerPanel skills={skills ?? []} sync={sync} host={host} />
-    );
+    return <SkillManagerPanel host={host} />;
   }
 
   // ── Mount ──────────────────────────────────────────────────────────────────

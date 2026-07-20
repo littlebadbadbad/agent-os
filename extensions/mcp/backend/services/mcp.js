@@ -14,9 +14,9 @@ export function createMcpService(manager) {
       return { servers: manager.listServers() };
     },
 
-    async addMcpServer({ name, url, transport, headers, includeTools }) {
+    async addMcpServer({ name, url, transport, headers, includeTools, useProxy }) {
       if (!name) throw new Error('name is required');
-      const server = await manager.addServer({ name, url, transport, headers, includeTools });
+      const server = await manager.addServer({ name, url, transport, headers, includeTools, useProxy });
       return { server };
     },
 

@@ -91,6 +91,11 @@ export function IframeSandbox(
   const cw = containingWidth ?? "auto";
   const ch = containingHeight ?? "auto";
 
+  // Fill mode: if the plugin declares containing dimensions, use them.
+  // Otherwise default to 100% × 100% (parent sets size via className).
+  const fillWidth = containingWidth ?? "100%";
+  const fillHeight = containingHeight ?? "100%";
+
   const createSandbox = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -100,7 +105,7 @@ export function IframeSandbox(
       const iframe = document.createElement("iframe");
 
       // R5: sandbox.
-      const flags = sandboxFlags ?? ["allow-scripts", "allow-same-origin"];
+      const flags = sandboxFlags ?? ["allow-scripts", "allow-same-origin", "allow-forms"];
       for (const flag of flags) {
         iframe.sandbox.add(flag);
       }
@@ -170,7 +175,7 @@ export function IframeSandbox(
       className={className}
       style={sizing === "fit"
         ? { display: "inline-block", width: cw, height: ch, verticalAlign: "middle", overflow: "hidden" }
-        : { width: "100%", height: "100%" }
+        : { width: fillWidth, height: fillHeight }
       }
     />
   );

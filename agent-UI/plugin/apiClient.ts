@@ -26,6 +26,35 @@ export interface PluginApiError {
   readonly cause?: unknown;
 }
 
+/**
+ * Error class that extends `Error` so it flows correctly through catch blocks
+ * that test `err instanceof Error`, while carrying structured plugin API metadata
+ * (pluginId, method, status) for programmatic handling.
+ *
+ * No classes in the public API — internal implementation detail.
+ */
+class PluginApiErrorImpl extends Error implements PluginApiError {
+  readonly pluginId: string;
+  readonly method: string;
+  readonly status: PluginApiError['status'];
+  readonly cause?: unknown;
+
+  constructor(
+    pluginId: string,
+    method: string,
+    status: PluginApiError['status'],
+    message: string,
+    cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'PluginApiError';
+    this.pluginId = pluginId;
+    this.method = method;
+    this.status = status;
+    this.cause = cause;
+  }
+}
+
 function createPluginApiError(
   pluginId: string,
   method: string,
@@ -33,7 +62,7 @@ function createPluginApiError(
   message: string,
   cause?: unknown,
 ): PluginApiError {
-  return { pluginId, method, status, message, cause };
+  return new PluginApiErrorImpl(pluginId, method, status, message, cause);
 }
 
 // ── DI options ────────────────────────────────────────────────────────────────

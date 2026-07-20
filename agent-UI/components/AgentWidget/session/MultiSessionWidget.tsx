@@ -146,7 +146,7 @@ export function MultiSessionWidget({
         icon={icon}
         theme={theme}
         initialWidth={initialWidth}
-        controlBar={panelSession ? <AIControlBar activeSession={panelSession} /> : undefined}
+        controlBar={<AIControlBar activeSession={panelSession} />}
       >
         <div className={styles['chat']}>
           <ConversationNavigator

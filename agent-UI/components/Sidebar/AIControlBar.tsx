@@ -8,8 +8,12 @@ import { DropdownPanel } from '../DropdownPanel';
 import styles from './AIControlBar.module.scss';
 
 export interface AIControlBarProps {
-  /** Active session for plugin slot panels, or undefined when no session exists. */
-  readonly activeSession: SlotSession;
+  /**
+   * Active session for plugin slot panels.
+   * May be null — toolButton slots are session-independent and can render
+   * without an active session (callbacks receive empty context and undefined state).
+   */
+  readonly activeSession?: SlotSession | null;
 }
 
 /**
@@ -19,13 +23,21 @@ export interface AIControlBarProps {
  *
  * Plugin toolButton slots are discovered via
  * {@link slotRegistry} — no plugin name is hardcoded.
+ *
+ * When no session is active, toolButton slots still render but with empty
+ * display context and undefined toolset state — they handle this gracefully
+ * via the optional state parameter in their callbacks.
  */
 export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement {
-  // Derive slot display context from the active session reactively.
+  const { getByType } = useSlotRegistry();
+
+  // Subscribe to session state only when a session exists.
   const sessionState = useSyncExternalStore(
-    activeSession.subscribe,
-    activeSession.getState,
+    activeSession?.subscribe ?? (() => () => {}),
+    () => activeSession?.getState() ?? null,
+    () => activeSession?.getState() ?? null,
   );
+
   const slotCtx: SlotDisplayContext = useMemo(
     () => sessionState
       ? {
@@ -36,8 +48,6 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
       : { sessionId: '', agentName: '', conversationId: '' },
     [sessionState],
   );
-
-  const { getByType } = useSlotRegistry();
 
   // Derive toolset state lookup from session state.
   const toolSetState = useMemo<Record<symbol, PluginStateExtension> | null>(() => {
@@ -79,17 +89,15 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
               </button>
             }
           >
-            {activeSession
-              ? () => (
-                <SlotRenderer
-                  slotType="toolButton"
-                  pluginId={entry.pluginId}
-                  slotId={entry.slotId}
-                  session={activeSession}
-                  toolSetSymbol={entry.toolSetSymbol}
-                />
-              )
-              : undefined}
+            {() => (
+              <SlotRenderer
+                slotType="toolButton"
+                pluginId={entry.pluginId}
+                slotId={entry.slotId}
+                session={activeSession}
+                toolSetSymbol={entry.toolSetSymbol}
+              />
+            )}
           </DropdownPanel>
         );
       })}

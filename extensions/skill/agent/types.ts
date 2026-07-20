@@ -1,9 +1,5 @@
-import type { PluginStateExtension } from '@agent-type';
-import type { ToolButtonSlotDeclaration, AutocompleteSlotDeclaration, ToolCardSlotDeclaration, CompactToolCardSlotDeclaration } from '@agent-type';
 import type { SkillState } from './skill';
 export type { SkillState };
-
-// ── Backend skill entry ───────────────────────────────────────────────────────
 
 export type BackendSkill = {
   name:        string;
@@ -37,6 +33,8 @@ export type SkillManagerAdapter = {
     url?:     string;
     name?:    string;
     content?: string;
+    /** Whether to route the fetch through the globally configured proxy. */
+    useProxy?: boolean;
   }): Promise<{ installed: string; message: string }>;
 
   /** Uninstall a skill by name. */
@@ -47,14 +45,3 @@ export type SkillManagerAdapter = {
    */
   readSkillFile(skill: string, path: string): Promise<{ content: string; path: string }>;
 };
-
-// ── Module augmentation ───────────────────────────────────────────────────────
-
-declare module '@agent-type' {
-  interface PluginStateExtension {
-    type: 'skillManager';
-    skills: readonly SkillState[];
-    sync: () => Promise<void>;
-    slots: readonly (ToolButtonSlotDeclaration | AutocompleteSlotDeclaration | ToolCardSlotDeclaration | CompactToolCardSlotDeclaration)[];
-  }
-}

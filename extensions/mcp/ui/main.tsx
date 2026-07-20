@@ -10,9 +10,14 @@
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
  *   `window.addEventListener("message")` directly. All communication
  *   with the host flows through the injected {@link UiPluginHost}.
+ *
+ * Unlike the old pattern, the MCP panel does NOT read data from
+ * `getPluginState()` — it calls the backend directly via
+ * `host.apiClient.call()` and manages its own state internally.
+ * This decouples the UI from the ToolSet's in-memory state.
  */
 
-import { StrictMode, useSyncExternalStore } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import type {
   UiPluginHost,
@@ -63,44 +68,16 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // ── Reactive store ────────────────────────────────────────────────────────
-
-  let sessionState = host.getPluginState()?.[0] ?? null;
-  let mcpState = host.getPluginState()?.[1] ?? null;
-  const listeners = new Set<() => void>();
-
-  const emitChange = () => {
-    const state = host.getPluginState();
-    sessionState = state?.[0] ?? null;
-    mcpState = state?.[1] ?? null;
-    listeners.forEach((l) => l());
-  };
-
-  const subscribe = (cb: () => void): (() => void) => {
-    listeners.add(cb);
-    return () => { listeners.delete(cb); };
-  };
-
-  const getSnapshot = () => mcpState;
-
   let toolCallInfo: ToolCallInfo | null = null;
+  const toolCallListeners = new Set<() => void>();
 
   // ── Host→iframe messages ──────────────────────────────────────────────────
-  //
-  // The host pushes SlotHostMessage payloads via `host._pushToIframe()`,
-  // which delivers them to our `onSlotMessage` callback. Messages sent
-  // before we register this subscriber are buffered by the host and
-  // replayed on registration, so we never miss the initial toolCallInfo.
 
   host.onSlotMessage((msg: SlotHostMessage) => {
     switch (msg.type) {
-      case "panel":
-      case "toolButton":
-        emitChange();
-        break;
       case "toolCard":
         toolCallInfo = msg.payload.toolCallInfo ?? null;
-        listeners.forEach((l) => l());
+        toolCallListeners.forEach((l) => l());
         break;
     }
   });
@@ -108,14 +85,6 @@ function bootApp(host: UiPluginHost): void {
   // ── App component ──────────────────────────────────────────────────────────
 
   function McpPluginApp() {
-    const state = useSyncExternalStore(subscribe, getSnapshot);
-    const servers = state?.servers;
-    const connect = state?.connect;
-    const disconnect = state?.disconnect;
-    const remove = state?.remove;
-    const addServer = state?.addServer;
-    const sync = state?.sync;
-
     if (slotCtx.slotType === "toolCard") {
       if (toolCallInfo) return <McpToolCard info={toolCallInfo} />;
       return (
@@ -125,24 +94,7 @@ function bootApp(host: UiPluginHost): void {
       );
     }
 
-    if (!servers || !connect || !disconnect || !remove || !addServer || !sync) {
-      return (
-        <div style={{ padding: 16, color: "#858585", fontFamily: "system-ui" }}>
-          MCP state not available in this session.
-        </div>
-      );
-    }
-
-    return (
-      <McpManagerPanel
-        servers={servers}
-        connect={connect}
-        disconnect={disconnect}
-        remove={remove}
-        addServer={addServer}
-        onSync={sync}
-      />
-    );
+    return <McpManagerPanel host={host} />;
   }
 
   // ── Mount ──────────────────────────────────────────────────────────────────

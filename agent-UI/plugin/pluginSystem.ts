@@ -17,6 +17,7 @@
 import {
   resolveToolSetTools,
   type AgentPluginHost,
+  type AgentApiHandler,
   type PluginManifest,
   type PluginSlotDeclaration,
 } from "@agent-type";
@@ -95,17 +96,55 @@ export interface PluginSystem {
    * whether they have an agent entry).  Includes UI-only plugins.
    */
   get allPlugins(): readonly PluginDescriptor[];
+
+  /**
+   * Plugins whose agent entry failed to load or activate.
+   * Useful for diagnostics and visible error feedback.
+   */
+  get pluginErrors(): readonly PluginLoadError[];
+
   /**
    * Get a plugin descriptor by its ID.
+   * Searches active plugins first (returns {@link ActivatedPluginInfo}
+   * with agent APIs and slot declarations if the plugin was activated),
+   * then falls back to the raw API descriptor.
+   *
    * @param pluginId The ID of the plugin to retrieve.
+   * @returns The plugin descriptor, or `undefined` if not found.
    */
   getPlugin(pluginId: string): PluginDescriptor | undefined;
+
+  /**
+   * Get an active plugin by ID.
+   * Returns `undefined` if the plugin was not activated (agent entry
+   * failed to load, or the plugin has no agent entry).
+   *
+   * @param pluginId The ID of the plugin to retrieve.
+   * @returns The activated plugin info with agent APIs and slot
+   * declarations, or `undefined` if not active.
+   */
+  getActivePlugin(pluginId: string): ActivatedPluginInfo | undefined;
 }
 
 export interface ActivatedPluginInfo extends PluginDescriptor {
   readonly host: AgentPluginHost;
   /** Slot declarations registered by this plugin's ToolSets. */
   readonly slotDeclarations: Map<symbol, readonly PluginSlotDeclaration[]>;
+  /** Agent-side API methods registered by ToolSets, callable from plugin UI. */
+  readonly agentApis: Map<string, AgentApiHandler>;
+}
+
+/**
+ * Describes a plugin whose agent entry failed to load or activate.
+ */
+export interface PluginLoadError {
+  readonly pluginId: string;
+  readonly pluginName: string;
+  /**
+   * Error message describing why loading failed.
+   * Could be an import error, an `activate()` throw, or a missing export.
+   */
+  readonly message: string;
 }
 
 // ── Internal state ────────────────────────────────────────────────────────────
@@ -113,6 +152,7 @@ export interface ActivatedPluginInfo extends PluginDescriptor {
 interface PluginSystemState {
   activePlugins: ActivatedPluginInfo[];
   allPlugins: PluginDescriptor[];
+  pluginErrors: PluginLoadError[];
   initialized: boolean;
 }
 
@@ -129,6 +169,7 @@ export function createPluginSystem(): PluginSystem {
   const state: PluginSystemState = {
     activePlugins: [],
     allPlugins: [],
+    pluginErrors: [],
     initialized: false,
   };
 
@@ -159,8 +200,20 @@ export function createPluginSystem(): PluginSystem {
     get allPlugins(): readonly PluginDescriptor[] {
       return state.allPlugins;
     },
+
+    get pluginErrors(): readonly PluginLoadError[] {
+      return state.pluginErrors;
+    },
+
     getPlugin(pluginId: string): PluginDescriptor | undefined {
+      // Prefer active plugin (has agent APIs and slot declarations).
+      const active = state.activePlugins.find((p) => p.id === pluginId);
+      if (active) return active;
       return state.allPlugins.find((p) => p.id === pluginId);
+    },
+
+    getActivePlugin(pluginId: string): ActivatedPluginInfo | undefined {
+      return state.activePlugins.find((p) => p.id === pluginId);
     },
   };
 }
@@ -214,7 +267,13 @@ async function activatePlugin(
     // Step 1: Dynamically import the agent entry.
     const loadResult = await loadPluginAgentEntry(plugin.id, agentEntryUrl);
     if (loadResult.error || !loadResult.module) {
-      console.warn("[pluginSystem]", loadResult.error);
+      const errMsg = loadResult.error ?? 'Unknown load error';
+      console.warn("[pluginSystem]", errMsg);
+      state.pluginErrors = [...state.pluginErrors, {
+        pluginId: plugin.id,
+        pluginName: plugin.name,
+        message: errMsg,
+      }];
       return;
     }
 
@@ -230,8 +289,9 @@ async function activatePlugin(
     };
     const configClient = createPluginConfigClient(manifest, apiClient);
 
-    // Step 4: Create storage for standalone slot declarations.
+    // Step 4: Create storage for standalone slot declarations and agent APIs.
     const slotDeclarations = new Map<symbol, readonly PluginSlotDeclaration[]>();
+    const agentApis = new Map<string, AgentApiHandler>();
 
     // Step 5: Create the sandboxed host.
     const host = createAgentPluginHost({
@@ -249,6 +309,9 @@ async function activatePlugin(
       storeSlotDeclarations: (toolSetSymbol, slots) => {
         slotDeclarations.set(toolSetSymbol, slots);
       },
+      registerAgentApi: (method, handler) => {
+        agentApis.set(method, handler);
+      },
       getSelectedModel: () => providerStore.getSelectedModel(),
     });
     // Step 6: Call activate — this is where the plugin registers ToolSets.
@@ -257,16 +320,23 @@ async function activatePlugin(
     state.activePlugins.push({
       host,
       slotDeclarations,
+      agentApis,
       ...plugin,
     });
     console.info(
       `[pluginSystem] Activated plugin: ${plugin.id} ("${plugin.name}") v${plugin.version}`,
     );
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
     console.warn(
       `[pluginSystem] Failed to activate plugin "${plugin.id}":`,
-      err instanceof Error ? err.message : String(err),
+      errMsg,
     );
+    state.pluginErrors = [...state.pluginErrors, {
+      pluginId: plugin.id,
+      pluginName: plugin.name,
+      message: errMsg,
+    }];
     // R1: failure of one plugin does not affect others.
   }
 }

@@ -1,5 +1,4 @@
 import type { PluginStateExtension } from '@agent-type';
-import type { ToolButtonSlotDeclaration, ToolCardSlotDeclaration, CompactToolCardSlotDeclaration } from '@agent-type';
 
 // ── Transport & status ────────────────────────────────────────────────────────
 
@@ -27,6 +26,8 @@ export type McpServerEntry = {
   headers?:       Record<string, string>;
   includeTools?:  string[];
   enabled:        boolean;
+  /** Whether to route connections through the globally configured proxy. */
+  useProxy?:      boolean;
   status:         McpServerStatus;
   errorMsg?:      string;
   /** Tools exposed by this server (populated when connected). */
@@ -53,6 +54,7 @@ export type McpAdapter = {
     headers?:      Record<string, string>;
     includeTools?: string[];
     enabled?:      boolean;
+    useProxy?:     boolean;
   }): Promise<McpServerEntry>;
 
   /** Remove a server (disconnect first if needed). */
@@ -76,35 +78,3 @@ export type McpAdapter = {
    */
   executeTool(server: string, tool: string, args: unknown, sessionId?: string, signal?: AbortSignal): Promise<unknown>;
 };
-
-// ── Reactive store interface (returned by createMcpManager) ───────────────────
-
-export type McpStore = {
-  getAll(): McpServerEntry[];
-  get(id: string): McpServerEntry | undefined;
-  getByName(name: string): McpServerEntry | undefined;
-  subscribe(fn: () => void): () => void;
-};
-
-// ── Module augmentation ───────────────────────────────────────────────────────
-
-declare module '@agent-type' {
-  interface PluginStateExtension {
-    type: 'mcpManager';
-    servers: McpServerEntry[];
-    store: McpStore;
-    connect: (id: string) => Promise<void>;
-    disconnect: (id: string) => void;
-    remove: (id: string) => void;
-    addServer: (config: {
-      name: string;
-      url: string;
-      transport: McpTransport;
-      headers?: Record<string, string>;
-      includeTools?: string[];
-      enabled?: boolean;
-    }) => Promise<McpServerEntry>;
-    sync: () => Promise<McpServerEntry[]>;
-    slots: readonly (ToolButtonSlotDeclaration | ToolCardSlotDeclaration | CompactToolCardSlotDeclaration)[];
-  }
-}

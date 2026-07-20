@@ -17,18 +17,24 @@
  */
 
 import { useEffect, useRef, useMemo, useCallback, type RefObject } from 'react';
-import type { SlotHostMessage, UiPluginHostInternal, SlotSession, IframeSlotType } from '@agent-type';
+import type { SlotHostMessage, UiPluginHostInternal, SlotSession, IframeSlotType, AgentApiHandler } from '@agent-type';
 import type { PluginManifest } from '@agent-type';
 import { createUiPluginHost } from '../../plugin/uiHost';
 import { createPluginApiClient } from '../../plugin/apiClient';
 import { createPluginConfigClient } from '../../plugin/configClient';
 import type { PluginDescriptor } from '../../plugin/pluginSystem';
+import { usePluginSystem } from '../../plugin/PluginContext';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface UseSlotHostBridgeOptions {
-  /** Session whose state changes are pushed to the iframe. */
-  readonly session: SlotSession;
+  /**
+   * Session whose state changes are pushed to the iframe.
+   * `null` only for session-independent slots (e.g. toolButton without a
+   * running session). The host still works — `getPluginState()` returns
+   * `undefined`, and no state-push subscriptions are set up.
+   */
+  readonly session?: SlotSession | null;
   /** Plugin id (used for API-scoped calls and slot-lookup). */
   readonly pluginId: string;
   /** Slot identifier (matches the declaration's `id`). */
@@ -74,6 +80,24 @@ export function useSlotHostBridge(
 
   const hostRef = useRef<UiPluginHostInternal | null>(null);
 
+  // Build slot context — null-safe for session-independent slots.
+  const slotContext = useMemo(() => {
+    if (!session) {
+      return { slotId, slotType, sessionId: '', agentName: '', conversationId: '' };
+    }
+    const state = session.getState();
+    return { slotId, slotType, sessionId: state.id, agentName: state.agentName, conversationId: state.conversationId };
+  }, [session, slotId, slotType]);
+
+  // Resolve agent-side API handlers from the plugin system.
+  // These are registered by ToolSets via host.registerAgentApi during activation.
+  // Only active plugins (successfully loaded agent entry) have agentApis.
+  const activePlugin = usePluginSystem().getActivePlugin(pluginId);
+  const agentApis = useMemo(
+    () => activePlugin?.agentApis ?? new Map<string, AgentApiHandler>(),
+    [activePlugin],
+  );
+
   // Create host eagerly so IframeSandbox can inject it on iframe load.
   // Memoised per (pluginId, session, slotId, slotType, uiPlugin).
   const host: UiPluginHostInternal = useMemo(() => {
@@ -90,27 +114,22 @@ export function useSlotHostBridge(
       plugin: uiPlugin,
       apiClient,
       configClient,
-      session,
+      session: session ?? undefined,
       toolSetSymbol,
-      slotContext: {
-        slotId,
-        slotType,
-        sessionId: session.getState().id,
-        agentName: session.getState().agentName,
-        conversationId: session.getState().conversationId,
-      },
+      slotContext,
+      agentApis,
     });
-  }, [pluginId, session, slotId, slotType, toolSetSymbol, uiPlugin]);
+  }, [pluginId, session, slotId, slotType, toolSetSymbol, uiPlugin, slotContext, agentApis]);
 
   hostRef.current = host;
 
   // Push initial state when the iframe loads.
-  // If the iframe hasn't registered an onSlotMessage subscriber yet,
-  // the host buffers and replays it.
+  // When there's no session, there's nothing to push — the host still works
+  // (getPluginState returns undefined), and the iframe can render without state.
   const handleReady = useCallback(
     (_iframe: HTMLIFrameElement) => {
       const h = hostRef.current;
-      if (!h) return;
+      if (!h || !session) return;
       const msg = {
         version: 1 as const,
         type: slotType,
@@ -123,7 +142,9 @@ export function useSlotHostBridge(
   );
 
   // Subscribe to session state changes and push updates.
+  // When no session exists, there's nothing to subscribe to.
   useEffect(() => {
+    if (!session) return;
     const unsub = session.subscribe(() => {
       const h = hostRef.current;
       if (!h) return;

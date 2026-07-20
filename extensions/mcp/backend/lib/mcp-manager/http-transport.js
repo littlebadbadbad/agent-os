@@ -6,13 +6,45 @@
  *   - text/event-stream       — SSE stream; we read the first result event
  *
  * Sessions are tracked via the Mcp-Session-Id response header.
+ *
+ * Proxy support:
+ *   When `useProxy` is true (default), all connections route through the
+ *   globally configured proxy (set by proxy.js).  When false, connections
+ *   bypass the proxy entirely via undici's direct Agent.
  */
 
 import { CLIENT_INFO, serializeToolResult } from './transport-utils.js';
 
-export async function createHttpClient(url, extraHeaders = {}) {
+// ── Direct fetch (lazily initialised, bypasses proxy) ────────────────────────
+
+/**
+ * Lazily creates an undici Agent + fetch that bypasses the global proxy.
+ * Returns a function matching `fetch()` signature.
+ * The Agent is created once and reused (connection pooling).
+ */
+let _directFetch = null;
+async function ensureDirectFetch() {
+  if (!_directFetch) {
+    const { fetch: undiciFetch, Agent } = await import('undici');
+    const agent = new Agent({ connect: { timeout: 10_000 } });
+    _directFetch = (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
+  }
+  return _directFetch;
+}
+
+/**
+ * @param {string} url
+ * @param {Record<string,string>} [extraHeaders]
+ * @param {{ useProxy?: boolean }} [options]
+ */
+export async function createHttpClient(url, extraHeaders = {}, { useProxy = true } = {}) {
   let requestId = 0;
   let sessionId;
+
+  // Select fetch function once: proxy-aware global fetch, or direct bypass.
+  const requestFetch = useProxy
+    ? globalThis.fetch.bind(globalThis)
+    : await ensureDirectFetch();
 
   function buildHeaders() {
     const h = {
@@ -27,8 +59,7 @@ export async function createHttpClient(url, extraHeaders = {}) {
   async function sendRequest(method, params) {
     const id = ++requestId;
     const body = JSON.stringify({ jsonrpc: '2.0', id, method, params });
-
-    const res = await fetch(url, { method: 'POST', headers: buildHeaders(), body });
+    const res = await requestFetch(url, { method: 'POST', headers: buildHeaders(), body });
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -49,7 +80,7 @@ export async function createHttpClient(url, extraHeaders = {}) {
   }
 
   function sendNotification(method, params) {
-    fetch(url, {
+    requestFetch(url, {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify({ jsonrpc: '2.0', method, params }),
@@ -75,7 +106,7 @@ export async function createHttpClient(url, extraHeaders = {}) {
     },
     close() {
       if (sessionId) {
-        fetch(url, { method: 'DELETE', headers: buildHeaders() }).catch(() => {});
+        requestFetch(url, { method: 'DELETE', headers: buildHeaders() }).catch(() => {});
         sessionId = undefined;
       }
     },

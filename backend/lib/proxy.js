@@ -24,6 +24,23 @@ import { createLogger } from './logger.js';
 
 const log = createLogger('proxy');
 
+// ── Direct (non-proxied) Agent ────────────────────────────────────────────────
+// Used by subsystems (MCP, etc.) that need per-connection proxy control.
+// Created once and reused — Agents pool connections internally.
+
+const _directAgent = new Agent({ connect: { timeout: 10_000 } });
+
+/**
+ * Create a fetch function that bypasses the globally configured proxy.
+ * Returns a new function on each call (safe to pass around), but the
+ * underlying undici Agent is shared (connection pooling).
+ *
+ * @returns {(input: RequestInfo, init?: RequestInit) => Promise<Response>}
+ */
+export function createDirectFetch() {
+  return (input, init) => undiciFetch(input, { ...init, dispatcher: _directAgent });
+}
+
 // ── Sentinel value ────────────────────────────────────────────────────────────
 // When the frontend/API sends this string as the password it means "don't
 // overwrite the stored password" (it's the masked representation shown to

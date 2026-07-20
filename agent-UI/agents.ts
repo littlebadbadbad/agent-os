@@ -92,7 +92,7 @@ const toolSearchToolSet = createToolSearchToolSet();
 // ── Permission rules ──────────────────────────────────────────────────────────
 
 const permissionsToolSet = createPermissionsToolSet({
-  context: { mode: 'default' },
+  // context: { mode: 'default' },
 });
 const sharedToolSets = [
   toolSearchToolSet,
