@@ -2,8 +2,6 @@ import { useEffect, useRef } from "react";
 import type { ReactElement, ReactNode } from "react";
 import type { WidgetIcon } from "@agent-sdk";
 import styles from "./SidebarHeader.module.scss";
-import { SidebarSide } from "../../hooks/useSidebarState";
-
 // ── Icon renderer (framework-agnostic: emoji string | URL | DOM/SVG node) ─────
 
 function isUrl(s: string): boolean {
@@ -54,8 +52,6 @@ function IconNode({ icon }: { icon: WidgetIcon }): ReactElement {
 
 interface SidebarHeaderProps {
   icon?: WidgetIcon;
-  side: SidebarSide;
-  onToggleSide: () => void;
   onToggleOpen: () => void;
   /** Optional control bar rendered in the header identity area. */
   controlBar?: ReactNode;
@@ -65,17 +61,9 @@ interface SidebarHeaderProps {
 
 export function SidebarHeader({
   icon,
-  side,
-  onToggleSide,
   onToggleOpen,
   controlBar,
 }: SidebarHeaderProps): ReactElement {
-  const collapseTitle = side === "right" ? "Collapse right" : "Collapse left";
-  const collapseIcon = side === "right" ? "›" : "‹";
-  const switchTitle =
-    side === "right" ? "Move to left side" : "Move to right side";
-  const switchIcon = side === "right" ? "⇤" : "⇥";
-
   return (
     <div className={styles["header"]}>
       <div className={styles["identity"]}>
@@ -87,20 +75,11 @@ export function SidebarHeader({
         <button
           type="button"
           className={styles["ctrl-btn"]}
-          onClick={onToggleSide}
-          title={switchTitle}
-          aria-label={switchTitle}
-        >
-          {switchIcon}
-        </button>
-        <button
-          type="button"
-          className={styles["ctrl-btn"]}
           onClick={onToggleOpen}
-          title={collapseTitle}
-          aria-label={collapseTitle}
+          title="Collapse panel"
+          aria-label="Collapse panel"
         >
-          {collapseIcon}
+          ›
         </button>
       </div>
     </div>

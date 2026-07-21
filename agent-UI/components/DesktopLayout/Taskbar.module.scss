@@ -1,0 +1,69 @@
+.taskbar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  z-index: 10000;
+  padding: 0 8px;
+}
+
+.taskbar-apps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.taskbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.14s, transform 0.1s;
+  position: relative;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    transform: scale(1.1);
+  }
+
+  &--open {
+    background: var(--bg-tertiary);
+  }
+
+  &--active {
+    background: var(--bg-tertiary);
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 2px;
+      border-radius: 1px;
+      background: var(--primary);
+    }
+  }
+
+  &--minimized {
+    opacity: 0.6;
+  }
+}
+
+.taskbar-icon-emoji {
+  font-size: 20px;
+  line-height: 1;
+  pointer-events: none;
+}

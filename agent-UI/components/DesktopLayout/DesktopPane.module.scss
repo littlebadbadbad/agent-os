@@ -1,0 +1,12 @@
+.desktop {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 120, 212, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(188, 140, 255, 0.04) 0%, transparent 50%),
+    var(--bg-primary);
+  overflow: hidden;
+}

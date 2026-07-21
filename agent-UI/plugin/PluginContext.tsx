@@ -98,13 +98,7 @@ export function PluginProvider({ session, children }: PluginProviderProps): Reac
   // Build slot registry from standalone declarations — reactively rebuilt
   // when plugins are activated/deactivated via the subscribe mechanism.
   const [slotRegistry, setSlotRegistry] = useState<SlotRegistry>(() => {
-    const plugins = pluginSystem.activePlugins;
-    const discovered = collectStandaloneSlots(plugins);
-    console.log(
-      `[PluginProvider] activePlugins=${plugins.length}, discovered=${discovered.length}`,
-      plugins.map((p) => `${p.id} slots=${p.slotDeclarations.size}`).join(', '),
-      discovered.map((d) => `${d.pluginId}:${d.declaration.type}`).join(', '),
-    );
+    const discovered = collectStandaloneSlots(pluginSystem.activePlugins);
     return createSlotRegistry(toSlotEntries(discovered));
   });
 

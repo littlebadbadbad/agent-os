@@ -1,0 +1,19 @@
+.layout {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  background: var(--bg-primary);
+  z-index: 1;
+}
+
+.sidebar-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+}

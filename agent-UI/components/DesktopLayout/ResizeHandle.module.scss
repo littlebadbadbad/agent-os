@@ -1,0 +1,14 @@
+.handle {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: ew-resize;
+  background: var(--border);
+  transition: background 0.15s;
+  position: relative;
+  z-index: 1;
+
+  &:hover,
+  &:active {
+    background: var(--primary);
+  }
+}

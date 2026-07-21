@@ -9,18 +9,14 @@ export type AgentWidgetProps = {
   icon?: WidgetIcon;
   /** Accent color theme overrides. */
   theme?: WidgetTheme;
-  /** Initial sidebar width in pixels. */
+  /** @deprecated Sidebar width is now managed by the desktop layout divider. */
   initialWidth?: number;
-} & {
-  /**
-   * The session manager that owns all sessions.  Enables the session-list
-   * header and full multi-session UI.
-   */
+  /** The session manager that owns all sessions. */
   sessionManager: SessionManager;
 };
 
 export default function AgentWidget(props: AgentWidgetProps): ReactElement {
-  const { icon, theme, initialWidth } = props;
+  const { icon, theme } = props;
 
   // Inject prefixed CSS vars (--agent-sdk-*) on :root so that sandboxed
   // plugin iframes and external consumers can consume the same design tokens.
@@ -30,7 +26,6 @@ export default function AgentWidget(props: AgentWidgetProps): ReactElement {
     <MultiSessionWidget
       icon={icon}
       theme={theme}
-      initialWidth={initialWidth}
       sessionManager={props.sessionManager}
     />
   );

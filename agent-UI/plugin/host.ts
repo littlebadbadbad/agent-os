@@ -82,12 +82,11 @@ export function createAgentPluginHost(params: AgentPluginHostParams): AgentPlugi
 
   return {
     registerToolSet(toolSet: ToolSet, slots?: readonly PluginSlotDeclaration[]): () => void {
-      const sym = toolSet.symbol ?? (
-        console.warn(`[host] ToolSet "${toolSet.name}" (plugin "${pluginId}") is missing a symbol — using fallback. Slot declarations may not match session state.`),
-        Symbol.for(`agent:slot:${pluginId}:${toolSet.name}`)
-      );
+      if (!toolSet.symbol) {
+        toolSet.symbol = Symbol.for(`agent:slot:${pluginId}:${toolSet.name}`);
+      }
       if (slots) {
-        storeSlotDeclarations(sym, slots);
+        storeSlotDeclarations(toolSet.symbol, slots);
       }
       attatchToolSets(toolSet);
       return agentContext.addToolSet(toolSet);

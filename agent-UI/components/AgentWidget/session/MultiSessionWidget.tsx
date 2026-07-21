@@ -2,14 +2,13 @@ import { useSyncExternalStore, useState, useCallback, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import type { Attachment } from '@agent-sdk';
 import type { WidgetIcon, WidgetTheme, SessionManager, SessionListEntry } from '@agent-sdk';
-import { Widget } from '../../Widget';
 import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
 import { ConversationNavigator } from '../navigator';
 import type { ConversationItem, SessionHandle } from '../navigator';
 import styles from '../AgentWidget.module.scss';
-import { PluginProvider } from '../../../plugin/PluginContext';
-import { AppLauncher } from '@agent-UI/components/AppLauncher/AppLauncher';
+import { PluginProvider, useSlotRegistry } from '../../../plugin/PluginContext';
+import { DesktopLayout } from '../../DesktopLayout/DesktopLayout';
 
 // ── Welcome state (shown when no sessions exist) ──────────────────────────────
 
@@ -25,17 +24,74 @@ function WelcomeState(): ReactElement {
   );
 }
 
+// ── Inner layout — rendered inside PluginProvider ──────────────────────────
+
+import type { SlotSession } from "@agent-type";
+
+function DesktopLayoutShell({
+  icon,
+  theme,
+  panelSession,
+  agentId,
+  activeSession,
+  items,
+  renderPanel,
+  onSelect,
+  onBack,
+  onDelete,
+  onRename,
+  onCreateSession,
+}: {
+  icon?: WidgetIcon;
+  theme?: WidgetTheme;
+  panelSession: SlotSession | null;
+  agentId: string | undefined;
+  activeSession: SessionHandle | null;
+  items: readonly ConversationItem[];
+  renderPanel: (id: string) => ReactNode;
+  onSelect: (id: string) => void;
+  onBack: () => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, title: string, subtitle: string) => void;
+  onCreateSession: (text: string, attachments?: readonly Attachment[]) => Promise<void>;
+}): ReactElement {
+  const { getByType } = useSlotRegistry();
+  const appSlots = useMemo(() => getByType("app"), [getByType]);
+
+  return (
+    <DesktopLayout
+      appSlots={appSlots}
+      session={panelSession}
+      sidebarId={agentId}
+      sidebarIcon={icon}
+      sidebarTheme={theme}
+      sidebarControlBar={<AIControlBar activeSession={panelSession} />}
+    >
+      <ConversationNavigator
+        activeSession={activeSession}
+        items={items}
+        listTitle="Sessions"
+        emptyState={<WelcomeState />}
+        renderPanel={renderPanel}
+        onSelect={onSelect}
+        onBack={onBack}
+        onDelete={onDelete}
+        onRename={onRename}
+        onCreateSession={onCreateSession}
+      />
+    </DesktopLayout>
+  );
+}
+
 // ── MultiSessionWidget ────────────────────────────────────────────────────────
 
 export function MultiSessionWidget({
   icon,
   theme,
-  initialWidth,
   sessionManager,
 }: {
   icon?: WidgetIcon;
   theme?: WidgetTheme;
-  initialWidth?: number;
   sessionManager: SessionManager;
 }): ReactElement {
   const { sessions } = useSyncExternalStore(
@@ -143,27 +199,20 @@ export function MultiSessionWidget({
 
   return (
     <PluginProvider session={panelSession ?? null}>
-      <AppLauncher />
-      <Widget
-        id={agentId}
+      <DesktopLayoutShell
         icon={icon}
         theme={theme}
-        initialWidth={initialWidth}
-        controlBar={<AIControlBar activeSession={panelSession} />}
-      >
-        <ConversationNavigator
-          activeSession={activeSession}
-          items={items}
-          listTitle="Sessions"
-          emptyState={<WelcomeState />}
-          renderPanel={renderPanel}
-          onSelect={handleSelect}
-          onBack={handleBack}
-          onDelete={handleDelete}
-          onRename={handleRename}
-          onCreateSession={handleCreateSession}
-        />
-      </Widget>
+        panelSession={panelSession ?? null}
+        agentId={agentId}
+        activeSession={activeSession}
+        items={items}
+        renderPanel={renderPanel}
+        onSelect={handleSelect}
+        onBack={handleBack}
+        onDelete={handleDelete}
+        onRename={handleRename}
+        onCreateSession={handleCreateSession}
+      />
     </PluginProvider>
   );
 }
