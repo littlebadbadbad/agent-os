@@ -1,0 +1,9 @@
+{
+  "id": "devops",
+  "name": "Azure DevOps",
+  "version": "0.1.0",
+  "description": "Azure DevOps / Azure Boards work item management, Git repos, builds, releases, sprints, and test plans.",
+  "agentEntry": "activate.js",
+  "backendEntry": "backend.cjs",
+  "uiEntry": "ui/index.html"
+}

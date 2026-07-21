@@ -130,7 +130,7 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
       store.clear();
     },
 
-    onGetState(ctx: ToolSetContext) {
+    onGetSymbolState(ctx: ToolSetContext) {
       const store = getSessionStore(ctx.sessionId);
       return {
         variables: store.list(),

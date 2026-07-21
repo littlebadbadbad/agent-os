@@ -16,7 +16,6 @@ import * as systemService from '../../services/system.js';
 import { listModels } from '../../services/models.js';
 import { getKeyList, saveKey, removeKey } from '../../services/api-keys.js';
 import * as proxyService from '../../services/proxy.js';
-import { callAdoProxy, uploadAdoProxy } from '../../services/ado-proxy.js';
 import * as modelConfigService from '../../services/model-config.js';
 
 /** @import { IpcMain } from 'electron' */
@@ -58,16 +57,6 @@ export function registerApiHandlers(ipcMain) {
       Object.keys(overrides).length > 0 ? overrides : undefined,
     );
     return { ok: result.ok, ms: result.ms, error: result.error };
-  });
-
-  // ── ADO proxy — JSON call ──────────────────────────────────────────────────
-  ipcMain.handle('api:ado-proxy:call', async (_event, params) => {
-    return callAdoProxy(params);
-  });
-
-  // ── ADO proxy — binary upload ──────────────────────────────────────────────
-  ipcMain.handle('api:ado-proxy:upload', async (_event, params) => {
-    return uploadAdoProxy(params);
   });
 
   // ── Model config (built-in + custom merge) ─────────────────────────────────

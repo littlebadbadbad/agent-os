@@ -81,10 +81,12 @@ function checkShouldRender(
   // Inline slot types never use the iframe dispatch — skip silently.
   if (!decl || decl.type === "compactToolCard" || decl.type === "autocomplete") return true;
 
-  // When no session exists, only toolButton can render (session-independent).
+  // When no session exists, only session-independent slot types may render.
+  // toolButton and app are session-independent — they render icons/bars/windows
+  // that exist even without an active chat session.
   // Evaluate shouldRender with empty context and undefined state.
   if (!session) {
-    if (decl.type !== "toolButton") return false;
+    if (decl.type !== "toolButton" && decl.type !== "app") return false;
     if (!decl.shouldRender) return true;
     return decl.shouldRender(
       { sessionId: "", agentName: "", conversationId: "" },

@@ -78,20 +78,6 @@ export interface SlotRegistry {
   readonly isEmpty: boolean;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/**
- * Auto-generate a unique slot id from plugin + toolset symbol + index.
- *
- * Examples:
- *   `user-input::requestUserInput::0`
- *   `browser::browser::2`
- */
-function generateSlotId(pluginId: string, toolSetSymbol: symbol, slotIndex: number): string {
-  const desc = toolSetSymbol.description ?? 'toolset';
-  return `${pluginId}::${desc}::${slotIndex}`;
-}
-
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export function createSlotRegistry(slotEntries?: readonly SlotEntry[]): SlotRegistry {

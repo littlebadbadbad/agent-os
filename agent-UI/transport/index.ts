@@ -8,7 +8,7 @@
  */
 
 export { apiTransport } from './apiTransport';
-export type { ApiTransport, AdoProxyParams, AdoProxyUploadParams } from './apiTransport';
+export type { ApiTransport } from './apiTransport';
 
 export { chatTransport } from './chatTransport';
 export type { ChatTransport, ChatParams } from './chatTransport';

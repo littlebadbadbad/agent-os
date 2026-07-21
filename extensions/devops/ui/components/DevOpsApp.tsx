@@ -2,7 +2,7 @@ import { DevOpsProvider, useDevOps } from '../store/devopsStore';
 import { LoginPage } from './LoginPage';
 import { AppLayout } from './layout/AppLayout';
 import { PreAuthLayout } from './layout/PreAuthLayout';
-import '../../agent-UI/styles/global.scss';
+import { BridgeRegistration } from './BridgeRegistration';
 
 function AppShell() {
   const { state } = useDevOps();
@@ -17,6 +17,7 @@ function AppShell() {
 export default function DevOpsApp() {
   return (
     <DevOpsProvider>
+      <BridgeRegistration />
       <AppShell />
     </DevOpsProvider>
   );

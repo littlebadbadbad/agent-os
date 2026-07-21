@@ -11,8 +11,6 @@
  *   api:proxy:get        → proxyService.getConfig()
  *   api:proxy:update     → proxyService.updateConfig()
  *   api:proxy:test       → proxyService.testProxyTarget()
- *   api:ado-proxy:call   → undici.fetch() [decryptPat → HTTP]
- *   api:ado-proxy:upload → undici.fetch() [decryptPat → HTTP binary]
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -81,8 +79,6 @@ const mockModelsService = vi.hoisted(() => ({
   listModels: vi.fn(),
 }));
 
-const mockUndiciFetch = vi.hoisted(() => vi.fn());
-
 vi.mock('../providers/qwen.js',     () => ({ listModels: (...a) => mockProviders.qwen.listModels(...a) }));
 vi.mock('../providers/doubao.js',   () => ({ listModels: (...a) => mockProviders.doubao.listModels(...a) }));
 vi.mock('../providers/deepseek.js', () => ({ listModels: (...a) => mockProviders.deepseek.listModels(...a) }));
@@ -95,14 +91,6 @@ vi.mock('../lib/rsa.js',             () => mockRsa);
 vi.mock('../services/models.js', () => mockModelsService);
 vi.mock('../services/api-keys.js', () => mockApiKeysService);
 vi.mock('../services/model-config.js', () => mockModelConfigService);
-
-vi.mock('undici', () => {
-  function MockAgent() {}
-  return {
-    Agent: MockAgent,
-    fetch: (...a) => mockUndiciFetch(...a),
-  };
-});
 
 import { registerApiHandlers } from '../transports/ipc/api.js';
 
@@ -281,184 +269,6 @@ describe('api:proxy:*', () => {
     });
     expect(mockProxyService.testProxyTarget).toHaveBeenCalledWith('https://example.com', { host: 'override-host', port: 9999 });
     expect(result).toEqual({ ok: false, error: 'timeout' });
-  });
-});
-
-// ── ADO proxy ─────────────────────────────────────────────────────────────────
-
-describe('api:ado-proxy:call', () => {
-  const ENCRYPTED_PAT = 'enc-pat-base64';
-  const DECRYPTED_PAT = 'my-pat-token';
-
-  beforeEach(() => {
-    mockRsa.decryptPat.mockReturnValue(DECRYPTED_PAT);
-  });
-
-  it('makes a GET request and returns JSON', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ value: [{ id: 'item-1' }] }),
-      text: async () => '',
-    });
-
-    const result = await ipcMain._handlers['api:ado-proxy:call'](makeEvent(), {
-      url: 'https://dev.azure.com/org/project/_apis/build/builds',
-      pat: ENCRYPTED_PAT,
-    });
-
-    expect(mockRsa.decryptPat).toHaveBeenCalledWith(ENCRYPTED_PAT);
-    expect(mockUndiciFetch).toHaveBeenCalledWith(
-      expect.stringContaining('api-version='),
-      expect.objectContaining({ method: 'GET' }),
-    );
-    expect(result).toEqual({ value: [{ id: 'item-1' }] });
-  });
-
-  it('makes a POST request with JSON body', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'new-item' }),
-      text: async () => '',
-    });
-
-    await ipcMain._handlers['api:ado-proxy:call'](makeEvent(), {
-      url: 'https://dev.azure.com/org/project/_apis/wit/workitems',
-      pat: ENCRYPTED_PAT,
-      method: 'POST',
-      body: [{ op: 'add', path: '/fields/System.Title', value: 'Test' }],
-      contentType: 'application/json-patch+json',
-    });
-
-    const callArgs = mockUndiciFetch.mock.calls[0][1];
-    expect(callArgs.method).toBe('POST');
-    expect(callArgs.body).toBe('[{"op":"add","path":"/fields/System.Title","value":"Test"}]');
-    expect(callArgs.headers['Content-Type']).toBe('application/json-patch+json');
-  });
-
-  it('throws on invalid url', async () => {
-    await expect(
-      ipcMain._handlers['api:ado-proxy:call'](makeEvent(), { url: '', pat: ENCRYPTED_PAT }),
-    ).rejects.toThrow(/url is required/);
-  });
-
-  it('throws on non-https url', async () => {
-    await expect(
-      ipcMain._handlers['api:ado-proxy:call'](makeEvent(), { url: 'http://example.com', pat: ENCRYPTED_PAT }),
-    ).rejects.toThrow(/url must start with https/);
-  });
-
-  it('throws on missing pat', async () => {
-    await expect(
-      ipcMain._handlers['api:ado-proxy:call'](makeEvent(), { url: 'https://dev.azure.com/org' }),
-    ).rejects.toThrow(/pat is required/);
-  });
-
-  it('throws on upstream HTTP error', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: false,
-      status: 401,
-      text: async () => 'TF400813: Unauthorized',
-    });
-
-    await expect(
-      ipcMain._handlers['api:ado-proxy:call'](makeEvent(), {
-        url: 'https://dev.azure.com/org/project/_apis/build/builds',
-        pat: ENCRYPTED_PAT,
-      }),
-    ).rejects.toThrow('TF400813: Unauthorized');
-  });
-
-  it('returns null on 204', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: true,
-      status: 204,
-      text: async () => '',
-    });
-
-    const result = await ipcMain._handlers['api:ado-proxy:call'](makeEvent(), {
-      url: 'https://dev.azure.com/org/project/_apis/build/builds',
-      pat: ENCRYPTED_PAT,
-    });
-
-    expect(result).toBeNull();
-  });
-});
-
-describe('api:ado-proxy:upload', () => {
-  const ENCRYPTED_PAT = 'enc-pat-base64';
-  const DECRYPTED_PAT = 'my-pat-token';
-
-  beforeEach(() => {
-    mockRsa.decryptPat.mockReturnValue(DECRYPTED_PAT);
-  });
-
-  it('uploads a Buffer serialized as { type, data }', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'attachment-1' }),
-      text: async () => '',
-    });
-
-    const result = await ipcMain._handlers['api:ado-proxy:upload'](makeEvent(), {
-      url: 'https://dev.azure.com/org/project/_apis/wit/attachments',
-      pat: ENCRYPTED_PAT,
-      rawBody: { type: 'Buffer', data: [104, 101, 108, 108, 111] },
-    });
-
-    expect(result).toEqual({ id: 'attachment-1' });
-    const callArgs = mockUndiciFetch.mock.calls[0][1];
-    expect(Buffer.isBuffer(callArgs.body)).toBe(true);
-    expect(callArgs.body.toString()).toBe('hello');
-  });
-
-  it('uploads a base64 string', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'attach-2' }),
-      text: async () => '',
-    });
-
-    await ipcMain._handlers['api:ado-proxy:upload'](makeEvent(), {
-      url: 'https://dev.azure.com/org/project/_apis/wit/attachments',
-      pat: ENCRYPTED_PAT,
-      rawBody: Buffer.from('binary-data').toString('base64'),
-    });
-
-    const callArgs = mockUndiciFetch.mock.calls[0][1];
-    expect(Buffer.isBuffer(callArgs.body)).toBe(true);
-    expect(callArgs.body.toString()).toBe('binary-data');
-  });
-
-  it('throws on invalid url', async () => {
-    await expect(
-      ipcMain._handlers['api:ado-proxy:upload'](makeEvent(), { url: '', pat: ENCRYPTED_PAT }),
-    ).rejects.toThrow(/url is required/);
-  });
-
-  it('throws on missing pat', async () => {
-    await expect(
-      ipcMain._handlers['api:ado-proxy:upload'](makeEvent(), { url: 'https://dev.azure.com/org' }),
-    ).rejects.toThrow(/pat is required/);
-  });
-
-  it('returns null on 204', async () => {
-    mockUndiciFetch.mockResolvedValue({
-      ok: true,
-      status: 204,
-      text: async () => '',
-    });
-
-    const result = await ipcMain._handlers['api:ado-proxy:upload'](makeEvent(), {
-      url: 'https://dev.azure.com/org/project/_apis/wit/attachments',
-      pat: ENCRYPTED_PAT,
-      rawBody: '',
-    });
-
-    expect(result).toBeNull();
   });
 });
 

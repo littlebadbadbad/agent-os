@@ -60,7 +60,7 @@ describe('createMemoryGraphToolSet', () => {
     const ctx = makeCtx(sessionId);
     const graph = makeGraph();
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.memoryGraph?.graph).toBeDefined();
     expect(state.memoryGraph?.graph.nodes[0].id).toBe('entity-1');
   });
@@ -80,7 +80,7 @@ describe('createMemoryGraphToolSet', () => {
     const ctx = makeCtx(sessionId);
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
     ts.onReset!(ctx);
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     // After reset: graph is cleared
     expect(state.memoryGraph?.graph).toBeUndefined();
   });
@@ -93,7 +93,7 @@ describe('createMemoryGraphToolSet', () => {
     const ctx = makeCtx(sessionId);
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: makeGraph() });
     ts.onRemove!(ctx);
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     // After removal the graph is gone
     expect(state.memoryGraph?.graph).toBeUndefined();
   });
@@ -107,26 +107,26 @@ describe('createMemoryGraphToolSet', () => {
     ts.onInit!(ctx1, { id: s1, title: 'T', memoryGraph: makeGraph() });
     ts.onInit!(ctx2, { id: s2, title: 'T', memoryGraph: makeGraph() });
     ts.onRemove!(ctx1);
-    const state2 = ts.onGetState!(ctx2) as any;
+    const state2 = ts.onGetSymbolState!(ctx2) as any;
     expect(state2.memoryGraph?.graph).toBeDefined();
   });
 
-  // ── onGetState ─────────────────────────────────────────────────────────────
+  // ── onGetSymbolState ─────────────────────────────────────────────────────────────
 
-  it('onGetState returns no graph for unknown session', () => {
+  it('onGetSymbolState returns no graph for unknown session', () => {
     const ts = createMemoryGraphToolSet();
     const ctx = makeCtx(freshSessionId());
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.memoryGraph?.graph).toBeUndefined();
   });
 
-  it('onGetState reflects the current graph', () => {
+  it('onGetSymbolState reflects the current graph', () => {
     const ts = createMemoryGraphToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const graph = makeGraph();
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.memoryGraph?.graph?.nodes[0].id).toBe('entity-1');
   });
 
@@ -250,8 +250,8 @@ describe('createMemoryGraphToolSet', () => {
     const ctx2 = makeCtx(s2);
     ts.onInit!(ctx1, { id: s1, title: 'T', memoryGraph: makeGraph() });
     ts.onInit!(ctx2, { id: s2, title: 'T' });
-    const state1 = ts.onGetState!(ctx1) as any;
-    const state2 = ts.onGetState!(ctx2) as any;
+    const state1 = ts.onGetSymbolState!(ctx1) as any;
+    const state2 = ts.onGetSymbolState!(ctx2) as any;
     expect(state1.memoryGraph?.graph).toBeDefined();
     expect(state2.memoryGraph?.graph).toBeUndefined();
   });

@@ -1,9 +1,9 @@
 // ADO HTTP client — low-level fetch wrapper and shared raw response types
 //
 // PURE BUSINESS LOGIC — ZERO direct fetch() calls.
-// All HTTP communication delegated to apiTransport.adoProxy / .adoProxyUpload.
+// All HTTP communication delegated to PluginApiClient.call (backend plugin).
 import { encryptPat, clearPublicKeyCache } from '../utils/patEncryption';
-import { apiTransport } from '../transport';
+import type { PluginApiClient } from '@agent-type';
 
 const API_VERSION = '6.1-preview';
 
@@ -34,48 +34,64 @@ export const WORK_ITEM_FIELDS = [
   'Microsoft.VSTS.Scheduling.TargetDate',
 ];
 
+// ── Injectable API client ─────────────────────────────────────────────────────
+// Set during bootApp() in main.tsx — before that, calling adoFetch throws.
+
+let apiClient: PluginApiClient | null = null;
+
+export function setApiClient(client: PluginApiClient): void {
+  apiClient = client;
+}
+
+function requireClient(): PluginApiClient {
+  if (!apiClient) {
+    throw new Error(
+      '[devops-api] PluginApiClient not set. Call setApiClient(host.apiClient) during boot.',
+    );
+  }
+  return apiClient;
+}
 
 // ── Generic ADO proxy wrapper ─────────────────────────────────────────────────
-// All ADO traffic is routed through the backend proxy (/api/ado-proxy) to avoid
-// browser CORS restrictions.  The backend forwards the request to ADO using its
-// own fetch (which also respects any configured network proxy).
-// Communication is handled by apiTransport — completely separated from logic.
+// All ADO traffic is routed through the backend plugin's defineApi handler,
+// which decrypts the PAT and forwards the request to ADO.
 
 export async function adoFetch<T>(
   url: string,
   pat: string,
   opts: { method?: string; body?: unknown; rawBody?: BodyInit; contentType?: string; apiVersion?: string } = {},
 ): Promise<T> {
+  const client = requireClient();
   const method = opts.method ?? 'GET';
 
   // Encrypt the PAT with the server's RSA public key before it leaves the browser.
-  // On a "Failed to decrypt" 400 error we clear the cached key and re-encrypt once
+  // On a "Failed to decrypt" error we clear the cached key and re-encrypt once
   // (handles the case where the server restarted with a new key pair).
-  const encPat = await encryptPat(pat);
+  const encPat = await encryptPat(pat, client);
 
   try {
     // ── Binary upload path ──────────────────────────────────────────────────
     if (opts.rawBody !== undefined) {
-      return await apiTransport.adoProxyUpload<T>({
+      return await client.call<T>('uploadAdoProxy', {
         url,
         pat: encPat,
         contentType: opts.contentType ?? 'application/octet-stream',
         apiVersion: opts.apiVersion ?? API_VERSION,
         rawBody: opts.rawBody,
-      });
+      } as Record<string, unknown>);
     }
 
     // ── Standard JSON path ──────────────────────────────────────────────────
-    return await apiTransport.adoProxy<T>({
+    return await client.call<T>('callAdoProxy', {
       url,
       pat: encPat,
       method,
       body: opts.body,
       contentType: opts.contentType,
       apiVersion: opts.apiVersion ?? API_VERSION,
-    });
+    } as Record<string, unknown>);
   } catch (err) {
-    // On a "Failed to decrypt" 400 error, clear cached key and re-throw
+    // On a "Failed to decrypt" error, clear cached key and re-throw
     const msg = (err as Error).message;
     if (msg.includes('decrypt PAT')) {
       clearPublicKeyCache();
@@ -83,3 +99,5 @@ export async function adoFetch<T>(
     throw err;
   }
 }
+
+

@@ -21,23 +21,6 @@ import { IS_ELECTRON_IPC } from '../env';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface AdoProxyParams {
-  url: string;
-  pat: string;
-  method: string;
-  body?: unknown;
-  contentType?: string;
-  apiVersion?: string;
-}
-
-export interface AdoProxyUploadParams {
-  url: string;
-  pat: string;
-  contentType: string;
-  apiVersion: string;
-  rawBody: BodyInit;
-}
-
 export interface ApiTransport {
   /** GET a JSON resource. */
   get<T = unknown>(path: string, signal?: AbortSignal): Promise<T>;
@@ -50,12 +33,6 @@ export interface ApiTransport {
 
   /** DELETE a resource. */
   del(path: string): Promise<void>;
-
-  /** ADO proxy: standard JSON request. */
-  adoProxy<T = unknown>(params: AdoProxyParams): Promise<T>;
-
-  /** ADO proxy: binary upload. */
-  adoProxyUpload<T = unknown>(params: AdoProxyUploadParams): Promise<T>;
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -108,44 +85,6 @@ function createHttpApiTransport(): ApiTransport {
       if (!res.ok) {
         throw new Error(`HTTP DELETE ${path} → ${res.status}: ${res.statusText}`);
       }
-    },
-
-    async adoProxy<T = unknown>(params: AdoProxyParams): Promise<T> {
-      const { url, pat, method, body, contentType, apiVersion } = params;
-      const headers: Record<string, string> = {
-        'Content-Type': contentType ?? 'application/json',
-        'X-ADO-PAT': pat,
-      };
-      if (apiVersion) headers['X-ADO-API-Version'] = apiVersion;
-      const res = await fetch(buildUrl('/api/ado-proxy'), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ url, method, body }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
-        throw new Error(`ADO proxy error (HTTP ${res.status}): ${text}`);
-      }
-      return res.json() as Promise<T>;
-    },
-
-    async adoProxyUpload<T = unknown>(params: AdoProxyUploadParams): Promise<T> {
-      const { url, pat, contentType, apiVersion, rawBody } = params;
-      const headers: Record<string, string> = {
-        'Content-Type': contentType,
-        'X-ADO-PAT': pat,
-        'X-ADO-API-Version': apiVersion,
-      };
-      const res = await fetch(buildUrl('/api/ado-proxy/upload'), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ url, rawBody }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
-        throw new Error(`ADO proxy upload error (HTTP ${res.status}): ${text}`);
-      }
-      return res.json() as Promise<T>;
     },
   };
 }
@@ -234,11 +173,6 @@ function createIpcApiTransport(): ApiTransport {
         agentId: decodeURIComponent(lastPathSegment(path)),
         ...(isRecord(body) ? body : {}),
       })},
-    // ── ADO proxy ──────────────────────────────────────────────────────────
-    { method: 'POST',   pattern: '/api/ado-proxy',             exact: true,  channel: 'api:ado-proxy:call',
-      toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
-    { method: 'POST',   pattern: '/api/ado-proxy/upload',     exact: true,  channel: 'api:ado-proxy:upload',
-      toParams: (_path, body) => (body as Record<string, unknown>) ?? {} },
   ];
 
   const electronAPI = window.electronAPI;
@@ -287,14 +221,6 @@ function createIpcApiTransport(): ApiTransport {
       const entry = matchRoute('DELETE', path);
       const params = entry.toParams?.(path) ?? {};
       await electronAPI.invoke(entry.channel, params);
-    },
-
-    async adoProxy<T>(params: AdoProxyParams): Promise<T> {
-      return electronAPI.invoke('api:ado-proxy:call', params) as Promise<T>;
-    },
-
-    async adoProxyUpload<T>(params: AdoProxyUploadParams): Promise<T> {
-      return electronAPI.invoke('api:ado-proxy:upload', params) as Promise<T>;
     },
   };
 }

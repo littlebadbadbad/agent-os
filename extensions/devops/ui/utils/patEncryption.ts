@@ -5,14 +5,14 @@
  * before it leaves the browser, so it never travels in plain text.
  *
  * Algorithm : RSA-OAEP / SHA-256  (matches backend Node.js crypto settings)
- * Key source : GET /api/public-key  (returns PEM, cached for the page lifetime)
  * Encoding   : base64 ciphertext
  *
- * On server restart the cached key becomes stale.  Call clearPublicKeyCache()
- * (or reload the page) to pick up the new key.
+ * The public key PEM must be provided by the caller (fetched through
+ * PluginApiClient.call('getPublicKey')).  This eliminates circular
+ * dependencies between client.ts and this module.
  */
 
-import { fetchPublicKey as fetchPublicKeyApi } from '../../agent-UI/api/backend';
+import type { PluginApiClient } from '@agent-type';
 
 let cachedKey: CryptoKey | null = null;
 
@@ -21,10 +21,7 @@ export function clearPublicKeyCache(): void {
   cachedKey = null;
 }
 
-async function fetchPublicKey(): Promise<CryptoKey> {
-  const { publicKey: pem } = await fetchPublicKeyApi();
-
-  // Strip PEM headers/footers and decode base64 → DER bytes
+function pemToCryptoKey(pem: string): Promise<CryptoKey> {
   const b64 = pem
     .replace(/-----BEGIN PUBLIC KEY-----/, '')
     .replace(/-----END PUBLIC KEY-----/, '')
@@ -41,9 +38,10 @@ async function fetchPublicKey(): Promise<CryptoKey> {
   );
 }
 
-async function getPublicKey(): Promise<CryptoKey> {
+async function getPublicKey(apiClient: PluginApiClient): Promise<CryptoKey> {
   if (!cachedKey) {
-    cachedKey = await fetchPublicKey();
+    const { key: pem } = await apiClient.call<{ key: string }>('getPublicKey');
+    cachedKey = await pemToCryptoKey(pem);
   }
   return cachedKey;
 }
@@ -59,10 +57,12 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
 
 /**
  * Returns a base64-encoded RSA-OAEP ciphertext of `pat`.
- * Automatically fetches (and caches) the server public key on first call.
+ *
+ * @param pat       Plaintext Personal Access Token.
+ * @param apiClient PluginApiClient for fetching the public key.
  */
-export async function encryptPat(pat: string): Promise<string> {
-  const key = await getPublicKey();
+export async function encryptPat(pat: string, apiClient: PluginApiClient): Promise<string> {
+  const key = await getPublicKey(apiClient);
   const encoded = new TextEncoder().encode(pat);
   const encrypted = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, encoded);
   return arrayBufferToBase64(encrypted);

@@ -213,44 +213,6 @@ describe('PUT /api/agent-sessions/:agentId', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ADO proxy
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe('POST /api/ado-proxy', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('calls api:ado-proxy:call with params', async () => {
-    const adoParams = {
-      url: 'https://dev.azure.com/org/_apis/projects',
-      pat: 'encrypted-pat',
-      method: 'GET',
-    };
-
-    await apiTransport.adoProxy(adoParams);
-
-    expect(mockInvoke).toHaveBeenCalledWith('api:ado-proxy:call', adoParams);
-  });
-});
-
-describe('POST /api/ado-proxy/upload', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('calls api:ado-proxy:upload with params', async () => {
-    const uploadParams = {
-      url: 'https://dev.azure.com/org/_apis/upload',
-      pat: 'encrypted-pat',
-      contentType: 'application/octet-stream',
-      apiVersion: '6.1-preview',
-      rawBody: new Blob(['test']),
-    };
-
-    await apiTransport.adoProxyUpload(uploadParams);
-
-    expect(mockInvoke).toHaveBeenCalledWith('api:ado-proxy:upload', uploadParams);
-  });
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
 // Error handling
 // ═════════════════════════════════════════════════════════════════════════════
 

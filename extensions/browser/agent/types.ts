@@ -1,7 +1,6 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 import type { StreamConfig } from "./streamConfig";
-import { BROWSER_SYMBOL } from "./toolSet";
 export type { StreamConfig };
 
 /**

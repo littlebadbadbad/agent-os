@@ -9,6 +9,7 @@ import { ConversationNavigator } from '../navigator';
 import type { ConversationItem, SessionHandle } from '../navigator';
 import styles from '../AgentWidget.module.scss';
 import { PluginProvider } from '../../../plugin/PluginContext';
+import { AppLauncher } from '@agent-UI/components/AppLauncher/AppLauncher';
 
 // ── Welcome state (shown when no sessions exist) ──────────────────────────────
 
@@ -142,7 +143,7 @@ export function MultiSessionWidget({
 
   return (
     <PluginProvider session={panelSession ?? null}>
-      {/****/}
+      <AppLauncher />
       <Widget
         id={agentId}
         icon={icon}
@@ -150,20 +151,18 @@ export function MultiSessionWidget({
         initialWidth={initialWidth}
         controlBar={<AIControlBar activeSession={panelSession} />}
       >
-        <div className={styles['chat']}>
-          <ConversationNavigator
-            activeSession={activeSession}
-            items={items}
-            listTitle="Sessions"
-            emptyState={<WelcomeState />}
-            renderPanel={renderPanel}
-            onSelect={handleSelect}
-            onBack={handleBack}
-            onDelete={handleDelete}
-            onRename={handleRename}
-            onCreateSession={handleCreateSession}
-          />
-        </div>
+        <ConversationNavigator
+          activeSession={activeSession}
+          items={items}
+          listTitle="Sessions"
+          emptyState={<WelcomeState />}
+          renderPanel={renderPanel}
+          onSelect={handleSelect}
+          onBack={handleBack}
+          onDelete={handleDelete}
+          onRename={handleRename}
+          onCreateSession={handleCreateSession}
+        />
       </Widget>
     </PluginProvider>
   );

@@ -132,7 +132,7 @@ export function createMemoryGraphToolSet(options: MemoryGraphToolSetOptions = {}
 
     // ── State & UI subscription ─────────────────────────────────────────────
 
-    onGetState(ctx: ToolSetContext) {
+    onGetSymbolState(ctx: ToolSetContext) {
       const graph = memoryGraphStore.get(convKey(ctx)) ?? undefined;
       return { memoryGraph: { graph } };
     },

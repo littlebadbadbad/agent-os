@@ -86,6 +86,12 @@ export interface PluginSystem {
   init(agentContext: AgentPluginContext): Promise<void>;
 
   /**
+   * Subscribe to plugin activation/deactivation changes.
+   * Returns an unsubscribe function.
+   */
+  subscribe(cb: () => void): () => void;
+
+  /**
    * All plugins that were successfully activated.
    */
   get activePlugins(): readonly ActivatedPluginInfo[];
@@ -158,6 +164,7 @@ interface PluginSystemState {
   allPlugins: PluginDescriptor[];
   pluginErrors: PluginLoadError[];
   initialized: boolean;
+  listeners: Set<() => void>;
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -175,9 +182,15 @@ export function createPluginSystem(): PluginSystem {
     allPlugins: [],
     pluginErrors: [],
     initialized: false,
+    listeners: new Set(),
   };
 
   return {
+    subscribe(cb: () => void): () => void {
+      state.listeners.add(cb);
+      return () => { state.listeners.delete(cb); };
+    },
+
     async init(agentContext: AgentPluginContext): Promise<void> {
       if (state.initialized) return;
       state.initialized = true;
@@ -192,6 +205,9 @@ export function createPluginSystem(): PluginSystem {
         plugin.symbols = plugin.symbols ?? [];
         await activatePlugin(state, plugin, agentContext);
       }
+
+      // Notify listeners after all plugins are activated.
+      for (const cb of state.listeners) cb();
     },
     get activeSymbols(): readonly symbol[] {
       return state.activePlugins.map((p) => p.symbols).flat();
@@ -307,8 +323,9 @@ async function activatePlugin(
       agentContext,
       bridge,
       attatchToolSets: (toolSet) => {
-        if (toolSet.symbol && !plugin.symbols.includes(toolSet.symbol)) {
-          plugin.symbols.push(toolSet.symbol);
+        const sym = toolSet.symbol ?? Symbol.for(`agent:slot:${plugin.id}:${toolSet.name}`);
+        if (!plugin.symbols.includes(sym)) {
+          plugin.symbols.push(sym);
         }
       },
       storeSlotDeclarations: (toolSetSymbol, slots) => {

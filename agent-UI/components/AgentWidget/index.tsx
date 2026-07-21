@@ -2,8 +2,6 @@ import type { ReactElement } from "react";
 import { useEffect } from "react";
 import type { WidgetIcon, WidgetTheme, SessionManager } from "@agent-sdk";
 import { MultiSessionWidget } from "./session/MultiSessionWidget";
-import { AppLauncher } from "../AppLauncher/AppLauncher";
-import { PluginProvider } from "../../plugin/PluginContext";
 import { injectHostCssVars } from "../../styles/cssVariables";
 
 export type AgentWidgetProps = {
@@ -29,19 +27,12 @@ export default function AgentWidget(props: AgentWidgetProps): ReactElement {
   useEffect(() => { injectHostCssVars(); }, []);
 
   return (
-    // Outer PluginProvider (session=null) provides the slot registry to
-    // AppLauncher.  MultiSessionWidget has its own inner PluginProvider
-    // that shadows this one with the actual panel session for the chat
-    // widget subtree.
-    <PluginProvider session={null}>
-      <AppLauncher />
-      <MultiSessionWidget
-        icon={icon}
-        theme={theme}
-        initialWidth={initialWidth}
-        sessionManager={props.sessionManager}
-      />
-    </PluginProvider>
+    <MultiSessionWidget
+      icon={icon}
+      theme={theme}
+      initialWidth={initialWidth}
+      sessionManager={props.sessionManager}
+    />
   );
 }
 

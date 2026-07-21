@@ -16,7 +16,6 @@ import './lib/proxy.js';   // side-effect: initialises global dispatcher
 import { handleChatAsync, handleChatStream } from './transports/network/chat.js';
 import { handleChatLogRoutes } from './transports/network/chat-logs.js';
 import { handleProxyRoutes } from './transports/network/proxy.js';
-import { handleAdoProxyRoutes } from './transports/network/ado-proxy.js';
 import { createLogger } from './lib/logger.js';
 import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
 import * as systemService from './services/system.js';
@@ -26,9 +25,9 @@ import { handleModelConfigRoutes } from './transports/network/model-config.js';
 import { handleSessionRoutes } from './transports/network/sessions.js';
 import { WebSocketServer } from 'ws';
 import { pluginRouter } from './lib/plugin-router.js';
-import { createPluginScanner } from './lib/plugin-scanner.js';
-import { isBuiltInPlugin } from './lib/plugin-scanner.js';
+import { createPluginScanner, isBuiltInPlugin } from './lib/plugin-scanner.js';
 import { getProxyConfig } from './lib/proxy.js';
+import { decryptPat, getPublicKeyPem } from './lib/rsa.js';
 import { createPluginConfigStore } from './lib/plugin-config-store.js';
 /**
  * Lazy IPC handler registration — only loaded when called from Electron main process.
@@ -168,9 +167,6 @@ async function handleRequest(req, res) {
     const proxyRouteMatched = await handleProxyRoutes(req, res, path);
     if (proxyRouteMatched !== false) return;
 
-    const adoProxyRouteMatched = await handleAdoProxyRoutes(req, res, path);
-    if (adoProxyRouteMatched !== false) return;
-
     const chatLogRouteMatched = await handleChatLogRoutes(req, res, path);
     if (chatLogRouteMatched !== false) return;
 
@@ -260,6 +256,8 @@ async function handleRequest(req, res) {
 // ── Plugin system (singleton, created once) ────────────────────────────────
 export const pluginScanner = createPluginScanner(pluginRouter, PLUGINS_DIR, DATA_ROOT, {
   proxy: getProxyConfig,
+  rsaDecrypt: () => decryptPat,
+  rsaPublicKey: () => getPublicKeyPem(),
 }, AGENT_DIR);
 export const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
 

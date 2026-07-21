@@ -9,15 +9,17 @@
  * Session-independent — the taskbar and its windows render even without an
  * active chat session.  Plugin display callbacks receive empty context and
  * undefined state when no session exists.
+ *
+ * Session is read from {@link PluginContext} automatically — no prop needed.
  */
 
-import { type ReactElement, useCallback, useState } from "react";
-import type { AppSlotDeclaration, SlotSession } from "@agent-type";
-import { useSlotRegistry } from "../../plugin/PluginContext";
+import { type ReactElement, useCallback, useReducer, useSyncExternalStore } from "react";
+import type { AppSlotDeclaration } from "@agent-type";
+import { useSlotRegistry, useSession } from "../../plugin/PluginContext";
 import { AppWindow } from "./AppWindow";
 import styles from "./appLauncher.module.scss";
 
-// ── Open window state ────────────────────────────────────────────────────────
+// ── Window manager types ─────────────────────────────────────────────────────
 
 interface OpenAppWindow {
   readonly pluginId: string;
@@ -26,76 +28,148 @@ interface OpenAppWindow {
   readonly toolSetSymbol: symbol;
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+interface WindowManagerState {
+  readonly windows: readonly OpenAppWindow[];
+  readonly focusedId: string | null;
+}
 
+type WindowAction =
+  | { readonly type: "toggle"; readonly entry: OpenAppWindow }
+  | { readonly type: "close"; readonly slotId: string }
+  | { readonly type: "focus"; readonly slotId: string };
+
+function windowManagerReducer(
+  state: WindowManagerState,
+  action: WindowAction,
+): WindowManagerState {
+  switch (action.type) {
+    case "toggle": {
+      const idx = state.windows.findIndex((w) => w.slotId === action.entry.slotId);
+      if (idx >= 0) {
+        // Close the window.
+        const next = state.windows.filter((_, i) => i !== idx);
+        return {
+          windows: next,
+          focusedId:
+            state.focusedId === action.entry.slotId
+              ? next.length > 0
+                ? next[next.length - 1].slotId
+                : null
+              : state.focusedId,
+        };
+      }
+      // Open a new window.
+      return {
+        windows: [...state.windows, action.entry],
+        focusedId: action.entry.slotId,
+      };
+    }
+    case "close": {
+      const next = state.windows.filter((w) => w.slotId !== action.slotId);
+      return {
+        windows: next,
+        focusedId:
+          state.focusedId === action.slotId
+            ? next.length > 0
+              ? next[next.length - 1].slotId
+              : null
+            : state.focusedId,
+      };
+    }
+    case "focus": {
+      const idx = state.windows.findIndex((w) => w.slotId === action.slotId);
+      if (idx < 0) return state;
+      // Bring to front by moving to end of array (highest z-index).
+      if (idx === state.windows.length - 1) {
+        return { ...state, focusedId: action.slotId };
+      }
+      const reordered = [...state.windows];
+      const [item] = reordered.splice(idx, 1);
+      reordered.push(item);
+      return { windows: reordered, focusedId: action.slotId };
+    }
+  }
+}
+
+// ── Props (empty — session is read from context) ──────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface AppLauncherProps {
-  /**
-   * Active session for plugin state subscriptions.
-   * May be null — app slots are session-independent.
-   */
-  readonly session?: SlotSession | null;
+  // No props needed — session is read from PluginContext.
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Evaluate the `shouldRender` callback for an app slot.
+ * Returns `true` when the slot should appear in the taskbar.
+ */
+function appSlotShouldRender(
+  declaration: AppSlotDeclaration,
+  sessionState: { readonly id: string; readonly agentName: string; readonly conversationId: string } | null,
+): boolean {
+  if (!declaration.shouldRender) return true;
+  if (!sessionState) {
+    return declaration.shouldRender(
+      { sessionId: "", agentName: "", conversationId: "" },
+      undefined,
+    );
+  }
+  return declaration.shouldRender(
+    { sessionId: sessionState.id, agentName: sessionState.agentName, conversationId: sessionState.conversationId },
+    undefined,
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AppLauncher({ session }: AppLauncherProps): ReactElement | null {
+export function AppLauncher(_props: AppLauncherProps): ReactElement | null {
   const { getByType } = useSlotRegistry();
+  const session = useSession();
 
   const appSlots = getByType("app")
     .slice()
     .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100));
 
-  if (appSlots.length === 0) return null;
+  // Build session context for shouldRender evaluation.
+  const sessionContext = useSyncExternalStore(
+    session?.subscribe ?? (() => () => {}),
+    () => session?.getState() ?? null,
+    () => session?.getState() ?? null,
+  );
 
-  // ── Open windows state ──────────────────────────────────────────────────
+  // Filter slots whose shouldRender returns false.
+  const visibleSlots = sessionContext
+    ? appSlots.filter((e) => appSlotShouldRender(e.declaration, sessionContext))
+    : appSlots.filter((e) => appSlotShouldRender(e.declaration, null));
 
-  const [windows, setWindows] = useState<readonly OpenAppWindow[]>([]);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
+  if (visibleSlots.length === 0) return null;
+
+  // ── Window manager: reducer keeps windows + focusedId in sync ───────────
+  // A single reducer eliminates stale closure issues — all state transitions
+  // are pure and atomic.
+
+  const [{ windows, focusedId }, dispatch] = useReducer(windowManagerReducer, {
+    windows: [],
+    focusedId: null,
+  });
 
   const toggleWindow = useCallback(
-    (entry: OpenAppWindow) => {
-      setWindows((prev) => {
-        const idx = prev.findIndex((w) => w.slotId === entry.slotId);
-        if (idx >= 0) {
-          // Already open — close it.
-          const next = prev.filter((w) => w.slotId !== entry.slotId);
-          if (focusedId === entry.slotId) setFocusedId(next.length > 0 ? next[next.length - 1].slotId : null);
-          return next;
-        }
-        // Open new window.
-        setFocusedId(entry.slotId);
-        return [...prev, entry];
-      });
-    },
-    [focusedId],
+    (entry: OpenAppWindow) => dispatch({ type: "toggle", entry }),
+    [],
   );
 
   const closeWindow = useCallback(
-    (slotId: string) => {
-      setWindows((prev) => {
-        const next = prev.filter((w) => w.slotId !== slotId);
-        if (focusedId === slotId) setFocusedId(next.length > 0 ? next[next.length - 1].slotId : null);
-        return next;
-      });
-    },
-    [focusedId],
+    (slotId: string) => dispatch({ type: "close", slotId }),
+    [],
   );
 
-  const focusWindow = useCallback((slotId: string) => {
-    setFocusedId(slotId);
-    // Bring to front by reordering.
-    setWindows((prev) => {
-      const idx = prev.findIndex((w) => w.slotId === slotId);
-      if (idx < 0 || idx === prev.length - 1) return prev;
-      const next = [...prev];
-      const [item] = next.splice(idx, 1);
-      next.push(item);
-      return next;
-    });
-  }, []);
+  const focusWindow = useCallback(
+    (slotId: string) => dispatch({ type: "focus", slotId }),
+    [],
+  );
 
   // ── Render ──────────────────────────────────────────────────────────────
-
   return (
     <>
       {/* App windows (rendered outside taskbar, at viewport level) */}
@@ -117,7 +191,7 @@ export function AppLauncher({ session }: AppLauncherProps): ReactElement | null 
       {/* Taskbar */}
       <div className={styles["taskbar"]}>
         <div className={styles["taskbar-apps"]}>
-          {appSlots.map((entry) => {
+          {visibleSlots.map((entry) => {
             const isOpen = windows.some((w) => w.slotId === entry.slotId);
             return (
               <button

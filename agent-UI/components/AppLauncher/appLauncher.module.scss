@@ -13,7 +13,7 @@
   justify-content: center;
   background: var(--bg-secondary, t.$color-surface);
   border-top: 1px solid var(--border, t.$color-border);
-  z-index: 9998;
+  z-index: 10000;
   padding: 0 8px;
   box-sizing: border-box;
 }

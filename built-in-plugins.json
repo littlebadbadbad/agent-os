@@ -1,3 +1,24 @@
 {
-  "plugins": ["user-input", "todo", "token-budget", "plan", "terminal", "tool-state", "skill", "mcp", "cron", "experience", "git", "file", "dynamic-tool", "variable", "tool-result-compressor", "memory-graph", "tool-search", "permissions", "delegation-nudge"]
+  "plugins": [
+    "user-input",
+    "todo",
+    "token-budget",
+    "plan",
+    "terminal",
+    "tool-state",
+    "skill",
+    "mcp",
+    "cron",
+    "devops",
+    "experience",
+    "git",
+    "file",
+    "dynamic-tool",
+    "variable",
+    "tool-result-compressor",
+    "memory-graph",
+    "tool-search",
+    "permissions",
+    "delegation-nudge"
+  ]
 }
