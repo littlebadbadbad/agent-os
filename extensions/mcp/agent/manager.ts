@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 import { defineTool } from "@agent-type/defineTool";
-import type { Tool, ToolSet, AgentClientLike, PluginSlotDeclaration, AgentApiHandler, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
+import type { Tool, ToolSet, AgentClientLike, PluginSlotDeclaration, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
 import type { McpAdapter, McpServerEntry, McpToolDef } from "./types";
 import { createMcpStore } from "./store";
 
@@ -138,7 +138,7 @@ type RegisteredEntry = { toolNames: string[]; unregFns: (() => void)[] };
 export function createMcpToolset(adapter: McpAdapter): {
   readonly toolSet: ToolSet;
   readonly slotDeclarations: readonly PluginSlotDeclaration[];
-  readonly agentApis: Map<string, AgentApiHandler>;
+  readonly bridgeMethods: import("./types").McpBridge;
 } {
   const store = createMcpStore();
 
@@ -483,44 +483,24 @@ export function createMcpToolset(adapter: McpAdapter): {
     },
   };
 
-  // ── Agent APIs (callable from plugin UI) ────────────────────────────────
+  // ── Bridge methods (callable from plugin UI via host.bridge) ────────────
 
-  const agentApis = new Map<string, AgentApiHandler>([
-    ['sync', async () => syncFromAdapter()],
-    ['connect', async (params) => {
-      const name = params?.name;
-      if (typeof name === 'string') {
-        const entry = store.getByName(name);
-        if (entry) await connect(entry.id);
-      }
-    }],
-    ['disconnect', async (params) => {
-      const name = params?.name;
-      if (typeof name === 'string') {
-        const entry = store.getByName(name);
-        if (entry) disconnect(entry.id);
-      }
-    }],
-    ['remove', async (params) => {
-      const name = params?.name;
-      if (typeof name === 'string') {
-        const entry = store.getByName(name);
-        if (entry) remove(entry.id);
-      }
-    }],
-    ['addServer', async (params) => {
-      if (params && typeof params === 'object') {
-        return addServer({
-          name: String(params.name ?? ''),
-          url: String(params.url ?? ''),
-          transport: params.transport === 'sse' ? 'sse' : 'http',
-          headers: params.headers as Record<string, string> | undefined,
-          useProxy: typeof params.useProxy === 'boolean' ? params.useProxy : undefined,
-        });
-      }
-      throw new Error('addServer requires config parameters');
-    }],
-  ]);
+  const bridgeMethods: import("./types").McpBridge = {
+    sync: () => syncFromAdapter(),
+    connect: async (name) => {
+      const entry = store.getByName(name);
+      if (entry) await connect(entry.id);
+    },
+    disconnect: (name) => {
+      const entry = store.getByName(name);
+      if (entry) disconnect(entry.id);
+    },
+    remove: (name) => {
+      const entry = store.getByName(name);
+      if (entry) remove(entry.id);
+    },
+    addServer: (config) => addServer(config),
+  };
 
-  return { toolSet: toolset, slotDeclarations, agentApis };
+  return { toolSet: toolset, slotDeclarations, bridgeMethods };
 }

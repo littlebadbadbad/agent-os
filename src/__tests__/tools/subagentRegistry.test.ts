@@ -518,4 +518,128 @@ describe('createSubAgentRegistry', () => {
       }
     }, 10000);
   });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  //  Tool-initiated cancel (the core fix)
+  // ═════════════════════════════════════════════════════════════════════════
+  //
+  // `registry.sendMessage` (the tool path used by delegate tools) does NOT
+  // register in `convControllers`.  `cancelConversationMessage` must fall
+  // back to aborting the engine's AbortController directly.
+  //
+  // These tests verify the direct engine abort path.
+
+  describe('tool-initiated cancel (direct engine abort)', () => {
+    it('cancelConversationMessage aborts engine abortController during tool-path sendMessage', async () => {
+      let handlerSignal: AbortSignal | null = null;
+      const handlerReady = deferred();
+
+      const abortHandler: AgentHandler = async (_msgs, { signal }) => {
+        handlerSignal = signal;
+        handlerReady.resolve();
+        // Block until the signal is externally aborted
+        await new Promise<void>((r) => {
+          if (signal.aborted) r();
+          else signal.addEventListener('abort', () => r(), { once: true });
+        });
+        return { text: 'cancelled', toolCalls: [] } satisfies AgentTurnResponse;
+      };
+
+      const reg = createSubAgentRegistry({
+        sessionId: 'test-sess',
+        handler: abortHandler,
+        toolPool: () => new Map<string, Tool>(),
+        label: 'tool-abort',
+      });
+
+      reg.createSubAgent({
+        name: 'tool-agent', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      });
+      const convId = reg.getState().subAgents[0].activeConversationId;
+
+      // ── Tool-path send: registry.sendMessage (NOT sendConversationMessage) ──
+      const toolController = new AbortController();
+      const sendPromise = reg.sendMessage('tool-agent', convId, 'Hello from tool', {
+        sessionId: 'test-sess',
+        signal: toolController.signal,
+      });
+
+      // Wait until the engine is running and the handler has captured its signal
+      await handlerReady.promise;
+
+      // Cancel via the UI path — must abort the engine even though the send
+      // was tool-initiated (no entry in convControllers for this conversation).
+      reg.cancelConversationMessage('tool-agent', convId);
+
+      // Wait for the send to complete
+      await sendPromise;
+
+      expect(handlerSignal).not.toBeNull();
+      expect(handlerSignal!.aborted).toBe(true);
+    });
+
+    it('cancelConversationMessage is safe when engine is idle after tool-path send', async () => {
+      // After a tool-path send completes normally, cancelling must be a no-op.
+      const handler: AgentHandler = async () => ({ text: 'ok', toolCalls: [] } satisfies AgentTurnResponse);
+
+      const reg = createSubAgentRegistry({
+        sessionId: 'test-sess',
+        handler,
+        toolPool: () => new Map<string, Tool>(),
+        label: 'idle-test',
+      });
+
+      reg.createSubAgent({
+        name: 'idle-agent', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      });
+      const convId = reg.getState().subAgents[0].activeConversationId;
+
+      const controller = new AbortController();
+      await reg.sendMessage('idle-agent', convId, 'Done', {
+        sessionId: 'test-sess',
+        signal: controller.signal,
+      });
+
+      // Engine is idle — cancel must not throw
+      expect(() => reg.cancelConversationMessage('idle-agent', convId)).not.toThrow();
+    });
+
+    it('cancelConversationMessage aborts engine for UI-path sendConversationMessage after direct abort', async () => {
+      // Verify the UI path (sendConversationMessage) still aborts correctly.
+      // This is a regression test: the convControllers path must work even
+      // though we now also call engineRefs.abortController?.abort() directly.
+      let handlerSignal: AbortSignal | null = null;
+      const handlerReady = deferred();
+
+      const abortHandler: AgentHandler = async (_msgs, { signal }) => {
+        handlerSignal = signal;
+        handlerReady.resolve();
+        await new Promise<void>((r) => {
+          if (signal.aborted) r();
+          else signal.addEventListener('abort', () => r(), { once: true });
+        });
+        return { text: 'cancelled', toolCalls: [] } satisfies AgentTurnResponse;
+      };
+
+      const reg = createSubAgentRegistry({
+        sessionId: 'test-sess',
+        handler: abortHandler,
+        toolPool: () => new Map<string, Tool>(),
+        label: 'regression',
+      });
+
+      reg.createSubAgent({
+        name: 'reg-agent', description: '', toolNames: [], maxTurns: 5, parent: 'main:main',
+      });
+      const convId = reg.getState().subAgents[0].activeConversationId;
+
+      // UI path
+      const sendPromise = reg.sendConversationMessage('reg-agent', convId, 'Hello UI');
+      await handlerReady.promise;
+      reg.cancelConversationMessage('reg-agent', convId);
+      await sendPromise;
+
+      expect(handlerSignal!.aborted).toBe(true);
+    });
+  });
 });

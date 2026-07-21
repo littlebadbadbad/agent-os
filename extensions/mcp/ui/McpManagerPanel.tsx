@@ -2,7 +2,7 @@
  * extensions/mcp/ui/McpManagerPanel.tsx — dropdown panel for managing MCP servers.
  *
  * Self-contained component: manages its own server list state by calling
- * agent-side APIs via `host.callAgentApi()`. No dependency on ToolSet state
+ * agent-side methods via `host.bridge`. No dependency on ToolSet state
  * or direct backend calls.
  *
  * Capabilities:
@@ -13,11 +13,12 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import type { UiPluginHost } from "@agent-type";
+import type { UiPluginHost, PluginStateExtension } from "@agent-type";
 import type {
   McpTransport,
   McpServerStatus,
   McpServerEntry,
+  McpBridge,
 } from "../agent/types";
 
 const MCP_TRANSPORTS: McpTransport[] = ["http", "sse"];
@@ -27,7 +28,7 @@ import styles from "./styles.module.scss";
 
 export interface McpManagerPanelProps {
   /** The UiPluginHost with a pre-bound apiClient for this plugin. */
-  readonly host: UiPluginHost;
+  readonly host: UiPluginHost<PluginStateExtension, McpBridge>;
 }
 
 // ── Status dot ────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ function StatusDot({ status }: { status: McpServerStatus }) {
 interface AddFormProps {
   onAdded: () => void;
   onCancel: () => void;
-  host: UiPluginHost;
+  host: UiPluginHost<PluginStateExtension, McpBridge>;
 }
 
 function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
@@ -74,7 +75,7 @@ function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
           );
         }
       }
-      await host.callAgentApi("addServer", {
+      await host.bridge.addServer({
         name: name.trim(),
         url: url.trim(),
         transport,
@@ -174,9 +175,9 @@ function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-async function fetchFromAgent(host: UiPluginHost): Promise<McpServerEntry[]> {
+async function fetchFromAgent(host: UiPluginHost<PluginStateExtension, McpBridge>): Promise<McpServerEntry[]> {
   try {
-    return await host.callAgentApi<McpServerEntry[]>("sync");
+    return await host.bridge.sync();
   } catch {
     return [];
   }
@@ -225,13 +226,13 @@ export function McpManagerPanel({ host }: McpManagerPanelProps) {
 
   function handleConnect(s: McpServerEntry) {
     withBusy(s.id, async () => {
-      await host.callAgentApi("connect", { name: s.name });
+      await host.bridge.connect(s.name);
       await refresh();
     });
   }
 
   function handleDisconnect(s: McpServerEntry) {
-    host.callAgentApi("disconnect", { name: s.name }).then(refresh).catch(() => {});
+    host.bridge.disconnect(s.name); refresh();
   }
 
   function handleReload(s: McpServerEntry) {
@@ -244,7 +245,7 @@ export function McpManagerPanel({ host }: McpManagerPanelProps) {
       return;
     }
     setConfirmDeleteId(null);
-    host.callAgentApi("remove", { name: s.name }).then(refresh).catch(() => {});
+    host.bridge.remove(s.name); refresh();
   }
 
   if (loading) {

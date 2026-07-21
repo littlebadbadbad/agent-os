@@ -45,3 +45,23 @@ export type SkillManagerAdapter = {
    */
   readSkillFile(skill: string, path: string): Promise<{ content: string; path: string }>;
 };
+
+// ── Bridge: shared agent↔UI object ───────────────────────────────────────────
+
+/**
+ * Skill bridge — agent and UI hold the same reference.
+ * Agent writes methods during activation; UI calls them via `host.bridge`.
+ */
+export interface SkillBridge {
+  /** Sync skill list from backend. */
+  sync(): Promise<BackendSkill[]>;
+  /** Install a skill from URL or raw text. */
+  install(config: {
+    url?: string;
+    name?: string;
+    content?: string;
+    useProxy?: boolean;
+  }): Promise<{ installed: string; message: string }>;
+  /** Remove a skill by name. */
+  remove(name: string): Promise<{ deleted: string }>;
+};

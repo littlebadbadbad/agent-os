@@ -35,7 +35,7 @@ import type {
   SlotContext,
   SlotHostMessage,
   SlotSession,
-  AgentApiHandler,
+  PluginBridge,
 } from "@agent-type";
 import type { PluginConfigClient } from "./configClient";
 import { PluginDescriptor } from "./pluginSystem";
@@ -57,10 +57,11 @@ export interface UiPluginHostParams {
   /** The ToolSet symbol whose state to expose via `getPluginState()`. */
   readonly toolSetSymbol: symbol;
   /**
-   * Agent-side API handlers registered by ToolSets via `registerAgentApi`.
-   * Keyed by method name, callable from plugin UI via `callAgentApi`.
+   * Shared bridge object — same reference as {@link AgentPluginHost.bridge}.
+   * Agent writes methods/properties during activation;
+   * UI reads/calls them directly.
    */
-  readonly agentApis: Map<string, AgentApiHandler>;
+  readonly bridge: PluginBridge;
 }
 
 // ── Factory ──────────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ export interface UiPluginHostParams {
  * the `_`-prefixed methods are for host-side renderer use.
  */
 export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInternal {
-  const { plugin, apiClient, configClient, session, slotContext, toolSetSymbol, agentApis } = params;
+  const { plugin, apiClient, configClient, session, slotContext, toolSetSymbol, bridge } = params;
 
   // ── Host→iframe: subscribers + message buffer ───────────────────────────
   //
@@ -91,6 +92,7 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
     get pluginId(): string { return plugin.id; },
     get pluginName(): string { return plugin.name; },
     get pluginVersion(): string { return plugin.version; },
+    get bridge(): PluginBridge { return bridge; },
 
     getPluginState() {
       if (!session) return undefined;
@@ -126,19 +128,6 @@ export function createUiPluginHost(params: UiPluginHostParams): UiPluginHostInte
 
     onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void {
       return configClient.onConfigChanged(cb);
-    },
-
-    // ── Agent API (ToolSet-registered methods) ───────────────────────────
-
-    async callAgentApi<T = unknown>(
-      method: string,
-      params?: Record<string, unknown>,
-    ): Promise<T> {
-      const handler = agentApis.get(method);
-      if (!handler) {
-        throw new Error(`Agent API method "${method}" not registered.`);
-      }
-      return handler(params) as Promise<T>;
     },
 
     // ── Internal: host-side renderer API ──────────────────────────────────

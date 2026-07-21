@@ -12,8 +12,8 @@
  *   with the host flows through the injected {@link UiPluginHost}.
  *
  * Unlike the old pattern, the Skill panel does NOT read data from
- * `getPluginState()` — it calls agent-side APIs via
- * `host.callAgentApi()` and manages its own state internally.
+ * `getPluginState()` — it calls agent-side methods via
+ * `host.bridge` and manages its own state internally.
  */
 
 import { StrictMode } from "react";
@@ -22,17 +22,19 @@ import type {
   UiPluginHost,
   SlotHostMessage,
   ToolCallInfo,
+  PluginStateExtension,
 } from "@agent-type";
+import type { SkillBridge } from "../agent/types";
 import { SkillManagerPanel } from "./SkillManagerPanel";
 import { SkillToolCard } from "./SkillToolCard";
 
 declare global {
   interface Window {
-    __UAP_PLUGIN_HOST__?: UiPluginHost;
+    __UAP_PLUGIN_HOST__?: UiPluginHost<PluginStateExtension, SkillBridge>;
   }
 }
 
-function waitForHost(timeout = 10000): Promise<UiPluginHost> {
+function waitForHost(timeout = 10000): Promise<UiPluginHost<PluginStateExtension, SkillBridge>> {
   return new Promise((resolve, reject) => {
     if (window.__UAP_PLUGIN_HOST__) {
       resolve(window.__UAP_PLUGIN_HOST__);
@@ -64,7 +66,7 @@ waitForHost()
     }
   });
 
-function bootApp(host: UiPluginHost): void {
+function bootApp(host: UiPluginHost<PluginStateExtension, SkillBridge>): void {
   const slotCtx = host.getSlotContext();
 
   let toolCallInfo: ToolCallInfo | null = null;

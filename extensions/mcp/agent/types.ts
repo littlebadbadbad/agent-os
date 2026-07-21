@@ -78,3 +78,30 @@ export type McpAdapter = {
    */
   executeTool(server: string, tool: string, args: unknown, sessionId?: string, signal?: AbortSignal): Promise<unknown>;
 };
+
+// ── Bridge: shared agent↔UI object ───────────────────────────────────────────
+
+/**
+ * MCP bridge — agent and UI hold the same reference.
+ * Agent writes methods during activation; UI calls them via `host.bridge`.
+ */
+export interface McpBridge {
+  /** Sync server list from backend. */
+  sync(): Promise<McpServerEntry[]>;
+  /** Connect/reconnect to a server by name. */
+  connect(name: string): Promise<void>;
+  /** Disconnect a server by name. */
+  disconnect(name: string): void;
+  /** Remove a server by name. */
+  remove(name: string): void;
+  /** Add a new server and connect. */
+  addServer(config: {
+    name: string;
+    url: string;
+    transport: McpTransport;
+    headers?: Record<string, string>;
+    includeTools?: string[];
+    enabled?: boolean;
+    useProxy?: boolean;
+  }): Promise<McpServerEntry>;
+}

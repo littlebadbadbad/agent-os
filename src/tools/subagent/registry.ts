@@ -338,6 +338,17 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       convControllers.get(key)?.abort();
       // Also abort any in-flight auto-resumed send for this conversation.
       convControllers.get(`resume:${agentName}:${conversationId}`)?.abort();
+
+      // Direct engine abort — covers tool-initiated sends (via registry.sendMessage
+      // also known as execution.sendMessage) that do NOT populate convControllers.
+      // When the main agent's tool calls sendMessage, the UI still shows isLoading
+      // and a stop button, but cancelConversationMessage had no way to reach the
+      // engine because the send was never registered in convControllers.
+      // This safety net catches ALL in-flight executions regardless of origin.
+      const cancelEntry = entries.get(agentName);
+      if (cancelEntry) {
+        cancelEntry.conversations.get(conversationId)?._state.engineRefs.abortController?.abort();
+      }
     },
 
     async editConversationMessage(agentName, conversationId, userCount, newText, attachments) {

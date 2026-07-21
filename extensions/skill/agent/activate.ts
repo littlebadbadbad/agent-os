@@ -9,6 +9,7 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
+import type { SkillBridge } from './types';
 import { createSkillPluginAdapter } from './pluginAdapter';
 import { createSkillToolset } from './manager';
 
@@ -16,17 +17,16 @@ import { createSkillToolset } from './manager';
  * Activate the skill plugin.
  *
  * Creates a plugin adapter backed by the pre-bound apiClient, builds
- * the skill ToolSet, and registers it on the agent.
+ * the skill ToolSet, registers it, and populates the bridge so the UI
+ * can call ToolSet operations directly.
  *
  * @param host  The AgentPluginHost for this plugin.
  */
-export function activate(host: AgentPluginHost): void {
+export function activate(host: AgentPluginHost<SkillBridge>): void {
   const adapter = createSkillPluginAdapter(host.apiClient);
 
-  const { toolSet, slotDeclarations, agentApis } = createSkillToolset(adapter);
+  const { toolSet, slotDeclarations, bridgeMethods } = createSkillToolset(adapter);
 
   host.registerToolSet(toolSet, slotDeclarations);
-  for (const [method, handler] of agentApis) {
-    host.registerAgentApi(method, handler);
-  }
+  Object.assign(host.bridge, bridgeMethods);
 }

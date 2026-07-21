@@ -19,7 +19,7 @@
 
 import { z } from "zod";
 import { defineTool } from "@agent-type/defineTool";
-import type { Tool, ToolSet, ToolSetContext, AgentClientLike, SystemPromptContext, PluginSlotDeclaration, AgentApiHandler, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
+import type { Tool, ToolSet, ToolSetContext, AgentClientLike, SystemPromptContext, PluginSlotDeclaration, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
 import { MAIN_CONVERSATION_ID } from "@agent-type";
 import { defineSkill } from "./skill";
 import { resolveSkillTools } from "./skill";
@@ -164,7 +164,7 @@ export function createSkillToolset(
 ): {
   readonly toolSet: ToolSet;
   readonly slotDeclarations: readonly PluginSlotDeclaration[];
-  readonly agentApis: Map<string, AgentApiHandler>;
+  readonly bridgeMethods: import("./types").SkillBridge;
 } {
   /** The single attached agent (global createCombinedPluginContext fans out internally). */
   let attachedAgent: AgentEntry | null = null;
@@ -402,26 +402,25 @@ export function createSkillToolset(
     },
   };
 
-  const agentApis = new Map<string, AgentApiHandler>([
-    ['sync', async () => syncSkills()],
-    ['install', async (params) => {
-      if (!params || typeof params !== 'object') throw new Error('install requires { url } or { name, content }');
+  // ── Bridge methods (callable from plugin UI via host.bridge) ────────────
+
+  const bridgeMethods: import("./types").SkillBridge = {
+    sync: () => syncSkills(),
+    install: async (config) => {
       const result = await adapter.installSkill({
-        url: params.url as string | undefined,
-        name: params.name as string | undefined,
-        content: params.content as string | undefined,
-        useProxy: typeof params.useProxy === 'boolean' ? params.useProxy : undefined,
+        url: config.url,
+        name: config.name,
+        content: config.content,
+        useProxy: config.useProxy,
       });
       await syncSkills();
       return result;
-    }],
-    ['remove', async (params) => {
-      const name = params?.name;
-      if (typeof name !== 'string') throw new Error('remove requires skill name');
+    },
+    remove: async (name) => {
       unloadFromAgents(name);
       return adapter.removeSkill(name);
-    }],
-  ]);
+    },
+  };
 
-  return { toolSet: managerToolSet, slotDeclarations, agentApis };
+  return { toolSet: managerToolSet, slotDeclarations, bridgeMethods };
 }

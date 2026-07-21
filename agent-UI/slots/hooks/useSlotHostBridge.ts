@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useMemo, useCallback, type RefObject } from 'react';
-import type { SlotHostMessage, UiPluginHostInternal, SlotSession, IframeSlotType, AgentApiHandler } from '@agent-type';
+import type { SlotHostMessage, UiPluginHostInternal, SlotSession, IframeSlotType, PluginBridge } from '@agent-type';
 import type { PluginManifest } from '@agent-type';
 import { createUiPluginHost } from '../../plugin/uiHost';
 import { createPluginApiClient } from '../../plugin/apiClient';
@@ -89,12 +89,12 @@ export function useSlotHostBridge(
     return { slotId, slotType, sessionId: state.id, agentName: state.agentName, conversationId: state.conversationId };
   }, [session, slotId, slotType]);
 
-  // Resolve agent-side API handlers from the plugin system.
-  // These are registered by ToolSets via host.registerAgentApi during activation.
-  // Only active plugins (successfully loaded agent entry) have agentApis.
+  // Resolve the shared bridge object from the activated plugin.
+  // The bridge is created by pluginSystem, populated by the agent-side
+  // activate() function, and passed through to the UI iframe.
   const activePlugin = usePluginSystem().getActivePlugin(pluginId);
-  const agentApis = useMemo(
-    () => activePlugin?.agentApis ?? new Map<string, AgentApiHandler>(),
+  const bridge = useMemo(
+    () => activePlugin?.bridge ?? ({} as PluginBridge),
     [activePlugin],
   );
 
@@ -117,9 +117,9 @@ export function useSlotHostBridge(
       session: session ?? undefined,
       toolSetSymbol,
       slotContext,
-      agentApis,
+      bridge,
     });
-  }, [pluginId, session, slotId, slotType, toolSetSymbol, uiPlugin, slotContext, agentApis]);
+  }, [pluginId, session, slotId, slotType, toolSetSymbol, uiPlugin, slotContext, bridge]);
 
   hostRef.current = host;
 

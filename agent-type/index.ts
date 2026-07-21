@@ -95,10 +95,12 @@ export type {
   WidgetHandler,
 } from "./widget";
 
+// ── Plugin Bridge (shared agent↔UI object) ───────────────────────────────────
+export type { PluginBridge } from "./plugin-bridge";
+
 // ── Plugin types ──────────────────────────────────────────────────────────────
 export type {
   Logger,
-  AgentApiHandler,
   PluginManifest,
   PluginState,
   PluginMethod,

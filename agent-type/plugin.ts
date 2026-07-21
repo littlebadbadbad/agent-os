@@ -2,23 +2,7 @@ import type { ToolSet } from "./toolset";
 import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool, Attachment } from "./core";
 import type { PluginSlotDeclaration, SlotContext, SlotHostMessage } from "./ui-slot";
 import type { ModelMeta } from "./model";
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Agent API — ToolSet→UI method bridge
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Handler signature for agent-side APIs callable from plugin UI.
- *
- * ToolSets register these via {@link AgentPluginHost.registerAgentApi} to
- * expose internal operations (e.g. `sync`, `connect`, `disconnect`) directly
- * to the UI layer without going through the backend.
- *
- * The UI calls them via {@link UiPluginHost.callAgentApi}.
- */
-export type AgentApiHandler = (
-  params?: Record<string, unknown>,
-) => Promise<unknown>;
+import type { PluginBridge } from "./plugin-bridge";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Plugin manifest & lifecycle types
@@ -266,10 +250,14 @@ export interface BackendPluginHost {
 /**
  * Host interface injected into an agent-side plugin's activation scope.
  *
+ * @typeParam TBridge  Plugin-defined shared bridge object type.
+ *                     Defaults to {@link PluginBridge} (empty interface).
+ *                     Extend via module augmentation or generic parameter.
+ *
  * Agent plugins can register ToolSets to extend the agent with custom
  * tools and lifecycle hooks, and interact with the agent runtime.
  */
-export interface AgentPluginHost {
+export interface AgentPluginHost<TBridge extends PluginBridge = PluginBridge> {
   /**
    * Register a ToolSet and its associated slot declarations on the agent.
    * Slots are stored independently from the session state so they can be
@@ -279,16 +267,11 @@ export interface AgentPluginHost {
   registerToolSet(toolSet: ToolSet, slots?: readonly PluginSlotDeclaration[]): () => void;
 
   /**
-   * Register an agent-side API method that the plugin UI can call directly
-   * via {@link UiPluginHost.callAgentApi}.
-   *
-   * Use this for ToolSet operations that need to coordinate backend calls
-   * with agent-level side effects (e.g. registering proxy tools after sync).
-   *
-   * @param method  Unique method name (namespaced per plugin).
-   * @param handler Async handler invoked when the UI calls this method.
+   * Shared bridge object — agent and UI layers hold the same reference.
+   * Agent writes methods/properties; UI reads/calls them.
+   * No serialisation, no string-based routing — direct property access.
    */
-  registerAgentApi(method: string, handler: AgentApiHandler): void;
+  readonly bridge: TBridge;
 
   /**
    * All ToolSets currently registered on the agent.
@@ -380,7 +363,7 @@ export interface SlotSession {
   subscribe(fn: () => void): () => void;
 }
 
-export interface UiPluginHost<TState extends PluginStateExtension = PluginStateExtension> {
+export interface UiPluginHost<TState extends PluginStateExtension = PluginStateExtension, TBridge extends PluginBridge = PluginBridge> {
   /**
    * API client for calling backend plugin methods.
    */
@@ -394,6 +377,12 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
 
   /** This plugin's version (SemVer). */
   readonly pluginVersion: string;
+
+  /**
+   * Shared bridge object — same reference as {@link AgentPluginHost.bridge}.
+   * Agent writes methods/properties; UI reads/calls them.
+   */
+  readonly bridge: TBridge;
 
   /**
    * Read the current session state and the ToolSet-specific state slice
@@ -436,23 +425,6 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
    * Returns an unsubscribe function.
    */
   onConfigChanged(cb: (config: Record<string, unknown>) => void): () => void;
-
-  /**
-   * Call an agent-side API method registered by the ToolSet via
-   * {@link AgentPluginHost.registerAgentApi}.
-   *
-   * Use this to invoke ToolSet operations directly from the UI,
-   * bypassing the backend for operations that need agent-level side
-   * effects (e.g. registering proxy tools after sync).
-   *
-   * @param method  Method name registered by the ToolSet.
-   * @param params  Optional parameters forwarded to the handler.
-   * @returns       The value returned by the handler.
-   */
-  callAgentApi<T = unknown>(
-    method: string,
-    params?: Record<string, unknown>,
-  ): Promise<T>;
 }
 
 /**
@@ -465,7 +437,7 @@ export interface UiPluginHost<TState extends PluginStateExtension = PluginStateE
  * UI code only sees the {@link UiPluginHost} surface (the internal
  * method is prefixed with `_` to signal "private").
  */
-export interface UiPluginHostInternal<TState extends PluginStateExtension = PluginStateExtension> extends UiPluginHost<TState> {
+export interface UiPluginHostInternal<TState extends PluginStateExtension = PluginStateExtension, TBridge extends PluginBridge = PluginBridge> extends UiPluginHost<TState, TBridge> {
   /**
    * Push a host→iframe message. Called by the slot renderer when it
    * has data for the plugin UI (e.g. toolCallInfo, state update).

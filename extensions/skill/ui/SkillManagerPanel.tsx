@@ -11,15 +11,15 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import type { UiPluginHost } from "@agent-type";
-import type { BackendSkill } from "../agent/types";
+import type { UiPluginHost, PluginStateExtension } from "@agent-type";
+import type { BackendSkill, SkillBridge } from "../agent/types";
 import styles from "./styles.module.scss";
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
 export interface SkillManagerPanelProps {
   /** The UiPluginHost with a pre-bound apiClient for this plugin. */
-  readonly host: UiPluginHost;
+  readonly host: UiPluginHost<PluginStateExtension, SkillBridge>;
 }
 
 // ── Panel ────────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ export function SkillManagerPanel({ host }: SkillManagerPanelProps): React.React
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const list = await host.callAgentApi<BackendSkill[]>("sync");
+    const list = await host.bridge.sync();
     setSkills(Array.isArray(list) ? list : []);
   }, [host]);
 
@@ -96,7 +96,7 @@ export function SkillManagerPanel({ host }: SkillManagerPanelProps): React.React
 
 interface SkillItemProps {
   readonly skill: BackendSkill;
-  readonly host: UiPluginHost;
+  readonly host: UiPluginHost<PluginStateExtension, SkillBridge>;
   readonly confirmRemove: boolean;
   readonly onRemoveRequest: () => void;
   readonly onRemoveCancel: () => void;
@@ -109,7 +109,7 @@ function SkillItem({ skill, host, confirmRemove, onRemoveRequest, onRemoveCancel
   async function handleRemove() {
     setRemoving(true);
     try {
-      await host.callAgentApi("remove", { name: skill.name });
+      await host.bridge.remove(skill.name);
       onRemoved();
     } catch {
       setRemoving(false);
@@ -171,7 +171,7 @@ function SkillItem({ skill, host, confirmRemove, onRemoveRequest, onRemoveCancel
 type InstallMode = "url" | "text";
 
 interface InstallFormProps {
-  readonly host: UiPluginHost;
+  readonly host: UiPluginHost<PluginStateExtension, SkillBridge>;
   readonly onInstalled: () => void;
   readonly onCancel: () => void;
 }
@@ -199,11 +199,11 @@ function InstallForm({ host, onInstalled, onCancel }: InstallFormProps) {
     try {
       if (mode === "url") {
         if (!url.trim()) throw new Error("URL is required");
-        await host.callAgentApi("install", { url: url.trim(), useProxy });
+        await host.bridge.install({ url: url.trim(), useProxy });
       } else {
         if (!name.trim()) throw new Error("Skill name is required");
         if (!content.trim()) throw new Error("SKILL.md content is required");
-        await host.callAgentApi("install", {
+        await host.bridge.install({
           name: name.trim(),
           content: content.trim(),
           useProxy,

@@ -12,8 +12,8 @@
  *   with the host flows through the injected {@link UiPluginHost}.
  *
  * Unlike the old pattern, the MCP panel does NOT read data from
- * `getPluginState()` — it calls the backend directly via
- * `host.apiClient.call()` and manages its own state internally.
+ * `getPluginState()` — it calls agent-side methods via
+ * `host.bridge` and manages its own state internally.
  * This decouples the UI from the ToolSet's in-memory state.
  */
 
@@ -23,17 +23,19 @@ import type {
   UiPluginHost,
   SlotHostMessage,
   ToolCallInfo,
+  PluginStateExtension,
 } from "@agent-type";
+import type { McpBridge } from "../agent/types";
 import { McpManagerPanel } from "./McpManagerPanel";
 import { McpToolCard } from "./McpToolCard";
 
 declare global {
   interface Window {
-    __UAP_PLUGIN_HOST__?: UiPluginHost;
+    __UAP_PLUGIN_HOST__?: UiPluginHost<PluginStateExtension, McpBridge>;
   }
 }
 
-function waitForHost(timeout = 10000): Promise<UiPluginHost> {
+function waitForHost(timeout = 10000): Promise<UiPluginHost<PluginStateExtension, McpBridge>> {
   return new Promise((resolve, reject) => {
     if (window.__UAP_PLUGIN_HOST__) {
       resolve(window.__UAP_PLUGIN_HOST__);
@@ -65,7 +67,7 @@ waitForHost()
     }
   });
 
-function bootApp(host: UiPluginHost): void {
+function bootApp(host: UiPluginHost<PluginStateExtension, McpBridge>): void {
   const slotCtx = host.getSlotContext();
 
   let toolCallInfo: ToolCallInfo | null = null;

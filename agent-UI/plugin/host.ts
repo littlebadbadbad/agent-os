@@ -15,7 +15,7 @@
  * No classes — pure factory function.
  */
 
-import type { AgentPluginHost, AgentApiHandler, PluginApiClient, ToolSet, ModelMeta, PluginSlotDeclaration } from '@agent-type';
+import type { AgentPluginHost, PluginBridge, PluginApiClient, ToolSet, ModelMeta, PluginSlotDeclaration } from '@agent-type';
 import type { Tool } from '@agent-type/core';
 import type { PluginConfigClient } from './configClient';
 
@@ -56,8 +56,12 @@ export interface AgentPluginHostParams {
   readonly attatchToolSets: (toolSet: ToolSet) => void;
   /** Store slot declarations for this plugin's ToolSet. */
   readonly storeSlotDeclarations: (toolSetSymbol: symbol, slots: readonly PluginSlotDeclaration[]) => void;
-  /** Store an agent-side API handler callable from plugin UI. */
-  readonly registerAgentApi: (method: string, handler: AgentApiHandler) => void;
+  /**
+   * Shared bridge object — same reference exposed to the UI iframe.
+   * Plugin writes methods/properties here during activation;
+   * UI reads/calls them via `host.bridge`.
+   */
+  readonly bridge: PluginBridge;
   /** Returns the currently selected model metadata. */
   readonly getSelectedModel: () => ModelMeta;
 }
@@ -74,7 +78,7 @@ export interface AgentPluginHostParams {
  * @returns       An AgentPluginHost instance.
  */
 export function createAgentPluginHost(params: AgentPluginHostParams): AgentPluginHost {
-  const { pluginId, pluginName, pluginVersion, apiClient, configClient, agentContext, attatchToolSets, storeSlotDeclarations, registerAgentApi, getSelectedModel } = params;
+  const { pluginId, pluginName, pluginVersion, apiClient, configClient, agentContext, attatchToolSets, storeSlotDeclarations, bridge, getSelectedModel } = params;
 
   return {
     registerToolSet(toolSet: ToolSet, slots?: readonly PluginSlotDeclaration[]): () => void {
@@ -85,9 +89,7 @@ export function createAgentPluginHost(params: AgentPluginHostParams): AgentPlugi
       return agentContext.addToolSet(toolSet);
     },
 
-    registerAgentApi(method: string, handler: AgentApiHandler): void {
-      registerAgentApi(method, handler);
-    },
+    get bridge(): PluginBridge { return bridge; },
 
     getRegisteredToolSets(): readonly ToolSet[] {
       return agentContext.getRegisteredToolSets();

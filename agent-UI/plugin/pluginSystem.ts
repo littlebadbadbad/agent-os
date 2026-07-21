@@ -17,7 +17,7 @@
 import {
   resolveToolSetTools,
   type AgentPluginHost,
-  type AgentApiHandler,
+  type PluginBridge,
   type PluginManifest,
   type PluginSlotDeclaration,
 } from "@agent-type";
@@ -130,8 +130,12 @@ export interface ActivatedPluginInfo extends PluginDescriptor {
   readonly host: AgentPluginHost;
   /** Slot declarations registered by this plugin's ToolSets. */
   readonly slotDeclarations: Map<symbol, readonly PluginSlotDeclaration[]>;
-  /** Agent-side API methods registered by ToolSets, callable from plugin UI. */
-  readonly agentApis: Map<string, AgentApiHandler>;
+  /**
+   * Shared bridge object between agent and UI layer.
+   * Agent writes methods/properties during activation; UI reads/calls them.
+   * Same reference as `host.bridge` and `UiPluginHost.bridge`.
+   */
+  readonly bridge: PluginBridge;
 }
 
 /**
@@ -289,9 +293,9 @@ async function activatePlugin(
     };
     const configClient = createPluginConfigClient(manifest, apiClient);
 
-    // Step 4: Create storage for standalone slot declarations and agent APIs.
+    // Step 4: Create storage for standalone slot declarations and shared bridge.
     const slotDeclarations = new Map<symbol, readonly PluginSlotDeclaration[]>();
-    const agentApis = new Map<string, AgentApiHandler>();
+    const bridge: PluginBridge = {};
 
     // Step 5: Create the sandboxed host.
     const host = createAgentPluginHost({
@@ -301,6 +305,7 @@ async function activatePlugin(
       apiClient,
       configClient,
       agentContext,
+      bridge,
       attatchToolSets: (toolSet) => {
         if (toolSet.symbol && !plugin.symbols.includes(toolSet.symbol)) {
           plugin.symbols.push(toolSet.symbol);
@@ -309,18 +314,16 @@ async function activatePlugin(
       storeSlotDeclarations: (toolSetSymbol, slots) => {
         slotDeclarations.set(toolSetSymbol, slots);
       },
-      registerAgentApi: (method, handler) => {
-        agentApis.set(method, handler);
-      },
       getSelectedModel: () => providerStore.getSelectedModel(),
     });
-    // Step 6: Call activate — this is where the plugin registers ToolSets.
+    // Step 6: Call activate — this is where the plugin registers ToolSets
+    // and populates `host.bridge` with its methods/properties.
     await Promise.resolve(loadResult.module.activate(host));
 
     state.activePlugins.push({
       host,
       slotDeclarations,
-      agentApis,
+      bridge,
       ...plugin,
     });
     console.info(
