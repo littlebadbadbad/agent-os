@@ -12,7 +12,7 @@
  * @param host  The AgentPluginHost for this plugin.
  */
 import type { AgentPluginHost } from '@agent-type';
-import type { DevOpsBridge } from './types';
+import type { DevOpsBridge } from '../ui/types';
 import { createDevopsPluginAdapter } from './pluginAdapter';
 import { createDevopsToolset } from './manager';
 

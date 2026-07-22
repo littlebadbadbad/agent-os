@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPlanToolSet } from '../agent/toolSet';
+import { createPlanToolSet, getPlanSlotDeclarations } from '../agent/toolSet';
 import { resolveToolSetTools, MAIN_CONVERSATION_ID } from '@agent-type';
 import type { ToolSetContext } from '@agent-type';
 
@@ -278,12 +278,13 @@ describe('createPlanToolSet', () => {
 
   // ── Slot declarations ────────────────────────────────────────────────────
 
-  it('onGetSymbolState returns slot declarations (panel, toolCard, compactToolCard)', () => {
+  it('getPlanSlotDeclarations returns slot declarations (panel, toolCard, compactToolCard)', () => {
     const ts = createPlanToolSet();
-    const state = ts.onGetSymbolState!(makeTsCtx());
-    expect(state.slots).toHaveLength(3);
+    const toolNames = resolveToolSetTools(ts).map((t) => t.name);
+    const slots = getPlanSlotDeclarations(toolNames);
+    expect(slots).toHaveLength(3);
 
-    const types = state.slots.map((s: { type: string }) => s.type);
+    const types = slots.map((s) => s.type);
     expect(types).toContain('panel');
     expect(types).toContain('toolCard');
     expect(types).toContain('compactToolCard');

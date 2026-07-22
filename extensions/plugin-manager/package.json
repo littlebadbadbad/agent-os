@@ -4,8 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "node -e \"console.log('[plugin-manager] No source entries to build yet')\""
+    "build": "node scripts/build.mjs"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@vitejs/plugin-react": "*",
+    "esbuild": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sass": "*",
+    "vite": "*"
   }
 }

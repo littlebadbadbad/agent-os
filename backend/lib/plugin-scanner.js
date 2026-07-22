@@ -36,12 +36,20 @@ import builtInPlugins from '../../built-in-plugins.json' with { type: 'json' };
 /** @type {ReadonlySet<string>} */
 const BUILT_IN_PLUGIN_IDS = new Set(builtInPlugins.plugins ?? []);
 
+/**
+ * The plugin-manager plugin is always activated at bootstrap regardless of
+ * persisted disabled state. This is the self-protection mechanism — without
+ * it, a user could disable plugin-manager and lose the ability to re-enable
+ * anything.
+ */
+const PLUGIN_MANAGER_ID = 'plugin-manager';
+
 /** @param {string} id */
 function isBuiltInPlugin(id) {
   return BUILT_IN_PLUGIN_IDS.has(id);
 }
 
-export { isBuiltInPlugin };
+export { isBuiltInPlugin, PLUGIN_MANAGER_ID };
 
 /** @import { PluginManifest } from '../../agent-type/plugin.ts' */
 /** @import { pluginRouter } from './plugin-router.js' */
@@ -75,6 +83,8 @@ const STATE_DISABLED = 'disabled';
  *   scan: () => Promise<PluginManifest[]>,
  *   activate: (id: string) => Promise<boolean>,
  *   deactivate: (id: string) => Promise<boolean>,
+ *   enable: (id: string) => Promise<{ ok: boolean, error?: string }>,
+ *   disable: (id: string) => Promise<{ ok: boolean, error?: string }>,
  *   getState: (id: string) => string,
  *   getActivePlugins: () => Array<{ manifest: PluginManifest, state: string }>,
  *   getPluginManifest: (id: string) => PluginManifest | undefined,
@@ -122,13 +132,15 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
       let activated = 0;
       let failed = 0;
       for (const manifest of manifests) {
-        if (isBuiltInPlugin(manifest.id)) {
-          // Built-in plugins are always activated — disabled state is ignored.
+        // plugin-manager is always activated — self-protection so the user
+        // always has a recovery path to re-enable other plugins.
+        if (manifest.id === PLUGIN_MANAGER_ID) {
           const ok = await this.activate(manifest.id);
           if (ok) activated++;
           else failed++;
           continue;
         }
+        // All other plugins (including built-in) respect persisted disabled state.
         if (disabledPlugins.has(manifest.id)) {
           _plugins.set(manifest.id, { manifest, state: STATE_DISABLED });
           log.info(`Plugin disabled (persisted state): ${manifest.id}`);
@@ -272,8 +284,8 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
 
     /**
      * Deactivate a plugin: unregister all routes and mark as inactive.
-     * If the deactivation should persist across restarts, call
-     * stateStore.set(id, 'disabled') + stateStore.save() separately.
+     * All plugins (including built-in) can be deactivated.
+     * Does NOT persist state — callers should use disable() for persistence.
      *
      * @param {string} id
      * @returns {Promise<boolean>}
@@ -285,18 +297,70 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
         return false;
       }
 
-      // Built-in plugins cannot be deactivated.
-      if (isBuiltInPlugin(id)) {
-        log.warn(`Cannot deactivate built-in plugin: ${id}`);
-        return false;
-      }
-
       // Unregister all routes for this plugin.
       router.unregisterPlugin(id);
 
       _plugins.set(id, { manifest: existing.manifest, state: STATE_INACTIVE });
       log.info(`Plugin deactivated: ${id}`);
       return true;
+    },
+
+    /**
+     * Enable a plugin: remove persisted disabled state, activate, and persist.
+     * The plugin-manager plugin cannot be disabled, so enabling it is a no-op
+     * (it's always active).
+     *
+     * @param {string} id
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async enable(id) {
+      const existing = _plugins.get(id);
+      if (!existing) {
+        return { ok: false, error: `Unknown plugin: ${id}` };
+      }
+
+      // Remove persisted disabled state.
+      stateStore.remove(id);
+      stateStore.save();
+
+      // Activate the plugin.
+      const ok = await this.activate(id);
+      if (!ok) {
+        return { ok: false, error: `Failed to activate plugin: ${id}` };
+      }
+
+      log.info(`Plugin enabled: ${id}`);
+      return { ok: true };
+    },
+
+    /**
+     * Disable a plugin: deactivate, set state to disabled, and persist.
+     * The plugin-manager plugin cannot be disabled (self-protection).
+     *
+     * @param {string} id
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async disable(id) {
+      if (id === PLUGIN_MANAGER_ID) {
+        log.warn(`Cannot disable plugin-manager (self-protection)`);
+        return { ok: false, error: 'Cannot disable plugin-manager' };
+      }
+
+      const existing = _plugins.get(id);
+      if (!existing) {
+        return { ok: false, error: `Unknown plugin: ${id}` };
+      }
+
+      // Deactivate the plugin (unregister routes).
+      await this.deactivate(id);
+
+      // Set state to disabled and persist.
+      _plugins.set(id, { manifest: existing.manifest, state: STATE_DISABLED });
+      stateStore.set(id, STATE_DISABLED);
+      stateStore.save();
+
+      log.info(`Plugin disabled: ${id}`);
+      return { ok: true };
     },
 
     /**
@@ -323,31 +387,6 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
      */
     getPluginManifest(id) {
       return _plugins.get(id)?.manifest;
-    },
-
-    /**
-     * Get a wrapped state store that prevents built-in plugins from being disabled.
-     */
-    getStateStore() {
-      const builtIns = new Set(
-        Array.from(_plugins.values())
-          .filter((p) => isBuiltInPlugin(p.manifest.id))
-          .map((p) => p.manifest.id),
-      );
-      return {
-        load: () => stateStore.load(),
-        save: () => stateStore.save(),
-        get: (id) => stateStore.get(id),
-        getAll: () => stateStore.getAll(),
-        remove: (id) => stateStore.remove(id),
-        set(id, state) {
-          if (state === STATE_DISABLED && builtIns.has(id)) {
-            log.warn(`Cannot disable built-in plugin: ${id}`);
-            return;
-          }
-          stateStore.set(id, state);
-        },
-      };
     },
   };
 }

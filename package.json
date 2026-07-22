@@ -48,6 +48,7 @@
       "esbuild": "^0.28.0",
       "typescript": "^6.0.3",
       "undici": "^8.1.0",
+      "jsdom>undici": "^7.25.0",
       "agent-base": "^7.1.4",
       "http-proxy-agent": "^7.0.2",
       "https-proxy-agent": "^7.0.6",

@@ -15,7 +15,7 @@
  */
 
 import type { ToolSet, Tool, PluginSlotDeclaration } from '@agent-type';
-import type { DevOpsAdapter, DevOpsBridge } from './types';
+import type { DevOpsAdapter, DevOpsBridge } from '../ui/types';
 import {
   createNavigationTools,
   createWorkitemCoreTools,

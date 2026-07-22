@@ -3,7 +3,8 @@ import './types';
 import type { ToolSet, ToolSetContext, CompactionResult } from '@agent-type';
 import type { AgentMessage } from '@agent-type';
 import type { SessionEntryData } from '@agent-type';
-import type { KnowledgeGraph, KnowledgeNode, MemoryGraphToolSetOptions } from './types';
+import type { KnowledgeGraph, KnowledgeNode, MemoryGraphToolSetOptions, MemoryGraphSymbolState } from './types';
+import { MEMORY_GRAPH_SYMBOL } from './types';
 import { memoryGraphStore, convKey } from './store';
 import { createMemoryGraphTools } from './tools';
 import { MEMORY_GRAPH_SECTION_ID } from './prompt';
@@ -98,6 +99,7 @@ export function createMemoryGraphToolSet(options: MemoryGraphToolSetOptions = {}
 
   return {
     name: 'memory-graph',
+    symbol: MEMORY_GRAPH_SYMBOL,
     coreTools: ['memory_recall'],
     sectionId: MEMORY_GRAPH_SECTION_ID,
     sectionPriority: 70,
@@ -132,9 +134,13 @@ export function createMemoryGraphToolSet(options: MemoryGraphToolSetOptions = {}
 
     // ── State & UI subscription ─────────────────────────────────────────────
 
-    onGetSymbolState(ctx: ToolSetContext) {
+    onGetSymbolState(ctx: ToolSetContext): MemoryGraphSymbolState {
       const graph = memoryGraphStore.get(convKey(ctx)) ?? undefined;
-      return { memoryGraph: { graph } };
+      return {
+        type: 'memory-graph',
+        graph,
+        memoryGraph: { graph },
+      };
     },
 
     onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {

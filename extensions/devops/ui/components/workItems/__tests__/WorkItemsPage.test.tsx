@@ -9,14 +9,16 @@
 // @vitest-environment happy-dom
 
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { WorkItemsPage } from '../WorkItemsPage';
 
 // ── Mock API ─────────────────────────────────────────────────────────────────
 
-vi.mock('../../api', () => ({
+import '@testing-library/jest-dom/vitest';
+
+vi.mock('../../../api', () => ({
   fetchWorkItemTypes: vi.fn().mockResolvedValue([
     { name: 'Task', color: '0078d4', states: [{ name: 'New' }, { name: 'Active' }], fields: [] },
   ]),
@@ -91,6 +93,10 @@ describe('WorkItemsPage', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   describe('initial state', () => {
     it('无弹窗时不显示弹窗容器', async () => {
       renderPage();
@@ -133,7 +139,7 @@ describe('WorkItemsPage', () => {
       await userEvent.click(screen.getByTestId('create-btn'));
       await userEvent.click(screen.getByTestId('create-btn'));
 
-      const createDialogs = screen.getAllByText('新建');
+      const createDialogs = screen.getAllByTestId(/^dialog-create-/);
       expect(createDialogs.length).toBe(3);
     });
 
@@ -178,7 +184,7 @@ describe('WorkItemsPage', () => {
 
       // Verify both are present
       await waitFor(() => {
-        const createDialogs = screen.getAllByText('新建');
+        const createDialogs = screen.getAllByTestId(/^dialog-create-/);
         expect(createDialogs.length).toBe(2);
       });
 
@@ -188,7 +194,7 @@ describe('WorkItemsPage', () => {
 
       // One should remain
       await waitFor(() => {
-        const remaining = screen.getAllByText('新建');
+        const remaining = screen.getAllByTestId(/^dialog-create-/);
         expect(remaining.length).toBe(1);
       });
     });

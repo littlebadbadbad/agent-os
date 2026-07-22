@@ -27,6 +27,34 @@ import { loadPluginAgentEntry, type PluginAgentModule } from "./loader";
 import { createAgentPluginHost, type AgentPluginContext } from "./host";
 import { providerStore } from "../store/providerStore";
 
+// ── Module augmentation: extend PluginBridge with plugin-manager methods ─────
+// This augmentation is also declared in extensions/plugin-manager/agent/activate.ts
+// but that file is in a separate compilation context (plugin tsconfig).
+// We re-declare it here so the host (pluginSystem.ts) can assign these
+// properties to the bridge object with full type safety.
+declare module "@agent-type" {
+  interface PluginBridge {
+    /** Get the current plugin list (descriptors). */
+    listPlugins?: () => Promise<readonly {
+      id: string;
+      name: string;
+      version: string;
+      description?: string;
+      state: string;
+      builtIn?: boolean;
+      canDisable?: boolean;
+      hasAgentEntry: boolean;
+      hasUiEntry: boolean;
+    }[]>;
+    /** Enable a plugin by ID. */
+    enablePlugin?: (pluginId: string) => Promise<void>;
+    /** Disable a plugin by ID. */
+    disablePlugin?: (pluginId: string) => Promise<void>;
+    /** Subscribe to plugin list changes. Returns unsubscribe. */
+    onPluginListChanged?: (cb: () => void) => () => void;
+  }
+}
+
 // ── Compile-time built-in plugin registry ────────────────────────────────────
 // Baked into the bundle at build time by Vite.  Same source of truth as
 // backend/lib/plugin-scanner.js — both read built-in-plugins.json.
@@ -58,6 +86,8 @@ export interface PluginDescriptor {
   readonly state: string;
   /** Whether this plugin is built-in (always active, cannot be disabled). */
   readonly builtIn?: boolean;
+  /** Whether this plugin can be disabled (plugin-manager cannot). */
+  readonly canDisable?: boolean;
   /** Whether this plugin has an agent entry point. */
   readonly hasAgentEntry: boolean;
   /**
@@ -130,6 +160,30 @@ export interface PluginSystem {
    * declarations, or `undefined` if not active.
    */
   getActivePlugin(pluginId: string): ActivatedPluginInfo | undefined;
+
+  /**
+   * Enable a plugin at runtime: call backend enable endpoint, then
+   * dynamically import and activate the agent entry.
+   * No page reload required.
+   *
+   * @param pluginId The ID of the plugin to enable.
+   */
+  enablePlugin(pluginId: string): Promise<void>;
+
+  /**
+   * Disable a plugin at runtime: call the plugin's unregister function
+   * to remove its ToolSets, then call backend disable endpoint.
+   * No page reload required.
+   *
+   * @param pluginId The ID of the plugin to disable.
+   */
+  disablePlugin(pluginId: string): Promise<void>;
+
+  /**
+   * Re-fetch the plugin list from the backend and update state.
+   * Useful after external changes to plugin state.
+   */
+  refreshPluginList(): Promise<void>;
 }
 
 export interface ActivatedPluginInfo extends PluginDescriptor {
@@ -165,6 +219,10 @@ interface PluginSystemState {
   pluginErrors: PluginLoadError[];
   initialized: boolean;
   listeners: Set<() => void>;
+  /** Unregister functions for each active plugin, keyed by plugin ID. */
+  unregisterFns: Map<string, () => void>;
+  /** Stored agent context for runtime reactivation (set during init). */
+  agentContext: AgentPluginContext | null;
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -183,6 +241,13 @@ export function createPluginSystem(): PluginSystem {
     pluginErrors: [],
     initialized: false,
     listeners: new Set(),
+    unregisterFns: new Map(),
+    agentContext: null,
+  };
+
+  /** Notify all listeners. */
+  const notify = (): void => {
+    for (const cb of state.listeners) cb();
   };
 
   return {
@@ -194,6 +259,7 @@ export function createPluginSystem(): PluginSystem {
     async init(agentContext: AgentPluginContext): Promise<void> {
       if (state.initialized) return;
       state.initialized = true;
+      state.agentContext = agentContext;
 
       const plugins = await fetchEnabledPlugins();
       state.allPlugins = plugins;
@@ -203,12 +269,12 @@ export function createPluginSystem(): PluginSystem {
 
       for (const plugin of agentPlugins) {
         plugin.symbols = plugin.symbols ?? [];
-        await activatePlugin(state, plugin, agentContext);
+        await activatePlugin(state, plugin, agentContext, notify);
       }
 
-      // Notify listeners after all plugins are activated.
-      for (const cb of state.listeners) cb();
+      notify();
     },
+
     get activeSymbols(): readonly symbol[] {
       return state.activePlugins.map((p) => p.symbols).flat();
     },
@@ -234,6 +300,20 @@ export function createPluginSystem(): PluginSystem {
 
     getActivePlugin(pluginId: string): ActivatedPluginInfo | undefined {
       return state.activePlugins.find((p) => p.id === pluginId);
+    },
+
+    async enablePlugin(pluginId: string): Promise<void> {
+      await enablePlugin(state, pluginId, notify);
+    },
+
+    async disablePlugin(pluginId: string): Promise<void> {
+      await disablePlugin(state, pluginId, notify);
+    },
+
+    async refreshPluginList(): Promise<void> {
+      const plugins = await fetchEnabledPlugins();
+      state.allPlugins = plugins;
+      notify();
     },
   };
 }
@@ -274,12 +354,149 @@ async function fetchEnabledPlugins(): Promise<PluginDescriptor[]> {
 }
 
 /**
+ * Enable a plugin: call backend, re-fetch list, activate agent entry if present.
+ *
+ * @param state     Plugin system state.
+ * @param pluginId  ID of the plugin to enable.
+ * @param notify    Notify function to trigger after changes.
+ */
+async function enablePlugin(
+  state: PluginSystemState,
+  pluginId: string,
+  notify: () => void,
+): Promise<void> {
+  // 1. Call backend enable endpoint.
+  const res = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/enable`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    console.warn(`[pluginSystem] Failed to enable plugin "${pluginId}":`, body);
+    return;
+  }
+
+  // 2. Re-fetch plugin list to get updated descriptors.
+  const plugins = await fetchEnabledPlugins();
+  state.allPlugins = plugins;
+
+  // 3. If the plugin has an agent entry and isn't already active, activate it.
+  const plugin = plugins.find((p) => p.id === pluginId);
+  if (!plugin || !plugin.hasAgentEntry || !plugin.agentEntryUrl) {
+    notify();
+    return;
+  }
+  if (state.activePlugins.some((p) => p.id === pluginId)) {
+    notify();
+    return;
+  }
+
+  plugin.symbols = plugin.symbols ?? [];
+  if (state.agentContext) {
+    await activatePlugin(state, plugin, state.agentContext, notify);
+  }
+
+  notify();
+}
+
+/**
+ * Disable a plugin: unregister agent entry, call backend, re-fetch list.
+ *
+ * @param state     Plugin system state.
+ * @param pluginId  ID of the plugin to disable.
+ * @param notify    Notify function to trigger after changes.
+ */
+async function disablePlugin(
+  state: PluginSystemState,
+  pluginId: string,
+  notify: () => void,
+): Promise<void> {
+  // 1. Call the plugin's unregister function to remove its ToolSets.
+  const unregister = state.unregisterFns.get(pluginId);
+  if (unregister) {
+    try {
+      unregister();
+    } catch (err) {
+      console.warn(`[pluginSystem] Error unregistering plugin "${pluginId}":`, err);
+    }
+    state.unregisterFns.delete(pluginId);
+  }
+
+  // 2. Remove from active plugins and clear symbols.
+  state.activePlugins = state.activePlugins.filter((p) => p.id !== pluginId);
+
+  // 3. Call backend disable endpoint.
+  const res = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/disable`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    console.warn(`[pluginSystem] Failed to disable plugin "${pluginId}":`, body);
+  }
+
+  // 4. Re-fetch plugin list to update state.
+  const plugins = await fetchEnabledPlugins();
+  state.allPlugins = plugins;
+
+  notify();
+}
+
+/**
+ * Populate the bridge with plugin management methods for the plugin-manager plugin.
+ *
+ * This is the access control boundary: only the plugin-manager plugin's bridge
+ * gets these methods. Other plugins' bridges remain empty for management operations.
+ * The UI iframe calls these via `host.bridge`.
+ *
+ * @param bridge  The shared bridge object for this plugin.
+ * @param state   Plugin system state (for accessing plugin list and methods).
+ * @param notify  Notify function to trigger after changes.
+ */
+function populatePluginManagerBridge(
+  bridge: PluginBridge,
+  state: PluginSystemState,
+  notify: () => void,
+): void {
+  bridge.listPlugins = async () => {
+    return state.allPlugins.map((p) => ({
+      id: p.id,
+      name: p.name,
+      version: p.version,
+      description: p.description,
+      state: p.state,
+      builtIn: p.builtIn,
+      canDisable: p.canDisable,
+      hasAgentEntry: p.hasAgentEntry,
+      hasUiEntry: p.hasUiEntry,
+    }));
+  };
+
+  bridge.enablePlugin = async (pluginId: string) => {
+    await enablePlugin(state, pluginId, notify);
+  };
+
+  bridge.disablePlugin = async (pluginId: string) => {
+    await disablePlugin(state, pluginId, notify);
+  };
+
+  bridge.onPluginListChanged = (cb: () => void) => {
+    state.listeners.add(cb);
+    return () => { state.listeners.delete(cb); };
+  };
+}
+
+/**
  * Activate a single plugin with full error isolation (R1).
+ *
+ * @param state     Plugin system state.
+ * @param plugin    Plugin descriptor to activate.
+ * @param agentContext  Agent context for tool registration.
+ * @param notify    Function to notify listeners after activation (used for bridge population).
  */
 async function activatePlugin(
   state: PluginSystemState,
   plugin: PluginDescriptor,
   agentContext: AgentPluginContext,
+  notify: () => void,
 ): Promise<void> {
   try {
     const agentEntryUrl = plugin.agentEntryUrl!;
@@ -313,6 +530,10 @@ async function activatePlugin(
     const slotDeclarations = new Map<symbol, readonly PluginSlotDeclaration[]>();
     const bridge: PluginBridge = {};
 
+    // Track unregister functions returned by registerToolSet calls.
+    // These are stored in state.unregisterFns so disablePlugin can call them.
+    const toolSetUnregisterFns: Array<() => void> = [];
+
     // Step 5: Create the sandboxed host.
     const host = createAgentPluginHost({
       pluginId: plugin.id,
@@ -333,9 +554,37 @@ async function activatePlugin(
       },
       getSelectedModel: () => providerStore.getSelectedModel(),
     });
+
+    // Wrap registerToolSet to capture the unregister function.
+    const originalRegisterToolSet = host.registerToolSet;
+    host.registerToolSet = (toolSet, slots?) => {
+      const unregister = originalRegisterToolSet(toolSet, slots);
+      toolSetUnregisterFns.push(unregister);
+      return unregister;
+    };
+
     // Step 6: Call activate — this is where the plugin registers ToolSets
     // and populates `host.bridge` with its methods/properties.
     await Promise.resolve(loadResult.module.activate(host));
+
+    // Step 6b: For the plugin-manager plugin, populate the bridge with
+    // management methods. This is the access control boundary — only the
+    // plugin-manager plugin gets management methods on its bridge.
+    // Other plugins' bridges remain empty for management operations.
+    if (plugin.id === "plugin-manager") {
+      populatePluginManagerBridge(bridge, state, notify);
+    }
+
+    // Store the combined unregister function for this plugin.
+    if (toolSetUnregisterFns.length > 0) {
+      state.unregisterFns.set(plugin.id, () => {
+        for (const fn of toolSetUnregisterFns) {
+          try { fn(); } catch (err) {
+            console.warn(`[pluginSystem] Error in unregister for "${plugin.id}":`, err);
+          }
+        }
+      });
+    }
 
     state.activePlugins.push({
       host,

@@ -17,7 +17,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createUserInputToolSet, USER_INPUT_SYMBOL } from '../../agent/requestUserInput/toolSet';
+import { createUserInputToolSet as _createUserInputToolSet, USER_INPUT_SYMBOL } from '../../agent/requestUserInput/toolSet';
+// Wrapper: createUserInputToolSet now returns { toolSet, slotDeclarations }, unwrap for backwards compat
+const createUserInputToolSet = (...args: any[]) => _createUserInputToolSet(...args).toolSet;
 
 import type { ToolSetContext, SessionEntryData, SessionReadyHelpers } from '@agent-type';
 import type { InlinePromptEntry } from '../../agent/requestUserInput/types';
@@ -265,13 +267,12 @@ describe('createUserInputToolSet — onGetSymbolState', () => {
     expect(typeof state.respondUserInput).toBe('function');
   });
 
-  it('returns inlinePrompt, toolCard, and compactToolCard slots', () => {
-    const ts = createUserInputToolSet();
-    const state = ts.onGetSymbolState!(MINIMAL_CTX);
-    expect(state.slots).toHaveLength(3);
-    expect(state.slots[0].type).toBe('inlinePrompt');
-    expect(state.slots[1].type).toBe('toolCard');
-    expect(state.slots[2].type).toBe('compactToolCard');
+  it('returns inlinePrompt, toolCard, and compactToolCard slot declarations', () => {
+    const bundle = _createUserInputToolSet();
+    expect(bundle.slotDeclarations).toHaveLength(3);
+    expect(bundle.slotDeclarations[0].type).toBe('inlinePrompt');
+    expect(bundle.slotDeclarations[1].type).toBe('toolCard');
+    expect(bundle.slotDeclarations[2].type).toBe('compactToolCard');
   });
 
   it('uses ctxKey for isolation across contexts', () => {

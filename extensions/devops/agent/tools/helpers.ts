@@ -1,4 +1,4 @@
-import type { DevOpsBridge } from '../types';
+import type { DevOpsBridge } from '../../ui/types';
 
 export function createHelpers(bridge: DevOpsBridge) {
   return {

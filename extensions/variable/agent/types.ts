@@ -1,10 +1,20 @@
-import type { Attachment } from '@agent-type';
+import type { Attachment, PluginStateExtension } from '@agent-type';
 
 declare module '@agent-type' {
   interface AgentSessionExtension {
     variables?: readonly VariableEntry[];
     variableStore?: VariableStoreRef;
   }
+}
+
+// ── Symbol state (for onGetSymbolState) ────────────────────────────────────────
+
+export const VARIABLE_SYMBOL = Symbol.for('sdk.VariableToolSet');
+
+export interface VariableSymbolState extends PluginStateExtension {
+  readonly type: 'variable';
+  readonly variables: readonly VariableEntry[];
+  readonly variableStore: VariableStoreRef;
 }
 
 // ── JSON value types ──────────────────────────────────────────────────────────

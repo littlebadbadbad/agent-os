@@ -1,3 +1,5 @@
+import type { PluginStateExtension } from '@agent-type';
+
 // ── Module augmentation side-effect ──────────────────────────────────────────
 // Importing this module registers the AgentSessionExtension and
 // SessionEntryExtension fields.  Must be a proper ES module.
@@ -72,6 +74,23 @@ export type MemoryGraphToolSetOptions = {
    */
   maxDescriptionLength?: number;
 };
+
+// ── Symbol state (for onGetSymbolState) ────────────────────────────────────────
+
+export const MEMORY_GRAPH_SYMBOL = Symbol.for('sdk.MemoryGraphToolSet');
+
+export interface MemoryGraphSymbolState extends PluginStateExtension {
+  readonly type: 'memory-graph';
+  /** The current knowledge graph, or `undefined` if none has been built yet. */
+  readonly graph?: KnowledgeGraph;
+  /**
+   * Flat-accessible field for backward compatibility — mirrors `this.graph`.
+   * UI code that reads `state.memoryGraph` continues to work after migration
+   * from `onGetState` to `onGetSymbolState` because the state collector
+   * flattens symbol-state fields into the plain record.
+   */
+  readonly memoryGraph: { graph?: KnowledgeGraph };
+}
 
 // ── Module augmentations ──────────────────────────────────────────────────────
 

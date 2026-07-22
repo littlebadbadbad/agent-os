@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import type { DevOpsBridge } from '../types';
+import type { DevOpsBridge } from '../../ui/types';
 import type { Tool } from '@agent-type';
 
 export function createNavigationTools(bridge: DevOpsBridge): Tool[] {

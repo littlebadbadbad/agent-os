@@ -2,8 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSubAgentToolset } from '../../tools/subagent/subAgentToolset';
 import { createSubAgentRegistry } from '../../tools/subagent/registry';
-import { createUserInputToolSet } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
-import { USER_INPUT_SYMBOL } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
+import { createUserInputToolSet as _createUserInputToolSet, USER_INPUT_SYMBOL } from '../../../extensions/user-input/agent/requestUserInput/toolSet';
+// Wrapper: createUserInputToolSet now returns { toolSet, slotDeclarations }, unwrap for backwards compat
+const createUserInputToolSet = (...args: any[]) => _createUserInputToolSet(...args).toolSet;
 import { createPendingInputToolSet } from '../../../extensions/user-input/agent/pendingInput/toolSet';
 import type { ToolSet, ToolSetContext, AgentQueryFns, SessionEntryData, SessionReadyHelpers } from '@agent-type';
 

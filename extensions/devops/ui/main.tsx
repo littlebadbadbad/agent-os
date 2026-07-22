@@ -14,7 +14,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { UiPluginHost, PluginStateExtension } from '@agent-type';
-import type { DevOpsBridge } from '../agent/types';
+import type { DevOpsBridge } from './types';
 import { populateDevopsBridge } from './bridge';
 import { setApiClient } from './api/client';
 import DevOpsApp from './components/DevOpsApp';

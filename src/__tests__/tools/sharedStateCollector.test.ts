@@ -135,7 +135,8 @@ describe('collectAllToolSetStates', () => {
       onGetSymbolState: () => ({ hidden: 'data' }),
     });
     const result = collectAllToolSetStates([ts], EMPTY_CTX, makeStateCtx());
-    expect(result.plain).toEqual({ visible: true });
+    // Symbol state fields are also flattened into plain for backward compat
+    expect(result.plain).toEqual({ visible: true, hidden: 'data' });
     expect(result.symbol[sym]).toEqual({ hidden: 'data' });
   });
 });

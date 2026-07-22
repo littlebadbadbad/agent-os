@@ -214,4 +214,229 @@ describe('createToolLifecycle', () => {
     // Should not throw even though the tool is no longer in masterTools
     expect(() => unregister()).not.toThrow();
   });
+
+  // ── Comprehensive unregister verification ────────────────────────────────
+
+  describe('registerToolSet unregister: full cleanup verification', () => {
+    it('unregisters ALL tools from the toolset across every session slot', () => {
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1', 's2', 's3');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1', 's2', 's3']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const ts: ToolSet = {
+        name: 'multi-tool-ts',
+        tools: [makeTool('mt-a'), makeTool('mt-b'), makeTool('mt-c')],
+      };
+      const unregister = lc.registerToolSet(ts);
+
+      // All tools present in all slots before unregister
+      for (const id of ['s1', 's2', 's3']) {
+        const reg = slots.get(id)!.getRegistry();
+        expect(reg.has('mt-a')).toBe(true);
+        expect(reg.has('mt-b')).toBe(true);
+        expect(reg.has('mt-c')).toBe(true);
+      }
+
+      unregister();
+
+      // ALL tools removed from ALL slots after unregister
+      for (const id of ['s1', 's2', 's3']) {
+        const reg = slots.get(id)!.getRegistry();
+        expect(reg.has('mt-a')).toBe(false);
+        expect(reg.has('mt-b')).toBe(false);
+        expect(reg.has('mt-c')).toBe(false);
+      }
+    });
+
+    it('triggers externalRefresh (state change notification) after unregister', () => {
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const externalRefresh = vi.fn();
+      slots.get('s1')!.externalRefresh = externalRefresh;
+
+      const ts: ToolSet = { name: 'notify-ts', tools: [makeTool('nt')] };
+      const unregister = lc.registerToolSet(ts);
+
+      externalRefresh.mockClear(); // clear registration-time calls
+      unregister();
+
+      // externalRefresh MUST be called after unregister so UI state updates
+      expect(externalRefresh).toHaveBeenCalled();
+    });
+
+    it('tools are not callable after unregister (registry lookup fails)', () => {
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const ts: ToolSet = { name: 'callable-ts', tools: [makeTool('ct')] };
+      const unregister = lc.registerToolSet(ts);
+
+      // Tool is in the registry before unregister
+      expect(slots.get('s1')!.getRegistry().has('ct')).toBe(true);
+
+      unregister();
+
+      // Tool is gone from the registry — pipeline's validateToolCall would
+      // throw toolNotFoundError because getRegisteredTool returns undefined
+      expect(slots.get('s1')!.getRegistry().has('ct')).toBe(false);
+      expect(slots.get('s1')!.getRegistry().get('ct')).toBeUndefined();
+    });
+
+    it('fires onRemove for every existing session on unregister', () => {
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1', 's2');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1', 's2']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const onRemove = vi.fn();
+      const ts: ToolSet = { name: 'remove-ts', tools: [], onRemove };
+      const unregister = lc.registerToolSet(ts);
+
+      onRemove.mockClear();
+      unregister();
+
+      expect(onRemove).toHaveBeenCalledTimes(2);
+      expect(onRemove).toHaveBeenCalledWith(makeTsCtx('s1'));
+      expect(onRemove).toHaveBeenCalledWith(makeTsCtx('s2'));
+    });
+
+    it('tears down onSubscribe subscriptions on unregister', () => {
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const unsubFn = vi.fn();
+      const externalRefresh = vi.fn();
+      slots.get('s1')!.externalRefresh = externalRefresh;
+
+      const ts: ToolSet = {
+        name: 'sub-ts',
+        tools: [],
+        onSubscribe: () => unsubFn,
+      };
+      const unregister = lc.registerToolSet(ts);
+
+      expect(unsubFn).not.toHaveBeenCalled();
+
+      unregister();
+
+      // The onSubscribe-returned unsubscribe function must be called
+      expect(unsubFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onAttach detach callback on unregister', () => {
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const detachFn = vi.fn();
+      const ts: ToolSet = {
+        name: 'detach-ts',
+        tools: [],
+        onAttach: () => detachFn,
+      };
+      const unregister = lc.registerToolSet(ts);
+
+      expect(detachFn).not.toHaveBeenCalled();
+
+      unregister();
+
+      expect(detachFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('unregistering one toolset does NOT remove same-named tool from another toolset', () => {
+      // Regression: cleanup used findIndex by name which could remove the
+      // wrong tool when two ToolSets register tools with the same name.
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const toolA = makeTool('conflict');
+      const toolB = makeTool('conflict');
+      const tsA: ToolSet = { name: 'ts-A', tools: [toolA] };
+      const tsB: ToolSet = { name: 'ts-B', tools: [toolB] };
+
+      lc.registerToolSet(tsA);
+      const unregisterB = lc.registerToolSet(tsB);
+
+      // Before unregister: both tools are in masterTools (different refs)
+      expect(masterTools.filter((t) => t.name === 'conflict')).toHaveLength(2);
+
+      unregisterB();
+
+      // After unregister B: toolB is gone, but toolA remains in masterTools
+      const remaining = masterTools.filter((t) => t.name === 'conflict');
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]).toBe(toolA);
+    });
+
+    it('unregistering one toolset preserves same-named tool from another toolset in masterTools', () => {
+      // Regression: unregisterByName removes the Map entry by name — if two
+      // ToolSets share a tool name, unregistering the FIRST one must NOT
+      // remove the second one's tool reference from masterTools.
+      const masterTools: Tool[] = [];
+      const masterToolSets: ToolSet[] = [];
+      const slots = makeSlots('s1');
+      const lc = createToolLifecycle({
+        masterTools, masterToolSets, slots,
+        sessionMgr: makeSessionMgr(['s1']),
+        getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient,
+      });
+
+      const toolA = makeTool('conflict');
+      const toolB = makeTool('conflict');
+      const tsA: ToolSet = { name: 'ts-A', tools: [toolA] };
+      const tsB: ToolSet = { name: 'ts-B', tools: [toolB] };
+
+      const unregisterA = lc.registerToolSet(tsA);
+      lc.registerToolSet(tsB); // tsB's version overwrites in registry
+
+      // Both tool references exist in masterTools before unregister
+      expect(masterTools.filter((t) => t.name === 'conflict')).toHaveLength(2);
+
+      unregisterA();
+
+      // Only tsA's toolA is removed from masterTools — toolB stays
+      const remaining = masterTools.filter((t) => t.name === 'conflict');
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]).toBe(toolB);
+    });
+  });
 });

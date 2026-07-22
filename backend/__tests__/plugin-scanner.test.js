@@ -364,11 +364,29 @@ describe('state persistence', () => {
     expect(scanner.getState('ghost')).toBe('inactive');
   });
 
-  it('getStateStore returns a working state store', () => {
+  it('enable removes disabled state and activates plugin', async () => {
+    createTestPlugin(pluginsDir, 'enable-test', '1.0.0');
     const scanner = createPluginScanner(pluginRouter, pluginsDir, dataDir);
-    const store = scanner.getStateStore();
-    store.set('my-plugin', 'disabled');
-    expect(store.get('my-plugin')).toBe('disabled');
+    await scanner.bootstrap();
+
+    // Disable the plugin first
+    await scanner.disable('enable-test');
+    expect(scanner.getState('enable-test')).toBe('disabled');
+
+    // Enable it
+    const result = await scanner.enable('enable-test');
+    expect(result.ok).toBe(true);
+    expect(scanner.getState('enable-test')).toBe('active');
+  });
+
+  it('disable blocks self-disable of plugin-manager', async () => {
+    createTestPlugin(pluginsDir, 'plugin-manager', '1.0.0');
+    const scanner = createPluginScanner(pluginRouter, pluginsDir, dataDir);
+    await scanner.bootstrap();
+
+    const result = await scanner.disable('plugin-manager');
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeDefined();
   });
 });
 

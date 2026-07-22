@@ -12,7 +12,7 @@
 import { useEffect } from 'react';
 import type { DevOpsState, DevOpsAction } from '../store/devopsStore';
 import { useDevOps, globalDevOps } from '../store/devopsStore';
-import type { DevOpsBridge } from '../../agent/types';
+import type { DevOpsBridge } from '../types';
 
 export function BridgeRegistration(): null {
   const { dispatch } = useDevOps();

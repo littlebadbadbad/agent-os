@@ -14,6 +14,7 @@ overrides:
   esbuild: ^0.28.0
   typescript: ^6.0.3
   undici: ^8.1.0
+  jsdom>undici: ^7.25.0
   agent-base: ^7.1.4
   http-proxy-agent: ^7.0.2
   https-proxy-agent: ^7.0.6
@@ -272,6 +273,43 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
+  extensions/delegation-nudge:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+
+  extensions/devops:
+    dependencies:
+      '@agent-type':
+        specifier: workspace:*
+        version: link:../../agent-type
+    devDependencies:
+      '@types/react':
+        specifier: '*'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: '*'
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: '*'
+        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      react:
+        specifier: '*'
+        version: 19.2.4
+      react-dom:
+        specifier: '*'
+        version: 19.2.4(react@19.2.4)
+      sass:
+        specifier: '*'
+        version: 1.98.0
+      vite:
+        specifier: '*'
+        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
+
   extensions/dynamic-tool:
     dependencies:
       '@agent-type':
@@ -394,6 +432,18 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
+  extensions/memory-graph:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+
+  extensions/permissions:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+
   extensions/plan:
     devDependencies:
       '@types/react':
@@ -427,7 +477,32 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/plugin-manager: {}
+  extensions/plugin-manager:
+    devDependencies:
+      '@types/react':
+        specifier: '*'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: '*'
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: '*'
+        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      react:
+        specifier: '*'
+        version: 19.2.4
+      react-dom:
+        specifier: '*'
+        version: 19.2.4(react@19.2.4)
+      sass:
+        specifier: '*'
+        version: 1.98.0
+      vite:
+        specifier: '*'
+        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
   extensions/skill:
     devDependencies:
@@ -537,6 +612,18 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
+  extensions/tool-result-compressor:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+
+  extensions/tool-search:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+
   extensions/tool-state:
     devDependencies:
       '@types/react':
@@ -590,6 +677,12 @@ importers:
       vite:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
+
+  extensions/variable:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
 
 packages:
 
@@ -3249,6 +3342,10 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
+  undici@7.28.0:
+    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
+    engines: {node: '>=20.18.1'}
+
   undici@8.1.0:
     resolution: {integrity: sha512-E9MkTS4xXLnRPYqxH2e6Hr2/49e7WFDKczKcCaFH4VaZs2iNvHMqeIkyUAD9vM8kujy9TjVrRlQ5KkdEJxB2pw==}
     engines: {node: '>=22.19.0'}
@@ -5295,7 +5392,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 8.1.0
+      undici: 7.28.0
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -6411,6 +6508,9 @@ snapshots:
   ufo@1.6.3: {}
 
   undici-types@7.18.2: {}
+
+  undici@7.28.0:
+    optional: true
 
   undici@8.1.0: {}
 

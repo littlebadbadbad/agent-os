@@ -25,10 +25,11 @@ import { handleModelConfigRoutes } from './transports/network/model-config.js';
 import { handleSessionRoutes } from './transports/network/sessions.js';
 import { WebSocketServer } from 'ws';
 import { pluginRouter } from './lib/plugin-router.js';
-import { createPluginScanner, isBuiltInPlugin } from './lib/plugin-scanner.js';
+import { createPluginScanner, isBuiltInPlugin, PLUGIN_MANAGER_ID } from './lib/plugin-scanner.js';
 import { getProxyConfig } from './lib/proxy.js';
 import { decryptPat, getPublicKeyPem } from './lib/rsa.js';
 import { createPluginConfigStore } from './lib/plugin-config-store.js';
+import { createPluginManagementService } from './services/plugin-management.js';
 /**
  * Lazy IPC handler registration — only loaded when called from Electron main process.
  * Static re-export forces Node.js to resolve 'electron' imports on plain `node backend/index.js`,
@@ -41,6 +42,28 @@ import { createPluginConfigStore } from './lib/plugin-config-store.js';
 export async function registerIpcHandlers() {
   const { registerIpcHandlers: fn } = await import('./transports/ipc/index.js');
   fn(pluginRouter);
+}
+
+/**
+ * Refresh plugin IPC handlers after runtime enable/disable.
+ * Only works in Electron mode (requires ipcMain).
+ * Called by the plugin management service's onPluginChanged callback.
+ */
+let _ipcRefreshFn = null;
+export async function refreshPluginIpc() {
+  if (!_ipcRefreshFn) {
+    try {
+      const { refreshPluginIpcHandlers } = await import('./transports/ipc/plugin.js');
+      const { ipcMain } = await import('electron');
+      _ipcRefreshFn = () => refreshPluginIpcHandlers(ipcMain, pluginRouter);
+    } catch {
+      // Not in Electron mode — no IPC to refresh.
+      _ipcRefreshFn = null;
+    }
+  }
+  if (_ipcRefreshFn) {
+    _ipcRefreshFn();
+  }
 }
 
 const log = createLogger('server');
@@ -193,6 +216,7 @@ async function handleRequest(req, res) {
           description: manifest.description,
           state: p.state,
           builtIn: isBuiltInPlugin(manifest.id),
+          canDisable: manifest.id !== PLUGIN_MANAGER_ID,
           hasAgentEntry: !!manifest.agentEntry,
           agentEntryUrl: manifest.agentEntry
             ? `/plugins/${manifest.id}/${manifest.agentEntry.replace(/\\/g, '/')}`
@@ -226,6 +250,21 @@ async function handleRequest(req, res) {
       return send(res, 200, { ok: true });
     }
 
+    // ── Plugin enable/disable API ──────────────────────────────────────────
+    const enableMatch = path.match(/^\/api\/plugins\/([^/]+)\/enable$/);
+    if (enableMatch && req.method === 'POST') {
+      const pluginId = decodeURIComponent(enableMatch[1]);
+      const result = await pluginScanner.enable(pluginId);
+      return send(res, result.ok ? 200 : 400, result);
+    }
+
+    const disableMatch = path.match(/^\/api\/plugins\/([^/]+)\/disable$/);
+    if (disableMatch && req.method === 'POST') {
+      const pluginId = decodeURIComponent(disableMatch[1]);
+      const result = await pluginScanner.disable(pluginId);
+      return send(res, result.ok ? 200 : 400, result);
+    }
+
     // ── Plugin API routes ──────────────────────────────────────────────────
     const pluginMatch = pluginRouter.matchHttpRoute(path);
     if (pluginMatch !== false) {
@@ -254,11 +293,27 @@ async function handleRequest(req, res) {
 // showing the BrowserWindow. Auto-starts when run directly as a Node.js script.
 
 // ── Plugin system (singleton, created once) ────────────────────────────────
+// The pluginManager service is injected into backendServices but is only
+// accessible to the plugin-manager plugin (capability injection in plugin-host.js).
+// We create a placeholder service object first, then populate it after the
+// scanner exists (resolving the circular dependency: scanner needs service,
+// service needs scanner).
+const pluginManagerService = {};
+
 export const pluginScanner = createPluginScanner(pluginRouter, PLUGINS_DIR, DATA_ROOT, {
   proxy: getProxyConfig,
   rsaDecrypt: () => decryptPat,
-  rsaPublicKey: () => getPublicKeyPem(),
+  rsaPublicKey: getPublicKeyPem,
+  pluginManager: () => pluginManagerService,
 }, AGENT_DIR);
+
+// Now that the scanner exists, populate the service with real methods.
+const _realService = createPluginManagementService(
+  pluginScanner,
+  () => refreshPluginIpc(),
+);
+Object.assign(pluginManagerService, _realService);
+
 export const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
 
 export async function startServer() {

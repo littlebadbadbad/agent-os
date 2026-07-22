@@ -61,6 +61,15 @@ export function collectAllToolSetStates(
           state,
         );
         symbol[ts.symbol] = merged;
+        // Flatten symbol-state fields into the plain record so that
+        // string-keyed access (e.g. `state.variables`) continues to work
+        // after ToolSets migrate from `onGetState` to `onGetSymbolState`.
+        for (const [k, v] of Object.entries(merged)) {
+          plain[k] =
+            Array.isArray(v) && Array.isArray(plain[k])
+              ? [...(plain[k] as unknown[]), ...v]
+              : v;
+        }
       }
     }
   }

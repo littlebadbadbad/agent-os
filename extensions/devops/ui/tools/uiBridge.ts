@@ -16,7 +16,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyHandler = (...args: any[]) => any;
 
-class UiBridge {
+export class UiBridge {
   private handlers = new Map<string, AnyHandler>();
 
   /** Register a handler for the given key.  Overwrites any previous registration. */

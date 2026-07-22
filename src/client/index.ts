@@ -10,7 +10,7 @@ import type { SessionManager } from "@agent-sdk/client/sessionManager.types";
 import type { AgentClientConfig } from "@agent-sdk/client/types";
 import type { ToolSet, ToolSetContext, AgentClientLike } from '@agent-type';
 import { MAIN_CONVERSATION_ID } from "@agent-sdk/tools/toolSet";
-import { createToolLifecycle } from "@agent-sdk/client/toolLifecycle";
+import { createToolLifecycle, ensureToolSetSymbol } from "@agent-sdk/client/toolLifecycle";
 import { createSessionFactory } from "@agent-sdk/client/sessionFactory";
 import { createSnapshotBuilder } from "@agent-sdk/client/snapshotBuilder";
 import { createToolSetScope } from "@agent-sdk/tools/toolSetScope";
@@ -63,6 +63,11 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
 
   function getAllToolSets(): ToolSet[] {
     return [...toolSets, ...masterToolSets];
+  }
+
+  // Ensure every ToolSet has a symbol so onGetSymbolState is always collected.
+  for (const ts of toolSets) {
+    ensureToolSetSymbol(ts);
   }
 
   // Register tools supplied directly via config.tools.

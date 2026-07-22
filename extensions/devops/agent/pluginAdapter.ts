@@ -6,7 +6,7 @@
  */
 
 import type { PluginApiClient } from '@agent-type';
-import type { DevOpsAdapter, AdoProxyCallParams, AdoProxyUploadParams, PublicKeyInfo } from './types';
+import type { DevOpsAdapter, AdoProxyCallParams, AdoProxyUploadParams, PublicKeyInfo } from '../ui/types';
 
 /**
  * Create a DevOpsAdapter backed by the plugin's pre-bound PluginApiClient.

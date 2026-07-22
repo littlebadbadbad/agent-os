@@ -310,33 +310,33 @@ describe('createVariableToolSet', () => {
     expect(list.total).toBe(0);
   });
 
-  // ── onGetState ─────────────────────────────────────────────────────────────
+  // ── onGetSymbolState ────────────────────────────────────────────────────────
 
-  it('onGetState returns variables array', async () => {
+  it('onGetSymbolState returns variables array', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const toolCtx = makeToolCtx(sessionId);
     const ctx = makeCtx(sessionId);
     await getTool(ts, 'var_write').execute({ json: '"state test"' }, toolCtx);
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(Array.isArray(state.variables)).toBe(true);
     expect(state.variables.length).toBe(1);
   });
 
-  it('onGetState returns variableStore reference', () => {
+  it('onGetSymbolState returns variableStore reference', () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.variableStore).toBeDefined();
     expect(typeof state.variableStore.list).toBe('function');
   });
 
-  it('onGetState returns empty variables when session is fresh', () => {
+  it('onGetSymbolState returns empty variables when session is fresh', () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
-    const state = ts.onGetState!(ctx) as any;
+    const state = ts.onGetSymbolState!(ctx) as any;
     expect(state.variables).toHaveLength(0);
   });
 

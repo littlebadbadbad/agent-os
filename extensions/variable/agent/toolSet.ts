@@ -2,7 +2,8 @@ import { MAIN_CONVERSATION_ID } from '@agent-type';
 import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
 import type { AgentMessage } from '@agent-type';
 import type { ToolResult } from '@agent-type';
-import type { SerializedVariable, VariableEntry } from './types';
+import type { SerializedVariable, VariableEntry, VariableSymbolState } from './types';
+import { VARIABLE_SYMBOL } from './types';
 
 // ── Module augmentation ───────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
 
   return {
     name: 'variable',
+    symbol: VARIABLE_SYMBOL,
     coreTools: ['var_write', 'var_expand', 'var_read_path'],
     tools: [...tools],
 
@@ -130,9 +132,10 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
       store.clear();
     },
 
-    onGetSymbolState(ctx: ToolSetContext) {
+    onGetSymbolState(ctx: ToolSetContext): VariableSymbolState {
       const store = getSessionStore(ctx.sessionId);
       return {
+        type: 'variable',
         variables: store.list(),
         variableStore: buildStoreRef(store),
       };

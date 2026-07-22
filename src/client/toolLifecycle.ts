@@ -4,6 +4,18 @@ import type { ToolSet, ToolSetContext, AgentClientLike } from '@agent-type';
 import type { ToolManager } from './toolManager';
 import type { SessionManager } from './sessionManager.types';
 
+/**
+ * Ensure every ToolSet carries a `symbol` — required for `onGetSymbolState` to
+ * be collected.  ToolSets without an explicit symbol get a default one derived
+ * from their name so plugin-UIs can still address their state via the symbol
+ * index signature (`state[symbol]`).
+ */
+export function ensureToolSetSymbol(ts: ToolSet): void {
+  if (!ts.symbol) {
+    ts.symbol = Symbol.for(`toolset:default:${ts.name}`);
+  }
+}
+
 export type ToolLifecycleDeps = {
   masterTools: Tool[];
   masterToolSets: ToolSet[];
@@ -94,6 +106,7 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
     },
 
     registerToolSet(ts: ToolSet): () => void {
+      ensureToolSetSymbol(ts);
       masterToolSets.push(ts);
       const tools = resolveToolSetTools(ts);
       for (const tool of tools) {
@@ -127,19 +140,21 @@ export function createToolLifecycle(deps: ToolLifecycleDeps) {
         const idx = masterToolSets.indexOf(ts);
         if (idx !== -1) masterToolSets.splice(idx, 1);
         for (const tool of tools) {
-          const masterIdx = masterTools.findIndex((t) => t.name === tool.name);
+          const masterIdx = masterTools.indexOf(tool);
           if (masterIdx !== -1) masterTools.splice(masterIdx, 1);
           for (const tm of slots.values()) {
             tm.unregisterByName(tool.name);
           }
         }
         for (const sessionId of slots.keys()) {
-          // Tear down the subscription wired by onSubscribe, then notify the
-          // ToolSet that the session is gone.
+          // Tear down the subscription wired by onSubscribe, then allow the
+          // ToolSet to clean up per-scope state (the scope itself is NOT being
+          // removed — only this ToolSet is being detached from it).
           sessionUnsubs.get(sessionId)?.();
           ts.onRemove?.(makeCtx(sessionId));
         }
         sessionUnsubs.clear();
+        this.refreshExternalState();
       };
     },
 

@@ -31,6 +31,7 @@ const log = createLogger('plugin-host');
  *
  * @typedef {Object} BackendServices
  * @property {() => ProxyConfig} [proxy]  - Current proxy configuration.
+ * @property {() => PluginManagementService} [pluginManager]  - Plugin management service (only exposed to plugin-manager).
  */
 
 /**
@@ -100,6 +101,15 @@ export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoo
         log.error(`getBackendConfig: key must be a string, got ${typeof key}`);
         return undefined;
       }
+
+      // ── Capability-based access control ──────────────────────────────────
+      // The pluginManager service is only exposed to the plugin-manager plugin.
+      // Any other plugin calling getBackendConfig('pluginManager') gets undefined.
+      if (key === 'pluginManager' && pluginId !== 'plugin-manager') {
+        log.warn(`getBackendConfig: plugin "${pluginId}" is not authorised to access "pluginManager" service`);
+        return undefined;
+      }
+
       const accessor = backendServices[key];
       if (typeof accessor !== 'function') {
         log.warn(`getBackendConfig: unknown key "${key}" — no accessor registered`);
