@@ -26,30 +26,15 @@ import { pathToFileURL } from 'url';
 import { createLogger } from './logger.js';
 import { createPluginHost } from './plugin-host.js';
 import { createPluginStateStore } from './plugin-state-store.js';
-import { DATA_ROOT, PROJECT_ROOT } from './paths.js';
-import { readFileSync as _readFileSync } from 'fs';
-import { join as _join, dirname as _dirname } from 'path';
-import { fileURLToPath as _fileURLToPath } from 'url';
+import builtInPlugins from '../../built-in-plugins.json' with { type: 'json' };
 
 // ── Built-in plugin registry ─────────────────────────────────────────────────
 // Single source of truth for which plugins are built-in.
 // Both backend (plugin-scanner.js) and UI (pluginSystem.ts) read this file.
-// Built-in plugins are always activated and can never be disabled.
-
-const __filename = _fileURLToPath(import.meta.url);
-const __dirname = _dirname(__filename);
-const BUILT_IN_JSON_PATH = _join(__dirname, '..', '..', 'built-in-plugins.json');
+// Built-in plugins can now be disabled like any other plugin.
 
 /** @type {ReadonlySet<string>} */
-const BUILT_IN_PLUGIN_IDS = (() => {
-  try {
-    const raw = _readFileSync(BUILT_IN_JSON_PATH, 'utf-8');
-    const data = JSON.parse(raw);
-    return new Set(data.plugins ?? []);
-  } catch {
-    return new Set();
-  }
-})();
+const BUILT_IN_PLUGIN_IDS = new Set(builtInPlugins.plugins ?? []);
 
 /** @param {string} id */
 function isBuiltInPlugin(id) {

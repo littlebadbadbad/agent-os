@@ -135,10 +135,24 @@ function copyWithDeps(name, destNm, visited = new Set()) {
   }
 }
 
+// ── CLI args ──────────────────────────────────────────────────────────────────
+
+const args = process.argv.slice(2);
+const pluginsIdx = args.indexOf('--plugins');
+if (pluginsIdx !== -1 && args[pluginsIdx + 1]) {
+  process.env.PLUGIN_FILTER = args[pluginsIdx + 1];
+  console.log(`  --plugins = ${process.env.PLUGIN_FILTER}`);
+}
+
 // ── Step 1: Build frontend ────────────────────────────────────────────────────
 
 console.log('\n=== Step 1: Build frontend ===');
 run('vite build --config vite.demo.config.ts');
+
+// ── Step 1.5: Compile all extensions into plugins/ ───────────────────────────
+
+console.log('\n=== Step 1.5: Compile plugins ===');
+run('node scripts/compile-plugins.mjs');
 
 // ── Step 2: Bundle backend (esbuild) ─────────────────────────────────────────
 
@@ -272,6 +286,18 @@ ensureDir(playwrightNm);
 copyWithDeps('playwright',      playwrightNm);
 copyWithDeps('playwright-core', playwrightNm);
 
+// ── Step 5.5: Copy plugins into release/ ─────────────────────────────────────
+
+console.log('\n=== Step 5.5: Copy plugins into release/ ===');
+const PLUGINS_SRC = join(ROOT, 'plugins');
+const PLUGINS_DST = join(RELEASE, 'plugins');
+if (existsSync(PLUGINS_SRC)) {
+  rmSync(PLUGINS_DST, { recursive: true, force: true });
+  mkdirSync(PLUGINS_DST, { recursive: true });
+  cpSync(PLUGINS_SRC, PLUGINS_DST, { recursive: true, force: true });
+  console.log('  -> plugins/');
+}
+
 // ── Step 6: Build launcher exe → RELEASE/<EXE_NAME>.exe ──────────────────────
 
 console.log('\n=== Step 6: Build launcher ===');
@@ -348,7 +374,7 @@ console.log(`\nDone!
       ${SERVER_NAME}.exe     ← server
       *.node
       dist-demo/
-    .agent/ / data/ / workspace/  ← shared data (not touched by this build)
+    plugins/ / .agent/ / data/ / workspace/  ← shared data (not touched by this build)
 
 Usage:
   cd release

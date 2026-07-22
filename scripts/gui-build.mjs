@@ -147,10 +147,24 @@ function fileSha256(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
+// ── CLI args ──────────────────────────────────────────────────────────────────
+
+const args = process.argv.slice(2);
+const pluginsIdx = args.indexOf('--plugins');
+if (pluginsIdx !== -1 && args[pluginsIdx + 1]) {
+  process.env.PLUGIN_FILTER = args[pluginsIdx + 1];
+  console.log(`  --plugins = ${process.env.PLUGIN_FILTER}`);
+}
+
 // ── Step 1: Build frontend ────────────────────────────────────────────────────
 
 console.log('\n=== Step 1: Build frontend ===');
 run('vite build --config vite.demo.config.ts');
+
+// ── Step 1.5: Compile all extensions into plugins/ ───────────────────────────
+
+console.log('\n=== Step 1.5: Compile plugins ===');
+run('node scripts/compile-plugins.mjs');
 
 // ── Step 2: Compile Electron main + preload ────────────────────────────────────
 
@@ -384,6 +398,18 @@ if (!existsSync(WIN_UNPACKED)) {
 ensureDir(VER_DIR);
 cpSync(WIN_UNPACKED, VER_DIR, { recursive: true, force: true });
 
+// ── Step 8.5: Copy plugins into release/ ─────────────────────────────────────
+
+console.log('\n=== Step 8.5: Copy plugins into release/ ===');
+const PLUGINS_SRC = join(ROOT, 'plugins');
+const PLUGINS_DST = join(RELEASE, 'plugins');
+if (existsSync(PLUGINS_SRC)) {
+  rmSync(PLUGINS_DST, { recursive: true, force: true });
+  mkdirSync(PLUGINS_DST, { recursive: true });
+  cpSync(PLUGINS_SRC, PLUGINS_DST, { recursive: true, force: true });
+  console.log('  -> plugins/');
+}
+
 // ── Step 9: Verify Electron exe exists ──────────────────────────────────────
 
 console.log('\n=== Step 9: Verify Electron exe ===');
@@ -471,7 +497,7 @@ console.log(`\nDone!
           node_modules/      ← native bindings rebuilt for Electron
       locales/
       *.dll
-    .agent/ / data/ / workspace/  ← shared data (not touched by this build)
+    plugins/ / .agent/ / data/ / workspace/  ← shared data (not touched by this build)
 
 Usage:
   cd release
