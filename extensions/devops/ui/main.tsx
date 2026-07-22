@@ -19,11 +19,6 @@ import { populateDevopsBridge } from './bridge';
 import { setApiClient } from './api/client';
 import DevOpsApp from './components/DevOpsApp';
 
-declare global {
-  interface Window {
-    __UAP_PLUGIN_HOST__?: UiPluginHost<PluginStateExtension, DevOpsBridge>;
-  }
-}
 
 function waitForHost(timeout = 10000): Promise<UiPluginHost<PluginStateExtension, DevOpsBridge>> {
   return new Promise((resolve, reject) => {

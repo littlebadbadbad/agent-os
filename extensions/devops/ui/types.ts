@@ -7,8 +7,13 @@
  *   3. UiBridgeHandlerRegistry lets UI register handlers that tools call
  */
 
-import type { PluginBridge } from '@agent-type';
+import type { PluginBridge, PluginStateExtension, UiPluginHost } from '@agent-type';
 
+declare global {
+  interface Window {
+    __UAP_PLUGIN_HOST__?: UiPluginHost<PluginStateExtension, DevOpsBridge>;
+  }
+}
 // ── Backend adapter ───────────────────────────────────────────────────────────
 
 /**
