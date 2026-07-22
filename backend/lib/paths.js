@@ -89,6 +89,19 @@ export const AGENT_DIR = join(PROJECT_ROOT, '.agent');
 export const PLUGINS_DIR = join(PROJECT_ROOT, 'plugins');
 
 /**
+ * Pre-compiled built-in plugin packages — used for reinstalling built-in
+ * plugins after they've been uninstalled via plugin-manager.
+ *
+ * In development mode (unpackaged), this points to `<project>/release/plugins/`.
+ * In packaged mode (pkg/Electron), the only copy of built-in plugins is
+ * PLUGINS_DIR itself, so this is undefined — reinstall is not supported there.
+ * @type {string | undefined}
+ */
+export const RELEASE_PLUGINS_DIR = (IS_PKG || process.env.UAP_IS_PACKAGED === '1')
+  ? undefined
+  : join(PROJECT_ROOT, 'release', 'plugins');
+
+/**
  * Default workspace root for file tools.
  * Respects $WORKSPACE_ROOT env var; always an absolute path.
  */

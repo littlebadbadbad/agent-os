@@ -33,6 +33,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -148,3 +149,4 @@ if (existsSync(uiEntry)) {
     process.exitCode = 1;
   }
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

@@ -36,6 +36,14 @@ declare module "@agent-type" {
     disablePlugin?: (pluginId: string) => Promise<void>;
     /** Subscribe to plugin list changes. Returns unsubscribe. */
     onPluginListChanged?: (cb: () => void) => () => void;
+    /** Install a plugin from a user-selected ZIP file. */
+    installPluginFromZip?: () => Promise<{ ok: boolean; error?: string }>;
+    /** Install a plugin from a user-selected folder. */
+    installPluginFromFolder?: () => Promise<{ ok: boolean; error?: string }>;
+    /** Uninstall a plugin by ID. */
+    uninstallPlugin?: (pluginId: string) => Promise<{ ok: boolean; error?: string }>;
+    /** Reinstall a built-in plugin from the pre-compiled release package. */
+    reinstallBuiltInPlugin?: (pluginId: string) => Promise<{ ok: boolean; error?: string }>;
   }
 }
 

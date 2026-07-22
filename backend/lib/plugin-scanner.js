@@ -26,6 +26,8 @@ import { pathToFileURL } from 'url';
 import { createLogger } from './logger.js';
 import { createPluginHost } from './plugin-host.js';
 import { createPluginStateStore } from './plugin-state-store.js';
+import { createPluginInstaller } from './plugin-installer.js';
+import { RELEASE_PLUGINS_DIR } from './paths.js';
 import builtInPlugins from '../../built-in-plugins.json' with { type: 'json' };
 
 // ── Built-in plugin registry ─────────────────────────────────────────────────
@@ -69,6 +71,8 @@ const STATE_ACTIVE = 'active';
 const STATE_ERROR = 'error';
 /** @type {'disabled'} */
 const STATE_DISABLED = 'disabled';
+/** @type {'not_installed'} */
+const STATE_NOT_INSTALLED = 'not_installed';
 
 /**
  * Create a plugin scanner bound to a specific directory and router.
@@ -85,9 +89,13 @@ const STATE_DISABLED = 'disabled';
  *   deactivate: (id: string) => Promise<boolean>,
  *   enable: (id: string) => Promise<{ ok: boolean, error?: string }>,
  *   disable: (id: string) => Promise<{ ok: boolean, error?: string }>,
+ *   install: (sourceType: string, source: Buffer | string) => Promise<{ ok: boolean, error?: string, pluginId?: string }>,
+ *   uninstall: (id: string) => Promise<{ ok: boolean, error?: string }>,
  *   getState: (id: string) => string,
  *   getActivePlugins: () => Array<{ manifest: PluginManifest, state: string }>,
  *   getPluginManifest: (id: string) => PluginManifest | undefined,
+ *   getBuiltInNotInstalled: () => Array<{ id: string, name: string, state: string }>,
+ *   reinstallBuiltIn: (id: string) => Promise<{ ok: boolean, error?: string }>,
  * }}
  */
 export function createPluginScanner(router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
@@ -96,6 +104,17 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
 
   /** Persisted state (disabled flags survive restarts). */
   const stateStore = createPluginStateStore(join(dataRoot, 'plugin-state.json'));
+
+  /** Filesystem installer for ZIP/folder install and directory removal. */
+  const installer = createPluginInstaller(pluginsDir);
+
+  /**
+   * Manifest cache for built-in plugins — preserves name/description/version
+   * after a built-in plugin is uninstalled so the UI can display readable info.
+   * Populated during scan() and never cleared.
+   * @type {Map<string, { name: string, version: string, description?: string }>}
+   */
+  const _builtInManifestCache = new Map();
 
   // ── Public API ────────────────────────────────────────────────────────────
 
@@ -200,6 +219,15 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
           if (!manifest.version || typeof manifest.version !== 'string') {
             log.warn(`Invalid manifest in ${entry.name}: missing or invalid "version"`);
             continue;
+          }
+
+          // Cache manifest info for built-in plugins — survives uninstall.
+          if (isBuiltInPlugin(manifest.id)) {
+            _builtInManifestCache.set(manifest.id, {
+              name: manifest.name,
+              version: manifest.version,
+              description: manifest.description,
+            });
           }
 
           manifests.push(manifest);
@@ -387,6 +415,187 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
      */
     getPluginManifest(id) {
       return _plugins.get(id)?.manifest;
+    },
+
+    /**
+     * Install a plugin from a ZIP archive or a source directory.
+     *
+     * After filesystem install, scans the new plugin, adds it to _plugins,
+     * and activates it.  The plugin-manager is always activated; other
+     * plugins start in the active state.
+     *
+     * @param {'zip' | 'folder'} sourceType
+     * @param {Buffer | string} source  - ZIP buffer or absolute folder path.
+     * @returns {Promise<{ ok: boolean, error?: string, pluginId?: string }>}
+     */
+    async install(sourceType, source) {
+      let result;
+      if (sourceType === 'zip') {
+        result = await installer.installFromZip(/** @type {Buffer} */ (source));
+      } else if (sourceType === 'folder') {
+        result = await installer.installFromDirectory(/** @type {string} */ (source));
+      } else {
+        return { ok: false, error: `Invalid source type: "${sourceType}". Must be "zip" or "folder".` };
+      }
+
+      if (!result.ok) {
+        return { ok: false, error: result.error };
+      }
+
+      const { pluginId, manifest } = result;
+
+      // Scan the newly installed plugin to add it to the plugin map.
+      const manifests = await this.scan();
+      const newManifest = manifests.find((m) => m.id === pluginId);
+
+      if (!newManifest) {
+        // Should not happen — we just installed it.
+        return { ok: false, error: `Plugin "${pluginId}" installed but manifest not found after scan` };
+      }
+
+      // Add to _plugins and activate.
+      _plugins.set(pluginId, { manifest: newManifest, state: STATE_INACTIVE });
+      const activated = await this.activate(pluginId);
+
+      log.info(`Plugin installed: ${pluginId} v${manifest.version} (${activated ? 'activated' : 'activation failed'})`);
+      return { ok: true, pluginId };
+    },
+
+    /**
+     * Uninstall a plugin: deactivate, remove persisted state, remove
+     * from the plugin map, and delete its directory from disk.
+     *
+     * Built-in plugins can be uninstalled — their directories are removed,
+     * but they still appear in the plugin list with state "not_installed".
+     * External plugins disappear entirely from the list.
+     *
+     * The plugin-manager can never be uninstalled (self-protection).
+     *
+     * @param {string} id
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async uninstall(id) {
+      if (id === PLUGIN_MANAGER_ID) {
+        return { ok: false, error: 'Cannot uninstall plugin-manager (self-protection)' };
+      }
+
+      const existing = _plugins.get(id);
+      if (!existing) {
+        return { ok: false, error: `Unknown plugin: ${id}` };
+      }
+
+      // Deactivate first to unregister backend routes.
+      await this.deactivate(id);
+
+      // Remove persisted state.
+      stateStore.remove(id);
+      stateStore.save();
+
+      // Remove from the plugin map.
+      _plugins.delete(id);
+
+      // Delete the plugin directory from disk.
+      const removeResult = installer.remove(id);
+      if (!removeResult.ok) {
+        log.warn(`Plugin "${id}" deactivated but directory removal failed: ${removeResult.error}`);
+        // Return partial success — the plugin is deactivated even if directory
+        // removal failed.  The user can retry removal.
+        return { ok: true, warning: removeResult.error };
+      }
+
+      log.info(`Plugin uninstalled: ${id}`);
+      return { ok: true };
+    },
+
+    /**
+     * Get ghost entries for built-in plugins that are not currently installed.
+     *
+     * Built-in plugins that have been uninstalled still appear in the plugin
+     * list with state "not_installed", so the user can reinstall them.
+     * External plugins that are uninstalled simply disappear.
+     *
+     * @returns {Array<{ id: string, name: string, version: string, state: string }>}
+     */
+    getBuiltInNotInstalled() {
+      const installedIds = new Set(_plugins.keys());
+      return Array.from(BUILT_IN_PLUGIN_IDS)
+        .filter((id) => !installedIds.has(id) && id !== PLUGIN_MANAGER_ID)
+        .map((id) => {
+          const cached = _builtInManifestCache.get(id);
+          return {
+            id,
+            name: cached?.name ?? id,
+            version: cached?.version ?? '0.0.0',
+            description: cached?.description,
+            state: STATE_NOT_INSTALLED,
+          };
+        });
+    },
+
+    /**
+     * Reinstall a built-in plugin from the pre-compiled release package.
+     *
+     * Copies the plugin directory from RELEASE_PLUGINS_DIR to PLUGINS_DIR,
+     * scans the new copy, and activates it.  Only works for built-in plugins
+     * listed in built-in-plugins.json.  External plugins cannot be reinstalled
+     * via this method — they must be reinstalled via install().
+     *
+     * In packaged mode (pkg/Electron), RELEASE_PLUGINS_DIR is undefined and
+     * this method returns an error.
+     *
+     * @param {string} id
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async reinstallBuiltIn(id) {
+      if (id === PLUGIN_MANAGER_ID) {
+        return { ok: false, error: 'Cannot reinstall plugin-manager (always active)' };
+      }
+
+      if (!isBuiltInPlugin(id)) {
+        return { ok: false, error: `"${id}" is not a built-in plugin` };
+      }
+
+      if (!RELEASE_PLUGINS_DIR) {
+        return { ok: false, error: 'Release plugins directory not available in packaged mode' };
+      }
+
+      const releaseDir = join(RELEASE_PLUGINS_DIR, id);
+      if (!existsSync(releaseDir)) {
+        return { ok: false, error: `Release plugin directory not found: ${releaseDir}` };
+      }
+
+      // Check not already installed (or orphan from failed uninstall).
+      const targetDir = join(pluginsDir, id);
+      if (existsSync(targetDir)) {
+        // If the plugin is tracked in _plugins, it's genuinely installed — refuse.
+        if (_plugins.has(id)) {
+          return { ok: false, error: `Plugin "${id}" is already installed` };
+        }
+        // Orphan directory from a failed uninstall — try to clean it up.
+        log.info(`Removing orphan directory before reinstall: ${targetDir}`);
+        const cleanResult = installer.remove(id);
+        if (!cleanResult.ok && existsSync(targetDir)) {
+          return { ok: false, error: `Cannot reinstall — stale directory could not be removed: ${cleanResult.error}` };
+        }
+      }
+
+      // Copy from release to plugins directory.
+      const copyResult = await installer.installFromDirectory(releaseDir);
+      if (!copyResult.ok) {
+        return { ok: false, error: copyResult.error };
+      }
+
+      // Re-scan and activate.
+      const manifests = await this.scan();
+      const manifest = manifests.find((m) => m.id === id);
+      if (!manifest) {
+        return { ok: false, error: `Plugin "${id}" copied but manifest not found after scan` };
+      }
+
+      _plugins.set(id, { manifest, state: STATE_INACTIVE });
+      const activated = await this.activate(id);
+      log.info(`Built-in plugin reinstalled: ${id} v${manifest.version} (${activated ? 'activated' : 'activation failed'})`);
+      return { ok: true };
     },
   };
 }

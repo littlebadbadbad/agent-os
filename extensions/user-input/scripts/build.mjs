@@ -23,6 +23,7 @@ import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 
 /** Plugin source root: extensions/user-input/ */
 const SRC_DIR = resolve(__dirname, "..");
@@ -104,3 +105,4 @@ if (existsSync(uiEntry)) {
     `  ℹ  user-input: no UI entry (ui/index.html) — skipping UI build.`,
   );
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

@@ -6,6 +6,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 const SRC_DIR = resolve(__dirname, "..");
 const OUT_DIR =
   process.env.PLUGIN_OUT_DIR ??
@@ -67,4 +68,5 @@ if (existsSync(viteConfig)) {
 
 if (builtCount > 0) {
   console.log(`  ✔  experience: done (${builtCount} builds)`);
+  copyPluginAssets(SRC_DIR, OUT_DIR);
 }

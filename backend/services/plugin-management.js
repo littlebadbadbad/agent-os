@@ -25,6 +25,9 @@ const log = createLogger('plugin-management');
  * @property {() => Array<{ manifest: PluginManifest, state: string, builtIn: boolean, canDisable: boolean }>} listPlugins
  * @property {(id: string) => Promise<{ ok: boolean, error?: string }>} enablePlugin
  * @property {(id: string) => Promise<{ ok: boolean, error?: string }>} disablePlugin
+ * @property {(sourceType: 'zip' | 'folder', source: Buffer | string) => Promise<{ ok: boolean, error?: string, pluginId?: string }>} installPlugin
+ * @property {(id: string) => Promise<{ ok: boolean, error?: string }>} uninstallPlugin
+ * @property {(id: string) => Promise<{ ok: boolean, error?: string }>} reinstallBuiltInPlugin
  */
 
 /** @import { PluginManifest } from '../../agent-type/plugin.ts' */
@@ -85,6 +88,73 @@ export function createPluginManagementService(scanner, onPluginChanged) {
     async disablePlugin(id) {
       log.info(`disablePlugin: ${id}`);
       const result = await scanner.disable(id);
+
+      if (result.ok && typeof onPluginChanged === 'function') {
+        try {
+          onPluginChanged();
+        } catch (err) {
+          log.warn(`onPluginChanged callback error: ${err.message}`);
+        }
+      }
+
+      return result;
+    },
+
+    /**
+     * Install a plugin from a ZIP archive or folder.
+     * Delegates to scanner.install(), then fires onPluginChanged.
+     *
+     * @param {'zip' | 'folder'} sourceType
+     * @param {Buffer | string} source
+     * @returns {Promise<{ ok: boolean, error?: string, pluginId?: string }>}
+     */
+    async installPlugin(sourceType, source) {
+      log.info(`installPlugin: type=${sourceType}`);
+      const result = await scanner.install(sourceType, source);
+
+      if (result.ok && typeof onPluginChanged === 'function') {
+        try {
+          onPluginChanged();
+        } catch (err) {
+          log.warn(`onPluginChanged callback error: ${err.message}`);
+        }
+      }
+
+      return result;
+    },
+
+    /**
+     * Uninstall a plugin by ID.
+     * Delegates to scanner.uninstall(), then fires onPluginChanged.
+     *
+     * @param {string} id
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async uninstallPlugin(id) {
+      log.info(`uninstallPlugin: ${id}`);
+      const result = await scanner.uninstall(id);
+
+      if (result.ok && typeof onPluginChanged === 'function') {
+        try {
+          onPluginChanged();
+        } catch (err) {
+          log.warn(`onPluginChanged callback error: ${err.message}`);
+        }
+      }
+
+      return result;
+    },
+
+    /**
+     * Reinstall a built-in plugin from the pre-compiled release package.
+     * Only works for built-in plugins listed in built-in-plugins.json.
+     *
+     * @param {string} id
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async reinstallBuiltInPlugin(id) {
+      log.info(`reinstallBuiltInPlugin: ${id}`);
+      const result = await scanner.reinstallBuiltIn(id);
 
       if (result.ok && typeof onPluginChanged === 'function') {
         try {

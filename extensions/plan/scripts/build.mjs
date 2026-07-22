@@ -23,6 +23,7 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 
 /** Plugin source root: extensions/plan/ */
 const SRC_DIR = resolve(__dirname, "..");
@@ -98,3 +99,4 @@ if (existsSync(uiEntry)) {
 } else {
   console.log(`  ℹ  plan: no UI entry (ui/index.html) — skipping UI build.`);
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

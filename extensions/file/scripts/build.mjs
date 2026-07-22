@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 const SRC_DIR = resolve(__dirname, '..');
 const OUT_DIR = process.env.PLUGIN_OUT_DIR ?? resolve(SRC_DIR, '..', '..', 'plugins', 'file');
 
@@ -80,3 +81,4 @@ if (existsSync(uiEntry)) {
 } else {
   console.log(`  \u2139  file: no UI entry (ui/index.html) \u2014 skipping UI build.`);
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

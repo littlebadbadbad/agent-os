@@ -6,6 +6,7 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 const SRC_DIR = resolve(__dirname, "..");
 const OUT_DIR = process.env.PLUGIN_OUT_DIR ?? resolve(SRC_DIR, "..", "..", "plugins", "tool-state");
 
@@ -31,3 +32,4 @@ if (existsSync(uiEntry)) {
   try { execSync('npx vite build --config vite.ui.config.ts', { cwd: SRC_DIR, stdio: 'inherit', env: { ...process.env, PLUGIN_OUT_DIR: OUT_DIR } }); }
   catch (err) { console.error(`  ✖  tool-state: UI build failed: ${err.message}`); process.exitCode = 1; }
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

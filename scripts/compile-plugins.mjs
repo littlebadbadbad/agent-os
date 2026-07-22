@@ -4,8 +4,9 @@
  *
  * For each sub-directory under extensions/ that has a package.json and a
  * manifest.json, runs the plugin's single `build` command (defined in
- * package.json), then copies manifest.json and a cleaned package.json
- * into the plugins/ output directory.
+ * package.json).  Each plugin's build script is responsible for compiling
+ * its own entries AND copying manifest.json + a cleaned package.json into
+ * the output directory (via the shared copyPluginAssets() utility).
  *
  * Convention:
  *   - Each plugin has ONE build script (`scripts.build`) that compiles
@@ -18,7 +19,7 @@
  * Run: node scripts/compile-plugins.mjs
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'fs';
+import { readFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -164,19 +165,6 @@ for (const name of pluginNames) {
   } else {
     console.log(`  ℹ  ${name}: no build script defined — skipping compilation.`);
   }
-
-  // ── Copy manifest ─────────────────────────────────────────────────────────
-  writeFileSync(
-    join(outDir, 'manifest.json'),
-    JSON.stringify(manifest, null, 2),
-  );
-
-  // ── Copy package.json (strip devDependencies) ──────────────────────────────
-  const { devDependencies, ...cleanPkg } = pkg;
-  writeFileSync(
-    join(outDir, 'package.json'),
-    JSON.stringify(cleanPkg, null, 2),
-  );
 
   console.log(`  ✔  ${name} → plugins/${name}/`);
 }

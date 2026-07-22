@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 const SRC_DIR = resolve(__dirname, '..');
 const OUT_DIR = process.env.PLUGIN_OUT_DIR ?? resolve(SRC_DIR, '..', '..', 'plugins', 'dynamic-tool');
 
@@ -103,3 +104,4 @@ if (existsSync(uiEntry)) {
 } else {
   console.log(`  \u2139  dynamic-tool: no UI entry \u2014 skipping UI build.`);
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

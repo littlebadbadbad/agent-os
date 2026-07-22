@@ -33,6 +33,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -143,3 +144,4 @@ if (builtCount === totalExpected) {
 } else {
   console.log(`  ⚠  skill: ${builtCount}/${totalExpected} build(s) succeeded`);
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

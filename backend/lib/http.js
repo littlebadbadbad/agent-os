@@ -2,6 +2,16 @@
  * Shared HTTP helpers for all route handlers.
  */
 
+/** Read the raw request body as a Buffer. */
+export function readBodyBuffer(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 /** Read and JSON-parse the request body. */
 export function readBody(req) {
   return new Promise((resolve, reject) => {

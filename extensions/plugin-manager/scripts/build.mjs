@@ -25,6 +25,7 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 
 /** Plugin source root: extensions/plugin-manager/ */
 const SRC_DIR = resolve(__dirname, "..");
@@ -124,4 +125,5 @@ if (existsSync(uiEntry)) {
 
 if (builtCount > 0) {
   console.log(`  ✓  plugin-manager: ${builtCount} entry(s) compiled → ${OUT_DIR}`);
+  copyPluginAssets(SRC_DIR, OUT_DIR);
 }

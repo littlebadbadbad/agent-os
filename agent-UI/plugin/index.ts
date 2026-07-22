@@ -23,7 +23,7 @@ export { createAgentPluginHost } from './host';
 export type { AgentPluginContext, AgentPluginHostParams } from './host';
 
 export { createPluginSystem } from './pluginSystem';
-export type { PluginSystem, PluginDescriptor, ActivatedPluginInfo } from './pluginSystem';
+export type { PluginSystem, PluginDescriptor, ActivatedPluginInfo, PluginLoadError } from './pluginTypes';
 
 export { createUiPluginHost } from './uiHost';
 export type { UiPluginHostParams } from './uiHost';

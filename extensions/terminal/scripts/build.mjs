@@ -21,6 +21,7 @@ import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 const SRC_DIR = resolve(__dirname, "..");
 const OUT_DIR = process.env.PLUGIN_OUT_DIR ?? resolve(SRC_DIR, "..", "..", "plugins", "terminal");
 
@@ -94,3 +95,4 @@ if (existsSync(uiEntry)) {
 } else {
   console.log(`  ℹ  terminal: no UI entry (ui/index.html) — skipping UI build.`);
 }
+copyPluginAssets(SRC_DIR, OUT_DIR);

@@ -14,7 +14,7 @@
  *                      rebuilt native bindings (better-sqlite3, node-pty, …)
  */
 
-import { app, BrowserWindow, Menu, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, shell, ipcMain, dialog } from 'electron';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -113,6 +113,17 @@ function createWindow(): void {
       flushCompleteResolver();
       flushCompleteResolver = null;
     }
+  });
+
+  // ── Native dialog: open directory picker ─────────────────────────────
+  // Used by plugin-manager's install-from-folder flow.  Falls back to the
+  // browser File System Access API if this handler is absent (e.g. in non-
+  // Electron environments).
+  ipcMain.handle('dialog:openDirectory', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openDirectory'],
+    });
+    return result;
   });
 
   mainWindow.on('close', (event) => {

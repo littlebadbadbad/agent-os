@@ -11,7 +11,7 @@ import { createServer } from 'http';
 import { URL, pathToFileURL } from 'url';
 import { createReadStream, existsSync, statSync } from 'fs';
 import { join, extname } from 'path';
-import { setCORS, send, readBody } from './lib/http.js';
+import { setCORS, send, readBody, readBodyBuffer } from './lib/http.js';
 import './lib/proxy.js';   // side-effect: initialises global dispatcher
 import { handleChatAsync, handleChatStream } from './transports/network/chat.js';
 import { handleChatLogRoutes } from './transports/network/chat-logs.js';
@@ -207,7 +207,7 @@ async function handleRequest(req, res) {
 
     // ── Plugin introspection ───────────────────────────────────────────────
     if (req.method === 'GET' && path === '/api/plugins') {
-      const plugins = pluginScanner.getActivePlugins().map((p) => {
+      const activePlugins = pluginScanner.getActivePlugins().map((p) => {
         const manifest = p.manifest;
         return {
           id: manifest.id,
@@ -229,7 +229,22 @@ async function handleRequest(req, res) {
             : undefined,
         };
       });
-      return send(res, 200, { plugins });
+
+      // Include ghost entries for uninstalled built-in plugins so the UI
+      // can show a "Reinstall" button for them.
+      const ghostPlugins = pluginScanner.getBuiltInNotInstalled().map((g) => ({
+        id: g.id,
+        name: g.name,
+        version: g.version,
+        description: g.description,
+        state: g.state,
+        builtIn: true,
+        canDisable: false,
+        hasAgentEntry: false,
+        hasUiEntry: false,
+      }));
+
+      return send(res, 200, { plugins: [...activePlugins, ...ghostPlugins] });
     }
 
     // ── Plugin config API ──────────────────────────────────────────────────
@@ -262,6 +277,42 @@ async function handleRequest(req, res) {
     if (disableMatch && req.method === 'POST') {
       const pluginId = decodeURIComponent(disableMatch[1]);
       const result = await pluginScanner.disable(pluginId);
+      return send(res, result.ok ? 200 : 400, result);
+    }
+
+    // ── Plugin install/uninstall API ───────────────────────────────────────
+
+    // POST /api/plugins/install  — install from ZIP (raw binary body)
+    if (req.method === 'POST' && path === '/api/plugins/install/zip') {
+      const zipBuffer = await readBodyBuffer(req);
+      const result = await pluginScanner.install('zip', zipBuffer);
+      return send(res, result.ok ? 200 : 400, result);
+    }
+
+    // POST /api/plugins/install  — install from folder (JSON body)
+    if (req.method === 'POST' && path === '/api/plugins/install/folder') {
+      const body = await readBody(req);
+      const sourcePath = body.path;
+      if (!sourcePath || typeof sourcePath !== 'string') {
+        return send(res, 400, { ok: false, error: '"path" is required in request body' });
+      }
+      const result = await pluginScanner.install('folder', sourcePath);
+      return send(res, result.ok ? 200 : 400, result);
+    }
+
+    // POST /api/plugins/:id/uninstall
+    const uninstallMatch = path.match(/^\/api\/plugins\/([^/]+)\/uninstall$/);
+    if (uninstallMatch && req.method === 'POST') {
+      const pluginId = decodeURIComponent(uninstallMatch[1]);
+      const result = await pluginScanner.uninstall(pluginId);
+      return send(res, result.ok ? 200 : 400, result);
+    }
+
+    // POST /api/plugins/:id/reinstall — built-in plugin reinstall
+    const reinstallMatch = path.match(/^\/api\/plugins\/([^/]+)\/reinstall$/);
+    if (reinstallMatch && req.method === 'POST') {
+      const pluginId = decodeURIComponent(reinstallMatch[1]);
+      const result = await pluginScanner.reinstallBuiltIn(pluginId);
       return send(res, result.ok ? 200 : 400, result);
     }
 

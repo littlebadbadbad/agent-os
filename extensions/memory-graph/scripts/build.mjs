@@ -5,6 +5,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
 const SRC_DIR = resolve(__dirname, "..");
 const OUT_DIR = process.env.PLUGIN_OUT_DIR ?? resolve(SRC_DIR, "..", "..", "plugins", "memory-graph");
 
@@ -40,4 +41,5 @@ for (const { src, out, platform, target, format } of ENTRIES) {
 }
 if (builtCount > 0) {
   console.log(`  ✓  memory-graph: ${builtCount} entry(s) compiled → ${OUT_DIR}`);
+  copyPluginAssets(SRC_DIR, OUT_DIR);
 }

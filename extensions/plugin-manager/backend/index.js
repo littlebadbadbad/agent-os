@@ -64,4 +64,37 @@ export function activate(host) {
     }
     return { ok: true };
   });
+
+  // ── API: install (ZIP or folder) ──────────────────────────────────────
+
+  host.defineApi('install', async (params) => {
+    const { sourceType, source } = params || {};
+    if (!sourceType || !['zip', 'folder'].includes(sourceType)) {
+      throw new Error('sourceType must be "zip" or "folder"');
+    }
+    if (!source) {
+      throw new Error('source is required (Buffer for zip, string path for folder)');
+    }
+    const svc = getService();
+    const result = await svc.installPlugin(sourceType, source);
+    if (!result.ok) {
+      throw new Error(result.error || 'Failed to install plugin');
+    }
+    return { ok: true, pluginId: result.pluginId };
+  });
+
+  // ── API: uninstall ────────────────────────────────────────────────────
+
+  host.defineApi('uninstall', async (params) => {
+    const { id } = params || {};
+    if (!id || typeof id !== 'string') {
+      throw new Error('id is required');
+    }
+    const svc = getService();
+    const result = await svc.uninstallPlugin(id);
+    if (!result.ok) {
+      throw new Error(result.error || `Failed to uninstall plugin "${id}"`);
+    }
+    return { ok: true };
+  });
 }
