@@ -3,7 +3,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { apiTransport } from '../../transport/apiTransport';
+import { getProxyConfig, updateProxyConfig, testProxyTarget } from '../../plugin/core';
+import type { ProxyConfig } from '../../plugin/core';
 import styles from './ProxyManagerPanel.module.scss';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -11,17 +12,7 @@ import styles from './ProxyManagerPanel.module.scss';
 const PROTOCOLS = ['http', 'https', 'socks5', 'socks4'] as const;
 type Protocol = (typeof PROTOCOLS)[number];
 
-interface ProxyConfig {
-  enabled: boolean;
-  protocol: Protocol;
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  noProxy: string;
-  connectTimeout: number;
-}
-
+// ProxyConfig is imported from plugin/core — the core API module.
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
 
 interface ProxyManagerPanelProps {
@@ -42,7 +33,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
 
   // ── Load config on mount ──────────────────────────────────────────────────
   useEffect(() => {
-    apiTransport.get<{ config: ProxyConfig }>('/api/proxy')
+    getProxyConfig()
       .then(({ config }) => {
         setCfg(config);
         setForm(config);
@@ -81,9 +72,8 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
     setSaveError(null);
     setSaveOk(false);
     try {
-      const { config } = await apiTransport.post<{ config: ProxyConfig }>('/api/proxy', form);
-      setCfg(config);
-      setForm(config);
+      const result = await updateProxyConfig(form);
+      setCfg(form);
       setSaveOk(true);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err));
@@ -98,10 +88,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
     setTestStatus('testing');
     setTestMsg('');
     try {
-      const result = await apiTransport.post<{ ok: boolean; ms?: number; error?: string }>(
-        '/api/proxy/test',
-        form,
-      );
+      const result = await testProxyTarget(undefined, form);
       if (result.ok) {
         setTestStatus('ok');
         setTestMsg(result.ms != null ? `连通 (${result.ms} ms)` : '连通');

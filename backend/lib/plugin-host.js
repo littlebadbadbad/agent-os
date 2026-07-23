@@ -9,7 +9,6 @@
  *
  * Security model:
  *   Plugin code can only interact with the system through the host API.
- *   Path access is restricted — only the plugin-manager plugin can see PLUGINS_DIR.
  *
  * Usage:
  *   import { createPluginHost } from './plugin-host.js';
@@ -99,14 +98,6 @@ export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoo
     getBackendConfig(key) {
       if (typeof key !== 'string') {
         log.error(`getBackendConfig: key must be a string, got ${typeof key}`);
-        return undefined;
-      }
-
-      // ── Capability-based access control ──────────────────────────────────
-      // The pluginManager service is only exposed to the plugin-manager plugin.
-      // Any other plugin calling getBackendConfig('pluginManager') gets undefined.
-      if (key === 'pluginManager' && pluginId !== 'plugin-manager') {
-        log.warn(`getBackendConfig: plugin "${pluginId}" is not authorised to access "pluginManager" service`);
         return undefined;
       }
 

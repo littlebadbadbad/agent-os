@@ -19,7 +19,6 @@
     "memory-graph",
     "tool-search",
     "permissions",
-    "delegation-nudge",
-    "plugin-manager"
+    "delegation-nudge"
   ]
 }

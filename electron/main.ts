@@ -116,9 +116,9 @@ function createWindow(): void {
   });
 
   // ── Native dialog: open directory picker ─────────────────────────────
-  // Used by plugin-manager's install-from-folder flow.  Falls back to the
-  // browser File System Access API if this handler is absent (e.g. in non-
-  // Electron environments).
+  // Used by the plugin manager's install-from-folder flow (pluginManagerApi).
+  // Falls back to prompt() if this handler is absent (e.g. in non-Electron
+  // environments).
   ipcMain.handle('dialog:openDirectory', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openDirectory'],

@@ -4,10 +4,10 @@
  * Orchestrates the full lifecycle of frontend plugins by delegating to
  * focused sub-modules:
  *
- *   pluginTypes.ts       — All type definitions and the PluginBridge augmentation
+ *   pluginTypes.ts       — All type definitions
  *   pluginBuiltIn.ts     — Compile-time built-in plugin registry
  *   pluginState.ts       — State management and backend fetch helpers
- *   pluginLifecycle.ts   — All runtime operations (activate, enable, install, …)
+ *   pluginLifecycle.ts   — Plugin activation and enable/disable
  *
  * This module is the public API surface — createPluginSystem() creates a
  * PluginSystem instance that consumers interact with.  Types are re-exported

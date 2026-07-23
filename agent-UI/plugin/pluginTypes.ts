@@ -9,30 +9,6 @@ import type {
 } from "@agent-type";
 import { AgentPluginContext } from "./host";
 
-// ── Module augmentation: extend PluginBridge with plugin-manager methods ─────
-declare module "@agent-type" {
-  interface PluginBridge {
-    listPlugins?: () => Promise<readonly {
-      id: string;
-      name: string;
-      version: string;
-      description?: string;
-      state: string;
-      builtIn?: boolean;
-      canDisable?: boolean;
-      hasAgentEntry: boolean;
-      hasUiEntry: boolean;
-    }[]>;
-    enablePlugin?: (pluginId: string) => Promise<void>;
-    disablePlugin?: (pluginId: string) => Promise<void>;
-    onPluginListChanged?: (cb: () => void) => () => void;
-    installPluginFromZip?: () => Promise<{ ok: boolean; error?: string }>;
-    installPluginFromFolder?: () => Promise<{ ok: boolean; error?: string }>;
-    uninstallPlugin?: (pluginId: string) => Promise<{ ok: boolean; error?: string }>;
-    reinstallBuiltInPlugin?: (pluginId: string) => Promise<{ ok: boolean; error?: string }>;
-  }
-}
-
 // ── Re-export AgentPluginContext for convenience ─────────────────────────────
 export type { AgentPluginContext } from "./host";
 

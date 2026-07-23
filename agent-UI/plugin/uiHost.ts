@@ -1,34 +1,3 @@
-/**
- * agent-UI/plugin/uiHost.ts — UiPluginHost factory
- *
- * Creates a UiPluginHost instance that is injected into a plugin's
- * iframe sandbox via `iframe.contentWindow.__UAP_PLUGIN_HOST__`.
- *
- * The host provides the iframe with a complete capability surface:
- *   - **getPluginState()** — reads session state + symbol-keyed plugin slices
- *   - **getSlotContext()** — tells the iframe which slot it's rendering
- *   - **onSlotMessage(cb)** — receive host→iframe messages
- *   - **apiClient** — pre-bound backend API client
- *   - **getConfig / onConfigChanged** — plugin configuration
- *
- * ## Communication model
- *
- * `onSlotMessage` is the ONLY way plugin UI code receives messages
- * from the host. The host pushes data (tool call info, state snapshots)
- * to the iframe via `_pushToIframe`.
- *
- * Because the host is injected as a same-realm reference (D6, requires
- * `allow-same-origin`), messages are delivered via **direct method
- * invocation** — no `postMessage` serialization boundary. This eliminates
- * the race condition where the host sends data before the iframe's module
- * script has booted: messages are buffered and replayed on first
- * `onSlotMessage` subscription.
- *
- * The returned object implements {@link UiPluginHostInternal}, which
- * extends the public {@link UiPluginHost} with `_pushToIframe`
- * for host-side renderer use.
- */
-
 import type {
   PluginApiClient,
   UiPluginHostInternal,
@@ -38,7 +7,7 @@ import type {
   PluginBridge,
 } from "@agent-type";
 import type { PluginConfigClient } from "./configClient";
-import { PluginDescriptor } from "./pluginSystem";
+import { PluginDescriptor } from "./pluginTypes";
 
 
 // ── Factory params ────────────────────────────────────────────────────────────

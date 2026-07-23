@@ -2,66 +2,40 @@
  * agent-UI/api/backend.ts — Backend API adapter for agent-related services
  *
  * PURE BUSINESS LOGIC — ZERO communication code.
- * All HTTP/IPC details delegated to apiTransport.
+ * All API calls delegated to super built-in plugin clients in plugin/core/.
+ *
+ * Legacy file — prefer importing directly from plugin/core/ for new code.
+ * Kept for convenience re-exports.
  */
 
-import { apiTransport } from '../transport/apiTransport';
-import type { SessionEntryData } from '@agent-sdk';
+export {
+  fetchPublicKey,
+  getProxyConfig,
+  updateProxyConfig,
+  loadSessions,
+  saveSessions,
+} from '../plugin/core';
 
-// ── Public key ────────────────────────────────────────────────────────────────
+export type { PublicKeyInfo } from '../plugin/core';
 
-export async function fetchPublicKey(): Promise<{ publicKey: string }> {
-  return apiTransport.get<{ publicKey: string }>('/api/public-key');
-}
+// ── API keys (still use apiTransport — will be migrated to a core plugin) ────
 
-// ── API keys ──────────────────────────────────────────────────────────────────
+import { createPluginApiClient } from '../plugin/apiClient';
+
+const keysClient = createPluginApiClient('api-keys');
 
 export interface MaskedKeys {
   keys: Record<string, string | null>;
 }
 
 export async function fetchApiKeys(): Promise<MaskedKeys> {
-  return apiTransport.get<MaskedKeys>('/api/api-keys');
+  return keysClient.call<MaskedKeys>('list');
 }
 
 export async function saveApiKey(providerId: string, encryptedKey: string): Promise<{ masked: string }> {
-  return apiTransport.post<{ masked: string; error?: string }>('/api/api-keys', {
-    providerId,
-    encryptedKey,
-  });
+  return keysClient.call<{ masked: string }>('save', { providerId, encryptedKey });
 }
 
 export async function deleteApiKey(providerId: string): Promise<void> {
-  return apiTransport.del(`/api/api-keys/${providerId}`);
-}
-
-// ── Proxy ─────────────────────────────────────────────────────────────────────
-
-export async function getProxyConfig(): Promise<{ config: Record<string, unknown> }> {
-  return apiTransport.get<{ config: Record<string, unknown> }>('/api/proxy');
-}
-
-export async function updateProxyConfig(config: Record<string, unknown>): Promise<void> {
-  await apiTransport.put('/api/proxy', config);
-}
-
-// ── Sessions ──────────────────────────────────────────────────────────────────
-
-export async function loadSessions(agentId: string): Promise<SessionEntryData[]> {
-  try {
-    const res = await apiTransport.get<{ sessions: SessionEntryData[] }>(
-      `/api/agent-sessions/${encodeURIComponent(agentId)}`,
-    );
-    return Array.isArray(res.sessions) ? res.sessions : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function saveSessions(agentId: string, sessions: SessionEntryData[]): Promise<void> {
-  try {
-    await apiTransport.put(`/api/agent-sessions/${encodeURIComponent(agentId)}`, { sessions });
-  } catch {
-    // best-effort
-  }
+  await keysClient.call('delete', { providerId });
 }

@@ -2,25 +2,18 @@
  * Tests for agent-UI/api/ — API adapter functions
  *
  * Tests both providerConfigApi.ts and backend.ts.
- * Mocks apiTransport for all tests.
+ * All API calls now go through PluginApiClient (dual HTTP/IPC transport).
+ * Mock createPluginApiClient to intercept all core plugin calls.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Mock apiTransport ─────────────────────────────────────────────────────────
+// ── Mock PluginApiClient ──────────────────────────────────────────────────────
 
-const mockGet = vi.fn();
-const mockPut = vi.fn();
-const mockPost = vi.fn();
-const mockDel = vi.fn();
+const mockCall = vi.hoisted(() => vi.fn());
 
-vi.mock('../transport/apiTransport', () => ({
-  apiTransport: {
-    get: (...a: unknown[]) => mockGet(...a),
-    put: (...a: unknown[]) => mockPut(...a),
-    post: (...a: unknown[]) => mockPost(...a),
-    del: (...a: unknown[]) => mockDel(...a),
-  },
+vi.mock('../plugin/apiClient', () => ({
+  createPluginApiClient: () => ({ call: mockCall, connectStream: vi.fn() }),
 }));
 
 import { fetchMergedModelConfig, fetchBuiltInModelConfig, fetchCustomModelConfig, saveCustomModelConfig, addCustomModelProvider, removeCustomModelProvider, updateCustomModelProvider } from '../api/providerConfigApi';
@@ -49,68 +42,68 @@ beforeEach(() => {
 
 describe('providerConfigApi', () => {
   describe('fetchMergedModelConfig', () => {
-    it('GETs merged config from /api/model-config', async () => {
-      mockGet.mockResolvedValue(SAMPLE_CONFIG);
+    it('calls model-config.get and returns config array', async () => {
+      mockCall.mockResolvedValue(SAMPLE_CONFIG);
       const result = await fetchMergedModelConfig();
       expect(result).toEqual(SAMPLE_CONFIG);
-      expect(mockGet).toHaveBeenCalledWith('/api/model-config');
+      expect(mockCall).toHaveBeenCalledWith('get');
     });
 
     it('returns empty array when response is not an array', async () => {
-      mockGet.mockResolvedValue({ not: 'array' });
+      mockCall.mockResolvedValue({ not: 'array' });
       const result = await fetchMergedModelConfig();
       expect(result).toEqual([]);
     });
   });
 
   describe('fetchBuiltInModelConfig', () => {
-    it('GETs built-in config from /api/model-config/built-in', async () => {
-      mockGet.mockResolvedValue(SAMPLE_CONFIG);
+    it('calls model-config.getBuiltIn', async () => {
+      mockCall.mockResolvedValue(SAMPLE_CONFIG);
       const result = await fetchBuiltInModelConfig();
       expect(result).toEqual(SAMPLE_CONFIG);
-      expect(mockGet).toHaveBeenCalledWith('/api/model-config/built-in');
+      expect(mockCall).toHaveBeenCalledWith('getBuiltIn');
     });
   });
 
   describe('fetchCustomModelConfig', () => {
-    it('GETs custom config from /api/model-config/custom', async () => {
-      mockGet.mockResolvedValue(SAMPLE_CONFIG);
+    it('calls model-config.getCustom', async () => {
+      mockCall.mockResolvedValue(SAMPLE_CONFIG);
       const result = await fetchCustomModelConfig();
       expect(result).toEqual(SAMPLE_CONFIG);
-      expect(mockGet).toHaveBeenCalledWith('/api/model-config/custom');
+      expect(mockCall).toHaveBeenCalledWith('getCustom');
     });
   });
 
   describe('saveCustomModelConfig', () => {
-    it('PUTs the config to /api/model-config/custom', async () => {
-      mockPut.mockResolvedValue(undefined);
+    it('calls model-config.saveCustom with config', async () => {
+      mockCall.mockResolvedValue(undefined);
       await saveCustomModelConfig(SAMPLE_CONFIG);
-      expect(mockPut).toHaveBeenCalledWith('/api/model-config/custom', SAMPLE_CONFIG);
+      expect(mockCall).toHaveBeenCalledWith('saveCustom', SAMPLE_CONFIG);
     });
   });
 
   describe('addCustomModelProvider', () => {
-    it('POSTs a new provider entry', async () => {
+    it('calls model-config.addCustom with entry', async () => {
       const entry = SAMPLE_CONFIG[0];
-      mockPost.mockResolvedValue(undefined);
+      mockCall.mockResolvedValue(undefined);
       await addCustomModelProvider(entry);
-      expect(mockPost).toHaveBeenCalledWith('/api/model-config/custom/add', entry);
+      expect(mockCall).toHaveBeenCalledWith('addCustom', entry);
     });
   });
 
   describe('removeCustomModelProvider', () => {
-    it('POSTs to remove a provider by name', async () => {
-      mockPost.mockResolvedValue(undefined);
+    it('calls model-config.removeCustom with name', async () => {
+      mockCall.mockResolvedValue(undefined);
       await removeCustomModelProvider('DeepSeek');
-      expect(mockPost).toHaveBeenCalledWith('/api/model-config/custom/remove', { name: 'DeepSeek' });
+      expect(mockCall).toHaveBeenCalledWith('removeCustom', { name: 'DeepSeek' });
     });
   });
 
   describe('updateCustomModelProvider', () => {
-    it('POSTs to update a provider', async () => {
-      mockPost.mockResolvedValue(undefined);
+    it('calls model-config.updateCustom with name and entry', async () => {
+      mockCall.mockResolvedValue(undefined);
       await updateCustomModelProvider('DeepSeek', SAMPLE_CONFIG[0]);
-      expect(mockPost).toHaveBeenCalledWith('/api/model-config/custom/update', { name: 'DeepSeek', entry: SAMPLE_CONFIG[0] });
+      expect(mockCall).toHaveBeenCalledWith('updateCustom', { name: 'DeepSeek', entry: SAMPLE_CONFIG[0] });
     });
   });
 });
@@ -121,89 +114,89 @@ describe('providerConfigApi', () => {
 
 describe('backend', () => {
   describe('fetchPublicKey', () => {
-    it('GETs the public key endpoint', async () => {
-      mockGet.mockResolvedValue({ publicKey: 'pem-data' });
+    it('calls system.publicKey', async () => {
+      mockCall.mockResolvedValue({ publicKey: 'pem-data' });
       const result = await fetchPublicKey();
       expect(result).toEqual({ publicKey: 'pem-data' });
-      expect(mockGet).toHaveBeenCalledWith('/api/public-key');
+      expect(mockCall).toHaveBeenCalledWith('publicKey');
     });
   });
 
   describe('fetchApiKeys', () => {
-    it('GETs the API keys endpoint', async () => {
-      mockGet.mockResolvedValue({ keys: { DeepSeek: '••••abcd' } });
+    it('calls api-keys.list', async () => {
+      mockCall.mockResolvedValue({ keys: { DeepSeek: '••••abcd' } });
       const result = await fetchApiKeys();
       expect(result).toEqual({ keys: { DeepSeek: '••••abcd' } });
-      expect(mockGet).toHaveBeenCalledWith('/api/api-keys');
+      expect(mockCall).toHaveBeenCalledWith('list');
     });
   });
 
   describe('saveApiKey', () => {
-    it('POSTs an encrypted key', async () => {
-      mockPost.mockResolvedValue({ masked: '••••xyz' });
+    it('calls api-keys.save with providerId and encryptedKey', async () => {
+      mockCall.mockResolvedValue({ masked: '••••xyz' });
       const result = await saveApiKey('DeepSeek', 'encrypted-base64');
       expect(result).toEqual({ masked: '••••xyz' });
-      expect(mockPost).toHaveBeenCalledWith('/api/api-keys', { providerId: 'DeepSeek', encryptedKey: 'encrypted-base64' });
+      expect(mockCall).toHaveBeenCalledWith('save', { providerId: 'DeepSeek', encryptedKey: 'encrypted-base64' });
     });
   });
 
   describe('deleteApiKey', () => {
-    it('DELETEs the provider key', async () => {
-      mockDel.mockResolvedValue(undefined);
+    it('calls api-keys.delete with providerId', async () => {
+      mockCall.mockResolvedValue(undefined);
       await deleteApiKey('DeepSeek');
-      expect(mockDel).toHaveBeenCalledWith('/api/api-keys/DeepSeek');
+      expect(mockCall).toHaveBeenCalledWith('delete', { providerId: 'DeepSeek' });
     });
   });
 
   describe('getProxyConfig', () => {
-    it('GETs proxy config', async () => {
-      mockGet.mockResolvedValue({ config: { host: 'localhost', port: 7890 } });
+    it('calls proxy.getConfig', async () => {
+      mockCall.mockResolvedValue({ config: { host: 'localhost', port: 7890 } });
       const result = await getProxyConfig();
       expect(result).toEqual({ config: { host: 'localhost', port: 7890 } });
-      expect(mockGet).toHaveBeenCalledWith('/api/proxy');
+      expect(mockCall).toHaveBeenCalledWith('getConfig');
     });
   });
 
   describe('updateProxyConfig', () => {
-    it('PUTs proxy config', async () => {
-      mockPut.mockResolvedValue(undefined);
-      await updateProxyConfig({ host: 'localhost', port: 7890 });
-      expect(mockPut).toHaveBeenCalledWith('/api/proxy', { host: 'localhost', port: 7890 });
+    it('calls proxy.updateConfig with config', async () => {
+      mockCall.mockResolvedValue(undefined);
+      await updateProxyConfig({ enabled: true, protocol: 'http', host: 'localhost', port: 7890, username: '', password: '', noProxy: '', connectTimeout: 10000 });
+      expect(mockCall).toHaveBeenCalledWith('updateConfig', { enabled: true, protocol: 'http', host: 'localhost', port: 7890, username: '', password: '', noProxy: '', connectTimeout: 10000 });
     });
   });
 
   describe('loadSessions', () => {
-    it('GETs sessions for an agent', async () => {
+    it('calls sessions.load with agentId', async () => {
       const sessions = [{ id: 's1', title: 'Session 1', subtitle: '', messages: [], createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z' }];
-      mockGet.mockResolvedValue({ sessions });
+      mockCall.mockResolvedValue({ sessions });
       const result = await loadSessions('async-agent');
       expect(result).toEqual(sessions);
-      expect(mockGet).toHaveBeenCalledWith('/api/agent-sessions/async-agent');
+      expect(mockCall).toHaveBeenCalledWith('load', { agentId: 'async-agent' });
     });
 
     it('returns empty array on API error', async () => {
-      mockGet.mockRejectedValue(new Error('Network error'));
+      mockCall.mockRejectedValue(new Error('Network error'));
       const result = await loadSessions('async-agent');
       expect(result).toEqual([]);
     });
 
     it('returns empty array when sessions field is not an array', async () => {
-      mockGet.mockResolvedValue({ sessions: 'not-array' });
+      mockCall.mockResolvedValue({ sessions: 'not-array' });
       const result = await loadSessions('async-agent');
       expect(result).toEqual([]);
     });
   });
 
   describe('saveSessions', () => {
-    it('PUTs sessions for an agent', async () => {
+    it('calls sessions.save with agentId and sessions', async () => {
       const sessions = [{ id: 's1', title: 'Session 1', subtitle: '', messages: [], createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z' }];
-      mockPut.mockResolvedValue(undefined);
+      mockCall.mockResolvedValue(undefined);
       await saveSessions('async-agent', sessions);
-      expect(mockPut).toHaveBeenCalledWith('/api/agent-sessions/async-agent', { sessions });
+      expect(mockCall).toHaveBeenCalledWith('save', { agentId: 'async-agent', sessions });
     });
 
     it('handles API error silently', async () => {
-      mockPut.mockRejectedValue(new Error('Network error'));
+      mockCall.mockRejectedValue(new Error('Network error'));
       await saveSessions('async-agent', []);
       // Should not throw
     });

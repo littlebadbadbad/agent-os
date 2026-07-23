@@ -1,11 +1,17 @@
 /**
- * demo/api/files.ts — File system API adapter
+ * extensions/devops/ui/api/files.ts — Workspace file operations
  *
- * PURE BUSINESS LOGIC — ZERO direct fetch() calls.
- * All HTTP communication delegated to apiTransport.
+ * PURE BUSINESS LOGIC — ZERO direct fetch/apiTransport calls.
+ * All API communication goes through PluginApiClient via the
+ * super built-in plugin dual-transport (HTTP/IPC) mechanism.
+ *
+ * The backend methods are registered in extensions/devops/backend/index.js
+ * via host.defineApi() — search for "Workspace / file operations" there.
  */
 
-import { apiTransport } from '../transport';
+import { createPluginApiClient } from '../../../../agent-UI/plugin/apiClient';
+
+const client = createPluginApiClient('devops');
 
 // ── Response types ─────────────────────────────────────────────────────────────
 
@@ -50,12 +56,12 @@ export interface WorkspaceResult {
 
 /** Get the current workspace root path. */
 export async function getWorkspace(): Promise<WorkspaceResult> {
-  return apiTransport.get<WorkspaceResult>('/api/files/workspace');
+  return client.call<WorkspaceResult>('getWorkspaceRoot');
 }
 
 /** Set the workspace root to an absolute path (creates dir if absent). */
 export async function setWorkspace(absPath: string): Promise<WorkspaceResult> {
-  return apiTransport.post<WorkspaceResult>('/api/files/workspace', { path: absPath });
+  return client.call<WorkspaceResult>('setWorkspaceRoot', { path: absPath });
 }
 
 /** List directory contents (relative path, '' for root). depth default = 1. */
@@ -63,15 +69,13 @@ export async function listDir(
   path: string,
   depth = 1,
 ): Promise<FileTreeNode[]> {
-  const url = `/api/files/list?path=${encodeURIComponent(path)}&depth=${depth}`;
-  const result = await apiTransport.get<{ path: string; workspaceRoot: string; entries: FileTreeNode[] }>(url);
+  const result = await client.call<{ path: string; workspaceRoot: string; entries: FileTreeNode[] }>('listDir', { path, depth });
   return result.entries;
 }
 
 /** Browse the server filesystem at any absolute path (for folder picker). */
 export async function browseDir(path: string): Promise<BrowseDirResult> {
-  const url = `/api/files/browse?path=${encodeURIComponent(path)}`;
-  return apiTransport.get<BrowseDirResult>(url);
+  return client.call<BrowseDirResult>('browseDir', { path });
 }
 
 /** Read a file's content (relative path). */
@@ -80,10 +84,7 @@ export async function readFile(
   startLine?: number,
   endLine?: number,
 ): Promise<ReadFileResult> {
-  let url = `/api/files/read?path=${encodeURIComponent(path)}`;
-  if (startLine !== undefined) url += `&startLine=${startLine}`;
-  if (endLine !== undefined) url += `&endLine=${endLine}`;
-  return apiTransport.get<ReadFileResult>(url);
+  return client.call<ReadFileResult>('readFile', { path, startLine, endLine });
 }
 
 /** Write / overwrite a file with the given content. */
@@ -91,5 +92,6 @@ export async function writeFile(
   path: string,
   content: string,
 ): Promise<WriteFileResult> {
-  return apiTransport.post<WriteFileResult>('/api/files/write', { path, content });
+  return client.call<WriteFileResult>('writeFile', { path, content });
 }
+

@@ -8,28 +8,20 @@
  */
 
 import { createServer } from 'http';
-import { URL, pathToFileURL } from 'url';
+import { URL } from 'url';
 import { createReadStream, existsSync, statSync } from 'fs';
 import { join, extname } from 'path';
-import { setCORS, send, readBody, readBodyBuffer } from './lib/http.js';
+import { setCORS, send, readBody } from './lib/http.js';
 import './lib/proxy.js';   // side-effect: initialises global dispatcher
-import { handleChatAsync, handleChatStream } from './transports/network/chat.js';
-import { handleChatLogRoutes } from './transports/network/chat-logs.js';
-import { handleProxyRoutes } from './transports/network/proxy.js';
 import { createLogger } from './lib/logger.js';
 import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
-import * as systemService from './services/system.js';
-import { handleApiKeyRoutes } from './transports/network/api-keys.js';
-import { handleModelRoutes } from './transports/network/models.js';
-import { handleModelConfigRoutes } from './transports/network/model-config.js';
-import { handleSessionRoutes } from './transports/network/sessions.js';
 import { WebSocketServer } from 'ws';
 import { pluginRouter } from './lib/plugin-router.js';
-import { createPluginScanner, isBuiltInPlugin, PLUGIN_MANAGER_ID } from './lib/plugin-scanner.js';
+import { createPluginScanner } from './lib/plugin-scanner.js';
 import { getProxyConfig } from './lib/proxy.js';
 import { decryptPat, getPublicKeyPem } from './lib/rsa.js';
 import { createPluginConfigStore } from './lib/plugin-config-store.js';
-import { createPluginManagementService } from './services/plugin-management.js';
+import { registerCorePlugins } from './core/index.js';
 /**
  * Lazy IPC handler registration — only loaded when called from Electron main process.
  * Static re-export forces Node.js to resolve 'electron' imports on plain `node backend/index.js`,
@@ -42,28 +34,6 @@ import { createPluginManagementService } from './services/plugin-management.js';
 export async function registerIpcHandlers() {
   const { registerIpcHandlers: fn } = await import('./transports/ipc/index.js');
   fn(pluginRouter);
-}
-
-/**
- * Refresh plugin IPC handlers after runtime enable/disable.
- * Only works in Electron mode (requires ipcMain).
- * Called by the plugin management service's onPluginChanged callback.
- */
-let _ipcRefreshFn = null;
-export async function refreshPluginIpc() {
-  if (!_ipcRefreshFn) {
-    try {
-      const { refreshPluginIpcHandlers } = await import('./transports/ipc/plugin.js');
-      const { ipcMain } = await import('electron');
-      _ipcRefreshFn = () => refreshPluginIpcHandlers(ipcMain, pluginRouter);
-    } catch {
-      // Not in Electron mode — no IPC to refresh.
-      _ipcRefreshFn = null;
-    }
-  }
-  if (_ipcRefreshFn) {
-    _ipcRefreshFn();
-  }
 }
 
 const log = createLogger('server');
@@ -149,16 +119,6 @@ function servePluginFile(req, res, urlPath) {
 
 // ── Constants ─────────────────────────────────────────────────────────────────────
 
-// ── URL helpers ─────────────────────────────────────────────────────────
-
-/**
- * Check whether a string is an absolute URL (http://, https://, or protocol-relative //).
- * Used to distinguish remote URLs from relative plugin asset paths.
- */
-function isAbsoluteUrl(s) {
-  return /^(https?:)?\/\//i.test(s);
-}
-
 const PORT = process.env.PORT ?? 3001;
 
 // ── Request router ──────────────────────────────────────────────────────────────
@@ -175,148 +135,10 @@ async function handleRequest(req, res) {
   const { pathname: path } = new URL(req.url, `http://localhost:${PORT}`);
 
   try {
-
-    if (req.method === 'GET' && path === '/api/public-key') {
-      return send(res, 200, systemService.getPublicKeyInfo());
-    }
-
-    if (req.method === 'POST' && path === '/api/chat') {
-      return await handleChatAsync(req, res);
-    }
-    if (req.method === 'POST' && path === '/api/chat/stream') {
-      return await handleChatStream(req, res);
-    }
-
-    const proxyRouteMatched = await handleProxyRoutes(req, res, path);
-    if (proxyRouteMatched !== false) return;
-
-    const chatLogRouteMatched = await handleChatLogRoutes(req, res, path);
-    if (chatLogRouteMatched !== false) return;
-
-    const apiKeyRouteMatched = await handleApiKeyRoutes(req, res, path);
-    if (apiKeyRouteMatched !== false) return;
-
-    const modelRouteMatched = await handleModelRoutes(req, res, path);
-    if (modelRouteMatched !== false) return;
-
-    const modelConfigRouteMatched = await handleModelConfigRoutes(req, res, path);
-    if (modelConfigRouteMatched !== false) return;
-
-    const sessionRouteMatched = await handleSessionRoutes(req, res, path);
-    if (sessionRouteMatched !== false) return;
-
-    // ── Plugin introspection ───────────────────────────────────────────────
-    if (req.method === 'GET' && path === '/api/plugins') {
-      const activePlugins = pluginScanner.getActivePlugins().map((p) => {
-        const manifest = p.manifest;
-        return {
-          id: manifest.id,
-          name: manifest.name,
-          version: manifest.version,
-          description: manifest.description,
-          state: p.state,
-          builtIn: isBuiltInPlugin(manifest.id),
-          canDisable: manifest.id !== PLUGIN_MANAGER_ID,
-          hasAgentEntry: !!manifest.agentEntry,
-          agentEntryUrl: manifest.agentEntry
-            ? `/plugins/${manifest.id}/${manifest.agentEntry.replace(/\\/g, '/')}`
-            : undefined,
-          hasUiEntry: !!manifest.uiEntry,
-          uiEntryUrl: manifest.uiEntry
-            ? isAbsoluteUrl(manifest.uiEntry)
-              ? manifest.uiEntry
-              : `/plugins/${manifest.id}/${manifest.uiEntry.replace(/\\/g, '/')}`
-            : undefined,
-        };
-      });
-
-      // Include ghost entries for uninstalled built-in plugins so the UI
-      // can show a "Reinstall" button for them.
-      const ghostPlugins = pluginScanner.getBuiltInNotInstalled().map((g) => ({
-        id: g.id,
-        name: g.name,
-        version: g.version,
-        description: g.description,
-        state: g.state,
-        builtIn: true,
-        canDisable: false,
-        hasAgentEntry: false,
-        hasUiEntry: false,
-      }));
-
-      return send(res, 200, { plugins: [...activePlugins, ...ghostPlugins] });
-    }
-
-    // ── Plugin config API ──────────────────────────────────────────────────
-    const configGetMatch = path.match(/^\/api\/plugins\/([^/]+)\/config$/);
-    if (configGetMatch && req.method === 'GET') {
-      const pluginId = decodeURIComponent(configGetMatch[1]);
-      const manifest = pluginScanner.getPluginManifest(pluginId);
-      const config = pluginConfigStore.load(pluginId, manifest);
-      return send(res, 200, config);
-    }
-    if (configGetMatch && req.method === 'POST') {
-      const pluginId = decodeURIComponent(configGetMatch[1]);
-      const body = await readBody(req);
-      if (typeof body !== 'object' || body === null) {
-        return send(res, 400, { error: 'Request body must be a JSON object' });
-      }
-      pluginConfigStore.save(pluginId, body);
-      return send(res, 200, { ok: true });
-    }
-
-    // ── Plugin enable/disable API ──────────────────────────────────────────
-    const enableMatch = path.match(/^\/api\/plugins\/([^/]+)\/enable$/);
-    if (enableMatch && req.method === 'POST') {
-      const pluginId = decodeURIComponent(enableMatch[1]);
-      const result = await pluginScanner.enable(pluginId);
-      return send(res, result.ok ? 200 : 400, result);
-    }
-
-    const disableMatch = path.match(/^\/api\/plugins\/([^/]+)\/disable$/);
-    if (disableMatch && req.method === 'POST') {
-      const pluginId = decodeURIComponent(disableMatch[1]);
-      const result = await pluginScanner.disable(pluginId);
-      return send(res, result.ok ? 200 : 400, result);
-    }
-
-    // ── Plugin install/uninstall API ───────────────────────────────────────
-
-    // POST /api/plugins/install  — install from ZIP (raw binary body)
-    if (req.method === 'POST' && path === '/api/plugins/install/zip') {
-      const zipBuffer = await readBodyBuffer(req);
-      const result = await pluginScanner.install('zip', zipBuffer);
-      return send(res, result.ok ? 200 : 400, result);
-    }
-
-    // POST /api/plugins/install  — install from folder (JSON body)
-    if (req.method === 'POST' && path === '/api/plugins/install/folder') {
-      const body = await readBody(req);
-      const sourcePath = body.path;
-      if (!sourcePath || typeof sourcePath !== 'string') {
-        return send(res, 400, { ok: false, error: '"path" is required in request body' });
-      }
-      const result = await pluginScanner.install('folder', sourcePath);
-      return send(res, result.ok ? 200 : 400, result);
-    }
-
-    // POST /api/plugins/:id/uninstall
-    const uninstallMatch = path.match(/^\/api\/plugins\/([^/]+)\/uninstall$/);
-    if (uninstallMatch && req.method === 'POST') {
-      const pluginId = decodeURIComponent(uninstallMatch[1]);
-      const result = await pluginScanner.uninstall(pluginId);
-      return send(res, result.ok ? 200 : 400, result);
-    }
-
-    // POST /api/plugins/:id/reinstall — built-in plugin reinstall
-    const reinstallMatch = path.match(/^\/api\/plugins\/([^/]+)\/reinstall$/);
-    if (reinstallMatch && req.method === 'POST') {
-      const pluginId = decodeURIComponent(reinstallMatch[1]);
-      const result = await pluginScanner.reinstallBuiltIn(pluginId);
-      return send(res, result.ok ? 200 : 400, result);
-    }
-
-    // ── Plugin API routes ──────────────────────────────────────────────────
+    // ── Plugin API routes (core + external) ────────────────────────────────
+    // All API methods are registered via defineApi() by super built-in plugins
+    // (system, proxy, models, sessions, plugin-manager, etc.) and regular plugins.
+    // The plugin router matches POST /api/plugin/<pluginId>/<method>.
     const pluginMatch = pluginRouter.matchHttpRoute(path);
     if (pluginMatch !== false) {
       if (req.method !== 'POST') {
@@ -343,32 +165,21 @@ async function handleRequest(req, res) {
 // Exported so the Electron main process can await server readiness before
 // showing the BrowserWindow. Auto-starts when run directly as a Node.js script.
 
-// ── Plugin system (singleton, created once) ────────────────────────────────
-// The pluginManager service is injected into backendServices but is only
-// accessible to the plugin-manager plugin (capability injection in plugin-host.js).
-// We create a placeholder service object first, then populate it after the
-// scanner exists (resolving the circular dependency: scanner needs service,
-// service needs scanner).
-const pluginManagerService = {};
-
 export const pluginScanner = createPluginScanner(pluginRouter, PLUGINS_DIR, DATA_ROOT, {
   proxy: getProxyConfig,
   rsaDecrypt: () => decryptPat,
   rsaPublicKey: getPublicKeyPem,
-  pluginManager: () => pluginManagerService,
 }, AGENT_DIR);
-
-// Now that the scanner exists, populate the service with real methods.
-const _realService = createPluginManagementService(
-  pluginScanner,
-  () => refreshPluginIpc(),
-);
-Object.assign(pluginManagerService, _realService);
 
 export const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
 
 export async function startServer() {
-  // Bootstrap plugins before starting the HTTP server (R7).
+  // Register super built-in plugins (system, proxy, models, sessions,
+  // plugin-manager, etc.) BEFORE scanning external plugins so their
+  // APIs are available to both HTTP and IPC transports immediately.
+  registerCorePlugins(pluginRouter, { pluginScanner, pluginConfigStore });
+
+  // Bootstrap external plugins before starting the HTTP server (R7).
   await pluginScanner.bootstrap();
 
   // ── WebSocket server (noServer — piggybacks on the HTTP server) ────────────

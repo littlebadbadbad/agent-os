@@ -139,9 +139,18 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
 
     connectStream(streamName: string, params?: Record<string, unknown>): PluginStreamClient {
       // WebSocket URL: ws://host/api/plugin/<id>/<streamName>?key=val&key2=val2
+      // JSON-stringify complex values (objects, arrays) so the backend
+      // receives parseable params instead of '[object Object]'.
+      // Skip non-serializable values (functions, AbortSignal, Symbols).
       const queryString = params
         ? Object.entries(params)
-            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+            .filter(([, v]) => v !== undefined && v !== null && typeof v !== 'function' && typeof v !== 'symbol')
+            .map(([k, v]) => {
+              const encoded = typeof v === 'object'
+                ? encodeURIComponent(JSON.stringify(v))
+                : encodeURIComponent(String(v));
+              return `${encodeURIComponent(k)}=${encoded}`;
+            })
             .join('&')
         : '';
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';

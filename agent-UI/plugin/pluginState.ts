@@ -5,16 +5,12 @@
 import type { PluginDescriptor, PluginSystemState } from "./pluginTypes";
 import type { PluginApiDescriptor } from "./pluginTypes";
 import { toPluginDescriptor } from "./pluginTypes";
+import { pluginManagerApi } from "./core/plugin-manager";
 
 // ── Type guard ───────────────────────────────────────────────────────────────
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isPluginListBody(value: unknown): value is { plugins?: unknown[] } {
-  if (!isRecord(value)) return false;
-  return !("plugins" in value) || Array.isArray(value.plugins);
 }
 
 // ── Safe coercion helpers ────────────────────────────────────────────────────
@@ -68,32 +64,18 @@ export function notifyListeners(state: PluginSystemState): void {
 // ── Fetch plugins from backend ───────────────────────────────────────────────
 
 /**
- * Fetch the full plugin list from the backend /api/plugins endpoint.
+ * Fetch the full plugin list from the backend via the plugin-manager core API.
  * Runtime shape validation — no type assertions.
  */
 export async function fetchPluginList(): Promise<PluginDescriptor[]> {
   try {
-    const res = await fetch("/api/plugins");
-    if (!res.ok) {
-      console.warn("[pluginSystem] Failed to fetch plugin list:", res.status);
-      return [];
-    }
-
-    const raw: unknown = await res.json();
-    if (!isPluginListBody(raw)) {
-      console.warn("[pluginSystem] Invalid plugin list response");
-      return [];
-    }
-
-    const rawPlugins = raw.plugins ?? [];
+    const rawPlugins = await pluginManagerApi.list();
     const plugins: PluginDescriptor[] = [];
-
     for (const item of rawPlugins) {
-      if (isRecord(item)) {
-        plugins.push(toPluginDescriptor(toApiDescriptor(item)));
+      if (isRecord(item as unknown as Record<string, unknown>)) {
+        plugins.push(toPluginDescriptor(toApiDescriptor(item as unknown as Record<string, unknown>)));
       }
     }
-
     return plugins;
   } catch (err) {
     console.warn("[pluginSystem] Error fetching plugin list:", err);

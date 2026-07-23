@@ -1,9 +1,0 @@
-{
-  "id": "plugin-manager",
-  "name": "Plugin Manager",
-  "version": "0.1.0",
-  "description": "Enable, disable, and inspect plugins. Provides a desktop app window with toggle switches for each plugin.",
-  "agentEntry": "activate.js",
-  "backendEntry": "backend.cjs",
-  "uiEntry": "ui/index.html"
-}

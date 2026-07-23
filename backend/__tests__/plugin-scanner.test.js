@@ -379,15 +379,6 @@ describe('state persistence', () => {
     expect(scanner.getState('enable-test')).toBe('active');
   });
 
-  it('disable blocks self-disable of plugin-manager', async () => {
-    createTestPlugin(pluginsDir, 'plugin-manager', '1.0.0');
-    const scanner = createPluginScanner(pluginRouter, pluginsDir, dataDir);
-    await scanner.bootstrap();
-
-    const result = await scanner.disable('plugin-manager');
-    expect(result.ok).toBe(false);
-    expect(result.error).toBeDefined();
-  });
 });
 
 // ── Introspection ─────────────────────────────────────────────────────────────

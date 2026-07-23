@@ -38,20 +38,12 @@ import builtInPlugins from '../../built-in-plugins.json' with { type: 'json' };
 /** @type {ReadonlySet<string>} */
 const BUILT_IN_PLUGIN_IDS = new Set(builtInPlugins.plugins ?? []);
 
-/**
- * The plugin-manager plugin is always activated at bootstrap regardless of
- * persisted disabled state. This is the self-protection mechanism — without
- * it, a user could disable plugin-manager and lose the ability to re-enable
- * anything.
- */
-const PLUGIN_MANAGER_ID = 'plugin-manager';
-
 /** @param {string} id */
 function isBuiltInPlugin(id) {
   return BUILT_IN_PLUGIN_IDS.has(id);
 }
 
-export { isBuiltInPlugin, PLUGIN_MANAGER_ID };
+export { isBuiltInPlugin };
 
 /** @import { PluginManifest } from '../../agent-type/plugin.ts' */
 /** @import { pluginRouter } from './plugin-router.js' */
@@ -151,15 +143,6 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
       let activated = 0;
       let failed = 0;
       for (const manifest of manifests) {
-        // plugin-manager is always activated — self-protection so the user
-        // always has a recovery path to re-enable other plugins.
-        if (manifest.id === PLUGIN_MANAGER_ID) {
-          const ok = await this.activate(manifest.id);
-          if (ok) activated++;
-          else failed++;
-          continue;
-        }
-        // All other plugins (including built-in) respect persisted disabled state.
         if (disabledPlugins.has(manifest.id)) {
           _plugins.set(manifest.id, { manifest, state: STATE_DISABLED });
           log.info(`Plugin disabled (persisted state): ${manifest.id}`);
@@ -335,8 +318,6 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
 
     /**
      * Enable a plugin: remove persisted disabled state, activate, and persist.
-     * The plugin-manager plugin cannot be disabled, so enabling it is a no-op
-     * (it's always active).
      *
      * @param {string} id
      * @returns {Promise<{ ok: boolean, error?: string }>}
@@ -363,17 +344,11 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
 
     /**
      * Disable a plugin: deactivate, set state to disabled, and persist.
-     * The plugin-manager plugin cannot be disabled (self-protection).
      *
      * @param {string} id
      * @returns {Promise<{ ok: boolean, error?: string }>}
      */
     async disable(id) {
-      if (id === PLUGIN_MANAGER_ID) {
-        log.warn(`Cannot disable plugin-manager (self-protection)`);
-        return { ok: false, error: 'Cannot disable plugin-manager' };
-      }
-
       const existing = _plugins.get(id);
       if (!existing) {
         return { ok: false, error: `Unknown plugin: ${id}` };
@@ -421,8 +396,7 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
      * Install a plugin from a ZIP archive or a source directory.
      *
      * After filesystem install, scans the new plugin, adds it to _plugins,
-     * and activates it.  The plugin-manager is always activated; other
-     * plugins start in the active state.
+     * and activates it.
      *
      * @param {'zip' | 'folder'} sourceType
      * @param {Buffer | string} source  - ZIP buffer or absolute folder path.
@@ -469,16 +443,10 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
      * but they still appear in the plugin list with state "not_installed".
      * External plugins disappear entirely from the list.
      *
-     * The plugin-manager can never be uninstalled (self-protection).
-     *
      * @param {string} id
      * @returns {Promise<{ ok: boolean, error?: string }>}
      */
     async uninstall(id) {
-      if (id === PLUGIN_MANAGER_ID) {
-        return { ok: false, error: 'Cannot uninstall plugin-manager (self-protection)' };
-      }
-
       const existing = _plugins.get(id);
       if (!existing) {
         return { ok: false, error: `Unknown plugin: ${id}` };
@@ -519,7 +487,7 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
     getBuiltInNotInstalled() {
       const installedIds = new Set(_plugins.keys());
       return Array.from(BUILT_IN_PLUGIN_IDS)
-        .filter((id) => !installedIds.has(id) && id !== PLUGIN_MANAGER_ID)
+        .filter((id) => !installedIds.has(id))
         .map((id) => {
           const cached = _builtInManifestCache.get(id);
           return {
@@ -547,10 +515,6 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
      * @returns {Promise<{ ok: boolean, error?: string }>}
      */
     async reinstallBuiltIn(id) {
-      if (id === PLUGIN_MANAGER_ID) {
-        return { ok: false, error: 'Cannot reinstall plugin-manager (always active)' };
-      }
-
       if (!isBuiltInPlugin(id)) {
         return { ok: false, error: `"${id}" is not a built-in plugin` };
       }

@@ -22,8 +22,8 @@
 import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
 import type { SubAgentConversation, SubAgentConversationState } from "@agent-sdk";
 import type { SlotEntry } from "../slots/registry";
-import type { ActivatedPluginInfo } from "./pluginSystem";
 import { collectStandaloneSlots, toSlotEntries } from "./discoverSlots";
+import { ActivatedPluginInfo } from "./pluginTypes";
 
 export function createSubAgentSlotSession(
   conv: SubAgentConversation,
