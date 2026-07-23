@@ -7,7 +7,7 @@
  * When a ToolSet is registered on `createAgentClient`:
  *   1. Its hooks fire for the main session (onInit, onReady, etc.)
  *   2. Its hooks ALSO fire for every sub-agent created via createSubAgentToolset
- *      �?with the correct sub-agent context (agentName, conversationId)
+ *      — with the correct sub-agent context (agentName, conversationId)
  *   3. Its state contributions (onGetState) appear in BOTH main session state
  *      AND sub-agent conversation state
  *   4. Cleanup hooks (onRemove, onRemove) fire on teardown
@@ -169,7 +169,7 @@ function createTestAgent(spyName = 'spy', spySym?: symbol) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('ToolSet lifecycle �?main agent vs sub-agent parity', () => {
+describe('ToolSet lifecycle — main agent vs sub-agent parity', () => {
   // ── Main agent: registration ────────────────────────────────────────────
 
   describe('Main agent hooks', () => {

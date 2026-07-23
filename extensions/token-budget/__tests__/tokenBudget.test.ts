@@ -94,7 +94,7 @@ describe('createTokenBudgetToolSet', () => {
     const before = ts.onGetSymbolState!(ctx);
     ts.onReset!(ctx);
     const after = ts.onGetSymbolState!(ctx);
-    // The tracker should be fresh �?turnCount back to 0.
+    // The tracker should be fresh — turnCount back to 0.
     expect(after.tokenBudget?.turnCount).toBe(0);
     expect(before.tokenBudget?.maxTokens).toBe(after.tokenBudget?.maxTokens);
   });

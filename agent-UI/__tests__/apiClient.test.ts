@@ -1,5 +1,5 @@
 /**
- * Tests for agent-UI/plugin/apiClient.ts �� IPC mode
+ * Tests for agent-UI/plugin/apiClient.ts — IPC mode
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock env to be Electron IPC at top level (hoisted by vitest)
 vi.mock('../env', () => ({ IS_ELECTRON_IPC: true }));
 
-describe('PluginApiClient �� IPC mode', () => {
+describe('PluginApiClient — IPC mode', () => {
   const mockInvoke = vi.fn();
   const mockOn = vi.fn().mockReturnValue(vi.fn());
 

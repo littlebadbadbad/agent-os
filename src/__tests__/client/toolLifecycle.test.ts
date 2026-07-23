@@ -11,7 +11,7 @@ function makeTsCtx(sessionId: string) {
   return { sessionId, agentName: AGENT_ID, conversationId: MAIN_CONVERSATION_ID };
 }
 
-/** Minimal AgentClientLike stub �?enough for onAttach calls in tests. */
+/** Minimal AgentClientLike stub — enough for onAttach calls in tests. */
 const stubAgentClient: AgentClientLike = {
   registerTool: vi.fn(() => () => {}),
   registerToolSet: vi.fn(() => () => {}),

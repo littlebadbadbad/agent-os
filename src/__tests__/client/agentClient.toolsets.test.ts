@@ -4,11 +4,11 @@
  *
  * Test strategy
  * ─────────────
- * �?Every test creates a fresh `createAgentClient` (+ auto-created "New Chat"
+ * — Every test creates a fresh `createAgentClient` (+ auto-created "New Chat"
  *   session) and inspects the session state / registered tools directly.
- * �?Handler is mocked to return `{ text: 'done' }` so turn-based assertions
+ * — Handler is mocked to return `{ text: 'done' }` so turn-based assertions
  *   stay fast and deterministic.
- * �?ToolSet hooks are spied on with `vi.spyOn` to verify they fire at the
+ * — ToolSet hooks are spied on with `vi.spyOn` to verify they fire at the
  *   right lifecycle points.
  */
 

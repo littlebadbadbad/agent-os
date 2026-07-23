@@ -73,9 +73,9 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(userTs.onGetSymbolState!(MAIN_CTX).pendingUserInputs).toHaveLength(0);
   });
 
-  // ── Prompt restoration �?injectToolResult ─────────────────────────────�?
+  // ── Prompt restoration — injectToolResult ──────────────────────────────────
 
-  it('sub-agent ghost �?injectToolResult called with correct args', () => {
+  it('sub-agent ghost — injectToolResult called with correct args', () => {
     const helpers = simulateSubAgentRestore(userTs, SUB_CTX, [
       { id: 'sa-bound', kind: 'confirm', message: 'Go?', toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ]);
@@ -90,7 +90,7 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
 
   // ── Ghost resolve = null (cancellation) ─────────────────────────────────
 
-  it('sub-agent bound ghost cancelled �?injectToolResult NOT called', () => {
+  it('sub-agent bound ghost cancelled — injectToolResult NOT called', () => {
     const helpers = simulateSubAgentRestore(userTs, SUB_CTX, [
       { id: 'sa-cancel', kind: 'confirm', message: 'Go?', toolCallId: 'sa-tc', toolName: 'ask_user', conversationId: 'conv-abc', agentName: 'researcher' },
     ]);
@@ -156,7 +156,7 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
     expect(snap.pendingUserInputs).toHaveLength(1);
     expect(snap.pendingUserInputs![0].message).toBe('Agent Q');
 
-    // Different conversation �?empty
+    // Different conversation — empty
     const otherCtx: ToolSetContext = { sessionId: 'sess-1', agentName: 'my-agent', conversationId: 'conv-y' };
     expect(userTs.onBuildSnapshot!(otherCtx)).toEqual({});
   });
@@ -227,9 +227,9 @@ describe('sub-agent injectToolResult via user-input ToolSet', () => {
   });
 });
 
-// ── injectToolResultIntoConversation �?full pipeline integration ─────────────
+// ── injectToolResultIntoConversation — full pipeline integration ────────────────────
 
-describe('injectToolResultIntoConversation �?integration', () => {
+describe('injectToolResultIntoConversation — integration', () => {
   let handler: ReturnType<typeof vi.fn>;
   let userTs: ToolSet;
 
@@ -271,7 +271,7 @@ describe('injectToolResultIntoConversation �?integration', () => {
     ]));
     userTs.onReady!(ctx, helpersRef.current!);
 
-    // Answer bound prompt �?this triggers injectToolResult
+    // Answer bound prompt — this triggers injectToolResult
     userTs.onGetSymbolState!(ctx).respondUserInput('b1', 'yes');
 
     // Wait for async injectToolResult + agent loop — verify BOTH the tool
@@ -314,7 +314,7 @@ describe('injectToolResultIntoConversation �?integration', () => {
     ]));
     userTs.onReady!(ctx, helpersRef.current!);
 
-    // Answer �?should trigger injectToolResult which is a no-op since isLoading=true
+    // Answer — should trigger injectToolResult which is a no-op since isLoading=true
     userTs.onGetSymbolState!(ctx).respondUserInput('loading-g', 'yes');
 
     // Give async execution time to (not) run
@@ -325,7 +325,7 @@ describe('injectToolResultIntoConversation �?integration', () => {
     expect(history.every((m) => m.role !== 'tool' || m.toolCallId !== 'tc-load')).toBe(true);
   });
 
-  it('bound ghost cancelled �?no tracker mutation', async () => {
+  it('bound ghost cancelled — no tracker mutation', async () => {
     const helpersRef = capturedHelpersRef();
     const captureTs: ToolSet = {
       name: 'capture', tools: [],

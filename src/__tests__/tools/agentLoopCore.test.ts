@@ -62,7 +62,7 @@ function minimalConfig(
 
 // ── Non-streaming path: natural completion (no tool calls) ────────────────────
 
-describe('runAgentLoopCore �?non-streaming, natural completion', () => {
+describe('runAgentLoopCore — non-streaming, natural completion', () => {
   it('returns completed=true, output, turns=1 when no tool calls', async () => {
     const config = minimalConfig(turnResponse({ text: 'hello world' }));
     const res = await runAgentLoopCore(config);
@@ -72,7 +72,7 @@ describe('runAgentLoopCore �?non-streaming, natural completion', () => {
     expect(res.toolCallCount).toBe(0);
   });
 
-  it('onAfterTurn absent �?completed=true without crashing', async () => {
+  it('onAfterTurn absent — completed=true without crashing', async () => {
     const config = minimalConfig(turnResponse({ text: 'ok' }), { hooks: {} });
     const res = await runAgentLoopCore(config);
     expect(res.completed).toBe(true);
@@ -153,7 +153,7 @@ describe('runAgentLoopCore �?non-streaming, natural completion', () => {
 
 // ── Non-streaming path: tool execution ───────────────────────────────────────
 
-describe('runAgentLoopCore �?non-streaming, tool execution', () => {
+describe('runAgentLoopCore — non-streaming, tool execution', () => {
   it('callTool invoked for each tool call; onAfterToolCall fired after each', async () => {
     const call1 = toolCall('c1');
     const res1 = toolResult('c1');
@@ -183,7 +183,7 @@ describe('runAgentLoopCore �?non-streaming, tool execution', () => {
     expect(onBeforeToolCalls).toHaveBeenCalledWith([c1, c2]);
   });
 
-  it('signal provided �?tool results raced against AbortSignal', async () => {
+  it('signal provided — tool results raced against AbortSignal', async () => {
     // Promise.race([toolResultsPromise, abortRace]) is always used since signal is required
     const call = toolCall('c1');
     const callTool = vi.fn().mockResolvedValue(toolResult('c1', 'echo', 'raced'));
@@ -203,7 +203,7 @@ describe('runAgentLoopCore �?non-streaming, tool execution', () => {
     expect(res.toolCallCount).toBe(1);
   });
 
-  it('signal aborts during Promise.race �?rejects with DOMException', async () => {
+  it('signal aborts during Promise.race — rejects with DOMException', async () => {
     // callTool never resolves, so toolResultsPromise stays pending.
     // We abort while awaiting Promise.race([toolResultsPromise, abortRace]).
     const ac = new AbortController();
@@ -227,7 +227,7 @@ describe('runAgentLoopCore �?non-streaming, tool execution', () => {
     await expect(runPromise).rejects.toThrow(DOMException);
   });
 
-  it('signal aborted before tool race check �?breaks loop, completed=false', async () => {
+  it('signal aborted before tool race check — breaks loop, completed=false', async () => {
     // Covers `if (signal?.aborted) break;` between toolResultsPromise creation
     // and the Promise.race. Achieved by aborting synchronously before the async
     // continuation of invokeHandler runs, so signal is already aborted when the
@@ -249,7 +249,7 @@ describe('runAgentLoopCore �?non-streaming, tool execution', () => {
 
     // Abort synchronously (before invokeHandler's microtask has resolved).
     // When the continuation runs: toolResultsPromise is created, THEN
-    // `if (signal?.aborted) break` fires �?loop exits without throwing.
+    // `if (signal?.aborted) break` fires — loop exits without throwing.
     ac.abort();
 
     const result = await runPromise;
@@ -280,7 +280,7 @@ describe('runAgentLoopCore �?non-streaming, tool execution', () => {
 
     // onAfterTurn should be called for BOTH turns (tool-execution turn + final turn)
     expect(onAfterTurn).toHaveBeenCalledTimes(2);
-    // Second call (final turn, no tools) �?history has user+assistant(tool)+tool+assistant(final)
+    // Second call (final turn, no tools) — history has user+assistant(tool)+tool+assistant(final)
     const [histArg] = onAfterTurn.mock.calls[1];
     const roles = histArg.map((m: { role: string }) => m.role);
     expect(roles).toContain('tool');
@@ -449,7 +449,7 @@ describe('runAgentLoopCore �?non-streaming, tool execution', () => {
 
 // ── Streaming path ────────────────────────────────────────────────────────────
 
-describe('runAgentLoopCore �?streaming path', () => {
+describe('runAgentLoopCore — streaming path', () => {
   beforeEach(() => {
     mockDrain.mockReset();
     // Default: a mock that calls onBeforeAwaitResults so onTurnSnapshot fires.
@@ -541,7 +541,7 @@ describe('runAgentLoopCore �?streaming path', () => {
   it('onAfterToolCall fires for SDK-executed calls (not pre-executed)', async () => {
     const sdkCall = toolCall('sdk1');
     const sdkRes = toolResult('sdk1', 'echo', 'result');
-    // No calls to onPreExecutedResult �?preExecutedIds stays empty �?onAfterToolCall fires
+    // No calls to onPreExecutedResult — preExecutedIds stays empty — onAfterToolCall fires
     mockDrain.mockResolvedValue(
       streamResult({ text: '', toolCalls: [sdkCall], toolResultPairs: [{ call: sdkCall, result: sdkRes }], shouldContinue: false }),
     );
@@ -557,7 +557,7 @@ describe('runAgentLoopCore �?streaming path', () => {
     const att = { type: 'image' as const, url: 'data:image/png;base64,abc' };
     mockDrain.mockResolvedValue({
       text: 'here', thinking: '', toolCalls: [], toolResultPairs: [],
-      // @ts-expect-error �?attachments are not actually part of AgentMessage, but we want to test that they get merged in correctly
+      // @ts-expect-error — attachments are not actually part of AgentMessage, but we want to test that they get merged in correctly
       attachments: [att], usage: undefined, shouldContinue: false,
     });
     const res = await runAgentLoopCore({
@@ -573,7 +573,7 @@ describe('runAgentLoopCore �?streaming path', () => {
     const att = { type: 'image' as const, url: 'data:image/png;base64,xyz' };
     const res = { toolCallId: 'tc1', name: 'echo', result: 'ok', attachments: [att] };
     mockDrain.mockResolvedValue({
-      // @ts-expect-error �?attachments are not actually part of AgentStreamChunk, but we want to test that they get merged in correctly
+      // @ts-expect-error — attachments are not actually part of AgentStreamChunk, but we want to test that they get merged in correctly
       text: '', thinking: '', toolCalls: [call], toolResultPairs: [{ call, result: res }],
       attachments: [], usage: undefined, shouldContinue: false,
     });
@@ -588,7 +588,7 @@ describe('runAgentLoopCore �?streaming path', () => {
     const preCall = toolCall('pre1');
     const preRes = toolResult('pre1', 'echo', 'pre-exec');
 
-    // drainAgentStream calls onPreExecutedResult for preCall �?adds to preExecutedIds
+    // drainAgentStream calls onPreExecutedResult for preCall — adds to preExecutedIds
     mockDrain.mockImplementation(async (_stream, _exec, _sig, hooks) => {
       hooks?.onPreExecutedResult?.(preCall, preRes);
       return streamResult({ text: '', toolCalls: [preCall], toolResultPairs: [{ call: preCall, result: preRes }], shouldContinue: false });
@@ -608,7 +608,7 @@ describe('runAgentLoopCore �?streaming path', () => {
     it('injects pending messages into history before handler is called', async () => {
       const onBeforeInvoke = vi.fn()
         .mockReturnValueOnce([{ role: 'user', content: 'interjection 1' }])
-        .mockReturnValue([]); // subsequent turns �?nothing pending
+        .mockReturnValue([]); // subsequent turns — nothing pending
 
       const invokeHandler = vi.fn()
         .mockResolvedValueOnce(turnResponse({ text: 'reply to both' }));
@@ -659,7 +659,7 @@ describe('runAgentLoopCore �?streaming path', () => {
     });
 
     it('returns [] when not configured (backward compat)', async () => {
-      // No onBeforeInvoke in hooks �?should behave identically
+      // No onBeforeInvoke in hooks — should behave identically
       const invokeHandler = vi.fn()
         .mockResolvedValueOnce(turnResponse({ text: 'ok' }));
 
@@ -681,13 +681,13 @@ describe('runAgentLoopCore �?streaming path', () => {
   describe('final output fallback when last turn produced only tool calls', () => {
     it('returns last non-empty assistant text when finalText is empty', async () => {
       // Simulate: turn 0 has helper text; turn 1 & 2 have only tool calls (empty text).
-      // maxTurns=3 �?loop exhausts, output should fall back to "found the data".
+      // maxTurns=3 — loop exhausts, output should fall back to "found the data".
       const call = toolCall('tc1');
       const result = toolResult('tc1', 'echo', 'the answer');
 
       // Turn 0: non-streaming with text + tool call
       // Turn 1: streaming, shouldContinue=true (tool calls made), empty text
-      // Turn 2: streaming, shouldContinue=true (tool calls made), empty text �?maxTurns hit
+      // Turn 2: streaming, shouldContinue=true (tool calls made), empty text — maxTurns hit
       const invokeHandler = vi.fn()
         .mockResolvedValueOnce(turnResponse({ text: 'found the data', toolCalls: [call] }))
         .mockResolvedValueOnce(makeStream())
@@ -790,7 +790,7 @@ describe('runAgentLoopCore �?streaming path', () => {
 
     it('does NOT fire when stream has no tool calls', async () => {
       mockDrain.mockImplementation(async (_stream: ReadableStream<AgentStreamChunk>, _exec: (call: ToolCall) => Promise<ToolResult>, _sig: AbortSignal, hooks?: AgentStreamHooks) => {
-        // No onBeforeAwaitResults call �?no tools in this stream
+        // No onBeforeAwaitResults call — no tools in this stream
         return streamResult({ text: 'plain text', shouldContinue: false });
       });
 

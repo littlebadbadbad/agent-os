@@ -137,7 +137,7 @@ describe('createMemoryGraphToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     ts.onInit!(ctx, { id: sessionId, title: 'T' });
-    // @ts-expect-error �?onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
+    // @ts-expect-error onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toMatch(/## Memory/);
   });
@@ -148,7 +148,7 @@ describe('createMemoryGraphToolSet', () => {
     const ctx = makeCtx(sessionId);
     const graph = makeGraph({ nodes: [{ id: 'node-A', label: 'Node A', description: 'Alpha entity' }] });
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
-    // @ts-expect-error �?onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
+    // @ts-expect-error onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toBeDefined();
     expect(prompt).toMatch(/node-A|Alpha entity/);
@@ -160,7 +160,7 @@ describe('createMemoryGraphToolSet', () => {
     const ctx = makeCtx(sessionId);
     const emptyGraph: KnowledgeGraph = { nodes: [], edges: [], updatedAt: new Date().toISOString(), updateCount: 1 };
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: emptyGraph });
-    // @ts-expect-error �?onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
+    // @ts-expect-error onGetSystemPrompt signature requires 2 args; promptCtx unused in impl
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toMatch(/## Memory/);
   });
@@ -200,7 +200,7 @@ describe('createMemoryGraphToolSet', () => {
     const graph = makeGraph();
     ts.onInit!(ctx, { id: sessionId, title: 'T', memoryGraph: graph });
     const snap = ts.onBuildSnapshot!(ctx) as any;
-    // Snapshot shape: { memoryGraph: KnowledgeGraph } �?the graph is stored directly
+    // Snapshot shape: { memoryGraph: KnowledgeGraph } — the graph is stored directly
     expect(snap.memoryGraph).toBeDefined();
     expect(snap.memoryGraph.nodes[0].id).toBe('entity-1');
   });
