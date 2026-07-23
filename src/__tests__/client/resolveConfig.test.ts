@@ -22,6 +22,7 @@ describe('resolveAgentClientConfig', () => {
     expect(resolved.maxAgentTurns).toBe(0);
     expect(resolved.enableAttachments).toBe(true);
     expect(resolved.handlerThrottleMs).toBe(1000);
+    expect(typeof resolved.renderUI).toBe('function');
   });
 
   it('preserves explicitly provided values', () => {
@@ -59,5 +60,48 @@ describe('resolveAgentClientConfig', () => {
       { tools: [], callTool: vi.fn() as any, toolChoice: 'auto', signal: new AbortController().signal },
     );
     expect(result).toEqual({ text: 'ok' });
+  });
+
+  it('default renderUI is a no-op function factory', () => {
+    const config: AgentClientConfig = {
+      handler: stubHandler,
+    } as unknown as AgentClientConfig;
+
+    const resolved = resolveAgentClientConfig(config);
+    const renderFn = resolved.renderUI();
+    // The default renderUI returns a cleanup function
+    expect(typeof renderFn).toBe('function');
+    // Calling cleanup should not throw
+    expect(() => renderFn()).not.toThrow();
+  });
+
+  it('handlerThrottleMs defaults to 1000', () => {
+    const config: AgentClientConfig = {
+      handler: stubHandler,
+    } as unknown as AgentClientConfig;
+
+    const resolved = resolveAgentClientConfig(config);
+    expect(resolved.handlerThrottleMs).toBe(1000);
+  });
+
+  it('explicit handlerThrottleMs=0 is preserved', () => {
+    const config: AgentClientConfig = {
+      handler: stubHandler,
+      handlerThrottleMs: 0,
+    } as unknown as AgentClientConfig;
+
+    const resolved = resolveAgentClientConfig(config);
+    expect(resolved.handlerThrottleMs).toBe(0);
+  });
+
+  it('explicit renderUI is preserved', () => {
+    const customRender = () => () => console.log('custom');
+    const config: AgentClientConfig = {
+      handler: stubHandler,
+      renderUI: customRender,
+    } as unknown as AgentClientConfig;
+
+    const resolved = resolveAgentClientConfig(config);
+    expect(resolved.renderUI).toBe(customRender);
   });
 });

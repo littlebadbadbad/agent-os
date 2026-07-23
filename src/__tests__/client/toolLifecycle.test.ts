@@ -95,6 +95,83 @@ describe('createToolLifecycle', () => {
     expect(() => unregister()).not.toThrow();
   });
 
+  // ── registerTools (batch) ──────────────────────────────────────────────────
+
+  it('registerTools adds multiple tools to masterTools and slots', () => {
+    const masterTools: Tool[] = [];
+    const slots = makeSlots('s1');
+    const lc = createToolLifecycle({ masterTools, masterToolSets: [], slots, sessionMgr: makeSessionMgr(['s1']), getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
+
+    const unregister = lc.registerTools([makeTool('a'), makeTool('b')]);
+
+    expect(masterTools.map((t) => t.name)).toEqual(['a', 'b']);
+    expect(slots.get('s1')!.getRegistry().has('a')).toBe(true);
+    expect(slots.get('s1')!.getRegistry().has('b')).toBe(true);
+    expect(lc.getTools().map((t) => t.name)).toContain('a');
+
+    // cleanup
+    unregister();
+    expect(masterTools).toHaveLength(0);
+    expect(slots.get('s1')!.getRegistry().has('a')).toBe(false);
+    expect(slots.get('s1')!.getRegistry().has('b')).toBe(false);
+  });
+
+  it('registerTools unregister is idempotent', () => {
+    const masterTools: Tool[] = [];
+    const slots = makeSlots('s1');
+    const lc = createToolLifecycle({ masterTools, masterToolSets: [], slots, sessionMgr: makeSessionMgr(['s1']), getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
+
+    const unregister = lc.registerTools([makeTool('x')]);
+    unregister();
+    expect(() => unregister()).not.toThrow();
+  });
+
+  // ── getFilteredTools ───────────────────────────────────────────────────────
+
+  it('getFilteredTools returns all master tools when no active session', () => {
+    const masterTools: Tool[] = [makeTool('t1'), makeTool('t2')];
+    const lc = createToolLifecycle({ masterTools, masterToolSets: [], slots: new Map(), sessionMgr: makeSessionMgr([]), getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
+
+    const filtered = lc.getFilteredTools();
+    expect(filtered.map((t) => t.name)).toEqual(['t1', 't2']);
+  });
+
+  it('getFilteredTools returns slot tools when active session has a tool manager', () => {
+    const masterTools: Tool[] = [makeTool('master-only')];
+    const slots = makeSlots('s1');
+    const lc = createToolLifecycle({ masterTools, masterToolSets: [], slots, sessionMgr: makeSessionMgr(['s1']), getAllToolSets: () => [], agentId: AGENT_ID, getAgentClient });
+
+    // Register a tool to the session's slot (this also adds to masterTools)
+    lc.registerTool(makeTool('session-tool'));
+
+    const filtered = lc.getFilteredTools();
+    // When active session exists, getFilteredTools returns the SLOT's tools,
+    // which includes all tools registered on that slot
+    expect(filtered.map((t) => t.name)).toContain('session-tool');
+  });
+
+  it('getFilteredTools applies onFilterTools from all ToolSets', () => {
+    const masterTools: Tool[] = [makeTool('visible'), makeTool('hidden')];
+    const slots = makeSlots('s1');
+    const lc = createToolLifecycle({
+      masterTools, masterToolSets: [], slots,
+      sessionMgr: makeSessionMgr(['s1']),
+      getAllToolSets: () => [{
+        name: 'filter',
+        onFilterTools: (_ctx: any, tools: readonly Tool[]) => tools.filter((t) => t.name !== 'hidden'),
+      } as any],
+      agentId: AGENT_ID, getAgentClient,
+    });
+    // Register tools so they appear in the slot
+    lc.registerTool(makeTool('visible'));
+    lc.registerTool(makeTool('hidden'));
+
+    const filtered = lc.getFilteredTools();
+    // onFilterTools should filter out 'hidden'
+    expect(filtered.map((t) => t.name)).not.toContain('hidden');
+    expect(filtered.map((t) => t.name)).toContain('visible');
+  });
+
   // ── registerToolSet ────────────────────────────────────────────────────────
 
   it('registerToolSet adds its tools to masterTools and all slots', () => {

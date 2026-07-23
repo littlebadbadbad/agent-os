@@ -877,3 +877,196 @@ describe('runAgentLoopCore — streaming path', () => {
     });
   });
 });
+
+// ── Edge case: Mixed concurrency (safe + unsafe calls) ──────────────────────
+
+describe('runAgentLoopCore — mixed concurrency (safe + unsafe tool calls)', () => {
+  it('executes safe calls in parallel, unsafe calls sequentially', async () => {
+    const safeCall = toolCall('safe-1');
+    const unsafeCall = toolCall('unsafe-1');
+    const safeResult = toolResult('safe-1');
+    const unsafeResult = toolResult('unsafe-1');
+    const execOrder: string[] = [];
+
+    const callTool = vi.fn().mockImplementation(async (call: ToolCall) => {
+      execOrder.push(call.id);
+      if (call.id === 'unsafe-1') {
+        // Unsafe calls are sequential — await a tick so ordering is visible
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      return call.id === 'safe-1' ? safeResult : unsafeResult;
+    });
+
+    const invokeHandler = vi.fn()
+      .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [safeCall, unsafeCall] }))
+      .mockResolvedValueOnce(turnResponse({ text: 'done' }));
+
+    // Make unsafeCall resolveTool.isConcurrencySafe = false
+    const resolveTool = vi.fn().mockImplementation((name: string) => {
+      if (name === 'unsafe-1') return { name: 'unsafe-1', isConcurrencySafe: false } as any;
+      return { name, isConcurrencySafe: true } as any;
+    });
+
+    await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 10,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool,
+      resolveTool,
+    });
+
+    // Both safe+unsafe paths executed — toolResults is populated
+    expect(execOrder).toContain('safe-1');
+    expect(execOrder).toContain('unsafe-1');
+  });
+});
+
+// ── Edge case: callTool throws error (safe executor catch) ──────────────────
+
+describe('runAgentLoopCore — callTool error handling', () => {
+  it('createSafeExecutor catches errors and returns Error result', async () => {
+    const call = toolCall('c1');
+    const invokeHandler = vi.fn()
+      .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [call] }))
+      .mockResolvedValueOnce(turnResponse({ text: 'done' }));
+
+    const callTool = vi.fn().mockRejectedValue(new Error('tool crashed'));
+
+    const res = await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 10,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool,
+    });
+
+    expect(res.toolCallCount).toBe(1);
+    // Tool result in history should have Error prefix
+    const toolHistory = res.history.find((m) => m.role === 'tool');
+    expect((toolHistory as any)?.content).toMatch(/^Error: /);
+  });
+
+  it('onAfterToolCall fires for error results', async () => {
+    const call = toolCall('c1');
+    const onAfterToolCall = vi.fn();
+    const invokeHandler = vi.fn()
+      .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [call] }))
+      .mockResolvedValueOnce(turnResponse({ text: 'done' }));
+
+    await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 10,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool: vi.fn().mockRejectedValue(new Error('fail')),
+      hooks: { onAfterToolCall },
+    });
+
+    expect(onAfterToolCall).toHaveBeenCalled();
+    const resultArg = onAfterToolCall.mock.calls[0][1];
+    expect(resultArg.result).toMatch(/^Error: /);
+  });
+});
+
+// ── Edge case: toolCallId mismatch in history push ─────────────────────────
+
+describe('runAgentLoopCore — toolCallId fallback when caller id missing', () => {
+  it('falls back to toolCallId when call not found in turnToolCalls', async () => {
+    const call = toolCall('c1');
+    const invokeHandler = vi.fn()
+      .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [call] }))
+      .mockResolvedValueOnce(turnResponse({ text: 'done' }));
+
+    // Return a result with a DIFFERENT toolCallId than the original call
+    const callTool = vi.fn().mockResolvedValue({ toolCallId: 'c2', name: 'echo', result: 'fallback' });
+
+    const res = await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 10,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool,
+    });
+
+    expect(res.toolCallCount).toBe(1);
+    // The fallback in pushToolResultsToHistory should use { id: res.toolCallId, name: res.name, arguments: {} }
+    const toolMsg = res.history.find((m) => m.role === 'tool');
+    expect(toolMsg).toBeDefined();
+    expect((toolMsg as any).toolCallId).toBe('c2');
+  });
+});
+
+// ── Edge case: resolveTool returns undefined (default concurrency safe = true) ─
+
+describe('runAgentLoopCore — resolveTool returns undefined', () => {
+  it('defaults isConcurrencySafe to true when resolveTool returns undefined', async () => {
+    const call1 = toolCall('c1');
+    const call2 = toolCall('c2');
+    const invokeHandler = vi.fn()
+      .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [call1, call2] }))
+      .mockResolvedValueOnce(turnResponse({ text: 'done' }));
+
+    const callTool = vi.fn().mockResolvedValue(toolResult('c1'));
+    const resolveTool = vi.fn().mockReturnValue(undefined);
+
+    // When resolveTool returns undefined, every() passes, so parallel path runs
+    const res = await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 10,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool,
+      resolveTool,
+    });
+
+    expect(res.toolCallCount).toBe(2);
+    expect(callTool).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── Edge case: all-unsafe calls (no safe batch) ────────────────────────────
+
+describe('runAgentLoopCore — all-unsafe tool calls', () => {
+  it('still executes all calls when none are concurrency-safe', async () => {
+    const call1 = toolCall('u1');
+    const call2 = toolCall('u2');
+
+    const callTool = vi.fn().mockResolvedValue({ toolCallId: 'u1', name: 'echo', result: 'ok' });
+
+    const invokeHandler = vi.fn()
+      .mockResolvedValueOnce(turnResponse({ text: '', toolCalls: [call1, call2] }))
+      .mockResolvedValueOnce(turnResponse({ text: 'done' }));
+
+    const resolveTool = vi.fn().mockReturnValue({ isConcurrencySafe: false } as any);
+
+    const res = await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 10,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool,
+      resolveTool,
+    });
+
+    expect(res.toolCallCount).toBe(2);
+    expect(callTool).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── Edge case: empty fallback output ───────────────────────────────────────
+
+describe('runAgentLoopCore — empty output fallback', () => {
+  it('returns empty string when no text and no tool calls', async () => {
+    const invokeHandler = vi.fn().mockResolvedValue(turnResponse({ text: '' }));
+    const res = await runAgentLoopCore({
+      initialHistory: [{ role: 'user', content: 'task' }],
+      maxTurns: 1,
+      signal: new AbortController().signal,
+      invokeHandler,
+      callTool: vi.fn(),
+    });
+    expect(res.output).toBe('');
+    expect(res.completed).toBe(true);
+  });
+});

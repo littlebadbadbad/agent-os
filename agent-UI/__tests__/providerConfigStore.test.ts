@@ -239,4 +239,83 @@ describe('providerConfigStore', () => {
       expect(providerConfigStore.isLoaded()).toBe(true);
     });
   });
+
+  // ── getBuiltInProviders / getCustomProviders ────────────────────────────
+
+  describe('getBuiltInProviders / getCustomProviders', () => {
+    it('getBuiltInProviders returns built-in list', async () => {
+      const builtIn = [{ name: 'BuiltIn', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions' as const, models: [] }];
+      mockFetchMergedModelConfig.mockResolvedValue([]);
+      mockFetchBuiltInModelConfig.mockResolvedValue(builtIn);
+      mockFetchCustomModelConfig.mockResolvedValue([]);
+      await providerConfigStore.load();
+      expect(providerConfigStore.getBuiltInProviders()).toEqual(builtIn);
+    });
+
+    it('getCustomProviders returns custom list', async () => {
+      const custom = [{ name: 'Custom', vendor: 'customendpoint', apiKey: 'key', apiType: 'chat-completions' as const, models: [] }];
+      mockFetchMergedModelConfig.mockResolvedValue([]);
+      mockFetchBuiltInModelConfig.mockResolvedValue([]);
+      mockFetchCustomModelConfig.mockResolvedValue(custom);
+      await providerConfigStore.load();
+      expect(providerConfigStore.getCustomProviders()).toEqual(custom);
+    });
+
+    it('returns empty array when no providers exist', () => {
+      expect(providerConfigStore.getBuiltInProviders()).toEqual([]);
+      expect(providerConfigStore.getCustomProviders()).toEqual([]);
+    });
+  });
+
+  // ── reloadCustom ───────────────────────────────────────────────────────
+
+  describe('reloadCustom', () => {
+    it('re-fetches custom config and re-merges', async () => {
+      const builtIn = [{ name: 'A', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions' as const, models: [{ id: 'm1', name: 'm1', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
+      const custom = [{ name: 'B', vendor: 'customendpoint', apiKey: 'k', apiType: 'chat-completions' as const, models: [{ id: 'm2', name: 'm2', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
+      mockFetchMergedModelConfig.mockResolvedValue([...builtIn, ...custom]);
+      mockFetchBuiltInModelConfig.mockResolvedValue(builtIn);
+      mockFetchCustomModelConfig.mockResolvedValue([]);
+      await providerConfigStore.load();
+      expect(providerConfigStore.getCustomProviders()).toEqual([]);
+
+      mockFetchCustomModelConfig.mockResolvedValue(custom);
+      await providerConfigStore.reloadCustom();
+      expect(providerConfigStore.getCustomProviders()).toEqual(custom);
+      // merged should include both
+      expect(providerConfigStore.getProviders()).toHaveLength(2);
+    });
+
+    it('handles API failure gracefully (keeps previous state)', async () => {
+      mockFetchCustomModelConfig.mockRejectedValue(new Error('fail'));
+      await providerConfigStore.reloadCustom();
+      // state should still be initial (empty)
+      expect(providerConfigStore.getCustomProviders()).toEqual([]);
+    });
+  });
+
+  // ── reloadBuiltIn ──────────────────────────────────────────────────────
+
+  describe('reloadBuiltIn', () => {
+    it('re-fetches built-in config and re-merges', async () => {
+      const builtIn = [{ name: 'A', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions' as const, models: [{ id: 'm1', name: 'm1', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
+      const custom = [{ name: 'B', vendor: 'customendpoint', apiKey: 'k', apiType: 'chat-completions' as const, models: [{ id: 'm2', name: 'm2', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
+      mockFetchMergedModelConfig.mockResolvedValue(custom);
+      mockFetchBuiltInModelConfig.mockResolvedValue([]);
+      mockFetchCustomModelConfig.mockResolvedValue(custom);
+      await providerConfigStore.load();
+      expect(providerConfigStore.getBuiltInProviders()).toEqual([]);
+
+      mockFetchBuiltInModelConfig.mockResolvedValue(builtIn);
+      await providerConfigStore.reloadBuiltIn();
+      expect(providerConfigStore.getBuiltInProviders()).toEqual(builtIn);
+      expect(providerConfigStore.getProviders()).toHaveLength(2);
+    });
+
+    it('handles API failure gracefully', async () => {
+      mockFetchBuiltInModelConfig.mockRejectedValue(new Error('fail'));
+      await providerConfigStore.reloadBuiltIn();
+      expect(providerConfigStore.getBuiltInProviders()).toEqual([]);
+    });
+  });
 });

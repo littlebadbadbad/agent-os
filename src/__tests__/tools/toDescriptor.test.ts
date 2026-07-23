@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import {
   toDescriptor,
@@ -6,6 +6,7 @@ import {
   toOpenAITool,
   toAnthropicTool,
   toGeminiTool,
+  resolveToolDescription,
 } from '../../tools/toDescriptor';
 import type { Tool } from '@agent-type';
 
@@ -99,7 +100,49 @@ describe('toDescriptor', () => {
   });
 });
 
-// ── toDescriptors ─────────────────────────────────────────────────────────────
+// ── resolveToolDescription ────────────────────────────────────────────────────
+
+describe('resolveToolDescription', () => {
+  it('returns static description when no getDescription hook', async () => {
+    const result = await resolveToolDescription(
+      simpleTool,
+      {},
+      {} as never,
+    );
+    expect(result).toBe('Say hello to someone');
+  });
+
+  it('returns factory description when description is a function', async () => {
+    const result = await resolveToolDescription(
+      lazyDescTool,
+      {},
+      {} as never,
+    );
+    expect(result).toBe('computed description');
+  });
+
+  it('calls getDescription when the hook exists', async () => {
+    const getDescription = vi.fn(async () => 'dynamic desc');
+    const toolWithHook: Tool = {
+      ...simpleTool,
+      getDescription,
+    };
+    const params = { name: 'world' };
+    const result = await resolveToolDescription(toolWithHook, params, {} as never);
+    expect(result).toBe('dynamic desc');
+    expect(getDescription).toHaveBeenCalledWith(params, {});
+  });
+
+  it('getDescription result takes priority over static description', async () => {
+    const toolWithHook: Tool = {
+      ...simpleTool,
+      getDescription: async () => 'override desc',
+    };
+    const result = await resolveToolDescription(toolWithHook, {}, {} as never);
+    // Should return from getDescription, NOT from tool.description
+    expect(result).toBe('override desc');
+  });
+});
 
 describe('toDescriptors', () => {
   it('converts an array of tools', () => {

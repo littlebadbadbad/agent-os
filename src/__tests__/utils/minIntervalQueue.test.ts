@@ -328,4 +328,38 @@ describe('createMinIntervalQueue', () => {
       expect(logB).toEqual([0, INTERVAL]);
     });
   });
+
+  describe('abort without reason → DOMException', () => {
+    it('throws DOMException when signal.reason is undefined (fast path)', async () => {
+      const schedule = createMinIntervalQueue(INTERVAL);
+      const controller = new AbortController();
+
+      // Queue first call so second call has to wait
+      schedule(() => Promise.resolve('first'));
+      await tick(0);
+
+      controller.abort(); // no reason → signal.reason is undefined
+      const p = schedule(() => Promise.resolve('second'), controller.signal);
+
+      // Must catch to avoid unhandled rejection
+      await expect(p).rejects.toThrow(DOMException);
+      await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
+    it('throws DOMException when signal.reason is undefined (during wait)', async () => {
+      const schedule = createMinIntervalQueue(INTERVAL);
+      const controller = new AbortController();
+
+      schedule(() => Promise.resolve('first'));
+      await tick(0);
+
+      const p = schedule(() => Promise.resolve('second'), controller.signal);
+      await tick(500); // mid-wait
+
+      controller.abort(); // no reason → signal.reason is undefined
+
+      await expect(p).rejects.toThrow(DOMException);
+      await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+    });
+  });
 });

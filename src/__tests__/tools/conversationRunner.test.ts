@@ -924,4 +924,43 @@ describe('ConversationRunner', () => {
       expect(deps.msgList.length).toBe(0);
     });
   });
+
+  // ── Edge cases ──────────────────────────────────────────────────────────
+
+  describe('edge cases', () => {
+    it('handles maxAgentTurns=0 by using Infinity (no cap)', async () => {
+      setupLoop('done');
+      const deps = makeDeps({ maxAgentTurns: 0 });
+      const runner = createConversationRunner(deps);
+      await expect(runner.sendMessage('Test')).resolves.toBeUndefined();
+      expect(deps.msgList.messages.filter(m => m.role === 'assistant').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('includes "An error occurred" text on generic error', async () => {
+      mockRunLoop.mockImplementationOnce(async () => { throw new Error('Something broke'); });
+      const deps = makeDeps();
+      const runner = createConversationRunner(deps);
+      await runner.sendMessage('Test');
+      const assistants = deps.msgList.messages.filter(m => m.role === 'assistant');
+      const lastAssistant = assistants[assistants.length - 1];
+      expect(lastAssistant.content).toContain('An error occurred');
+    });
+
+    it('preserves existing content on AbortError (does not show error text)', async () => {
+      // First push some content to the assistant message, then abort
+      mockRunLoop.mockImplementationOnce(async (config: any) => {
+        // Simulate partial content already streamed, then abort
+        config.hooks?.onAssistantText?.('Partial content', null);
+        config.hooks?.onStreamEnd?.();
+        throw new DOMException('Aborted', 'AbortError');
+      });
+      const deps = makeDeps();
+      const runner = createConversationRunner(deps);
+      await runner.sendMessage('Test');
+      const assistants = deps.msgList.messages.filter(m => m.role === 'assistant');
+      const lastAssistant = assistants[assistants.length - 1];
+      expect(lastAssistant.content).toContain('Partial content');
+      expect(lastAssistant.content).not.toContain('An error occurred');
+    });
+  });
 });

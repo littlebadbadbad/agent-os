@@ -320,4 +320,17 @@ describe('wireSessionPersistence', () => {
     );
     expect(onSessionsChange.mock.calls[0][1]).toBeUndefined();
   });
+
+  it('handles onSessionsChange throw gracefully (doSave catch path)', async () => {
+    const { mgr, notifySession } = makeSessionMgr([{ id: 's1', title: 'S1' }]);
+    const onSessionsChange = vi.fn(() => { throw new Error('save failed'); });
+    const buildSnapshot = vi.fn((id: string): SessionEntryData => ({ id, title: 'T' }));
+
+    wireSessionPersistence(mgr, onSessionsChange, buildSnapshot);
+
+    notifySession('s1');
+    // Should not throw — the catch in doSave sets result = undefined
+    await expect(new Promise<void>((resolve) => setTimeout(resolve, 600))).resolves.toBeUndefined();
+    expect(onSessionsChange).toHaveBeenCalledTimes(1);
+  });
 });

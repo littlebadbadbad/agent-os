@@ -14,5 +14,16 @@ export default defineConfig({
     exclude: ['extensions/browser/**'],
     environment: 'node',
     reporters: ['verbose'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html'],
+      include: ['backend/**/*.js'],
+      exclude: [
+        'backend/index.js',
+        'backend/lib/format-converters/**',  // format converters tested via core tests
+        'backend/__tests__/**',
+      ],
+      reportsDirectory: './coverage/backend',
+    },
   },
 });
