@@ -23,7 +23,8 @@ export function isAgentStreamChunk(v: unknown): v is AgentStreamChunk {
       (v as AgentStreamChunk).type === 'tool_call' ||
       (v as AgentStreamChunk).type === 'tool_result' ||
       (v as AgentStreamChunk).type === 'attachment' ||
-      (v as AgentStreamChunk).type === 'usage'
+      (v as AgentStreamChunk).type === 'usage' ||
+      (v as AgentStreamChunk).type === 'error'
     )
   );
 }

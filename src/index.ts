@@ -1,32 +1,48 @@
-import pkg from '../package.json';
+import pkg from "../package.json";
 
 export const VERSION = pkg.version;
 
 // ── Client ────────────────────────────────────────────────────────────────────
-export { createAgentClient } from './client';
-export type { DefaultRenderUIConfig } from '../agent-UI/defaultRenderUI';
-export type { AgentClientConfig, AgentClient } from './client';
-export { createAgentSession } from './client/agentSession';
-export type { AgentSession, AgentSessionState, AgentSessionConfig } from './client/agentSession';
+export { createAgentClient } from "./client";
+export { isAgentStreamChunk, isAgentTurnResponse } from "./tools";
+export type { DefaultRenderUIConfig } from "../agent-UI/defaultRenderUI";
+export type { AgentClientConfig, AgentClient } from "./client";
+export { createAgentSession } from "./client/agentSession";
+export type {
+  AgentSession,
+  AgentSessionState,
+  AgentSessionConfig,
+} from "./client/agentSession";
 export type {
   SessionManager,
   SessionEntryData,
   SessionListEntry,
   SessionManagerState,
-} from './client/sessionManager.types';
+} from "./client/sessionManager.types";
 
 // ── Tool primitives ───────────────────────────────────────────────────────────
-export type { ToolSet, ToolSetState, ToolSetContext, ToolSetStateContext, AgentQueryFns, AgentClientLike, ToolContextPatch, SystemPromptContext, CompactionResult, CompactionNotice } from '@agent-type';
-export { MAIN_CONVERSATION_ID, ctxKey } from './tools/toolSet';
+export type {
+  ToolSet,
+  ToolSetState,
+  ToolSetContext,
+  ToolSetStateContext,
+  AgentQueryFns,
+  AgentClientLike,
+  ToolContextPatch,
+  SystemPromptContext,
+  CompactionResult,
+  CompactionNotice,
+} from "@agent-type";
+export { MAIN_CONVERSATION_ID, ctxKey } from "./tools/toolSet";
 export {
   toOpenAIMessages,
   toAnthropicMessages,
   toGeminiMessages,
-} from './tools/messages';
+} from "./tools/messages";
 export {
   createSubAgentToolset,
   createSubAgentRegistry,
-} from './tools/subagent';
+} from "./tools/subagent";
 export type {
   SubAgentConfig,
   SubAgentResult,
@@ -37,7 +53,7 @@ export type {
   SubAgentRegistryState,
   SubAgentRegistry,
   CreateSubAgentRegistryOptions,
-} from './tools/subagent';
+} from "./tools/subagent";
 // ── Permissions ───────────────────────────────────────────────────────────────
 export type {
   HandlerContext,
@@ -76,17 +92,17 @@ export type {
   AgentHandler,
   WidgetIcon,
   WidgetTheme,
-} from '@agent-type';
+} from "@agent-type";
 export {
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_MAX_WIDTH,
   DRAG_THRESHOLD,
   ANIM_DURATION,
-} from './constants';
+} from "./constants";
 
 // ── History converter ─────────────────────────────────────────────────────────
-export { agentMessagesToUI } from './client/historyConverter';
+export { agentMessagesToUI } from "./client/historyConverter";
 
 // ── Structured error types ────────────────────────────────────────────────────
 export {
@@ -95,7 +111,5 @@ export {
   toolValidationError,
   toolPermissionError,
   toolExecutionError,
-} from './tools/errors';
-export type { AgentError, AgentErrorCode } from './tools/errors';
-
-
+} from "./tools/errors";
+export type { AgentError, AgentErrorCode } from "./tools/errors";

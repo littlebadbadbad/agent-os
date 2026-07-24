@@ -129,11 +129,16 @@ export function createConversationRunner(deps: ConversationRunnerDeps): Conversa
         } catch (err) {
           const isAbort = err instanceof Error && err.name === 'AbortError';
           outcome = isAbort ? 'aborted' : 'error';
+          const errorMsg = err instanceof Error ? err.message : String(err);
           msgList.update(turnRef.assistantId, (m) =>
             m
               ? {
                   ...m,
-                  content: isAbort ? m.content : m.content.trim() || 'An error occurred. Please try again.',
+                  content: isAbort
+                    ? m.content
+                    : m.content
+                      ? `${m.content}\n\n${errorMsg}`
+                      : errorMsg,
                   isStreaming: false,
                 }
               : m,

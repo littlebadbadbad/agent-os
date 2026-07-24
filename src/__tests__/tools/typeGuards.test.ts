@@ -81,6 +81,10 @@ describe('isAgentStreamChunk', () => {
     })).toBe(true);
   });
 
+  it('returns true for an error chunk', () => {
+    expect(isAgentStreamChunk({ type: 'error', error: 'API key expired' })).toBe(true);
+  });
+
   it('returns false for an unknown type string', () => {
     expect(isAgentStreamChunk({ type: 'unknown_type' })).toBe(false);
   });

@@ -12,6 +12,7 @@
  */
 
 import type { AgentTurnResponse, AgentStreamChunk, AgentMessage, ToolDescriptor, ToolChoice } from '@agent-sdk';
+import { isAgentStreamChunk } from '@agent-sdk';
 import { createPluginApiClient } from '../apiClient';
 
 const client = createPluginApiClient('chat');
@@ -38,14 +39,6 @@ export async function sendAsync(params: ChatParams): Promise<AgentTurnResponse> 
 }
 
 // ── Streaming ─────────────────────────────────────────────────────────────────
-
-/**
- * Runtime guard: confirm the value looks like an AgentStreamChunk (has a `type`).
- * All AgentStreamChunk variants include a discriminant `type` field.
- */
-function isAgentStreamChunk(value: unknown): value is AgentStreamChunk {
-  return typeof value === 'object' && value !== null && 'type' in value;
-}
 
 /**
  * Streaming chat — returns a ReadableStream of AgentStreamChunks.

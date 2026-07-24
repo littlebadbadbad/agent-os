@@ -11,6 +11,7 @@ export type {
   GeminiFunctionDeclaration,
   AgentTextChunk,
   AgentToolCallChunk,
+  AgentErrorChunk,
   AgentStreamChunk,
   AgentTurnResponse,
 } from '@agent-type';

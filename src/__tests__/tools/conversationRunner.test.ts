@@ -936,14 +936,14 @@ describe('ConversationRunner', () => {
       expect(deps.msgList.messages.filter(m => m.role === 'assistant').length).toBeGreaterThanOrEqual(1);
     });
 
-    it('includes "An error occurred" text on generic error', async () => {
+    it('shows the actual error message on generic error', async () => {
       mockRunLoop.mockImplementationOnce(async () => { throw new Error('Something broke'); });
       const deps = makeDeps();
       const runner = createConversationRunner(deps);
       await runner.sendMessage('Test');
       const assistants = deps.msgList.messages.filter(m => m.role === 'assistant');
       const lastAssistant = assistants[assistants.length - 1];
-      expect(lastAssistant.content).toContain('An error occurred');
+      expect(lastAssistant.content).toBe('Something broke');
     });
 
     it('preserves existing content on AbortError (does not show error text)', async () => {

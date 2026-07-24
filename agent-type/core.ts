@@ -578,6 +578,17 @@ export type AgentUsageChunk = {
   readonly usage: TokenUsage;
 };
 
+/**
+ * An error chunk in a structured stream.
+ * Emitted by the backend when a streaming session encounters a failure
+ * (e.g. API error, session not found, rate limit).  The consumer should
+ * surface this to the user rather than silently closing the stream.
+ */
+export type AgentErrorChunk = {
+  readonly type: "error";
+  readonly error: string;
+};
+
 /** Union of all possible chunks in a structured `ReadableStream`. */
 export type AgentStreamChunk =
   | AgentTextChunk
@@ -585,7 +596,8 @@ export type AgentStreamChunk =
   | AgentToolCallChunk
   | AgentToolResultChunk
   | AgentAttachmentChunk
-  | AgentUsageChunk;
+  | AgentUsageChunk
+  | AgentErrorChunk;
 
 /**
  * Non-streaming structured response that can include tool calls.

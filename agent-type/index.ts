@@ -34,6 +34,7 @@ export type {
   AgentToolResultChunk,
   AgentAttachmentChunk,
   AgentUsageChunk,
+  AgentErrorChunk,
   AgentStreamChunk,
   AgentTurnResponse,
   PluginStateExtension,

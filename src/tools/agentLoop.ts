@@ -188,6 +188,8 @@ export async function drainAgentStream(
       } else if (value.type === 'attachment') {
         outputAttachments.push(value.attachment);
         hooks?.onAttachment?.(value.attachment);
+      } else if (value.type === 'error') {
+        throw new Error(value.error);
       } else if (value.type === 'usage') {
         reportedUsage = value.usage;
       }
