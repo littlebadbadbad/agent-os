@@ -40,6 +40,16 @@ export interface PluginLoadResult {
 // ── Loader ────────────────────────────────────────────────────────────────────
 
 /**
+ * Runtime type guard: confirms a dynamic import result is a PluginAgentModule.
+ * Uses `in` narrowing (TS 5.5+) then checks the property type — no `as` cast.
+ */
+function isPluginAgentModule(value: unknown): value is PluginAgentModule {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('activate' in value)) return false;
+  return typeof value.activate === 'function';
+}
+
+/**
  * Load a plugin's agent entry via dynamic import.
  *
  * @param pluginId      Plugin id (for error messages).
@@ -55,14 +65,14 @@ export async function loadPluginAgentEntry(
       /* @vite-ignore */ agentEntryUrl
     );
 
-    if (typeof mod.activate !== 'function') {
+    if (!isPluginAgentModule(mod)) {
       return {
         module: null,
         error: `Plugin "${pluginId}" agent entry does not export an activate function`,
       };
     }
 
-    return { module: mod as PluginAgentModule, error: null };
+    return { module: mod, error: null };
   } catch (err) {
     return {
       module: null,

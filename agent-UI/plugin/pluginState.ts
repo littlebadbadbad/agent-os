@@ -2,40 +2,45 @@
  * agent-UI/plugin/pluginState.ts — Plugin system state + fetch helpers
  */
 
-import type { PluginDescriptor, PluginSystemState } from "./pluginTypes";
-import type { PluginApiDescriptor } from "./pluginTypes";
+import type { PluginDescriptor, PluginInfo, PluginSystemState } from "./pluginTypes";
 import { toPluginDescriptor } from "./pluginTypes";
 import { pluginManagerApi } from "./core/plugin-manager";
 
-// ── Type guard ───────────────────────────────────────────────────────────────
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 // ── Safe coercion helpers ────────────────────────────────────────────────────
+// Each accessor validates the runtime type individually — no `as` casts.
 
-function str(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
+function pluckString(source: Record<string, unknown>, key: string): string {
+  const v = source[key];
+  return typeof v === "string" ? v : "";
 }
 
-function bool(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
+function pluckOptionalString(source: Record<string, unknown>, key: string): string | undefined {
+  const v = source[key];
+  return typeof v === "string" ? v : undefined;
 }
 
-function toApiDescriptor(raw: Record<string, unknown>): PluginApiDescriptor {
+function pluckOptionalBool(source: Record<string, unknown>, key: string): boolean | undefined {
+  const v = source[key];
+  return typeof v === "boolean" ? v : undefined;
+}
+
+function pluckBool(source: Record<string, unknown>, key: string): boolean {
+  return Boolean(source[key]);
+}
+
+function toPluginInfo(raw: Record<string, unknown>): PluginInfo {
   return {
-    id: String(raw.id ?? ""),
-    name: String(raw.name ?? ""),
-    version: String(raw.version ?? ""),
-    description: str(raw.description),
-    state: String(raw.state ?? ""),
-    builtIn: bool(raw.builtIn),
-    canDisable: bool(raw.canDisable),
-    hasAgentEntry: Boolean(raw.hasAgentEntry),
-    agentEntryUrl: str(raw.agentEntryUrl),
-    hasUiEntry: Boolean(raw.hasUiEntry),
-    uiEntryUrl: str(raw.uiEntryUrl),
+    id: pluckString(raw, "id"),
+    name: pluckString(raw, "name"),
+    version: pluckString(raw, "version"),
+    description: pluckOptionalString(raw, "description"),
+    state: pluckString(raw, "state"),
+    builtIn: pluckOptionalBool(raw, "builtIn"),
+    canDisable: pluckOptionalBool(raw, "canDisable"),
+    hasAgentEntry: pluckBool(raw, "hasAgentEntry"),
+    agentEntryUrl: pluckOptionalString(raw, "agentEntryUrl"),
+    hasUiEntry: pluckBool(raw, "hasUiEntry"),
+    uiEntryUrl: pluckOptionalString(raw, "uiEntryUrl"),
   };
 }
 
@@ -65,15 +70,16 @@ export function notifyListeners(state: PluginSystemState): void {
 
 /**
  * Fetch the full plugin list from the backend via the plugin-manager core API.
- * Runtime shape validation — no type assertions.
+ * Runtime shape validation — no type assertions, no `as` casts.
  */
 export async function fetchPluginList(): Promise<PluginDescriptor[]> {
   try {
     const rawPlugins = await pluginManagerApi.list();
     const plugins: PluginDescriptor[] = [];
     for (const item of rawPlugins) {
-      if (isRecord(item as unknown as Record<string, unknown>)) {
-        plugins.push(toPluginDescriptor(toApiDescriptor(item as unknown as Record<string, unknown>)));
+      const record = coerceRecord(item);
+      if (record) {
+        plugins.push(toPluginDescriptor(toPluginInfo(record)));
       }
     }
     return plugins;
@@ -81,4 +87,15 @@ export async function fetchPluginList(): Promise<PluginDescriptor[]> {
     console.warn("[pluginSystem] Error fetching plugin list:", err);
     return [];
   }
+}
+
+/**
+ * Coerce a known-object value to a clean Record for safe property access.
+ * Creates a fresh object with null prototype — no type assertions.
+ */
+function coerceRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return Object.assign(Object.create(null), value);
+  }
+  return undefined;
 }

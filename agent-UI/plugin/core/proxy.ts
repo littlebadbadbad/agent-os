@@ -35,12 +35,12 @@ export async function getProxyConfig(): Promise<ProxyInfo> {
 }
 
 export async function updateProxyConfig(config: ProxyConfig): Promise<void> {
-  await client.call('updateConfig', config as unknown as Record<string, unknown>);
+  await client.call('updateConfig', { ...config });
 }
 
 export async function testProxyTarget(
   target?: string,
   overrides?: Partial<ProxyConfig>,
 ): Promise<ProxyTestResult> {
-  return client.call<ProxyTestResult>('test', { target, ...overrides } as Record<string, unknown>);
+  return client.call<ProxyTestResult>('test', { target, ...overrides });
 }

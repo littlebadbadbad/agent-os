@@ -12,7 +12,7 @@
  */
 
 export { pluginManagerApi } from '../plugin/core/plugin-manager';
-export type { PluginInfo } from '../plugin/core/plugin-manager';
+export type { PluginInfo } from '../plugin/pluginTypes';
 
 export { PluginManagerPanel } from './PluginManagerPanel';
 export type { PluginManagerPanelProps } from './PluginManagerPanel';

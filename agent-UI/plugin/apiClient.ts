@@ -286,7 +286,13 @@ function createIpcPluginApiClient(
 
       // Start the connection asynchronously.
       doInvoke(`${prefix}:connect`, params ?? {}).then((result) => {
-        resolveConnId((result as { connectionId: string }).connectionId);
+        const record: Record<string, unknown> = Object.assign(Object.create(null), result);
+        const connId = record.connectionId;
+        if (typeof connId === 'string') {
+          resolveConnId(connId);
+        } else {
+          rejectConnId(new Error('Connect response missing connectionId'));
+        }
       }).catch((err) => {
         rejectConnId(err);
         client.callbacks.onError(err instanceof Error ? err : new Error(String(err)));

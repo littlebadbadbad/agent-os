@@ -34,10 +34,18 @@ export interface ChatParams {
  * Non-streaming chat — returns the full AgentTurnResponse once complete.
  */
 export async function sendAsync(params: ChatParams): Promise<AgentTurnResponse> {
-  return client.call<AgentTurnResponse>('async', params as unknown as Record<string, unknown>);
+  return client.call<AgentTurnResponse>('async', { ...params });
 }
 
 // ── Streaming ─────────────────────────────────────────────────────────────────
+
+/**
+ * Runtime guard: confirm the value looks like an AgentStreamChunk (has a `type`).
+ * All AgentStreamChunk variants include a discriminant `type` field.
+ */
+function isAgentStreamChunk(value: unknown): value is AgentStreamChunk {
+  return typeof value === 'object' && value !== null && 'type' in value;
+}
 
 /**
  * Streaming chat — returns a ReadableStream of AgentStreamChunks.
@@ -60,7 +68,7 @@ export function sendStream(params: ChatParams): ReadableStream<AgentStreamChunk>
 
   return new ReadableStream<AgentStreamChunk>({
     async start(controller) {
-      // Phase 1: register the session with full params
+      // Phase 1: register the session with full params (exclude client-only AbortSignal)
       const { sessionId } = await client.call<{ sessionId: string }>('streamStart', {
         provider: params.provider,
         model: params.model,
@@ -68,13 +76,17 @@ export function sendStream(params: ChatParams): ReadableStream<AgentStreamChunk>
         tools: params.tools,
         toolChoice: params.toolChoice,
         systemPrompt: params.systemPrompt,
-      } as Record<string, unknown>);
+      });
 
       // Phase 2: connect with only the session ID
       const streamClient = client.connectStream('chatStream', { sessionId });
 
       streamClient.callbacks.onData = (chunk) => {
-        controller.enqueue(chunk as AgentStreamChunk);
+        if (isAgentStreamChunk(chunk)) {
+          controller.enqueue(chunk);
+        } else {
+          console.warn('[chat] Ignoring non-AgentStreamChunk data:', chunk);
+        }
       };
 
       streamClient.callbacks.onEnd = () => {

@@ -173,15 +173,16 @@ describe('core model-config plugin', () => {
 
   it('saveCustomModelConfig calls model-config.saveCustom', async () => {
     mockCall.mockResolvedValue(undefined);
-    await saveCustomModelConfig([{ name: 'cfg', vendor: 'v', apiKey: '', apiType: 'chat-completions', models: [] }]);
-    expect(mockCall).toHaveBeenCalledWith('saveCustom', [{ name: 'cfg', vendor: 'v', apiKey: '', apiType: 'chat-completions', models: [] }]);
+    const cfg = [{ name: 'cfg', vendor: 'v', apiKey: '', apiType: 'chat-completions', models: [] }];
+    await saveCustomModelConfig(cfg);
+    expect(mockCall).toHaveBeenCalledWith('saveCustom', { config: cfg });
   });
 
   it('addCustomModelProvider calls model-config.addCustom', async () => {
     mockCall.mockResolvedValue(undefined);
     const entry = { name: 'New', vendor: 'v', apiKey: '', apiType: 'chat-completions' as const, models: [] };
     await addCustomModelProvider(entry);
-    expect(mockCall).toHaveBeenCalledWith('addCustom', entry);
+    expect(mockCall).toHaveBeenCalledWith('addCustom', { entry });
   });
 
   it('removeCustomModelProvider calls model-config.removeCustom', async () => {

@@ -12,25 +12,25 @@ const client = createPluginApiClient('model-config');
 
 export async function fetchMergedModelConfig(): Promise<ProviderEntry[]> {
   const res = await client.call<readonly ProviderEntry[]>('get');
-  return Array.isArray(res) ? (res as ProviderEntry[]) : [];
+  return Array.isArray(res) ? [...res] : [];
 }
 
 export async function fetchBuiltInModelConfig(): Promise<ProviderEntry[]> {
   const res = await client.call<readonly ProviderEntry[]>('getBuiltIn');
-  return Array.isArray(res) ? (res as ProviderEntry[]) : [];
+  return Array.isArray(res) ? [...res] : [];
 }
 
 export async function fetchCustomModelConfig(): Promise<ProviderEntry[]> {
   const res = await client.call<readonly ProviderEntry[]>('getCustom');
-  return Array.isArray(res) ? (res as ProviderEntry[]) : [];
+  return Array.isArray(res) ? [...res] : [];
 }
 
 export async function saveCustomModelConfig(config: ProviderEntry[]): Promise<void> {
-  await client.call('saveCustom', config as unknown as Record<string, unknown>);
+  await client.call('saveCustom', { config });
 }
 
 export async function addCustomModelProvider(entry: ProviderEntry): Promise<void> {
-  await client.call('addCustom', entry as unknown as Record<string, unknown>);
+  await client.call('addCustom', { entry });
 }
 
 export async function removeCustomModelProvider(name: string): Promise<void> {

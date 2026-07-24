@@ -4,11 +4,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { toPluginDescriptor } from '../plugin/pluginTypes';
-import type { PluginApiDescriptor } from '../plugin/pluginTypes';
+import type { PluginInfo } from '../plugin/pluginTypes';
 
 describe('toPluginDescriptor', () => {
-  it('converts PluginApiDescriptor to PluginDescriptor with empty symbols', () => {
-    const api: PluginApiDescriptor = {
+  it('converts PluginInfo to PluginDescriptor with empty symbols', () => {
+    const info: PluginInfo = {
       id: 'test-plugin',
       name: 'Test',
       version: '1.0',
@@ -21,7 +21,7 @@ describe('toPluginDescriptor', () => {
       hasUiEntry: false,
     };
 
-    const desc = toPluginDescriptor(api);
+    const desc = toPluginDescriptor(info);
 
     expect(desc.id).toBe('test-plugin');
     expect(desc.name).toBe('Test');
@@ -37,7 +37,7 @@ describe('toPluginDescriptor', () => {
   });
 
   it('handles minimal descriptor (only required fields)', () => {
-    const api: PluginApiDescriptor = {
+    const info: PluginInfo = {
       id: 'minimal',
       name: 'Minimal',
       version: '0.1',
@@ -46,7 +46,7 @@ describe('toPluginDescriptor', () => {
       hasUiEntry: false,
     };
 
-    const desc = toPluginDescriptor(api);
+    const desc = toPluginDescriptor(info);
 
     expect(desc.id).toBe('minimal');
     expect(desc.name).toBe('Minimal');

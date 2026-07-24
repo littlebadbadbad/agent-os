@@ -78,7 +78,7 @@ describe('providerConfigApi', () => {
     it('calls model-config.saveCustom with config', async () => {
       mockCall.mockResolvedValue(undefined);
       await saveCustomModelConfig(SAMPLE_CONFIG);
-      expect(mockCall).toHaveBeenCalledWith('saveCustom', SAMPLE_CONFIG);
+      expect(mockCall).toHaveBeenCalledWith('saveCustom', { config: SAMPLE_CONFIG });
     });
   });
 
@@ -87,7 +87,7 @@ describe('providerConfigApi', () => {
       const entry = SAMPLE_CONFIG[0];
       mockCall.mockResolvedValue(undefined);
       await addCustomModelProvider(entry);
-      expect(mockCall).toHaveBeenCalledWith('addCustom', entry);
+      expect(mockCall).toHaveBeenCalledWith('addCustom', { entry });
     });
   });
 

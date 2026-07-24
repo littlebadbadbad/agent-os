@@ -30,11 +30,13 @@ export interface PluginDescriptor {
 }
 
 /**
- * Raw plugin descriptor from the backend API response.
- * Differs from PluginDescriptor: `symbols` is absent because
- * Symbol cannot be serialized over HTTP.
+ * Plugin info as received from the backend API response.
+ * `symbols` is absent because Symbol cannot be serialized over HTTP.
+ * This is the canonical source type — plugin/core/plugin-manager.ts
+ * imports and re-exports it so the API layer and lifecycle layer
+ * share a single definition.
  */
-export interface PluginApiDescriptor {
+export interface PluginInfo {
   readonly id: string;
   readonly name: string;
   readonly version: string;
@@ -49,7 +51,7 @@ export interface PluginApiDescriptor {
 }
 
 /** Map an API response descriptor to a full PluginDescriptor. */
-export function toPluginDescriptor(api: PluginApiDescriptor): PluginDescriptor {
+export function toPluginDescriptor(api: PluginInfo): PluginDescriptor {
   return { ...api, symbols: [] };
 }
 

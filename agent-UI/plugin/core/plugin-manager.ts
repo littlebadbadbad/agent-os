@@ -9,24 +9,12 @@
  */
 
 import { createPluginApiClient } from '../apiClient';
+import type { PluginInfo } from '../pluginTypes';
 
 const client = createPluginApiClient('plugin-manager');
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface PluginInfo {
-  readonly id: string;
-  readonly name: string;
-  readonly version: string;
-  readonly description?: string;
-  readonly state: string;
-  readonly builtIn?: boolean;
-  readonly canDisable?: boolean;
-  readonly hasAgentEntry: boolean;
-  readonly hasUiEntry: boolean;
-  readonly agentEntryUrl?: string;
-  readonly uiEntryUrl?: string;
-}
+// PluginInfo is defined in pluginTypes.ts — the single canonical source
+// for the API-response shape. This file re-exports it for convenience.
 
 interface PluginActionResponse {
   readonly ok?: boolean;
@@ -41,17 +29,36 @@ interface PluginInstallResponse {
 
 // ── File picker helpers ──────────────────────────────────────────────────────
 
-function isDialogResult(value: unknown): value is { canceled: boolean; filePaths: readonly string[] } {
+interface DialogResult {
+  readonly canceled: boolean;
+  readonly filePaths: readonly string[];
+}
+
+/**
+ * Runtime type guard: checks whether an unknown value matches DialogResult.
+ * Uses Object.assign to get a clean Record — no `as` cast needed.
+ */
+function isDialogResult(value: unknown): value is DialogResult {
   if (typeof value !== 'object' || value === null) return false;
-  return 'canceled' in value && 'filePaths' in value
-    && Array.isArray((value as Record<string, unknown>).filePaths);
+  const record: Record<string, unknown> = Object.assign(Object.create(null), value);
+  return typeof record.canceled === 'boolean'
+    && Array.isArray(record.filePaths);
+}
+
+/**
+ * Access window.electronAPI which is globally declared in electron-api.d.ts.
+ * No `as` cast needed — the global type augmentation handles it.
+ * Return type is inferred from Window.electronAPI (ElectronAPI | undefined).
+ */
+function getElectronApi() {
+  return window.electronAPI;
 }
 
 async function pickFolder(): Promise<string | null> {
-  const ea = (window as unknown as Record<string, unknown>).electronAPI as Record<string, unknown> | undefined;
+  const ea = getElectronApi();
   if (typeof ea?.invoke === 'function') {
     try {
-      const result = await (ea.invoke as (ch: string) => Promise<unknown>)('dialog:openDirectory');
+      const result = await ea.invoke('dialog:openDirectory');
       if (isDialogResult(result) && !result.canceled && result.filePaths[0]) {
         return result.filePaths[0];
       }

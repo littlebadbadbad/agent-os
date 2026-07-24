@@ -5,8 +5,12 @@
  * install/uninstall buttons, and reinstall support for uninstalled
  * built-in plugins.
  *
- * Uses `pluginManagerApi` directly — no bridge, no iframe, no slot.
- * This is a native React component rendered in the desktop layout.
+ * Uses `pluginSystem` for lifecycle-aware enable/disable — subscribers
+ * (slot registry, tool registry) are notified so tools and panels
+ * disappear when a plugin is disabled.
+ *
+ * Install/uninstall/reinstall delegate to `pluginManagerApi` and then
+ * synchronise via `pluginSystem.refreshPluginList()`.
  */
 
 import {
@@ -16,7 +20,9 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { pluginManagerApi, type PluginInfo } from "./pluginManagerApi";
+import { pluginManagerApi } from "./pluginManagerApi";
+import type { PluginDescriptor } from "../plugin/pluginTypes";
+import { usePluginSystem } from "../plugin/PluginContext";
 import styles from "./PluginManagerPanel.module.scss";
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -30,7 +36,9 @@ export interface PluginManagerPanelProps {
 export function PluginManagerPanel({
   onClose,
 }: PluginManagerPanelProps): ReactElement {
-  const [plugins, setPlugins] = useState<readonly PluginInfo[]>([]);
+  const pluginSystem = usePluginSystem();
+
+  const [plugins, setPlugins] = useState<readonly PluginDescriptor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -44,48 +52,42 @@ export function PluginManagerPanel({
     setPendingId(id);
   };
 
-  // ── Fetch plugin list ─────────────────────────────────────────────────────
+  // ── Sync local list with pluginSystem ────────────────────────────────────
 
-  const refresh = useCallback(async () => {
-    try {
-      const list = await pluginManagerApi.list();
-      setPlugins(list);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const syncList = useCallback((): void => {
+    setPlugins(Array.from(pluginSystem.allPlugins));
+    setError(null);
+    setLoading(false);
+  }, [pluginSystem]);
 
-  // ── Initial load + poll for changes ───────────────────────────────────────
-  // Since there's no bridge-based onPluginListChanged, we use a simple
-  // refresh-after-action pattern instead.  Each mutation calls refresh().
-
+  // Subscribe to pluginSystem changes — triggers on enable/disable/refresh.
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    syncList();
+    return pluginSystem.subscribe(syncList);
+  }, [pluginSystem, syncList]);
 
   // ── Toggle handler ────────────────────────────────────────────────────────
+  // Goes through pluginSystem for proper lifecycle management:
+  //   disable  → unregisters tools + removes slots + notifies subscribers
+  //   enable   → activates agent entry + notifies subscribers
 
-  const handleToggle = useCallback(async (plugin: PluginInfo) => {
+  const handleToggle = useCallback(async (plugin: PluginDescriptor) => {
     if (plugin.canDisable === false) return;
     if (pendingRef.current) return;
 
     setPending(plugin.id);
     try {
       if (plugin.state === "active") {
-        await pluginManagerApi.disable(plugin.id);
+        await pluginSystem.disablePlugin(plugin.id);
       } else {
-        await pluginManagerApi.enable(plugin.id);
+        await pluginSystem.enablePlugin(plugin.id);
       }
-      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setPending(null);
     }
-  }, [refresh]);
+  }, [pluginSystem]);
 
   // ── Install handlers ──────────────────────────────────────────────────────
 
@@ -94,39 +96,45 @@ export function PluginManagerPanel({
     setOperationMsg("Selecting plugin ZIP file...");
     const result = await pluginManagerApi.installFromZip();
     if (result.ok) {
-      await refresh();
+      await pluginSystem.refreshPluginList();
     } else {
       setError(result.error ?? "Install failed");
     }
     setOperationMsg(null);
-  }, [refresh]);
+  }, [pluginSystem]);
 
   const handleInstallFromFolder = useCallback(async () => {
     setShowInstallMenu(false);
     setOperationMsg("Selecting plugin folder...");
     const result = await pluginManagerApi.installFromFolder();
     if (result.ok) {
-      await refresh();
+      await pluginSystem.refreshPluginList();
     } else {
       setError(result.error ?? "Install failed");
     }
     setOperationMsg(null);
-  }, [refresh]);
+  }, [pluginSystem]);
 
   // ── Uninstall handler ─────────────────────────────────────────────────────
+  // Deactivate first if the plugin is active, then uninstall from backend.
 
   const handleUninstall = useCallback(async (pluginId: string) => {
     if (pendingRef.current) return;
     setPending(pluginId);
     setOperationMsg(null);
+
+    if (pluginSystem.getActivePlugin(pluginId)) {
+      await pluginSystem.disablePlugin(pluginId);
+    }
+
     const result = await pluginManagerApi.uninstall(pluginId);
     if (result.ok) {
-      await refresh();
+      await pluginSystem.refreshPluginList();
     } else {
       setError(result.error ?? "Uninstall failed");
     }
     setPending(null);
-  }, [refresh]);
+  }, [pluginSystem]);
 
   // ── Reinstall handler ─────────────────────────────────────────────────────
 
@@ -134,15 +142,20 @@ export function PluginManagerPanel({
     if (pendingRef.current) return;
     setPending(pluginId);
     setOperationMsg(`Reinstalling ${pluginId}...`);
+
+    if (pluginSystem.getActivePlugin(pluginId)) {
+      await pluginSystem.disablePlugin(pluginId);
+    }
+
     const result = await pluginManagerApi.reinstallBuiltIn(pluginId);
     if (result.ok) {
-      await refresh();
+      await pluginSystem.refreshPluginList();
     } else {
       setError(result.error ?? "Reinstall failed");
     }
     setOperationMsg(null);
     setPending(null);
-  }, [refresh]);
+  }, [pluginSystem]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -246,9 +259,9 @@ export function PluginManagerPanel({
 // ── Plugin Row ───────────────────────────────────────────────────────────────
 
 interface PluginRowProps {
-  readonly plugin: PluginInfo;
+  readonly plugin: PluginDescriptor;
   readonly pending: boolean;
-  readonly onToggle: (plugin: PluginInfo) => void;
+  readonly onToggle: (plugin: PluginDescriptor) => void;
   readonly onUninstall: (pluginId: string) => void;
 }
 
@@ -309,7 +322,7 @@ function PluginRow({
 // ── Uninstalled Built-in Row ─────────────────────────────────────────────────
 
 interface UninstalledBuiltInRowProps {
-  readonly plugin: PluginInfo;
+  readonly plugin: PluginDescriptor;
   readonly onReinstall: (pluginId: string) => void;
 }
 
