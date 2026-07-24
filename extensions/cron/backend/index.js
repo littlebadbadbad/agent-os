@@ -125,3 +125,12 @@ export function activate(host) {
     };
   });
 }
+
+/**
+ * Deactivate hook — called by the plugin lifecycle when the plugin is
+ * disabled or uninstalled.  Stops all cron timers and subscriptions.
+ * Symmetric to activate(host).
+ */
+export function deactivate() {
+  manager.shutdown();
+}

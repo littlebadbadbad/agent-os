@@ -68,7 +68,7 @@ describe('resolveAgentClientConfig', () => {
     } as unknown as AgentClientConfig;
 
     const resolved = resolveAgentClientConfig(config);
-    const renderFn = resolved.renderUI();
+    const renderFn = resolved.renderUI!(undefined as any, undefined as any);
     // The default renderUI returns a cleanup function
     expect(typeof renderFn).toBe('function');
     // Calling cleanup should not throw

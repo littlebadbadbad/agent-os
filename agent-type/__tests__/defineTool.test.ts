@@ -8,7 +8,7 @@ import {
   resolveToolField,
   resolveFactory,
 } from '../defineTool';
-import type { Tool } from '../core';
+import type { Tool, ToolField, ToolExecutionContext } from '../core';
 import { ToolSet } from '../toolset';
 
 describe('defineTool', () => {
@@ -60,7 +60,7 @@ describe('defineTool', () => {
       parameters: z.object({ msg: z.string() }),
       execute: async ({ msg }) => msg,
     });
-    const result = await tool.execute({ msg: 'hello' });
+    const result = await tool.execute({ msg: 'hello' }, { signal: new AbortController().signal, sessionId: 'test', agentName: 'test', conversationId: 'test', sourceAgent: 'main', isSubAgent: false });
     expect(result).toBe('hello');
   });
 });
@@ -127,7 +127,7 @@ describe('buildTool', () => {
       parameters: z.object({ val: z.number() }),
       execute: async ({ val }) => val * 2,
     });
-    const result = await tool.execute({ val: 21 });
+    const result = await tool.execute({ val: 21 }, { signal: new AbortController().signal, sessionId: 'test', agentName: 'test', conversationId: 'test', sourceAgent: 'main', isSubAgent: false });
     expect(result).toBe(42);
   });
 });
@@ -183,8 +183,8 @@ describe('resolveToolField', () => {
   });
 
   it('calls the function with params when field is a function', () => {
-    const fn = (params: { x: number }) => `got-${params.x}`;
-    expect(resolveToolField(fn, { x: 42 }, 'fallback')).toBe('got-42');
+    const fn: ToolField<string, typeof schema> = (params) => `got-${params.x}`;
+    expect(resolveToolField<string, typeof schema>(fn, { x: 42 }, 'fallback')).toBe('got-42');
   });
 });
 

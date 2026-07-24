@@ -99,8 +99,9 @@ export function register(router, deps) {
   });
 
   host.defineApi('installZip', async (params) => {
-    const { zipBuffer } = params ?? {};
-    if (!zipBuffer) throw new Error('zipBuffer is required');
+    const { zipBase64 } = params ?? {};
+    if (!zipBase64 || typeof zipBase64 !== 'string') throw new Error('zipBase64 (base64-encoded ZIP) is required');
+    const zipBuffer = Buffer.from(zipBase64, 'base64');
     return scanner.install('zip', zipBuffer);
   });
 

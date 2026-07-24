@@ -20,6 +20,6 @@ describe('typedInvoke', () => {
   it('propagates errors from invokeFn', async () => {
     const error = new Error('IPC failed');
     const invokeFn = vi.fn().mockRejectedValue(error);
-    await expect(typedInvoke(invokeFn, 'tools:list')).rejects.toThrow('IPC failed');
+    await expect(typedInvoke(invokeFn, 'api:models:list')).rejects.toThrow('IPC failed');
   });
 });

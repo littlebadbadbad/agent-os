@@ -13,9 +13,6 @@ import type { PluginInfo } from '../pluginTypes';
 
 const client = createPluginApiClient('plugin-manager');
 
-// PluginInfo is defined in pluginTypes.ts — the single canonical source
-// for the API-response shape. This file re-exports it for convenience.
-
 interface PluginActionResponse {
   readonly ok?: boolean;
   readonly error?: string;
@@ -129,9 +126,19 @@ export const pluginManagerApi = {
     if (!file) return { ok: false, error: 'No file selected' };
 
     try {
+      // Convert file to base64 string for reliable JSON transport.
+      // Sending raw ArrayBuffer as JSON-serialized number[] is:
+      //   1. Enormously wasteful (3-8x size expansion)
+      //   2. Broken — AdmZip on the backend cannot parse plain number[]
       const buffer = await file.arrayBuffer();
-      const zipBuffer = Array.from(new Uint8Array(buffer));
-      const raw = await client.call<PluginInstallResponse>('installZip', { zipBuffer });
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const zipBase64 = btoa(binary);
+
+      const raw = await client.call<PluginInstallResponse>('installZip', { zipBase64 });
       return { ok: raw.ok === true, error: raw.error, pluginId: raw.pluginId };
     } catch (err) {
       return { ok: false, error: `Install failed: ${err instanceof Error ? err.message : String(err)}` };

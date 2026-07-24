@@ -67,6 +67,7 @@ export interface PluginSystem {
   enablePlugin(pluginId: string): Promise<void>;
   disablePlugin(pluginId: string): Promise<void>;
   refreshPluginList(): Promise<void>;
+  activatePluginById(pluginId: string): Promise<void>;
 }
 
 export interface ActivatedPluginInfo extends PluginDescriptor {

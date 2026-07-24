@@ -16,6 +16,8 @@ import {
   removeBrowser,
 } from '../lib/browser-manager/index.js';
 
+export { closeAllBrowsers } from '../lib/browser-manager/index.js';
+
 export function getBrowserList() {
   return listBrowserEntries();
 }

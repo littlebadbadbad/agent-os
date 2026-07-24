@@ -16,6 +16,8 @@ import {
   streamTerminalOutput,
 } from '../lib/shell-manager/index.js';
 
+export { killAllTerminals } from '../lib/shell-manager/index.js';
+
 export function listTerminals() {
   return { terminals: listTerminalEntries() };
 }

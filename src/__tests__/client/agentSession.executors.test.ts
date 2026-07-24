@@ -35,7 +35,7 @@ describe('buildRunToolCall', () => {
   });
 
   it('handles tool execution error and returns structured error result', async () => {
-    let state: Message[] = [{ id: 'other', role: 'user', content: 'other' }];
+    let state: Message[] = [{ id: 'other', role: 'user', content: 'other', isStreaming: false }];
     const setMessages = vi.fn((fn: (prev: Message[]) => Message[]) => {
       state = fn(state);
     });

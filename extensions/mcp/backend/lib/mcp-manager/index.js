@@ -226,6 +226,23 @@ export function createMcpManager(agentDir, proxyCfg = null) {
     return client.callTool(toolName, args);
   }
 
+  /**
+   * Disconnect ALL MCP servers and clear all state.
+   * Used by the plugin deactivation lifecycle — symmetric to startupReconnect().
+   * Safe to call multiple times.
+   */
+  function shutdown() {
+    const serverNames = Array.from(configs.keys());
+    for (const name of serverNames) {
+      disconnectServer(name);
+    }
+    configs.clear();
+    clients.clear();
+    toolsByServer.clear();
+    statusByServer.clear();
+    log.info('MCP manager shut down');
+  }
+
   // ── Return public interface ───────────────────────────────────────────────
 
   return {
@@ -236,6 +253,7 @@ export function createMcpManager(agentDir, proxyCfg = null) {
     reconnectServer,
     disconnectServerByName,
     callTool,
+    shutdown,
     /** Reconnect all servers that were enabled before restart. */
     async startupReconnect() {
       const toConnect = [...configs.values()].filter((c) => c.enabled);

@@ -258,7 +258,7 @@ describe('createTurnHooks', () => {
       const deps = makeDeps();
       const hooks = createTurnHooks(deps);
       const history: any = [{ role: 'user', content: 'hi' }];
-      const result = await hooks.onAfterTurn!(history, { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, new AbortController().signal);
+      const result = await hooks.onAfterTurn!(history, { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, new AbortController().signal);
       // Should advance turn and return nothing (no compaction)
       expect(deps.tracker.getTurnStart()).toBe(1);
     });

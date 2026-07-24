@@ -81,21 +81,17 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
-  if (app.isPackaged) {
-    // Production: load pre-built static assets via file:// protocol.
-    // The backend HTTP server also serves the same assets at
-    // http://localhost:<PORT> for browser access.
-    const indexPath = join(__dirname, 'dist-demo', 'index.html');
-    mainWindow.loadFile(indexPath).catch((err: Error) => {
-      console.error('[electron] Failed to load app (loadFile):', err.message);
-    });
-  } else {
-    // Development: connect to the Vite dev server for HMR.
-    const frontendUrl = process.env.VITE_DEV_SERVER_URL ?? `http://localhost:5173`;
-    mainWindow.loadURL(frontendUrl).catch((err: Error) => {
-      console.error('[electron] Failed to load app (loadURL):', err.message);
-    });
-  }
+  // Load the frontend via the backend's HTTP server for same-origin
+  // dynamic imports (plugin agent entries, etc.) and fetch calls.
+  // The backend starts before createWindow(), so the server is ready.
+  // Dev mode connects to the Vite dev server for HMR.
+  const frontendUrl = app.isPackaged
+    ? `http://localhost:${PORT}`
+    : (process.env.VITE_DEV_SERVER_URL ?? `http://localhost:5173`);
+  mainWindow.loadURL(frontendUrl).catch((err: Error) => {
+    const label = app.isPackaged ? 'loadURL (production)' : 'loadURL (dev)';
+    console.error(`[electron] Failed to load app (${label}):`, err.message);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

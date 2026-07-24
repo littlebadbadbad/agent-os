@@ -45,7 +45,6 @@ export {
   pluginManagerApi,
 } from './plugin-manager';
 export type {
-  PluginInfo,
   PluginActionResponse,
   PluginInstallResponse,
 } from './plugin-manager';

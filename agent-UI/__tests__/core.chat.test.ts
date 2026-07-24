@@ -57,7 +57,7 @@ describe('chat core plugin', () => {
       sendStream({ provider: 'dp', model: 'm1', messages: [{ role: 'user', content: 'Hi' }] });
 
       // Wait a microtask for start()
-      await new Promise(process.nextTick);
+      await new Promise(resolve => resolve(undefined));
 
       expect(mockCall).toHaveBeenCalledWith('streamStart', expect.objectContaining({ provider: 'dp' }));
       expect(mockConnectStream).toHaveBeenCalledWith('chatStream', { sessionId: 'sess-42' });
@@ -105,7 +105,7 @@ describe('chat core plugin', () => {
 
       sendStream({ provider: 'dp', model: 'm1', messages: [], signal: abortController.signal });
 
-      await new Promise(process.nextTick);
+      await new Promise(resolve => resolve(undefined));
 
       abortController.abort();
 

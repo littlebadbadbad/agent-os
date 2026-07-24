@@ -106,5 +106,16 @@ export function createPluginSystem(): PluginSystem {
       state.allPlugins = plugins;
       notifyListeners(state);
     },
+
+    async activatePluginById(pluginId: string): Promise<void> {
+      const plugin = state.allPlugins.find((p) => p.id === pluginId);
+      if (!plugin || !plugin.hasAgentEntry || !plugin.agentEntryUrl) return;
+      if (state.activePlugins.some((p) => p.id === pluginId)) return;
+      if (!state.agentContext) return;
+
+      plugin.symbols = plugin.symbols ?? [];
+      await activatePlugin(state, plugin, state.agentContext, () => notifyListeners(state));
+      notifyListeners(state);
+    },
   };
 }

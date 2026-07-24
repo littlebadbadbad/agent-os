@@ -177,3 +177,12 @@ export function activate(host) {
     return conn;
   });
 }
+
+/**
+ * Deactivate hook — called by the plugin lifecycle when the plugin is
+ * disabled or uninstalled.  Kills all PTY terminal processes.
+ * Symmetric to activate(host).
+ */
+export function deactivate() {
+  terminals.killAllTerminals();
+}

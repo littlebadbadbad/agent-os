@@ -123,3 +123,12 @@ export function activate(host) {
     return svc.updateBrowserStreamConfig({ id, config });
   });
 }
+
+/**
+ * Deactivate hook — called by the plugin lifecycle when the plugin is
+ * disabled or uninstalled.  Closes all browser sessions (Playwright
+ * processes, network connections).  Symmetric to activate(host).
+ */
+export async function deactivate() {
+  await svc.closeAllBrowsers();
+}

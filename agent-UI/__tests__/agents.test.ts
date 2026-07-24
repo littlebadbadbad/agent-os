@@ -15,8 +15,8 @@ const mockCreateSubAgentToolset = vi.fn();
 const mockCreatePluginSystem = vi.fn();
 const mockAsyncHandler = vi.fn();
 const mockStreamHandler = vi.fn();
-const mockProviderConfigStore = vi.fn();
-const mockSessionStore = vi.fn();
+const mockProviderConfigStore: { load: ReturnType<typeof vi.fn> } = { load: vi.fn() };
+const mockSessionStore: { loadSessions: ReturnType<typeof vi.fn>; saveSessions: ReturnType<typeof vi.fn> } = { loadSessions: vi.fn(), saveSessions: vi.fn() };
 const mockCreateDefaultUIRenderer = vi.fn();
 const mockIsElectronIpc = vi.fn();
 
@@ -72,7 +72,6 @@ describe('agents.ts module exports', () => {
     });
     mockCreateDefaultUIRenderer.mockReturnValue(() => () => {});
     mockProviderConfigStore.load = vi.fn().mockResolvedValue(undefined);
-    mockProviderConfigStore.load = vi.fn().mockResolvedValue(undefined);
     mockSessionStore.loadSessions = vi.fn().mockResolvedValue([]);
     mockSessionStore.saveSessions = vi.fn().mockResolvedValue(undefined);
     // Reset modules for each test
@@ -116,7 +115,7 @@ describe('agents.ts module exports', () => {
 
     it('loads provider config', async () => {
       const loadFn = vi.fn().mockResolvedValue(undefined);
-      mockProviderConfigStore.load = loadFn;
+      mockProviderConfigStore.load = loadFn as ReturnType<typeof vi.fn>;
       vi.resetModules();
       mod = await import('../agents');
       await mod.initSessions();
@@ -126,7 +125,8 @@ describe('agents.ts module exports', () => {
     it('restores sessions from sessionStore', async () => {
       const asyncSessions = [{ sessionId: 's1', messages: [{ role: 'user', text: 'hi' }] }];
       const streamSessions: Array<{ sessionId: string }> = [];
-      mockSessionStore.loadSessions = vi.fn()
+      mockSessionStore.loadSessions = vi.fn() as ReturnType<typeof vi.fn>;
+      mockSessionStore.loadSessions
         .mockResolvedValueOnce(asyncSessions)
         .mockResolvedValueOnce(streamSessions);
       const restoreAsync = vi.fn();

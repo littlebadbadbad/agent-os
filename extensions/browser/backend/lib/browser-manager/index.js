@@ -67,6 +67,20 @@ export async function removeBrowser(id) {
   return true;
 }
 
+/**
+ * Close and deregister ALL browser sessions.
+ * Used by the plugin deactivation lifecycle — symmetric to activate().
+ * Safe to call multiple times; browsers already closed are skipped.
+ */
+export async function closeAllBrowsers() {
+  const ids = Array.from(_browsers.keys());
+  const results = await Promise.allSettled(ids.map((id) => removeBrowser(id)));
+  const failed = results.filter((r) => r.status === 'rejected').length;
+  if (failed > 0) {
+    console.warn(`[browser-manager] ${failed}/${ids.length} browser(s) failed to close during cleanup`);
+  }
+}
+
 // ── Cleanup on server exit ─────────────────────────────────────────────────────
 process.on('exit', () => {
   for (const b of _browsers.values()) b.close().catch(() => {});

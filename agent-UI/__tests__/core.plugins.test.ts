@@ -173,7 +173,7 @@ describe('core model-config plugin', () => {
 
   it('saveCustomModelConfig calls model-config.saveCustom', async () => {
     mockCall.mockResolvedValue(undefined);
-    const cfg = [{ name: 'cfg', vendor: 'v', apiKey: '', apiType: 'chat-completions', models: [] }];
+    const cfg = [{ name: 'cfg', vendor: 'v', apiKey: '', apiType: 'chat-completions' as const, models: [] }];
     await saveCustomModelConfig(cfg);
     expect(mockCall).toHaveBeenCalledWith('saveCustom', { config: cfg });
   });

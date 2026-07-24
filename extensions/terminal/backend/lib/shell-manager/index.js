@@ -114,6 +114,18 @@ export function streamTerminalOutput(id, onData, signal) {
   return unsub;
 }
 
+/**
+ * Kill and deregister ALL terminal sessions.
+ * Used by the plugin deactivation lifecycle — symmetric to activate().
+ * Safe to call multiple times; terminals already killed are skipped.
+ */
+export function killAllTerminals() {
+  const ids = Array.from(_terminals.keys());
+  for (const id of ids) {
+    removeTerminal(id);
+  }
+}
+
 // ── Cleanup on server exit ────────────────────────────────────────────────────
 process.on('exit', () => {
   for (const term of _terminals.values()) term.kill();

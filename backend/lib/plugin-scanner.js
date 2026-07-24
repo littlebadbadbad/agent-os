@@ -94,6 +94,22 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
   /** @type {Map<string, { manifest: PluginManifest, state: string }>} */
   const _plugins = new Map();
 
+  /**
+   * Stores the ES module reference returned by dynamic import() for each
+   * activated plugin.  Used to call the plugin's deactivate() hook during
+   * deactivation — symmetric to activate(host).
+   * @type {Map<string, { activate: Function, deactivate?: Function }>}
+   */
+  const _modules = new Map();
+
+  /**
+   * Stores the BackendPluginHost instance for each activated plugin.
+   * Passed to deactivate(host) so the plugin can access its sandboxed
+   * environment during cleanup.
+   * @type {Map<string, object>}
+   */
+  const _hosts = new Map();
+
   /** Persisted state (disabled flags survive restarts). */
   const stateStore = createPluginStateStore(join(dataRoot, 'plugin-state.json'));
 
@@ -283,6 +299,10 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
         // Call activate with the host (R1: error-isolated).
         await Promise.resolve(mod.activate(host));
 
+        // Store module and host references for symmetric deactivation.
+        _modules.set(name, { activate: mod.activate, deactivate: typeof mod.deactivate === 'function' ? mod.deactivate : undefined });
+        _hosts.set(name, host);
+
         _plugins.set(name, { manifest, state: STATE_ACTIVE });
         log.info(`Plugin activated: ${name} v${manifest.version}`);
         return true;
@@ -308,8 +328,27 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
         return false;
       }
 
+      // Call the plugin's deactivate hook (symmetric to activate).
+      // This lets plugins clean up long-running processes (Playwright
+      // browsers, PTY shells, cron timers, SSE connections).
+      const moduleEntry = _modules.get(id);
+      if (moduleEntry?.deactivate) {
+        const host = _hosts.get(id);
+        try {
+          await Promise.resolve(moduleEntry.deactivate(host));
+          log.info(`Plugin deactivate hook completed: ${id}`);
+        } catch (err) {
+          log.warn(`Plugin deactivate hook failed for "${id}": ${err.message}`);
+          // Don't abort deactivation — best-effort cleanup.
+        }
+      }
+
       // Unregister all routes for this plugin.
       router.unregisterPlugin(id);
+
+      // Clean up stored references.
+      _modules.delete(id);
+      _hosts.delete(id);
 
       _plugins.set(id, { manifest: existing.manifest, state: STATE_INACTIVE });
       log.info(`Plugin deactivated: ${id}`);
@@ -417,6 +456,15 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
       }
 
       const { pluginId, manifest } = result;
+
+      // Guard: prevent duplicate registration.  The installer already checks
+      // filesystem existence, but we also check the in-memory _plugins map
+      // to catch edge cases where a partially-uninstalled plugin left a stale
+      // entry (or where two install calls race on the same pluginId).
+      if (_plugins.has(pluginId)) {
+        log.warn(`Duplicate install attempt blocked for "${pluginId}" — already registered`);
+        return { ok: false, error: `Plugin "${pluginId}" is already registered` };
+      }
 
       // Scan the newly installed plugin to add it to the plugin map.
       const manifests = await this.scan();

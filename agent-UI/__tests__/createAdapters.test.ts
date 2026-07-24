@@ -29,7 +29,7 @@ describe('createSessionStore', () => {
   });
 
   it('saveSessions delegates to backend.saveSessions', async () => {
-    const sessions = [{ sessionId: 's1' }];
+    const sessions = [{ id: 's1', title: 's1', sessionId: 's1' }];
     mockSaveSessions.mockResolvedValue(undefined);
     const store = createSessionStore();
     await store.saveSessions('agent-1', sessions);

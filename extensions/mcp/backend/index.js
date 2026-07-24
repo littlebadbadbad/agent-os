@@ -14,6 +14,13 @@ import { createMcpService } from './services/mcp.js';
 /** @import { BackendPluginHost } from '../../../../agent-type/plugin.ts' */
 
 /**
+ * Module-scoped manager reference — set during activate(),
+ * used by deactivate() for cleanup.
+ * @type {import('../lib/mcp-manager/index.js').McpManager | null}
+ */
+let _manager = null;
+
+/**
  * Activate the MCP plugin backend.
  * Creates an isolated MCP manager scoped to the agent directory,
  * then registers all API methods.
@@ -29,6 +36,7 @@ export function activate(host) {
 
   const proxyConfig = host.getBackendConfig('proxy');
   const manager = createMcpManager(agentDir, proxyConfig);
+  _manager = manager;
   const service = createMcpService(manager);
 
   // ── CRUD servers ─────────────────────────────────────────────────────────
@@ -62,4 +70,16 @@ export function activate(host) {
   manager.startupReconnect().catch((err) => {
     console.warn('[mcp] startup reconnect failed:', err?.message ?? err);
   });
+}
+
+/**
+ * Deactivate hook — called by the plugin lifecycle when the plugin is
+ * disabled or uninstalled.  Disconnects all MCP servers and clears
+ * connection state.  Symmetric to activate(host).
+ */
+export function deactivate() {
+  if (_manager) {
+    _manager.shutdown();
+    _manager = null;
+  }
 }

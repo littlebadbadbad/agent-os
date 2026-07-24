@@ -97,6 +97,10 @@ export function PluginManagerPanel({
     const result = await pluginManagerApi.installFromZip();
     if (result.ok) {
       await pluginSystem.refreshPluginList();
+      // Auto-activate frontend agent entry if the newly installed plugin has one.
+      if (result.pluginId) {
+        await pluginSystem.activatePluginById(result.pluginId);
+      }
     } else {
       setError(result.error ?? "Install failed");
     }
@@ -109,6 +113,10 @@ export function PluginManagerPanel({
     const result = await pluginManagerApi.installFromFolder();
     if (result.ok) {
       await pluginSystem.refreshPluginList();
+      // Auto-activate frontend agent entry if the newly installed plugin has one.
+      if (result.pluginId) {
+        await pluginSystem.activatePluginById(result.pluginId);
+      }
     } else {
       setError(result.error ?? "Install failed");
     }

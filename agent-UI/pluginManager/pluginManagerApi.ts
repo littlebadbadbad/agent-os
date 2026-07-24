@@ -8,4 +8,4 @@
  */
 
 export { pluginManagerApi } from '../plugin/core/plugin-manager';
-export type { PluginInfo, PluginActionResponse, PluginInstallResponse } from '../plugin/core/plugin-manager';
+export type { PluginActionResponse, PluginInstallResponse } from '../plugin/core/plugin-manager';
