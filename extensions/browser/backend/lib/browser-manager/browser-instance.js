@@ -503,7 +503,7 @@ export class BrowserInstance {
   }
 
   /**
-   * @typedef {{ sendBinary(buf: Buffer): void; sendJSON(obj: object): void; isConnected(): boolean; onClose(cb: () => void): void }} StreamIO
+   * @typedef {{ sendBinary(buf: Buffer): void; sendJSON(obj: object): void; isConnected(): boolean; onClose(cb: () => void): void; close(): void }} StreamIO
    */
 
   /**
@@ -643,6 +643,7 @@ export class BrowserInstance {
         ws.on('close', () => cb());
         ws.on('error', () => cb());
       },
+      close:      ()    => { if (ws.readyState === WS_OPEN) ws.close(); },
     };
     return this.#runStreamLoop(io);
   }
@@ -666,6 +667,9 @@ export class BrowserInstance {
       isConnected: () => !webContents.isDestroyed(),
       onClose:    (cb) => {
         webContents.on('destroyed', () => cb());
+      },
+      close: () => {
+        if (!webContents.isDestroyed()) webContents.send('browser:stream:end');
       },
     };
     return this.#runStreamLoop(io);

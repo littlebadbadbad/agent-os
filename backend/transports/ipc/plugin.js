@@ -129,6 +129,11 @@ export function registerPluginIpcHandlers(ipcMain, router) {
             onClose: (cb) => {
               event.sender.on('destroyed', () => cb());
             },
+            close: () => {
+              if (!event.sender.isDestroyed()) {
+                event.sender.send(`${prefix}:end`);
+              }
+            },
           };
 
           const connection = handler(params ?? {}, io);

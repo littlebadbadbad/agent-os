@@ -149,6 +149,7 @@ export function activate(host) {
         // Already exited — send done signal and end immediately.
         if (!running) {
           io.sendJSON({ type: 'done', exitCode: exitCode ?? undefined });
+          io.close();
           return { unsubscribe: () => {} };
         }
 
@@ -164,6 +165,7 @@ export function activate(host) {
           },
           onDone: (code) => {
             io.sendJSON({ type: 'done', exitCode: code ?? undefined });
+            io.close();
             cleanup();
           },
         });

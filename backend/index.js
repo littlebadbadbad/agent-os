@@ -213,6 +213,9 @@ export async function startServer() {
           },
           isConnected: () => ws.readyState === WS_OPEN,
           onClose: (cb) => { ws.on('close', cb); },
+          close: () => {
+            if (ws.readyState === WS_OPEN) ws.close();
+          },
         };
 
         const connection = pluginMatch.handler(params, io);

@@ -38,6 +38,13 @@ export interface AppWindowProps {
   readonly zIndex: number;
   readonly isFocused: boolean;
   readonly isMinimized: boolean;
+  /**
+   * Optional native content renderer.
+   * When provided, renders this instead of SlotRenderer — used by
+   * built-in desktop apps (Plugin Manager, etc.) that don't go through
+   * the plugin slot / iframe system.
+   */
+  readonly renderContent?: () => ReactElement;
 }
 
 // ── Position state ────────────────────────────────────────────────────────────
@@ -104,6 +111,7 @@ export function AppWindow({
   zIndex,
   isFocused,
   isMinimized,
+  renderContent,
 }: AppWindowProps): ReactElement {
   const [rect, setRect] = useState<WindowRect>(() => centreRect(declaration, containerRef));
   const [isMaximized, setIsMaximized] = useState(false);
@@ -346,15 +354,19 @@ export function AppWindow({
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — slot plugin or native component */}
       <div className={styles["content"]}>
-        <SlotRenderer
-          slotType="app"
-          pluginId={pluginId}
-          slotId={slotId}
-          session={session}
-          toolSetSymbol={toolSetSymbol}
-        />
+        {renderContent
+          ? renderContent()
+          : (
+            <SlotRenderer
+              slotType="app"
+              pluginId={pluginId}
+              slotId={slotId}
+              session={session}
+              toolSetSymbol={toolSetSymbol}
+            />
+          )}
       </div>
     </div>
   );

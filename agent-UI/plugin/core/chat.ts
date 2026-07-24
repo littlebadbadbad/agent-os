@@ -78,10 +78,12 @@ export function sendStream(params: ChatParams): ReadableStream<AgentStreamChunk>
       };
 
       streamClient.callbacks.onEnd = () => {
+        subscription?.unsubscribe();
         controller.close();
       };
 
       streamClient.callbacks.onError = (err) => {
+        subscription?.unsubscribe();
         controller.error(err);
       };
 

@@ -634,6 +634,20 @@ export type StreamIO = {
   isConnected: () => boolean;
   /** Register a callback for when the client disconnects. */
   onClose: (cb: () => void) => void;
+  /**
+   * Signal end-of-stream and tear down the underlying transport.
+   *
+   * Call this AFTER the final `sendJSON` / `sendBinary` call to notify the
+   * client that no more data will arrive.  The transport closes the WebSocket
+   * connection (HTTP mode) or sends an `:end` IPC event (Electron mode),
+   * which triggers the client's `onEnd` callback and closes the ReadableStream.
+   *
+   * Every stream handler MUST call `close()` after its logical completion
+   * (success or terminal error) — otherwise the client's ReadableStream
+   * hangs indefinitely waiting for data that will never arrive, locking up
+   * the entire agent loop.
+   */
+  close: () => void;
 };
 
 // ── API client ────────────────────────────────────────────────────────────────

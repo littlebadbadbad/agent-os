@@ -96,6 +96,7 @@ export function register(router) {
     const entry = sessionId ? _sessionStore.get(sessionId) : undefined;
     if (!entry) {
       io.sendJSON({ type: 'error', error: `No session found for id: ${sessionId}` });
+      io.close();
       return { subscribe: () => ({ unsubscribe: () => {} }) };
     }
 
@@ -116,8 +117,14 @@ export function register(router) {
           onThinking: (delta) => io.sendJSON({ type: 'thinking', delta }),
           onToolCall: (tc) => io.sendJSON({ type: 'tool_call', call: tc }),
           onUsage: (usage) => io.sendJSON({ type: 'usage', usage }),
-          onDone: (result) => io.sendJSON({ type: 'done', result }),
-          onError: (error) => io.sendJSON({ type: 'error', error: error instanceof Error ? error.message : String(error) }),
+          onDone: (result) => {
+            io.sendJSON({ type: 'done', result });
+            io.close();
+          },
+          onError: (error) => {
+            io.sendJSON({ type: 'error', error: error instanceof Error ? error.message : String(error) });
+            io.close();
+          },
         });
 
         // Clean up session store when the transport disconnects.
