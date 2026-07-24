@@ -108,6 +108,15 @@ export function createTurnHooks(deps: TurnHookDeps): AgentLoopHooks {
       );
     },
 
+    onToolCallStarted(call): void {
+      msgList.push(toolMsg({
+        toolCallId: call.id,
+        name: call.name,
+        arguments: call.arguments ?? {},
+        status: 'running',
+      }));
+    },
+
     onBeforeToolCalls(calls): void {
       for (const call of calls) {
         msgList.push(toolMsg({

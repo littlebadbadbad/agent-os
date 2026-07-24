@@ -45,6 +45,13 @@ export type AgentStreamHooks = {
   onAttachment?: (attachment: Attachment) => void;
 
   /**
+   * Called for each `tool_call` chunk as it arrives in the stream, before the
+   * tool starts executing.  Use this to immediately push a "running" status
+   * card to the UI, so users see feedback before the tool completes.
+   */
+  onToolCallStarted?: (call: ToolCall) => void;
+
+  /**
    * Called right before awaiting tool execution results, with all assistant
    * content that has been accumulated from the stream so far (text, thinking,
    * and tool calls).
@@ -168,6 +175,10 @@ export async function drainAgentStream(
         }
         sdkExecutedAnyTool = true;
         allToolCalls.push(value.call);
+        // Notify the UI immediately so a "running" card appears before the
+        // tool completes (the non-streaming path uses onBeforeToolCalls for
+        // this; the streaming path relies on this per-call hook instead).
+        hooks?.onToolCallStarted?.(value.call);
         // Start without awaiting — runs in parallel with the rest of the stream
         const promise = executeTool(value.call).catch((err): ToolResult => ({
           toolCallId: value.call.id,

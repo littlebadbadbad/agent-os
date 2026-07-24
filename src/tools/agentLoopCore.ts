@@ -235,6 +235,7 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
     onFirstToolSeen,
     onPreExecutedResult,
     onAttachment,
+    onToolCallStarted,
   } = hooks;
 
   let history: AgentMessage[] = [...config.initialHistory];
@@ -312,6 +313,7 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
           onPreExecutedResult?.(call, res);
         },
         onAttachment,
+        onToolCallStarted,
         onBeforeAwaitResults: (
           streamText: string,
           streamThinking: string,
