@@ -4,7 +4,7 @@
  * PURE BUSINESS LOGIC — ZERO communication code.
  * Delegates all HTTP/IPC details to the chat transport layer.
  */
-import type { AgentHandler } from "@agent-sdk";
+import type { AgentHandler } from "@agent-type";
 import { providerStore } from "../store/providerStore";
 import { chatTransport } from "../transport/chatTransport";
 

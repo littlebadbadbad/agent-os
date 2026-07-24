@@ -2,7 +2,6 @@
 
 import { drainAgentStream } from './agentLoop';
 import { isAgentTurnResponse } from './types';
-import { resolveToolField } from '@agent-type';
 import { toErrorMessage } from './errors';
 import type { AgentStreamHooks } from './agentLoop';
 import type {
@@ -12,7 +11,6 @@ import type {
   TokenUsage,
   AgentTurnResponse,
   AgentStreamChunk,
-  Tool,
   Attachment,
 } from '@agent-type';
 
@@ -115,20 +113,6 @@ export type AgentLoopCoreConfig = {
    * showing spinners, etc.) — the core loop cares only about the result.
    */
   callTool(call: ToolCall): Promise<ToolResult>;
-  /**
-   * Optional: resolve a tool by name to inspect its metadata.
-   *
-   * When provided, the loop uses the tool's `isConcurrencySafe` and
-   * `interruptBehavior` flags to decide execution ordering:
-   * - Concurrency-safe tools run in parallel.
-   * - Non-concurrency-safe tools are serialised.
-   * - Tools with `interruptBehavior === 'cancel'` that are still running
-   *   when the abort signal fires may be discarded.
-   *
-   * When omitted (default), all tools run in parallel — preserving the
-   * original behaviour for backward compatibility.
-   */
-  resolveTool?(name: string): Tool | undefined;
   /** Optional lifecycle hooks. */
   hooks?: AgentLoopHooks;
 };
@@ -235,7 +219,7 @@ function createSafeExecutor(
 // ── Engine ─────────────────────────────────────────────────────────────────────
 
 export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<AgentLoopCoreResult> {
-  const { maxTurns, signal, invokeHandler, callTool, hooks = {}, resolveTool } = config;
+  const { maxTurns, signal, invokeHandler, callTool, hooks = {} } = config;
   const {
     onTurnBegin,
     onBeforeInvoke,
@@ -295,45 +279,19 @@ export async function runAgentLoopCore(config: AgentLoopCoreConfig): Promise<Age
 
       onBeforeToolCalls?.(turnToolCalls);
 
-      // Execute tool calls, partitioning by concurrency safety.
+      // Execute all tool calls in parallel, racing against the abort signal
+      // so cancellation is immediately responsive.
       const executeOne = createSafeExecutor(callTool, onAfterToolCall);
 
-      const isCallConcurrencySafe = (call: ToolCall): boolean => {
-        if (!resolveTool) return true; // default: all safe (backward compat)
-        const tool = resolveTool(call.name);
-        if (!tool) return true;
-        return resolveToolField(tool.isConcurrencySafe, call.arguments ?? {}, false);
-      };
-
       const toolResults: ToolResult[] = [];
-      if (turnToolCalls.every(isCallConcurrencySafe)) {
-        // Fast path: all calls are safe → parallel.  Race against the abort
-        // signal so cancellation is responsive rather than waiting for all
-        // tools to finish.
-        if (signal.aborted) break;
-        const results = await Promise.race([
-          Promise.all(turnToolCalls.map(executeOne)),
-          new Promise<never>((_, reject) =>
-            signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }),
-          ),
-        ]);
-        toolResults.push(...results);
-      } else {
-        // Mixed or all-unsafe: run safe calls in a parallel batch, then
-        // unsafe calls serially (one at a time).
-        const safeCalls = turnToolCalls.filter(isCallConcurrencySafe);
-        const unsafeCalls = turnToolCalls.filter((c) => !isCallConcurrencySafe);
-
-        if (safeCalls.length > 0) {
-          const safeResults = await Promise.all(safeCalls.map(executeOne));
-          toolResults.push(...safeResults);
-        }
-
-        for (const call of unsafeCalls) {
-          if (signal.aborted) break;
-          toolResults.push(await executeOne(call));
-        }
-      }
+      if (signal.aborted) break;
+      const results = await Promise.race([
+        Promise.all(turnToolCalls.map(executeOne)),
+        new Promise<never>((_, reject) =>
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }),
+        ),
+      ]);
+      toolResults.push(...results);
 
       totalToolCalls += pushToolResultsToHistory(
         history,

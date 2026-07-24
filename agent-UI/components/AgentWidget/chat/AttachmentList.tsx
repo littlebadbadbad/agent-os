@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import type { Attachment, DataAttachment } from '@agent-sdk';
+import type { Attachment, DataAttachment } from '@agent-type';
 import styles from '../AgentWidget.module.scss';
 
 export function AttachmentList({ attachments }: { attachments: readonly Attachment[] }): ReactElement | null {

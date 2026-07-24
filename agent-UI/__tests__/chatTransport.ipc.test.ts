@@ -1,5 +1,5 @@
 /**
- * Tests for agent-UI/transport/chatTransport.ts ¡ª IPC path
+ * Tests for agent-UI/transport/chatTransport.ts ï¿½ï¿½ IPC path
  *
  * chatTransport now delegates to the super built-in "chat" plugin
  * (agent-UI/plugin/core/chat.ts). This test verifies the delegation
@@ -7,9 +7,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AgentStreamChunk, AgentTurnResponse } from '@agent-sdk';
+import type { AgentStreamChunk, AgentTurnResponse } from '@agent-type';
 
-// ©¤©¤ Module-level mocks ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ Module-level mocks ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 vi.mock('../plugin/core/chat', () => ({
   sendAsync: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('../plugin/core/chat', () => ({
 import { chatTransport } from '../transport/chatTransport';
 import { sendAsync as mockSendAsync, sendStream as mockSendStream } from '../plugin/core/chat';
 
-// ©¤©¤ Helpers ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ Helpers ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 async function collectStream(
   stream: ReadableStream<AgentStreamChunk>,
@@ -40,9 +40,9 @@ const DEFAULT_PARAMS = {
   messages: [{ role: 'user' as const, content: 'Hi' }],
 };
 
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// ï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½T
 // sendAsync (non-streaming)
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// ï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½T
 
 describe('sendAsync (IPC)', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -65,9 +65,9 @@ describe('sendAsync (IPC)', () => {
   });
 });
 
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// ï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½T
 // sendStream (streaming)
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// ï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½T
 
 describe('sendStream (IPC)', () => {
   beforeEach(() => vi.clearAllMocks());

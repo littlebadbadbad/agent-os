@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ReactElement, ChangeEvent, KeyboardEvent } from 'react';
 import type { Message } from '../types';
-import type { DataAttachment, Attachment } from '@agent-sdk';
+import type { DataAttachment, Attachment } from '@agent-type';
 import type { SlotSession } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { ToolCallCard } from './ToolCallCard';

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ReactElement, ReactNode } from "react";
-import type { WidgetIcon } from "@agent-sdk";
+import type { WidgetIcon } from "@agent-type";
 import styles from "./SidebarHeader.module.scss";
 // ── Icon renderer (framework-agnostic: emoji string | URL | DOM/SVG node) ─────
 

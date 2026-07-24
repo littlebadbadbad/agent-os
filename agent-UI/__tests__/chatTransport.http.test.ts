@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AgentStreamChunk, AgentTurnResponse } from '@agent-sdk';
+import type { AgentStreamChunk, AgentTurnResponse } from '@agent-type';
 
 // ── Module-level mocks ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 

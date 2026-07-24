@@ -15,7 +15,7 @@
  * Both transport paths are completely transparent to the consumer.
  */
 
-import type { AgentTurnResponse, AgentStreamChunk } from '@agent-sdk';
+import type { AgentTurnResponse, AgentStreamChunk } from '@agent-type';
 import { sendAsync, sendStream } from '../plugin/core/chat';
 import type { ChatParams } from '../plugin/core/chat';
 

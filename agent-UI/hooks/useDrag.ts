@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import type { PointerEventHandler } from 'react';
-import { DRAG_THRESHOLD } from '@agent-sdk/constants';
+import { DRAG_THRESHOLD } from '../constants';
 import type { Position } from '@agent-type';
 
 export interface DragHandlers {

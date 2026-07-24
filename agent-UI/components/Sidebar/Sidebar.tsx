@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import type { WidgetIcon, WidgetTheme } from '@agent-sdk';
+import type { WidgetIcon, WidgetTheme } from '@agent-type';
 import { SidebarHeader } from './SidebarHeader';
 import styles from './Sidebar.module.scss';
 

@@ -1,4 +1,5 @@
-import type { WidgetIcon, WidgetTheme, SessionManager } from '@agent-sdk';
+import type { WidgetIcon, WidgetTheme } from '@agent-type';
+import type { SessionManager } from '@agent-sdk';
 import { renderWidget } from './render';
 import { SidebarSide } from './hooks/useSidebarState';
 

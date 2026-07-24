@@ -1,7 +1,8 @@
 import { useSyncExternalStore, useState, useCallback, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import type { Attachment } from '@agent-sdk';
-import type { WidgetIcon, WidgetTheme, SessionManager, SessionListEntry } from '@agent-sdk';
+import type { Attachment } from '@agent-type';
+import type { WidgetIcon, WidgetTheme } from '@agent-type';
+import type { SessionManager, SessionListEntry } from '@agent-sdk';
 import { AIControlBar } from '../../Sidebar/AIControlBar';
 import { SessionContent } from './SessionContent';
 import { ConversationNavigator } from '../navigator';

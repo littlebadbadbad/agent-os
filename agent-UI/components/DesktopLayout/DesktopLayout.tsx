@@ -17,8 +17,8 @@ import {
 } from "react";
 import type { AppSlotDeclaration, SlotSession } from "@agent-type";
 import type { SlotEntry } from "../../slots/registry";
-import type { WidgetIcon, WidgetTheme } from "@agent-sdk";
-import { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "@agent-sdk";
+import type { WidgetIcon, WidgetTheme } from "@agent-type";
+import { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "../../constants";
 import { useSidebarState } from "../../hooks/useSidebarState";
 import { Sidebar } from "../Sidebar/Sidebar";
 import { DesktopPane } from "./DesktopPane";

@@ -1,6 +1,7 @@
 import { useSyncExternalStore, useCallback, useMemo } from "react";
 import type { ReactElement } from "react";
-import type { Attachment, AgentSession } from "@agent-sdk";
+import type { Attachment } from "@agent-type";
+import type { AgentSession } from "@agent-sdk";
 import type { SlotEntry } from "../../../slots/registry";
 import type { PanelSlotDeclaration, PluginStateExtension } from "@agent-type";
 import { ChatMessages } from "../chat/ChatMessages";

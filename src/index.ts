@@ -20,19 +20,6 @@ export type {
   SessionManagerState,
 } from "./client/sessionManager.types";
 
-// ── Tool primitives ───────────────────────────────────────────────────────────
-export type {
-  ToolSet,
-  ToolSetState,
-  ToolSetContext,
-  ToolSetStateContext,
-  AgentQueryFns,
-  AgentClientLike,
-  ToolContextPatch,
-  SystemPromptContext,
-  CompactionResult,
-  CompactionNotice,
-} from "@agent-type";
 export { MAIN_CONVERSATION_ID, ctxKey } from "./tools/toolSet";
 export {
   toOpenAIMessages,
@@ -54,52 +41,6 @@ export type {
   SubAgentRegistry,
   CreateSubAgentRegistryOptions,
 } from "./tools/subagent";
-// ── Permissions ───────────────────────────────────────────────────────────────
-export type {
-  HandlerContext,
-  OpenAIToolParam,
-  AnthropicToolParam,
-  GeminiFunctionDeclaration,
-  TokenUsage,
-  AttachmentKind,
-  DataAttachment,
-  UrlAttachment,
-  Attachment,
-  OpenAIContentPart,
-  OpenAIMessage,
-  AnthropicContentBlock,
-  AnthropicMessage,
-  GeminiPart,
-  GeminiContent,
-  AgentTurnResponse,
-  AgentStreamChunk,
-  AgentTextChunk,
-  AgentThinkingChunk,
-  AgentToolCallChunk,
-  AgentToolResultChunk,
-  AgentAttachmentChunk,
-  AgentUsageChunk,
-  AgentMessage,
-  UserMessage,
-  AssistantMessage,
-  ToolResultMessage,
-  ToolChoice,
-  Tool,
-  ToolDescriptor,
-  ToolCall,
-  ToolResult,
-  ToolExecutionContext,
-  AgentHandler,
-  WidgetIcon,
-  WidgetTheme,
-} from "@agent-type";
-export {
-  SIDEBAR_DEFAULT_WIDTH,
-  SIDEBAR_MIN_WIDTH,
-  SIDEBAR_MAX_WIDTH,
-  DRAG_THRESHOLD,
-  ANIM_DURATION,
-} from "./constants";
 
 // ── History converter ─────────────────────────────────────────────────────────
 export { agentMessagesToUI } from "./client/historyConverter";

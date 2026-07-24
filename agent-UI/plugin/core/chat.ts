@@ -11,7 +11,7 @@
  * the PluginApiClient handles transport selection transparently.
  */
 
-import type { AgentTurnResponse, AgentStreamChunk, AgentMessage, ToolDescriptor, ToolChoice } from '@agent-sdk';
+import type { AgentTurnResponse, AgentStreamChunk, AgentMessage, ToolDescriptor, ToolChoice } from '@agent-type';
 import { isAgentStreamChunk } from '@agent-sdk';
 import { createPluginApiClient } from '../apiClient';
 

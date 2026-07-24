@@ -16,7 +16,8 @@
 
 import { useState, useCallback, useSyncExternalStore, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import type { Attachment, SubAgentRegistry, SubAgentEntrySnapshot, SubAgentConversationState } from '@agent-sdk';
+import type { Attachment } from '@agent-type';
+import type { SubAgentRegistry, SubAgentEntrySnapshot, SubAgentConversationState } from '@agent-sdk';
 import type { SlotDisplayContext, PanelSlotDeclaration, SlotSession } from '@agent-type';
 import type { SlotEntry } from '../../../slots/registry';
 import { ChatMessages } from '../chat/ChatMessages';

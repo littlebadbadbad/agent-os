@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { useEffect } from "react";
-import type { WidgetIcon, WidgetTheme, SessionManager } from "@agent-sdk";
+import type { WidgetIcon, WidgetTheme } from "@agent-type";
+import type { SessionManager } from "@agent-sdk";
 import { MultiSessionWidget } from "./session/MultiSessionWidget";
 import { injectHostCssVars } from "../../styles/cssVariables";
 

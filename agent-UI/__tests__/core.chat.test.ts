@@ -82,15 +82,12 @@ describe('chat core plugin', () => {
 
       // Simulate receiving data chunks
       streamClient.callbacks.onData({ type: 'text', delta: 'Hello' });
-      streamClient.callbacks.onData({ type: 'done', result: { text: 'Hello' } });
       streamClient.callbacks.onEnd();
 
       const chunk1 = await reader.read();
       expect(chunk1.value).toEqual({ type: 'text', delta: 'Hello' });
       const chunk2 = await reader.read();
-      expect(chunk2.value).toEqual({ type: 'done', result: { text: 'Hello' } });
-      const chunk3 = await reader.read();
-      expect(chunk3.done).toBe(true);
+      expect(chunk2.done).toBe(true);
     });
 
     it('calls streamStop on abort signal', async () => {

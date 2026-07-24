@@ -1,28 +1,8 @@
-// ── Types (re-exported from @agent-type for convenience) ─────────────────────
-export type {
-  Tool,
-  ToolExecutionContext,
-  ToolDescriptor,
-  ToolCall,
-  ToolResult,
-  HandlerContext,
-  OpenAIToolParam,
-  AnthropicToolParam,
-  GeminiFunctionDeclaration,
-  AgentTextChunk,
-  AgentToolCallChunk,
-  AgentErrorChunk,
-  AgentStreamChunk,
-  AgentTurnResponse,
-} from '@agent-type';
-
 export type { ToolRegistry } from './registry';
 
 // ── Runtime helpers ───────────────────────────────────────────────────────────
 export { isAgentTurnResponse, isAgentStreamChunk } from './types';
 
-export { defineTool, buildTool } from '@agent-type/defineTool';
-export type { ToolDef } from '@agent-type/defineTool';
 // ── Registry (functional, immutable) ─────────────────────────────────────────
 export {
   emptyRegistry,

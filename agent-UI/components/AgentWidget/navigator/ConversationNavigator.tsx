@@ -14,7 +14,7 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import type { Attachment } from '@agent-sdk';
+import type { Attachment } from '@agent-type';
 import type { ConversationItem } from './types';
 import { SessionList } from './SessionList';
 import { SessionPanel } from './SessionPanel';

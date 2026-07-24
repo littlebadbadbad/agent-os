@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { SIDEBAR_DEFAULT_WIDTH } from '@agent-sdk/constants';
+import { SIDEBAR_DEFAULT_WIDTH } from '../constants';
 
 export type SidebarSide = 'left' | 'right';
 

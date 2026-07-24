@@ -1,6 +1,6 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import type { Attachment, DataAttachment } from '@agent-sdk';
+import type { Attachment, DataAttachment } from '@agent-type';
 import type { AutocompleteItem } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { SendIcon, StopIcon, AttachIcon } from './ChatInputIcons';

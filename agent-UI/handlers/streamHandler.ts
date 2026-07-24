@@ -8,7 +8,7 @@
  * widget knows how to drain, regardless of whether the underlying transport
  * is HTTP SSE or Electron IPC push events.
  */
-import type { AgentHandler } from '@agent-sdk';
+import type { AgentHandler } from '@agent-type';
 import { providerStore } from '../store/providerStore';
 import { chatTransport } from '../transport/chatTransport';
 

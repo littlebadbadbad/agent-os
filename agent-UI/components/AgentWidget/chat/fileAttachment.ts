@@ -1,4 +1,4 @@
-import type { DataAttachment } from '@agent-sdk';
+import type { DataAttachment } from '@agent-type';
 
 /** Maximum file size accepted for inline (base64) attachments: 20 MB. */
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;

@@ -14,7 +14,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createAgentClient, MAIN_CONVERSATION_ID } from '@agent-sdk';
-import type { AgentHandler } from '@agent-sdk';
+import type { AgentHandler } from '@agent-type';
 import { createVariableToolSet } from '../../../extensions/variable/agent/toolSet';
 import { createMemoryGraphToolSet } from '../../../extensions/memory-graph/agent/toolSet';
 

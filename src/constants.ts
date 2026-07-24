@@ -1,6 +1,3 @@
-/** Movement in pixels before a pointerdown→up sequence is treated as a drag */
-export const DRAG_THRESHOLD = 5;
-
 // ── Summarization anchor markers ──────────────────────────────────────────────
 //
 // These constants define the wire format for conversation summarization anchors.
@@ -19,16 +16,4 @@ export const SUMMARY_ANCHOR_PREFIX = '[Context summary]\n';
 /** The fixed acknowledgement message that follows every summary anchor. */
 export const SUMMARY_ANCHOR_ACK = 'Understood.';
 
-/** Duration (ms) of UI animations */
-export const ANIM_DURATION = 240;
 
-// ── Sidebar dimensions ────────────────────────────────────────────────────────
-
-/** Default sidebar width in pixels */
-export const SIDEBAR_DEFAULT_WIDTH = 360;
-
-/** Minimum sidebar width in pixels */
-export const SIDEBAR_MIN_WIDTH = 280;
-
-/** Maximum sidebar width in pixels */
-export const SIDEBAR_MAX_WIDTH = 700;

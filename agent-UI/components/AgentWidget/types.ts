@@ -6,6 +6,6 @@
  * so existing imports from `../types` continue to work without changes.
  */
 
-export type { Attachment } from '@agent-sdk';
+export type { Attachment } from '@agent-type';
 export type { ToolCallStatus, ToolCallInfo } from '@agent-type';
 export type { Message } from '@agent-sdk/utils/shared';

@@ -964,3 +964,128 @@ describe('ConversationRunner', () => {
     });
   });
 });
+
+// ── sendMessage with attachments ───────────────────────────────────────────
+
+describe('sendMessage — with attachments', () => {
+  beforeEach(() => { vi.clearAllMocks(); setupEngine(); setupLoop('done', true); });
+
+  it('passes attachments through to msgList and tracker', async () => {
+    const attachment = { type: 'url' as const, url: 'https://example.com/file.pdf' };
+    const deps = makeDeps();
+    const runner = createConversationRunner(deps);
+
+    await runner.sendMessage('Check this', [attachment]);
+
+    const userMsgs = deps.msgList.messages.filter(m => m.role === 'user');
+    const userMsg = userMsgs[userMsgs.length - 1];
+    expect(userMsg.content).toBe('Check this');
+    expect(userMsg.attachments).toEqual([attachment]);
+
+    const tracked = deps.tracker.getLiveHistory().filter(m => m.role === 'user');
+    const lastTracked = tracked[tracked.length - 1];
+    expect(lastTracked.content).toBe('Check this');
+    expect((lastTracked as any).attachments).toEqual([attachment]);
+  });
+
+  it('allows attachments without text', async () => {
+    const attachment = { type: 'data' as const, kind: 'image' as const, mimeType: 'image/png', data: 'b64' };
+    const deps = makeDeps();
+    const runner = createConversationRunner(deps);
+
+    await runner.sendMessage('', [attachment]);
+
+    const userMsgs = deps.msgList.messages.filter(m => m.role === 'user');
+    expect(userMsgs.length).toBe(1);
+    expect(userMsgs[0].attachments).toEqual([attachment]);
+  });
+});
+
+// ── editAndSendMessage — edge cases ────────────────────────────────────────
+
+describe('editAndSendMessage — edge cases', () => {
+  beforeEach(() => { vi.clearAllMocks(); setupEngine(); setupLoop('done', true); });
+
+  it('passes attachments through when editing', async () => {
+    const attachment = { type: 'url' as const, url: 'https://example.com/img.png' };
+    const deps = makeDeps();
+    const runner = createConversationRunner(deps);
+
+    await runner.sendMessage('Original');
+    const firstUser = deps.msgList.messages.find(m => m.role === 'user')!;
+
+    await runner.editAndSendMessage(firstUser.id, 'Edited with attachment', [attachment]);
+
+    const users = deps.msgList.messages.filter(m => m.role === 'user');
+    expect(users).toHaveLength(1);
+    expect(users[0].content).toBe('Edited with attachment');
+    expect(users[0].attachments).toEqual([attachment]);
+  });
+
+  it('truncates at the correct user when multiple users exist', async () => {
+    const deps = makeDeps();
+    const runner = createConversationRunner(deps);
+
+    // Two user messages, then edit the SECOND one
+    setupLoop('reply 1');
+    await runner.sendMessage('First');
+    setupLoop('reply 2');
+    await runner.sendMessage('Second');
+
+    const users = deps.msgList.messages.filter(m => m.role === 'user');
+    expect(users).toHaveLength(2);
+    const secondUserId = users[1].id;
+
+    setupLoop('edited reply');
+    await runner.editAndSendMessage(secondUserId, 'Edited second');
+
+    // msgList.truncate(count) keeps first `count` entries (index 0 & 1),
+    // so user(Second) is removed. Then the new user is appended.
+    const finalUsers = deps.msgList.messages.filter(m => m.role === 'user');
+    expect(finalUsers).toHaveLength(2);
+    expect(finalUsers[0].content).toBe('First');
+    expect(finalUsers[1].content).toBe('Edited second');
+  });
+});
+
+// ── injectToolResult — edge cases ──────────────────────────────────────────
+
+describe('injectToolResult — edge cases', () => {
+  beforeEach(() => { vi.clearAllMocks(); setupEngine(); setupLoop('done', true); });
+
+  it('creates assistant+tool pair for brand-new tool call', async () => {
+    const deps = makeDeps();
+    const runner = createConversationRunner(deps);
+
+    // Manually push a user message first so the loop has context
+    await runner.sendMessage('Do something');
+    const msgCount = deps.msgList.messages.length;
+
+    await runner.injectToolResult('fresh-call', 'ask_user', 'user answered');
+
+    const assistants = deps.msgList.messages.filter(m => m.role === 'assistant');
+    expect(assistants.length).toBeGreaterThanOrEqual(2); // original assistant + synthetic one
+    const tools = deps.msgList.messages.filter(m => m.role === 'tool');
+    expect(tools.length).toBeGreaterThanOrEqual(1);
+    expect(tools[tools.length - 1].toolCall?.name).toBe('ask_user');
+    expect(tools[tools.length - 1].toolCall?.result).toBe('user answered');
+  });
+
+  it('appends new tool result when tool call already exists with matching id', async () => {
+    // Setup: tracker already has assistant with tool call + tool result
+    const tracker = createHistoryTracker([
+      { role: 'assistant' as const, content: '', toolCalls: [{ id: 'existing-id', name: 'echo', arguments: {} }] },
+      { role: 'tool' as const, toolCallId: 'existing-id', name: 'echo', content: 'old result' },
+    ]);
+    const deps = makeDeps({ tracker });
+    const runner = createConversationRunner(deps);
+
+    await runner.injectToolResult('existing-id', 'echo', 'new result');
+
+    // The new result is appended alongside the old one (not replaced)
+    const liveTools = deps.tracker.getLiveHistory().filter(m => m.role === 'tool' && m.toolCallId === 'existing-id');
+    expect(liveTools).toHaveLength(2);
+    expect(liveTools[0].content).toBe('old result');
+    expect(liveTools[1].content).toBe('new result');
+  });
+});
