@@ -17,5 +17,6 @@ export type {
   AvailableShell,
   TerminalOutput,
   TerminalManagerAdapter,
+  WaitResult,
 } from './shell';
 export { processCarriageReturns } from './processCarriageReturns';

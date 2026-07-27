@@ -138,10 +138,7 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
     },
 
     connectStream(streamName: string, params?: Record<string, unknown>): PluginStreamClient {
-      // WebSocket URL: ws://host/api/plugin/<id>/<streamName>?key=val&key2=val2
-      // JSON-stringify complex values (objects, arrays) so the backend
-      // receives parseable params instead of '[object Object]'.
-      // Skip non-serializable values (functions, AbortSignal, Symbols).
+      // Build WebSocket URL with query params.
       const queryString = params
         ? Object.entries(params)
             .filter(([, v]) => v !== undefined && v !== null && typeof v !== 'function' && typeof v !== 'symbol')
@@ -156,7 +153,8 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${location.host}/api/plugin/${encodeURIComponent(pluginId)}/${encodeURIComponent(streamName)}${queryString ? '?' + queryString : ''}`;
 
-      let ws: WebSocket | null = null;
+      // ── State shared between subscribe/unsubscribe and async WS events ──
+      let subscribed = false;
 
       const client: PluginStreamClient = {
         callbacks: {
@@ -165,35 +163,54 @@ function createHttpPluginApiClient(pluginId: string): PluginApiClient {
           onError(_err) { },
         },
         subscribe: () => {
-          ws = new WebSocket(wsUrl);
+          // Guard: reject duplicate subscribe calls (StrictMode safety)
+          if (subscribed) {
+            return { unsubscribe: () => {} };
+          }
 
-          ws.onopen = () => { /* ready */ };
+          subscribed = true;
+          const ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => { /* ready — connection established */ };
           ws.onmessage = (event) => {
+            // If unsubscribed before this event arrived, drop it.
+            if (!subscribed) return;
+
             if (event.data instanceof Blob) {
-              // Binary frame (JPEG)
-              event.data.arrayBuffer().then(buf => client.callbacks.onData(buf));
+              event.data.arrayBuffer().then(buf => {
+                if (subscribed) client.callbacks.onData(buf);
+              });
             } else {
-              // JSON message (page info)
               try {
                 const obj = JSON.parse(event.data);
-                client.callbacks.onData(obj);
+                if (subscribed) client.callbacks.onData(obj);
               } catch { /* ignore parse errors */ }
             }
           };
           ws.onclose = () => {
+            // WebSocket always fires onclose after onerror, so guard against
+            // the double-fire with the subscribed flag.
+            if (!subscribed) return;
+            subscribed = false;
             client.callbacks.onEnd();
-            ws = null;
           };
           ws.onerror = () => {
-            client.callbacks.onError(new Error('WebSocket error'));
+            // WebSocket fires onclose immediately after onerror per spec,
+            // so onError is raised here and onEnd is raised in onclose.
+            // No risk of double-fire because subscribed guards onclose.
+            if (subscribed) {
+              client.callbacks.onError(new Error('WebSocket error'));
+            }
           };
 
           return {
             unsubscribe: () => {
-              if (ws) {
-                ws.close();
-                ws = null;
-              }
+              if (!subscribed) return;
+              subscribed = false;
+              // close() triggers onclose synchronously in most runtimes,
+              // but the subscribed=false guard prevents onclose from calling
+              // onEnd a second time.
+              ws.close();
             },
           };
         },
@@ -243,13 +260,11 @@ function createIpcPluginApiClient(
 
     connectStream(streamName: string, params?: Record<string, unknown>): PluginStreamClient {
       const prefix = `plugin:${pluginId}:${streamName}`;
-      let resolveConnId: (id: string) => void;
-      let rejectConnId: (err: unknown) => void;
-      const connIdPromise = new Promise<string>((resolve, reject) => {
-        resolveConnId = resolve;
-        rejectConnId = reject;
-      });
-      let cleanupFns: (() => void)[] = [];
+
+      // ── State shared between subscribe/unsubscribe and the async connect ──
+      let connId: string | null = null;
+      let cancelled = false;
+      const cleanupFns: (() => void)[] = [];
 
       const client: PluginStreamClient = {
         callbacks: {
@@ -257,46 +272,69 @@ function createIpcPluginApiClient(
           onEnd() { },
           onError(_err) { },
         },
+
         subscribe: () => {
-          // Listen for data pushed from the backend.
-          const unsubFrame = doOn(`${prefix}:frame`, (chunk: unknown) => {
-            client.callbacks.onData(chunk);
-          });
+          // Guard: reject duplicate subscribe calls
+          if (cleanupFns.length > 0) {
+            return { unsubscribe: () => {} };
+          }
+
+          // 1. Register IPC listeners FIRST — before connect, so no data is lost.
+          //    Only listen on :data (JSON) — the terminal plugin uses sendJSON exclusively.
+          //    The :frame (binary) channel is for other plugin types (e.g. browser screenshots).
           const unsubData = doOn(`${prefix}:data`, (chunk: unknown) => {
             client.callbacks.onData(chunk);
           });
+          cleanupFns.push(unsubData);
+
           const unsubEnd = doOn(`${prefix}:end`, () => {
             client.callbacks.onEnd();
           });
-          cleanupFns = [unsubFrame, unsubData, unsubEnd];
+          cleanupFns.push(unsubEnd);
+
+          // 2. Start the connection. IPC listeners are already registered, so
+          //    any data the backend pushes on :data will be delivered immediately.
+          doInvoke(`${prefix}:connect`, params ?? {}).then((result) => {
+            const record: Record<string, unknown> = Object.assign(Object.create(null), result);
+            const resolvedConnId = record.connectionId;
+            if (typeof resolvedConnId !== 'string') {
+              throw new Error('Connect response missing connectionId');
+            }
+
+            if (cancelled) {
+              // Unsubscribe was called before connect resolved — tear down immediately.
+              doInvoke(`${prefix}:disconnect`, { connectionId: resolvedConnId }).catch(() => {});
+              return;
+            }
+
+            connId = resolvedConnId;
+          }).catch((err) => {
+            // If cancelled, suppress error — the disconnect path already handles cleanup.
+            if (!cancelled) {
+              client.callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+            }
+          });
 
           return {
             unsubscribe: () => {
-              cleanupFns.forEach(fn => fn());
-              cleanupFns = [];
-              // Await connectionId resolution — if the connect call hasn't
-              // completed yet, wait for it so the disconnect IPC fires.
-              connIdPromise.then((connId) => {
-                doInvoke(`${prefix}:disconnect`, { connectionId: connId }).catch(() => {});
-              }).catch(() => {});
+              cancelled = true;
+
+              // Remove IPC listeners first — no more callbacks will fire.
+              for (const fn of cleanupFns) {
+                try { fn(); } catch {}
+              }
+              cleanupFns.length = 0;
+
+              // Then disconnect the backend connection (may still be in-flight).
+              if (connId) {
+                const id = connId;
+                connId = null;
+                doInvoke(`${prefix}:disconnect`, { connectionId: id }).catch(() => {});
+              }
             },
           };
         },
       };
-
-      // Start the connection asynchronously.
-      doInvoke(`${prefix}:connect`, params ?? {}).then((result) => {
-        const record: Record<string, unknown> = Object.assign(Object.create(null), result);
-        const connId = record.connectionId;
-        if (typeof connId === 'string') {
-          resolveConnId(connId);
-        } else {
-          rejectConnId(new Error('Connect response missing connectionId'));
-        }
-      }).catch((err) => {
-        rejectConnId(err);
-        client.callbacks.onError(err instanceof Error ? err : new Error(String(err)));
-      });
 
       return client;
     },

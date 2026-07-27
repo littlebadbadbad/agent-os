@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createTerminalTools, createTerminalPluginAdapter } from '../../agent/shell';
-import type { TerminalManagerAdapter, TerminalEntry } from '../../agent/shell';
+import type { TerminalManagerAdapter, TerminalEntry, WaitResult } from '../../agent/shell';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -28,6 +28,12 @@ function makeAdapter(overrides: Partial<TerminalManagerAdapter> = {}): TerminalM
     readOutput:     vi.fn().mockResolvedValue({ output: '', offset: 0, running: true }),
     streamOutput:   vi.fn().mockReturnValue(() => {}),
     resizePty:      vi.fn().mockResolvedValue(undefined),
+    waitTerminal:   vi.fn().mockResolvedValue({
+      output: '', offset: 0, running: false, exitCode: 0,
+      timedOut: false, reason: 'exited',
+    } satisfies WaitResult),
+    cancelWait:     vi.fn().mockResolvedValue(undefined),
+    sleepTerminal:  vi.fn().mockResolvedValue({ slept: 100, aborted: false }),
     ...overrides,
   };
 }
@@ -60,118 +66,55 @@ describe('terminal_wait', () => {
     expect(tools.some(t => t.name === 'terminal_wait')).toBe(true);
   });
 
-  it('returns reason="exited" when the terminal exits on the first poll', async () => {
+  it('delegates to adapter.waitTerminal and returns the result', async () => {
+    const expected: WaitResult = {
+      output: 'done', offset: 4, running: false, exitCode: 0,
+      timedOut: false, reason: 'exited',
+    };
     const adapter = makeAdapter({
-      readOutput: vi.fn().mockResolvedValue({
-        output: 'done', offset: 4, running: false, exitCode: 0,
-      }),
+      waitTerminal: vi.fn().mockResolvedValue(expected),
     });
     const { wait } = getTools(adapter);
 
-    const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx) as any;
+    const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx);
 
-    expect(result.reason).toBe('exited');
-    expect(result.timedOut).toBe(false);
-    expect(result.running).toBe(false);
-    expect(result.exitCode).toBe(0);
+    expect(vi.mocked(adapter.waitTerminal)).toHaveBeenCalledWith(
+      'term_1', { idleMs: 100, timeoutMs: 5000 }, SESSION,
+    );
+    expect(result).toEqual(expected);
   });
 
-  it('returns reason="idle" when no output arrives for idleMs', async () => {
+  it('advances the shared read cursor from waitTerminal result offset', async () => {
     const adapter = makeAdapter({
-      readOutput: vi.fn().mockResolvedValue({ output: '', offset: 0, running: true }),
-    });
-    const { wait } = getTools(adapter);
-
-    const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx) as any;
-
-    expect(result.reason).toBe('idle');
-    expect(result.timedOut).toBe(false);
-  }, 3000);
-
-  it('returns reason="idle" only after output stops flowing', async () => {
-    let callN = 0;
-    const adapter = makeAdapter({
-      readOutput: vi.fn().mockImplementation(async () => {
-        callN++;
-        if (callN <= 3) return { output: `chunk${callN}`, offset: callN * 6, running: true };
-        return { output: '', offset: 18, running: true };
-      }),
-    });
-    const { wait } = getTools(adapter);
-
-    const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx) as any;
-
-    expect(result.reason).toBe('idle');
-    expect(callN).toBeGreaterThanOrEqual(4);
-  }, 3000);
-
-  it('returns timedOut=true and reason="timeout" when deadline expires', async () => {
-    const adapter = makeAdapter({
-      readOutput: vi.fn().mockResolvedValue({ output: '', offset: 0, running: true }),
-    });
-    const { wait } = getTools(adapter);
-
-    const result = await wait.execute({ id: 'term_1', idleMs: 10000, timeoutMs: 200 }, ctx) as any;
-
-    expect(result.timedOut).toBe(true);
-    expect(result.reason).toBe('timeout');
-    expect(adapter.sendInput).toHaveBeenCalledWith('term_1', '\x03', SESSION);
-  }, 3000);
-
-  it('returns reason="aborted" immediately when signal is pre-aborted', async () => {
-    const adapter = makeAdapter();
-    const { wait } = getTools(adapter);
-
-    const ctrl = new AbortController();
-    ctrl.abort();
-
-    const result = await wait.execute(
-      { id: 'term_1', idleMs: 100, timeoutMs: 5000 },
-      { ...ctx, signal: ctrl.signal },
-    ) as any;
-
-    expect(result.reason).toBe('aborted');
-    expect(result.timedOut).toBe(false);
-    expect(vi.mocked(adapter.readOutput).mock.calls.length).toBeLessThanOrEqual(1);
-  });
-
-  it('advances the shared read cursor so terminal_read continues from the right offset', async () => {
-    const adapter = makeAdapter({
-      readOutput: vi.fn()
-        .mockResolvedValueOnce({ output: 'output', offset: 42, running: false, exitCode: 0 })
-        .mockResolvedValueOnce({ output: 'output', offset: 42, running: false, exitCode: 0 })
-        .mockResolvedValueOnce({ output: '',       offset: 42, running: false, exitCode: 0 }),
+      waitTerminal: vi.fn().mockResolvedValue({
+        output: 'output', offset: 42, running: false, exitCode: 0,
+        timedOut: false, reason: 'exited',
+      } satisfies WaitResult),
+      readOutput: vi.fn().mockResolvedValue({ output: '', offset: 42, running: false }),
     });
     const { wait, read } = getTools(adapter);
 
     await wait.execute({ id: 'term_1' }, ctx);
     await read.execute({ id: 'term_1' }, ctx);
 
-    const readOffset = vi.mocked(adapter.readOutput).mock.calls[2][1];
+    // read should start from offset 42 (the cursor was advanced by wait)
+    const readOffset = vi.mocked(adapter.readOutput).mock.calls[0][1];
     expect(readOffset).toBe(42);
   });
 
-  it('returns reason="cancelled" when the user responds to the cancel prompt', async () => {
+  it('returns reason="cancelled" and falls back to readOutput when waitTerminal throws', async () => {
     const adapter = makeAdapter({
-      readOutput: vi.fn().mockResolvedValue({ output: '', offset: 0, running: true }),
+      waitTerminal: vi.fn().mockRejectedValue(new Error('cancelled')),
+      readOutput: vi.fn().mockResolvedValue({ output: 'partial', offset: 10, running: false, exitCode: 0 }),
     });
     const { wait } = getTools(adapter);
 
-    let resolveInput!: (v: string | null) => void;
-    const cancelCtx = {
-      ...ctx,
-      requestUserInput: () => new Promise<string | null>((r) => { resolveInput = r; }),
-    };
+    const result = await wait.execute({ id: 'term_1', idleMs: 100, timeoutMs: 5000 }, ctx) as any;
 
-    const waitPromise = wait.execute({ id: 'term_1', idleMs: 10_000, timeoutMs: 60_000 }, cancelCtx);
-
-    await new Promise<void>(r => setTimeout(r, 80));
-    resolveInput('yes');
-
-    const result = await waitPromise as any;
     expect(result.reason).toBe('cancelled');
-    expect(result.timedOut).toBe(false);
-  }, 5000);
+    expect(result.output).toBe('partial');
+    expect(result.offset).toBe(10);
+  });
 });
 
 // ── resizePty (plugin adapter) ────────────────────────────────────────────────
@@ -225,28 +168,16 @@ describe('terminal_sleep', () => {
     expect(tools.some(t => t.name === 'terminal_sleep')).toBe(true);
   });
 
-  it('returns slept≈durationMs and aborted=false on a normal sleep', async () => {
-    const { tools } = createTerminalTools(makeAdapter());
+  it('delegates to adapter.sleepTerminal and returns the result', async () => {
+    const adapter = makeAdapter({
+      sleepTerminal: vi.fn().mockResolvedValue({ slept: 50, aborted: false }),
+    });
+    const { tools } = createTerminalTools(adapter);
     const sleep = tools.find(t => t.name === 'terminal_sleep')!;
 
-    const before = Date.now();
     const result = await sleep.execute({ durationMs: 50 }, ctx) as { slept: number; aborted: boolean };
 
-    expect(result.aborted).toBe(false);
-    expect(result.slept).toBeGreaterThanOrEqual(40);
-    expect(Date.now() - before).toBeGreaterThanOrEqual(40);
-  }, 2000);
-
-  it('returns early with aborted=true when signal fires before durationMs elapses', async () => {
-    const { tools } = createTerminalTools(makeAdapter());
-    const sleep = tools.find(t => t.name === 'terminal_sleep')!;
-    const ctrl  = new AbortController();
-
-    const promise = sleep.execute({ durationMs: 5_000 }, { ...ctx, signal: ctrl.signal }) as Promise<{ slept: number; aborted: boolean }>;
-    setTimeout(() => ctrl.abort(), 30);
-
-    const result = await promise;
-    expect(result.aborted).toBe(true);
-    expect(result.slept).toBeLessThan(1_000);
-  }, 3000);
+    expect(vi.mocked(adapter.sleepTerminal)).toHaveBeenCalledWith(50, ctx.sessionId);
+    expect(result).toEqual({ slept: 50, aborted: false });
+  });
 });

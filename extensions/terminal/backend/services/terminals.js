@@ -102,6 +102,43 @@ export function subscribeTerminalOutput({ id, onOutput, onDone, signal }) {
  * @param {{ durationMs: number, signal?: AbortSignal }} params
  * @returns {Promise<{ slept: number, aborted: boolean }>}
  */
+// ── Active-wait cancellation registry ─────────────────────────────────────
+// Maps terminal id → AbortController so cancelWait() can abort an in-progress
+// waitTerminal call from the agent side.
+const activeWaits = new Map();
+
+/**
+ * Register an AbortController for an active wait operation.
+ * @param {string} terminalId
+ * @param {AbortController} ac
+ */
+export function registerActiveWait(terminalId, ac) {
+  activeWaits.set(terminalId, ac);
+}
+
+/**
+ * Unregister and abort any active wait for the given terminal.
+ * Called by the agent tool when the user cancels a wait.
+ * @param {{ id: string }} params
+ * @returns {{ ok: boolean }}
+ */
+export function cancelWait({ id }) {
+  if (!id) throw new Error('id is required');
+  const ac = activeWaits.get(id);
+  if (ac) {
+    ac.abort();
+    activeWaits.delete(id);
+  }
+  return { ok: true };
+}
+
+/**
+ * Server-side sleep.  Resolves after `durationMs` milliseconds unless
+ * the AbortSignal fires first.
+ *
+ * @param {{ durationMs: number, signal?: AbortSignal }} params
+ * @returns {Promise<{ slept: number, aborted: boolean }>}
+ */
 export function sleepTerminal({ durationMs, signal } = {}) {
   if (typeof durationMs !== 'number' || durationMs <= 0) {
     throw new Error('durationMs must be a positive number');
@@ -123,48 +160,57 @@ export function sleepTerminal({ durationMs, signal } = {}) {
  *
  * Polls terminal output until the process exits or output stops for `idleMs`.
  * A hard timeout sends Ctrl+C and returns whatever output was buffered.
+ * Registers itself in the active-wait registry so cancelWait() can abort it.
  *
- * @param {{ id: string, idleMs?: number, timeoutMs?: number, signal?: AbortSignal }} params
+ * @param {{ id: string, idleMs?: number, timeoutMs?: number }} params
  * @returns {Promise<{ output: string, offset: number, running: boolean, exitCode?: number | null, timedOut: boolean, reason: string }>}
  */
-export async function waitTerminal({ id, idleMs = 1000, timeoutMs = 300_000, signal } = {}) {
+export async function waitTerminal({ id, idleMs = 1000, timeoutMs = 300000 } = {}) {
   if (!id) throw new Error('id is required');
 
-  const pollMs = Math.min(Math.floor(idleMs / 2), 250);
-  const deadline = Date.now() + timeoutMs;
-  let lastActivityAt = Date.now();
-  let lastOffset = 0;
+  const ac = new AbortController();
+  const signal = ac.signal;
+  registerActiveWait(id, ac);
 
-  while (true) {
-    if (signal?.aborted) {
-      const snap = readTerminalOutput({ id, fromOffset: 0 });
-      return { ...snap, timedOut: false, reason: 'aborted' };
+  try {
+    const pollMs = Math.min(Math.floor(idleMs / 2), 250);
+    const deadline = Date.now() + timeoutMs;
+    let lastActivityAt = Date.now();
+    let lastOffset = 0;
+
+    while (true) {
+      if (signal.aborted) {
+        const snap = readTerminalOutput({ id, fromOffset: 0 });
+        return { ...snap, timedOut: false, reason: 'cancelled' };
+      }
+
+      if (Date.now() >= deadline) {
+        writeToTerminal(id, '\x03');
+        await new Promise(r => setTimeout(r, 300));
+        const snap = readTerminalOutput({ id, fromOffset: 0 });
+        return { ...snap, timedOut: true, reason: 'timeout' };
+      }
+
+      const snap = readTerminalOutput({ id, fromOffset: lastOffset });
+
+      if (snap.output.length > 0) {
+        lastActivityAt = Date.now();
+        lastOffset = snap.offset;
+      }
+
+      if (!snap.running) {
+        const full = readTerminalOutput({ id, fromOffset: 0 });
+        return { ...full, timedOut: false, reason: 'exited' };
+      }
+
+      if (Date.now() - lastActivityAt >= idleMs) {
+        const full = readTerminalOutput({ id, fromOffset: 0 });
+        return { ...full, timedOut: false, reason: 'idle' };
+      }
+
+      await new Promise(r => setTimeout(r, pollMs));
     }
-
-    if (Date.now() >= deadline) {
-      writeToTerminal(id, '\x03');
-      await new Promise(r => setTimeout(r, 300));
-      const snap = readTerminalOutput({ id, fromOffset: 0 });
-      return { ...snap, timedOut: true, reason: 'timeout' };
-    }
-
-    const snap = readTerminalOutput({ id, fromOffset: lastOffset });
-
-    if (snap.output.length > 0) {
-      lastActivityAt = Date.now();
-      lastOffset = snap.offset;
-    }
-
-    if (!snap.running) {
-      const full = readTerminalOutput({ id, fromOffset: 0 });
-      return { ...full, timedOut: false, reason: 'exited' };
-    }
-
-    if (Date.now() - lastActivityAt >= idleMs) {
-      const full = readTerminalOutput({ id, fromOffset: 0 });
-      return { ...full, timedOut: false, reason: 'idle' };
-    }
-
-    await new Promise(r => setTimeout(r, pollMs));
+  } finally {
+    activeWaits.delete(id);
   }
 }

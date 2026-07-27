@@ -16,7 +16,7 @@ import type {
   TerminalOutput,
   TerminalManagerAdapter,
   ShellFamily,
-  AvailableShell,
+  WaitResult,
 } from './types';
 
 // ── Internal raw shapes ───────────────────────────────────────────────────────
@@ -36,6 +36,10 @@ interface StreamChunk {
   output?: string;
   type?: 'done';
   exitCode?: number;
+}
+
+function isStreamChunk(value: object): value is StreamChunk {
+  return 'output' in value || 'type' in value;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -78,6 +82,13 @@ function mapEntry(raw: RawEntry): TerminalEntry {
 export function createTerminalPluginAdapter(
   apiClient: PluginApiClient,
 ): TerminalManagerAdapter {
+  // ── Per-terminal stream deduplication ──────────────────────────────────
+  // Prevents duplicate PTY subscriptions when React StrictMode causes
+  // double mounting in development. Tracks one active stream per terminal
+  // id and automatically terminates any prior stream before starting a new
+  // one, eliminating the race between disconnect-backend and connect-backend.
+  const activeStreams = new Map<string, () => void>();
+
   return {
     async listTerminals(_opts: { sessionId: string }) {
       const res = await apiClient.call<{ terminals: RawEntry[] }>('list');
@@ -85,7 +96,8 @@ export function createTerminalPluginAdapter(
     },
 
     async listShells() {
-      const res = await apiClient.call<{ shells: AvailableShell[] }>('shells');
+      interface RawShell { name: string; path: string; isDefault: boolean }
+      const res = await apiClient.call<{ shells: RawShell[] }>('shells');
       return res.shells;
     },
 
@@ -125,24 +137,49 @@ export function createTerminalPluginAdapter(
       await apiClient.call('resize', { id, cols, rows });
     },
 
+    async waitTerminal(
+      id: string,
+      opts: { idleMs?: number; timeoutMs?: number },
+      _sessionId: string,
+    ): Promise<WaitResult> {
+      return apiClient.call<WaitResult>('wait', { id, ...opts });
+    },
+
+    async cancelWait(id: string, _sessionId: string) {
+      await apiClient.call('cancelWait', { id });
+    },
+
+    async sleepTerminal(durationMs: number, _sessionId: string) {
+      return apiClient.call<{ slept: number; aborted: boolean }>('sleep', { durationMs });
+    },
+
     streamOutput(
       id: string,
       onData: (chunk: string, done: boolean, exitCode?: number) => void,
       _sessionId: string,
     ): () => void {
-      // Bidirectional stream via host.apiClient — no direct SSE, no EventSource.
+      // Terminate any existing stream for this terminal id before creating a
+      // new one.  This closes the window where a stale backend connection from
+      // a previous mount (e.g. React StrictMode double-effect) is still
+      // pushing data through the IPC channel.
+      const prior = activeStreams.get(id);
+      if (prior) {
+        try { prior(); } catch {}
+        activeStreams.delete(id);
+      }
+
       const client = apiClient.connectStream('stream', { id });
 
       // Bridge: backend pushes { output, type?, exitCode? } chunks.
       client.callbacks.onData = (chunk: unknown) => {
         if (typeof chunk !== 'object' || chunk === null) return;
-        const msg = chunk as StreamChunk;
-        if (msg.type === 'done') {
-          onData('', true, msg.exitCode);
+        if (!isStreamChunk(chunk)) return;
+        if (chunk.type === 'done') {
+          onData('', true, chunk.exitCode);
           return;
         }
-        if (typeof msg.output === 'string') {
-          onData(msg.output, false);
+        if (typeof chunk.output === 'string') {
+          onData(chunk.output, false);
         }
       };
 
@@ -152,10 +189,16 @@ export function createTerminalPluginAdapter(
 
       const sub = client.subscribe();
 
-      return () => {
+      const cleanup = () => {
         sub.unsubscribe();
         client.callbacks.onEnd();
+        if (activeStreams.get(id) === cleanup) {
+          activeStreams.delete(id);
+        }
       };
+
+      activeStreams.set(id, cleanup);
+      return cleanup;
     },
   };
 }

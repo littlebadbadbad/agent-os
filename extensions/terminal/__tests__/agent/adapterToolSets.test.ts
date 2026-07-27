@@ -19,6 +19,12 @@ function makeTerminalAdapter(): TerminalManagerAdapter {
     readOutput:     vi.fn().mockResolvedValue({ output: '', offset: 0, running: true }),
     streamOutput:   vi.fn().mockReturnValue(() => {}),
     resizePty:      vi.fn().mockResolvedValue(undefined),
+    waitTerminal:   vi.fn().mockResolvedValue({
+      output: '', offset: 0, running: false, exitCode: 0,
+      timedOut: false, reason: 'exited',
+    }),
+    cancelWait:     vi.fn().mockResolvedValue(undefined),
+    sleepTerminal:  vi.fn().mockResolvedValue({ slept: 100, aborted: false }),
   };
 }
 

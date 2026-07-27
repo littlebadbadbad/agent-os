@@ -54,6 +54,17 @@ export function activate(host) {
     return terminals.resizeTerminalSession(params);
   });
 
+  host.defineApi('wait', async (params) => {
+    return terminals.waitTerminal(params);
+  });
+
+  host.defineApi('sleep', async (params) => {
+    return terminals.sleepTerminal(params);
+  });
+
+  host.defineApi('cancelWait', async (params) => {
+    return terminals.cancelWait(params);
+  });
 
   // ── Upgrade APIs ──────────────────────────────────────────────────────
 
@@ -127,18 +138,20 @@ export function activate(host) {
     const { id } = params || {};
     if (!id) throw new Error('stream: id is required');
 
-    // Resolve initial state eagerly so we can replay history.
-    let initialState;
-    try {
-      initialState = terminals.readTerminalOutput({ id, fromOffset: 0 });
-    } catch {
-      throw new Error(`Terminal "${id}" not found`);
-    }
-
     /** @type {StreamConnection} */
     const conn = {
       subscribe: () => {
-        // io captured from handler param — no temporal coupling.
+        // Read buffered history at subscribe time (not at connect time),
+        // so there is no gap between history replay and live subscription.
+        // In single-threaded JS there is no yield between the read and
+        // the subscribeTerminalOutput call below — every byte is captured.
+        let initialState;
+        try {
+          initialState = terminals.readTerminalOutput({ id, fromOffset: 0 });
+        } catch {
+          throw new Error(`Terminal "${id}" not found`);
+        }
+
         const { output: history, running, exitCode } = initialState;
 
         // Replay buffered history first.

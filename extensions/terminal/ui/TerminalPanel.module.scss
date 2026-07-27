@@ -204,6 +204,65 @@
   position: relative;
 }
 
+/* ── Search bar ──────────────────────────────────────────────────────────────── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px 6px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.search-input {
+  flex: 1;
+  height: 22px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bg-primary, #0d1117) 80%, transparent);
+  color: var(--text-primary, #c9d1d9);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  padding: 0 6px;
+  outline: none;
+
+  &:focus {
+    border-color: color-mix(in srgb, var(--primary-dark) 60%, transparent);
+  }
+}
+
+.search-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--primary-dark) 55%, transparent);
+  transition: background 0.1s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    color: var(--primary-deep);
+  }
+}
+
+.search-close {
+  composes: search-btn;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--red) 60%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    color: var(--red);
+  }
+}
+
 /* ── Exited banner ──────────────────────────────────────────────────────────── */
 .exited-banner {
   padding: 3px 12px;
@@ -222,10 +281,100 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   padding: 32px;
   text-align: center;
   color: color-mix(in srgb, var(--primary-dark) 40%, transparent);
   font-size: 12px;
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+.empty-state-hint {
+  font-size: 10.5px;
+  color: color-mix(in srgb, var(--primary-dark) 28%, transparent);
+}
+
+/* ── Tab rename input ───────────────────────────────────────────────────────── */
+.tab-rename-input {
+  width: 80px;
+  height: 20px;
+  border: 1px solid color-mix(in srgb, var(--primary-dark) 50%, transparent);
+  border-radius: 2px;
+  background: var(--bg-primary, #0d1117);
+  color: var(--text-primary, #c9d1d9);
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0 4px;
+  outline: none;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 6px;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 10%, transparent);
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
+  font-size: 10.5px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.toolbar-item {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar-btn {
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--primary-dark) 50%, transparent);
+  transition: background 0.1s, color 0.1s;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    color: var(--primary-deep);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.toolbar-font-size {
+  min-width: 20px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--primary-dark) 42%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 14px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.toolbar-status {
+  color: color-mix(in srgb, var(--primary-dark) 35%, transparent);
+  font-size: 10px;
+  user-select: none;
 }

@@ -71,6 +71,17 @@ export interface TerminalOutput {
   exitCode?: number;
 }
 
+/**
+ * Extended result from a wait-for-idle-or-exit operation.
+ * Includes the full output snapshot plus the reason the wait ended.
+ */
+export interface WaitResult extends TerminalOutput {
+  /** Whether the hard timeout was exceeded (Ctrl+C was sent). */
+  timedOut: boolean;
+  /** Why the wait ended. */
+  reason: 'idle' | 'exited' | 'timeout' | 'cancelled';
+}
+
 // ── Adapter interface ─────────────────────────────────────────────────────────
 
 /**
@@ -135,4 +146,27 @@ export interface TerminalManagerAdapter {
    * Resize the PTY dimensions.
    */
   resizePty(id: string, cols: number, rows: number, sessionId: string): Promise<void>;
+
+  /**
+   * Server-side wait: polls until the terminal becomes idle, exits, or
+   * a hard timeout elapses.  The agent tool delegates to this so no
+   * polling crosses the wire.
+   */
+  waitTerminal(
+    id: string,
+    opts: { idleMs?: number; timeoutMs?: number },
+    sessionId: string,
+  ): Promise<WaitResult>;
+
+  /**
+   * Cancel an active waitTerminal() call for the given terminal.
+   * The in-flight `waitTerminal` promise resolves with reason 'cancelled'.
+   */
+  cancelWait(id: string, sessionId: string): Promise<void>;
+
+  /**
+   * Server-side sleep.  Resolves after `durationMs` milliseconds on the
+   * backend, so no agent-process blocking occurs.
+   */
+  sleepTerminal(durationMs: number, sessionId: string): Promise<{ slept: number; aborted: boolean }>;
 }
