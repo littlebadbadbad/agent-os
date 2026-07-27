@@ -1,45 +1,8 @@
 #!/usr/bin/env node
-import esbuild from "esbuild";
-import { existsSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-import { copyPluginAssets } from "../../../scripts/plugin-build-utils.mjs";
-const SRC_DIR = resolve(__dirname, "..");
-const OUT_DIR = process.env.PLUGIN_OUT_DIR ?? resolve(SRC_DIR, "..", "..", "plugins", "delegation-nudge");
-
-const ENTRIES = [
-  { src: "agent/activate.ts", out: "activate.js", platform: "browser", target: "es2022", format: "esm" },
-];
-
-let builtCount = 0;
-for (const { src, out, platform, target, format } of ENTRIES) {
-  const entryFile = resolve(SRC_DIR, src);
-  if (!existsSync(entryFile)) {
-    console.log(`  ℹ  delegation-nudge: source not found — ${src}`);
-    continue;
-  }
-  console.log(`  ┊  delegation-nudge: ${src} → ${out} (${platform})`);
-  try {
-    await esbuild.build({
-      entryPoints: [entryFile],
-      outfile: resolve(OUT_DIR, out),
-      bundle: true,
-      platform,
-      target,
-      format,
-      minify: false,
-      sourcemap: true,
-      treeShaking: true,
-    });
-    builtCount++;
-  } catch (err) {
-    console.error(`  ✗  delegation-nudge: failed to build ${src}:`, err.message);
-    process.exit(1);
-  }
-}
-if (builtCount > 0) {
-  console.log(`  ✓  delegation-nudge: ${builtCount} entry(s) compiled → ${OUT_DIR}`);
-  copyPluginAssets(SRC_DIR, OUT_DIR);
-}
+import { buildPlugin } from "../../../scripts/plugin-build-utils.mjs";
+buildPlugin(import.meta.url, {
+  pluginName: "delegation-nudge",
+  entries: [
+    { src: "agent/activate.ts", out: "activate.js", platform: "browser" },
+  ],
+});

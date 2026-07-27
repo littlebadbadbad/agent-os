@@ -1,8 +1,9 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./agent"
+    "noEmit": true,
+    "rootDir": "../.."
   },
-  "include": ["agent"]
+  "include": ["agent", "__tests__"],
+  "exclude": ["node_modules", "dist"]
 }

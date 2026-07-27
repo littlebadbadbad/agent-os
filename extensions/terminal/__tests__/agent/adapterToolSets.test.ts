@@ -55,9 +55,8 @@ describe('createTerminalToolSet', () => {
     expect(names).toContain('terminal_read');
     expect(names).toContain('terminal_send');
     expect(names).toContain('terminal_remove');
-    expect(names).toContain('terminal_sleep');
     expect(names).toContain('terminal_wait');
-    expect(names).toHaveLength(7);
+    expect(names).toHaveLength(6);
   });
 
   it('onGetSymbolState returns the adapter in symbol-state', () => {

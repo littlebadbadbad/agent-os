@@ -1,14 +1,9 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "jsx": "react-jsx",
-    "paths": {
-      "@agent-type": ["../../agent-type/index.ts"],
-      "@agent-type/*": ["../../agent-type/*"]
-    }
+    "noEmit": true,
+    "rootDir": "../.."
   },
-  "include": ["agent", "ui", "__tests__", "vite-env.d.ts"]
+  "include": ["agent", "ui"],
+  "exclude": ["node_modules", "dist"]
 }

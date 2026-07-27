@@ -710,21 +710,15 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.5",
-    "@xterm/xterm": "^6.0.0",
     "@yao-pkg/pkg": "^6.14.2",
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.11.1",
     "chalk": "^5.6.2",
-    "chromium-bidi": "^15.0.0",
     "concurrently": "^10.0.3",
-    "croner": "^10.0.1",
-    "cronstrue": "^3.14.0",
     "electron": "42.3.0",
     "esbuild": "^0.28.0",
     "happy-dom": "^20.10.6",
     "node-gyp": "^12.4.0",
-    "node-pty": "^1.1.0",
-    "playwright": "^1.59.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
@@ -738,7 +732,5 @@
     "vitest": "^4.1.5",
     "ws": "^8.20.0"
   },
-  "dependencies": {
-    "@xterm/addon-search": "^0.16.0"
-  }
+  "dependencies": {}
 }

@@ -159,25 +159,3 @@ describe('createTerminalPluginAdapter — resizePty', () => {
     await expect(adapter.resizePty('x', 80, 24, 'sess-1')).rejects.toThrow(/not found/i);
   });
 });
-
-// ── terminal_sleep ────────────────────────────────────────────────────────────
-
-describe('terminal_sleep', () => {
-  it('exists in the tool set returned by createTerminalTools', () => {
-    const { tools } = createTerminalTools(makeAdapter());
-    expect(tools.some(t => t.name === 'terminal_sleep')).toBe(true);
-  });
-
-  it('delegates to adapter.sleepTerminal and returns the result', async () => {
-    const adapter = makeAdapter({
-      sleepTerminal: vi.fn().mockResolvedValue({ slept: 50, aborted: false }),
-    });
-    const { tools } = createTerminalTools(adapter);
-    const sleep = tools.find(t => t.name === 'terminal_sleep')!;
-
-    const result = await sleep.execute({ durationMs: 50 }, ctx) as { slept: number; aborted: boolean };
-
-    expect(vi.mocked(adapter.sleepTerminal)).toHaveBeenCalledWith(50, ctx.sessionId);
-    expect(result).toEqual({ slept: 50, aborted: false });
-  });
-});

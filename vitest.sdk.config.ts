@@ -10,8 +10,8 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/__tests__/**/*.test.ts', 'agent-type/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.tsx', 'extensions/**/__tests__/**/*.test.ts', 'extensions/**/__tests__/**/*.test.tsx'],
-    exclude: ['extensions/browser/**', '**/node_modules/**', '**/dist/**'],
+    include: ['src/__tests__/**/*.test.ts', 'agent-type/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.ts', 'agent-UI/__tests__/**/*.test.tsx'],
+    exclude: ['**/node_modules/**', '**/dist/**'],
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
     reporters: ['verbose'],

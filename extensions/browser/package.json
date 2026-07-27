@@ -4,7 +4,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "playwright": "^1.59.1"
   },
   "devDependencies": {
     "@types/react": "*",
@@ -15,7 +20,5 @@
     "react-dom": "*",
     "sass": "*",
     "vite": "*"
-  },
-  "dependencies": {
   }
 }

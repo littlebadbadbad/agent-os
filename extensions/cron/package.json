@@ -4,7 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "croner": "^10.0.1",
+    "cronstrue": "^3.14.0"
   },
   "devDependencies": {
     "@types/react": "*",
@@ -15,9 +21,5 @@
     "react-dom": "*",
     "sass": "*",
     "vite": "*"
-  },
-  "dependencies": {
-    "croner": "^10.0.1",
-    "cronstrue": "^3.14.0"
   }
 }

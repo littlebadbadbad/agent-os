@@ -4,13 +4,20 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/xterm": "^6.0.0"
   },
   "devDependencies": {
     "@types/react": "*",
     "@types/react-dom": "*",
     "@vitejs/plugin-react": "*",
     "esbuild": "*",
+    "node-pty": "^1.1.0",
     "react": "*",
     "react-dom": "*",
     "sass": "*",
