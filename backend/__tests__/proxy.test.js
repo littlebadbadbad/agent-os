@@ -1,13 +1,12 @@
 /**
  * Comprehensive edge-case tests for backend/lib/proxy.js.
- * Tests: validation helpers, createDirectFetch, get/set/config, testProxy, env var init.
+ * Tests: validation helpers, createProxyFetch, get/set/config, testProxy, env var init.
  */
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('undici', () => {
   const mockFetch = vi.fn(() => Promise.resolve(new Response('ok', { status: 200 })));
   return {
-    setGlobalDispatcher: vi.fn(),
     ProxyAgent: vi.fn(),
     Agent: vi.fn(),
     fetch: mockFetch,
@@ -29,16 +28,17 @@ describe('proxy constants', () => {
   });
   it('ALLOWED_FIELDS', async () => {
     const p = await loadProxy();
-    for (const f of ['enabled','protocol','host','port','username','password','noProxy','connectTimeout'])
+    for (const f of ['protocol','host','port','username','password','noProxy','connectTimeout'])
       expect(p.ALLOWED_FIELDS).toContain(f);
   });
   it('PASSWORD_MASK', async () => {
     const p = await loadProxy();
     expect(p.PASSWORD_MASK).toBe('••••••');
   });
-  it('createDirectFetch returns function', async () => {
+  it('createProxyFetch returns function', async () => {
     const p = await loadProxy();
-    expect(typeof p.createDirectFetch()).toBe('function');
+    const proxyFetch = p.createProxyFetch();
+    expect(typeof proxyFetch).toBe('function');
   });
 });
 
@@ -87,11 +87,6 @@ describe('proxy validateProxyUpdate', () => {
     const p = await loadProxy();
     expect(() => p.validateProxyUpdate({ connectTimeout: Infinity })).toThrow();
   });
-  it('coerces enabled to boolean', async () => {
-    const p = await loadProxy();
-    expect(p.validateProxyUpdate({ enabled: 1 }).enabled).toBe(true);
-    expect(p.validateProxyUpdate({ enabled: 0 }).enabled).toBe(false);
-  });
   it('ignores unknown fields', async () => {
     const p = await loadProxy();
     const r = p.validateProxyUpdate({ bogus: 'x', host: 'valid' });
@@ -132,12 +127,11 @@ describe('proxy config operations', () => {
     const p = await loadProxy();
     expect(p.getProxyConfig().password).toBe('');
   });
-  it('setProxyConfig updates host', async () => {
+  it('setProxyConfig updates host and port', async () => {
     const p = await loadProxy();
-    p.setProxyConfig({ host: 'new.example.com', port: 3128, enabled: false });
+    p.setProxyConfig({ host: 'new.example.com', port: 3128 });
     expect(p.getProxyConfig().host).toBe('new.example.com');
     expect(p.getProxyConfig().port).toBe(3128);
-    expect(p.getProxyConfig().enabled).toBe(false);
   });
   it('setProxyConfig preserves password with mask', async () => {
     const p = await loadProxy();

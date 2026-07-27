@@ -52,16 +52,17 @@ export function buildAnthropicHeaders(apiKey, anthropicVersion = '2023-06-01') {
  * @param {object}   headers   — Request headers
  * @param {object}   body      — JSON-serializable request body
  * @param {AbortSignal} [signal]
+ * @param {(input: RequestInfo, init?: RequestInit) => Promise<Response>} [customFetch] — optional custom fetch function (e.g. proxy-aware fetch)
  * @returns {Promise<Response>}
  */
-export async function post(url, headers, body, signal) {
-  const resp = await fetch(url, {
+export async function post(url, headers, body, signal, customFetch) {
+  const f = customFetch ?? fetch;
+  return f(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
     signal,
   });
-  return resp;
 }
 
 /**

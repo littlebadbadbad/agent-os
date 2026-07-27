@@ -112,7 +112,7 @@ export function createMcpManager(agentDir, proxyCfg = null) {
     statusByServer.set(name, { status: 'connecting' });
     log.info(`connecting to MCP server "${name}" (${cfg.transport}) \u2192 ${cfg.url}`);
 
-    const transportOpts = { useProxy: cfg.useProxy !== false };
+    const transportOpts = { useProxy: cfg.useProxy !== false, proxyConfig: proxyCfg };
     try {
       const client = cfg.transport === 'http'
         ? await createHttpClient(cfg.url, cfg.headers, transportOpts)

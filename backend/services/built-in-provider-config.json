@@ -1,7 +1,6 @@
 ﻿[
   {
     "name": "deepseek",
-    "vendor": "customendpoint",
     "apiKey": "",
     "apiType": "chat-completions",
     "models": [
@@ -54,7 +53,6 @@
   },
   {
     "name": "doubao",
-    "vendor": "customendpoint",
     "apiKey": "",
     "apiType": "chat-completions",
     "models": [
@@ -242,7 +240,6 @@
   },
   {
     "name": "qwen",
-    "vendor": "customendpoint",
     "apiKey": "",
     "apiType": "chat-completions",
     "models": [
@@ -484,7 +481,6 @@
   },
   {
     "name": "glm",
-    "vendor": "customendpoint",
     "apiKey": "",
     "apiType": "chat-completions",
     "models": [
@@ -663,7 +659,7 @@
   },
   {
     "name": "openai",
-    "vendor": "customendpoint",
+    "useProxy": true,
     "apiKey": "",
     "apiType": "chat-completions",
     "models": [

@@ -19,7 +19,6 @@
 
 /** @type {() => ProxyConfig} */
 let _getProxy = () => ({
-  enabled:        false,
   protocol:       'http',
   host:           'localhost',
   port:           7890,

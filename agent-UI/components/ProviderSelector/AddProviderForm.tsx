@@ -99,7 +99,6 @@ export function AddProviderForm({ onSaved, onCancel }: AddProviderFormProps) {
       setStatus('saving');
       await addCustomModelProvider({
         name: name.trim(),
-        vendor: 'customendpoint',
         apiKey: apiKey.trim(),
         apiType,
         models: models.filter((m) => m.id.trim() && m.url.trim()),

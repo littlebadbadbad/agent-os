@@ -1,18 +1,25 @@
 /**
  * scripts/plugin-build-utils.mjs  —  Shared build utilities for plugins.
  *
- * Two exports:
+ * Three exports:
  *
  *   1. `buildPlugin(callerMetaUrl, config)`  —  One-call build for the common case.
  *      Compiles agent/backend entries (esbuild), optionally builds UI (Vite),
  *      and copies manifest.json + cleaned package.json to the output dir.
  *
- *   2. `copyPluginAssets(srcDir, outDir)`  —  Lower-level helper for plugins
+ *   2. `createExternalizePlugin(srcDir)`  —  Esbuild plugin that externalizes
+ *      EVERYTHING outside `srcDir`.  Critically, bare specifiers (npm packages
+ *      like `'undici'`, `'playwright'`) are ALWAYS externalized — they are never
+ *      bundled because they must be resolved at runtime from node_modules.
+ *      Only relative/absolute imports that resolve to files inside srcDir are
+ *      bundled.
+ *
+ *   3. `copyPluginAssets(srcDir, outDir)`  —  Lower-level helper for plugins
  *      that need a custom build pipeline.
  *
  * Usage in a plugin build script:
  *
- *   import { buildPlugin } from "../../../scripts/plugin-build-utils.mjs";
+ *   import { buildPlugin, createExternalizePlugin } from "../../../scripts/plugin-build-utils.mjs";
  *   buildPlugin(import.meta.url, {
  *     pluginName: "terminal",
  *     entries: [
@@ -41,6 +48,66 @@ const DEFAULT_EXTERNAL = {
   browser: [],
   node: ["@agent-type", "@agent-sdk"],
 };
+
+// ── Esbuild plugin: externalize everything outside srcDir ─────────────────────
+
+/**
+ * Create an esbuild plugin that externalizes ALL imports that resolve outside
+ * `srcDir`.  This lets a plugin bundle its own source files while keeping all
+ * npm dependencies (bare specifiers like `'undici'`, `'playwright'`,
+ * `'node-pty'`) as external — they must be resolved at runtime from
+ * node_modules.
+ *
+ * BARE SPECIFIERS (imports not starting with `.`, `/`, or `node:`) are ALWAYS
+ * externalized.  This avoids the subtle bug where `resolve(dirname(importer),
+ * 'undici')` produces a path inside srcDir, causing the bundler to mistakenly
+ * inline a 200 KB npm package into the output.
+ *
+ * @param {string} srcDir  — Absolute path to the plugin's source directory.
+ * @returns {import('esbuild').Plugin}
+ */
+export function createExternalizePlugin(srcDir) {
+  const IS_BARE_SPECIFIER = /^[^./]/;
+  const IS_RELATIVE = /^\.\.?[/\\]/;
+
+  return {
+    name: 'externalize-outside-source',
+    setup(build) {
+      build.onResolve({ filter: /.*/ }, (args) => {
+        // Never externalize the entry point itself.
+        if (args.kind === 'entry-point') return;
+
+        // Bare specifiers like 'undici', 'playwright' — these are npm packages
+        // and MUST be resolved at runtime from node_modules.  Never bundle them.
+        if (IS_BARE_SPECIFIER.test(args.path)) {
+          return { external: true };
+        }
+
+        // Relative imports (./foo, ../bar) — bundle if they resolve inside srcDir.
+        // Absolute imports (/usr/lib/...) — externalize unless inside srcDir.
+        if (IS_RELATIVE.test(args.path)) {
+          const resolvedFile = resolve(dirname(args.importer), args.path);
+          if (resolvedFile.startsWith(srcDir)) return;
+          return { external: true };
+        }
+
+        // Absolute path imports — check if inside srcDir.
+        if (args.path.startsWith('/') || args.path.startsWith('\\')) {
+          if (args.path.startsWith(srcDir)) return;
+          return { external: true };
+        }
+
+        // node: builtins.
+        if (args.path.startsWith('node:') || args.path === 'module' || args.path === 'path') {
+          return { external: true };
+        }
+
+        // Fallback: externalize to be safe.
+        return { external: true };
+      });
+    },
+  };
+}
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

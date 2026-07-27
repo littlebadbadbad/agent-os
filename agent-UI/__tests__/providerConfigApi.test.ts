@@ -23,7 +23,6 @@ import type { ProviderEntry } from '../store/providerConfigStore';
 const SAMPLE_CONFIG: ProviderEntry[] = [
   {
     name: 'DeepSeek',
-    vendor: 'customendpoint',
     apiKey: '${input:secret}',
     apiType: 'chat-completions',
     models: [

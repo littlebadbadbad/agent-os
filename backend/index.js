@@ -12,7 +12,6 @@ import { URL } from 'url';
 import { createReadStream, existsSync, statSync } from 'fs';
 import { join, extname } from 'path';
 import { setCORS, send, readBody } from './lib/http.js';
-import './lib/proxy.js';   // side-effect: initialises global dispatcher
 import { createLogger } from './lib/logger.js';
 import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
 import { WebSocketServer } from 'ws';

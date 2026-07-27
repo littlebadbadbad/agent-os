@@ -14,8 +14,10 @@ buildPlugin(import.meta.url, {
   nativeBinaries: [{
     name: "better_sqlite3.node",
     searchPaths: [
+      // Project root's node_modules (when run via compile-plugins.mjs or standalone)
+      resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'node_modules', 'better-sqlite3', 'build', 'Release'),
+      // Local node_modules (pnpm hoisted workspace)
       join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'node_modules', 'better-sqlite3', 'build', 'Release'),
-      join(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), 'node_modules', 'better-sqlite3', 'build', 'Release'),
     ],
   }],
 });

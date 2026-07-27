@@ -8,43 +8,43 @@
  * Sessions are tracked via the Mcp-Session-Id response header.
  *
  * Proxy support:
- *   When `useProxy` is true (default), all connections route through the
- *   globally configured proxy (set by proxy.js).  When false, connections
- *   bypass the proxy entirely via undici's direct Agent.
+ *   When `useProxy` is true and a `proxyConfig` is provided, all connections
+ *   route through the configured proxy.  When false, the default Node.js
+ *   fetch is used (direct connection).
  */
 
 import { CLIENT_INFO, serializeToolResult } from './transport-utils.js';
 
-// ── Direct fetch (lazily initialised, bypasses proxy) ────────────────────────
+// ── Proxy fetch (lazily initialised) ──────────────────────────────────────────
 
 /**
- * Lazily creates an undici Agent + fetch that bypasses the global proxy.
- * Returns a function matching `fetch()` signature.
- * The Agent is created once and reused (connection pooling).
+ * Lazily creates an undici ProxyAgent + fetch that routes through the
+ * configured proxy.  The Agent is created once and reused (connection pooling).
  */
-let _directFetch = null;
-async function ensureDirectFetch() {
-  if (!_directFetch) {
-    const { fetch: undiciFetch, Agent } = await import('undici');
-    const agent = new Agent({ connect: { timeout: 10_000 } });
-    _directFetch = (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
+let _proxyFetchCache = null;
+async function ensureProxyFetch(proxyConfig) {
+  if (!_proxyFetchCache) {
+    const { fetch: undiciFetch, ProxyAgent } = await import('undici');
+    const proxyUri = `${proxyConfig.protocol}://${proxyConfig.host}:${proxyConfig.port}`;
+    const agent = new ProxyAgent({ uri: proxyUri, connectTimeout: proxyConfig.connectTimeout ?? 10_000 });
+    _proxyFetchCache = (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
   }
-  return _directFetch;
+  return _proxyFetchCache;
 }
 
 /**
  * @param {string} url
  * @param {Record<string,string>} [extraHeaders]
- * @param {{ useProxy?: boolean }} [options]
+ * @param {{ useProxy?: boolean, proxyConfig?: object }} [options]
  */
-export async function createHttpClient(url, extraHeaders = {}, { useProxy = true } = {}) {
+export async function createHttpClient(url, extraHeaders = {}, { useProxy = true, proxyConfig } = {}) {
   let requestId = 0;
   let sessionId;
 
-  // Select fetch function once: proxy-aware global fetch, or direct bypass.
-  const requestFetch = useProxy
-    ? globalThis.fetch.bind(globalThis)
-    : await ensureDirectFetch();
+  // Select fetch function once: proxy-aware fetch, or default Node.js fetch.
+  const requestFetch = useProxy && proxyConfig
+    ? await ensureProxyFetch(proxyConfig)
+    : globalThis.fetch.bind(globalThis);
 
   function buildHeaders() {
     const h = {

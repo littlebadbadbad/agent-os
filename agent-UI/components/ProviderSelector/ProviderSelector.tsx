@@ -202,6 +202,7 @@ export function ProviderSelector() {
         </button>
       )}
       onClose={() => setQuery('')}
+      panelWidth={280}
     >
       {({ close }) => (
         <div className={styles.providerMenu}>

@@ -28,8 +28,11 @@ export function activate(host) {
   // Create the filesystem layer bound to this agent directory.
   const skillFs = createSkillFs(agentDir);
 
+  // Get proxy config from host for proxy-aware skill fetching.
+  const proxyConfig = host.getBackendConfig('proxy');
+
   // Create the skill store (filesystem CRUD) using the fs helpers.
-  const store = createSkillStore(agentDir, skillFs);
+  const store = createSkillStore(agentDir, skillFs, proxyConfig);
 
   // Create the business-logic layer.
   const svc = createSkillService(store);

@@ -4,6 +4,7 @@ import { BrowserLiveView } from './BrowserLiveView';
 import { BrowserPageTabs } from './BrowserPageTabs';
 import { BrowserConfigPanel } from './BrowserConfigPanel';
 import { BrowserVideoSettings } from './BrowserVideoSettings';
+import { BrowserConsole } from './BrowserConsole';
 import type { BrowserPageInfo } from './BrowserLiveView';
 import styles from './BrowserPanel.module.scss';
 
@@ -72,7 +73,7 @@ export function BrowserSessionView({
   onApplyConfig, configApplying = false,
   streamConfig, onStreamConfigChange, viewport, onViewportResize,
 }: BrowserSessionViewProps): ReactElement {
-  const [consoleHeight, setConsoleHeight] = useState(110);
+  const [consoleHeight, setConsoleHeight] = useState(150);
   const [showConfig, setShowConfig] = useState(false);
   const [showVideoSettings, setShowVideoSettings] = useState(false);
 
@@ -193,10 +194,10 @@ export function BrowserSessionView({
       {/* Drag handle — resize canvas / console split */}
       <div className={styles['resize-divider']} onMouseDown={handleDividerMouseDown} />
 
-      {/* Console log */}
+      {/* Console log — xterm.js based, per-tab isolated */}
       <div className={styles['console-area']} style={{ height: consoleHeight }}>
         {log
-          ? log
+          ? <BrowserConsole text={log} />
           : <span className={styles['console-empty']}>(no console output)</span>
         }
         <div ref={consoleEndRef} />

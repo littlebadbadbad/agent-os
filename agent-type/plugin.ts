@@ -141,8 +141,6 @@ export type PluginMethod = (
  * import backend modules directly.
  */
 export interface ProxyConfig {
-  /** Whether proxying is enabled. */
-  readonly enabled: boolean;
   /** Proxy protocol: http, https, socks5, or socks4. */
   readonly protocol: "http" | "https" | "socks5" | "socks4";
   /** Proxy hostname or IP. */

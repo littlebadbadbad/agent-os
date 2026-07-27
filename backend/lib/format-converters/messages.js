@@ -25,6 +25,7 @@ import { resolveEndpoint } from './index.js';
 import { toAnthropicMessages, toAnthropicTools, parseAnthropicResponse } from '../anthropic.js';
 import { buildAnthropicHeaders, post, throwHttpError, parseAnthropicUsage } from '../http-client.js';
 import { readAnthropicSSE } from '../anthropic-sse.js';
+import { createProxyFetch } from '../proxy.js';
 
 /**
  * Determine max_tokens for a model.
@@ -51,7 +52,8 @@ function getMaxTokens(providerName, modelConfig) {
  * @returns {Promise<{text:string, thinking?:string, toolCalls:Array, usage?:object}>}
  */
 export async function callAsync(messages, tools, toolChoice, signal, systemPrompt, model, providerName) {
-  const { url, apiKey, modelConfig } = resolveEndpoint(providerName, model);
+  const { url, apiKey, modelConfig, useProxy } = resolveEndpoint(providerName, model);
+  const doFetch = useProxy ? createProxyFetch() : undefined;
 
   const { system, messages: anthroMessages } = toAnthropicMessages(messages, systemPrompt, model);
 
@@ -74,7 +76,7 @@ export async function callAsync(messages, tools, toolChoice, signal, systemPromp
     }
   }
 
-  const resp = await post(url, buildAnthropicHeaders(apiKey), body, signal);
+  const resp = await post(url, buildAnthropicHeaders(apiKey), body, signal, doFetch);
 
   if (!resp.ok) await throwHttpError(resp, providerName ?? model);
 
@@ -108,7 +110,8 @@ export async function callAsync(messages, tools, toolChoice, signal, systemPromp
  * @returns {Promise<{toolCalls:Array, usage?:object}>}
  */
 export async function callStream(messages, tools, toolChoice, signal, onText, onThinking, systemPrompt, model, providerName) {
-  const { url, apiKey, modelConfig } = resolveEndpoint(providerName, model);
+  const { url, apiKey, modelConfig, useProxy } = resolveEndpoint(providerName, model);
+  const doFetch = useProxy ? createProxyFetch() : undefined;
 
   const { system, messages: anthroMessages } = toAnthropicMessages(messages, systemPrompt, model);
 
@@ -132,7 +135,7 @@ export async function callStream(messages, tools, toolChoice, signal, onText, on
     }
   }
 
-  const resp = await post(url, buildAnthropicHeaders(apiKey), body, signal);
+  const resp = await post(url, buildAnthropicHeaders(apiKey), body, signal, doFetch);
 
   if (!resp.ok) await throwHttpError(resp, providerName ?? model);
 

@@ -531,19 +531,22 @@
 
 .console-area {
   flex-shrink: 0;
-  overflow-y: auto;
-  background: color-mix(in srgb, var(--bg-primary) 96%, transparent);
-  padding: 6px 10px;
-  font-size: 10.5px;
-  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-all;
+  overflow: hidden;
+  background: #0d1117;
+  padding: 0;
+  /* xterm.js fills this container — no additional font/color needed */
 }
 
 .console-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
   color: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10.5px;
   font-style: italic;
+  user-select: none;
 }
 // 鈹€鈹€ JS evaluation bar 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 

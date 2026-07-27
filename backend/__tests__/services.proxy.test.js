@@ -26,18 +26,18 @@ describe('proxy service', () => {
   });
 
   it('getConfig returns proxy config', () => {
-    mockGetProxyConfig.mockReturnValue({ enabled: true, host: 'localhost', port: 7890 });
+    mockGetProxyConfig.mockReturnValue({ host: 'localhost', port: 7890 });
     const cfg = proxy.getConfig();
-    expect(cfg.enabled).toBe(true);
+    expect(cfg.host).toBe('localhost');
     expect(mockGetProxyConfig).toHaveBeenCalled();
   });
 
   it('updateConfig validates and updates', () => {
-    mockValidateProxyUpdate.mockReturnValue({ enabled: true });
-    mockSetProxyConfig.mockReturnValue({ enabled: true, host: 'localhost', port: 7890 });
-    const result = proxy.updateConfig({ enabled: true });
+    mockValidateProxyUpdate.mockReturnValue({ host: 'localhost' });
+    mockSetProxyConfig.mockReturnValue({ host: 'localhost', port: 7890 });
+    const result = proxy.updateConfig({ host: 'localhost' });
     expect(result.config).toBeDefined();
-    expect(mockValidateProxyUpdate).toHaveBeenCalledWith({ enabled: true });
+    expect(mockValidateProxyUpdate).toHaveBeenCalledWith({ host: 'localhost' });
   });
 
   it('testProxyTarget validates target and tests', async () => {

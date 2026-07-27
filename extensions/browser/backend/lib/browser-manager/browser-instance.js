@@ -27,10 +27,16 @@ import { NetworkRecorder } from './network-recorder.js';
 // binary via real filesystem paths.  We load it with an absolute disk path
 // so pkg routes the require to the real filesystem, not the snapshot.
 //
-// In dev mode a standard dynamic import() is used.
+// In dev mode the backend is compiled to plugins/browser/backend.cjs, but
+// playwright lives in the extension's own node_modules.  We use
+// createRequire with a path relative to the bundle's __dirname to reach it.
 const _loadPlaywright = typeof process.pkg !== 'undefined'
   ? () => createRequire(join(dirname(process.execPath), '_'))('playwright')
-  : () => import('playwright');
+  : () => {
+      const bundleDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+      const extRequire = createRequire(join(bundleDir, '..', '..', 'extensions', 'browser', 'noop.js'));
+      return extRequire('playwright');
+    };
 
 /**
  * @typedef {{ index: number; url: string|null; title: string|null }} TabInfo
@@ -105,9 +111,13 @@ export class BrowserInstance {
   #pages    = [];
   /** Index into #pages of the currently active (visible/streaming) tab. */
   #activeTabIndex = 0;
-  #buf      = '';
-  #absOffset = 0;
   #maxBuf   = DEFAULT_MAX_BUF;
+  /**
+   * Per-page console log buffers.
+   * Each page gets its own buffer so console output is isolated by tab.
+   * @type {Map<Page, { buf: string; absOffset: number }>}
+   */
+  #pageBufs = new Map();
   #alive    = false;
   #createdAt = new Date().toISOString();
   /**
@@ -158,22 +168,27 @@ export class BrowserInstance {
 
   /**
    * Wire console/error/close listeners onto a newly created page.
+   * Each page gets its own isolated console buffer.
    * @param {Page} page
    */
   #hookPage(page) {
+    // Create per-page console buffer.
+    this.#pageBufs.set(page, { buf: '', absOffset: 0 });
+
     page.on('console', (msg) => {
-      this.#appendLog(`[${msg.type()}] ${msg.text()}`);
+      this.#appendLog(page, `[${msg.type()}] ${msg.text()}`);
     });
     page.on('pageerror', (err) => {
-      this.#appendLog(`[pageerror] ${err.message}`);
+      this.#appendLog(page, `[pageerror] ${err.message}`);
     });
     page.on('download', (download) => {
-      this.#appendLog(`[download] ${download.suggestedFilename()} ← ${download.url()}`);
+      this.#appendLog(page, `[download] ${download.suggestedFilename()} ← ${download.url()}`);
     });
     page.on('close', () => {
-      // Stop and remove the recorder for this page before modifying #pages.
+      // Clean up per-page resources.
       this.#networkRecorders.get(page)?.stop();
       this.#networkRecorders.delete(page);
+      this.#pageBufs.delete(page);
       // Remove from page list; keep active index in bounds.
       this.#pages = this.#pages.filter(p => p !== page);
       if (this.#activeTabIndex >= this.#pages.length) {
@@ -253,7 +268,7 @@ export class BrowserInstance {
       ...(cfg.devtools ? { devtools: cfg.devtools }  : {}),
       ...(cfg.channel  ? { channel:  cfg.channel }   : {}),
     };
-    if (this.#useProxy && proxyCfg.enabled) {
+    if (this.#useProxy) {
       launchOpts.proxy = {
         server: `${proxyCfg.protocol}://${proxyCfg.host}:${proxyCfg.port}`,
         ...(proxyCfg.username ? { username: proxyCfg.username, password: proxyCfg.password } : {}),
@@ -789,18 +804,25 @@ export class BrowserInstance {
 
   // ── Buffer ───────────────────────────────────────────────────────────────────
 
+  /** @returns {{ buf: string; absOffset: number }} */
+  #getActiveBuf() {
+    const entry = this.#pageBufs.get(this.#activePage);
+    return entry ?? { buf: '', absOffset: 0 };
+  }
+
   /**
-   * Read console log output since `fromOffset`.
+   * Read console log output since `fromOffset` for the active tab.
    * Pass 0 to read from the start of the retained buffer.
    * @param {number} [fromOffset]
    * @returns {{ output: string; offset: number }}
    */
   read(fromOffset = 0) {
-    const bufStart  = this.#absOffset - this.#buf.length;
+    const entry     = this.#getActiveBuf();
+    const bufStart  = entry.absOffset - entry.buf.length;
     const sliceFrom = Math.max(0, fromOffset - bufStart);
     return {
-      output: this.#buf.slice(sliceFrom),
-      offset: this.#absOffset,
+      output: entry.buf.slice(sliceFrom),
+      offset: entry.absOffset,
     };
   }
 
@@ -815,7 +837,7 @@ export class BrowserInstance {
       alive:          this.#alive,
       url:            this.#activePage?.url() ?? null,
       createdAt:      this.#createdAt,
-      outputBytes:    this.#absOffset,
+      outputBytes:    this.#getActiveBuf().absOffset,
       viewport:       vp ?? this.#launchConfig.viewport ?? { width: 1280, height: 720 },
       useProxy:       this.#useProxy,
       activeTabIndex: this.#activeTabIndex,
@@ -927,13 +949,15 @@ export class BrowserInstance {
 
   // ── Private ──────────────────────────────────────────────────────────────────
 
-  /** Append a line to the ring buffer and trim if over capacity. */
-  #appendLog(line) {
-    const entry      = `${line}\n`;
-    this.#buf       += entry;
-    this.#absOffset += entry.length;
-    if (this.#buf.length > this.#maxBuf) {
-      this.#buf = this.#buf.slice(this.#buf.length - this.#maxBuf);
+  /** Append a line to the given page's ring buffer and trim if over capacity. */
+  #appendLog(page, line) {
+    const entry = this.#pageBufs.get(page);
+    if (!entry) return;
+    const text   = `${line}\n`;
+    entry.buf       += text;
+    entry.absOffset += text.length;
+    if (entry.buf.length > this.#maxBuf) {
+      entry.buf = entry.buf.slice(entry.buf.length - this.#maxBuf);
     }
   }
 

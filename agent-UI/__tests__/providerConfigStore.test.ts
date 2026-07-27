@@ -26,7 +26,6 @@ import { providerConfigStore } from '../store/providerConfigStore';
 const SAMPLE_CONFIG = [
   {
     name: 'DeepSeek',
-    vendor: 'customendpoint',
     apiKey: '${input:secret}',
     apiType: 'chat-completions' as const,
     models: [
@@ -36,7 +35,6 @@ const SAMPLE_CONFIG = [
   },
   {
     name: 'GLM',
-    vendor: 'customendpoint',
     apiKey: '${input:secret}',
     apiType: 'chat-completions' as const,
     models: [
@@ -244,7 +242,7 @@ describe('providerConfigStore', () => {
 
   describe('getBuiltInProviders / getCustomProviders', () => {
     it('getBuiltInProviders returns built-in list', async () => {
-      const builtIn = [{ name: 'BuiltIn', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions' as const, models: [] }];
+      const builtIn = [{ name: 'BuiltIn', apiKey: '', apiType: 'chat-completions' as const, models: [] }];
       mockFetchMergedModelConfig.mockResolvedValue([]);
       mockFetchBuiltInModelConfig.mockResolvedValue(builtIn);
       mockFetchCustomModelConfig.mockResolvedValue([]);
@@ -253,7 +251,7 @@ describe('providerConfigStore', () => {
     });
 
     it('getCustomProviders returns custom list', async () => {
-      const custom = [{ name: 'Custom', vendor: 'customendpoint', apiKey: 'key', apiType: 'chat-completions' as const, models: [] }];
+      const custom = [{ name: 'Custom', apiKey: 'key', apiType: 'chat-completions' as const, models: [] }];
       mockFetchMergedModelConfig.mockResolvedValue([]);
       mockFetchBuiltInModelConfig.mockResolvedValue([]);
       mockFetchCustomModelConfig.mockResolvedValue(custom);
@@ -298,8 +296,8 @@ describe('providerConfigStore', () => {
 
   describe('reloadBuiltIn', () => {
     it('re-fetches built-in config and re-merges', async () => {
-      const builtIn = [{ name: 'A', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions' as const, models: [{ id: 'm1', name: 'm1', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
-      const custom = [{ name: 'B', vendor: 'customendpoint', apiKey: 'k', apiType: 'chat-completions' as const, models: [{ id: 'm2', name: 'm2', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
+      const builtIn = [{ name: 'A', apiKey: '', apiType: 'chat-completions' as const, models: [{ id: 'm1', name: 'm1', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
+      const custom = [{ name: 'B', apiKey: 'k', apiType: 'chat-completions' as const, models: [{ id: 'm2', name: 'm2', url: '', toolCalling: false, vision: false, maxInputTokens: 4096, maxOutputTokens: 4096 }] }];
       mockFetchMergedModelConfig.mockResolvedValue(custom);
       mockFetchBuiltInModelConfig.mockResolvedValue([]);
       mockFetchCustomModelConfig.mockResolvedValue(custom);

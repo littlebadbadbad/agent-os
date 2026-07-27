@@ -44,7 +44,7 @@ export interface ProviderModelConfig {
 
 export interface ProviderEntry {
   readonly name: string;
-  readonly vendor: string;
+  readonly useProxy?: boolean;
   readonly apiKey: string;
   readonly apiType: ApiType;
   readonly models: readonly ProviderModelConfig[];

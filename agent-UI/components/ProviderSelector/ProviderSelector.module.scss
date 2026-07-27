@@ -4,19 +4,20 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  border-radius: var(--radius-md);
-  font-size: var(--font-sm);
+  padding: 3px 8px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.2));
+  background: var(--bg-elevated, transparent);
+  color: var(--text-muted, #888);
+  border-radius: 999px;
+  font-size: var(--font-xs, 11px);
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  user-select: none;
   white-space: nowrap;
+  transition: opacity 0.1s, filter 0.1s;
 
   &:hover {
-    background: var(--bg-hover);
-    border-color: var(--blue-light);
+    filter: brightness(1.15);
   }
 }
 

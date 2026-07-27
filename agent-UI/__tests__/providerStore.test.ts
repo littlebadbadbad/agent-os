@@ -39,7 +39,6 @@ import { providerStore } from '../store/providerStore';
 const SAMPLE_PROVIDERS = [
   {
     name: 'DeepSeek',
-    vendor: 'customendpoint',
     apiKey: '',
     apiType: 'chat-completions',
     models: [
@@ -48,7 +47,6 @@ const SAMPLE_PROVIDERS = [
   },
   {
     name: 'GLM',
-    vendor: 'customendpoint',
     apiKey: '',
     apiType: 'chat-completions',
     models: [

@@ -69,7 +69,7 @@ export function getConverter(apiType) {
  *
  * @param {string} providerName
  * @param {string} model
- * @returns {{ url: string, apiKey: string, modelConfig: object, providerConfig: object }}
+ * @returns {{ url: string, apiKey: string, useProxy: boolean, modelConfig: object, providerConfig: object }}
  */
 export function resolveEndpoint(providerName, model) {
   const modelConfig = getMergedModelConfig(providerName, model);
@@ -82,6 +82,7 @@ export function resolveEndpoint(providerName, model) {
 
   const { url } = modelConfig.model;
   const apiKey = resolveApiKey(providerName);
+  const useProxy = modelConfig.provider?.useProxy ?? false;
 
   if (!apiKey) {
     throw new Error(
@@ -90,7 +91,7 @@ export function resolveEndpoint(providerName, model) {
     );
   }
 
-  return { url, apiKey, modelConfig: modelConfig.model, providerConfig: modelConfig.provider };
+  return { url, apiKey, useProxy, modelConfig: modelConfig.model, providerConfig: modelConfig.provider };
 }
 
 /**

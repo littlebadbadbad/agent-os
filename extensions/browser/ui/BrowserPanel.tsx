@@ -251,10 +251,6 @@ export function BrowserPanel({ adapter, sessionId }: BrowserPanelProps): ReactEl
   }, [pageInfo]);
 
   useEffect(() => {
-    consoleEndRef.current?.scrollIntoView({ behavior: 'instant' });
-  }, [consoleLogs, validSelectedId]);
-
-  useEffect(() => {
     if (showNewBar) urlInputRef.current?.focus();
   }, [showNewBar]);
 

@@ -280,12 +280,25 @@ function createIpcPluginApiClient(
           }
 
           // 1. Register IPC listeners FIRST — before connect, so no data is lost.
-          //    Only listen on :data (JSON) — the terminal plugin uses sendJSON exclusively.
-          //    The :frame (binary) channel is for other plugin types (e.g. browser screenshots).
+          //    Listen on :data (JSON) for text/control messages.
           const unsubData = doOn(`${prefix}:data`, (chunk: unknown) => {
             client.callbacks.onData(chunk);
           });
           cleanupFns.push(unsubData);
+
+          //    Listen on :frame (binary) for binary payloads (JPEG frames, etc.).
+          //    Node.js Buffer crosses Electron IPC as Uint8Array via structured clone.
+          const unsubFrame = doOn(`${prefix}:frame`, (chunk: unknown) => {
+            if (chunk instanceof Uint8Array) {
+              const view = new Uint8Array(chunk);
+              client.callbacks.onData(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
+            } else if (chunk instanceof ArrayBuffer) {
+              client.callbacks.onData(chunk);
+            } else {
+              client.callbacks.onData(chunk);
+            }
+          });
+          cleanupFns.push(unsubFrame);
 
           const unsubEnd = doOn(`${prefix}:end`, () => {
             client.callbacks.onEnd();

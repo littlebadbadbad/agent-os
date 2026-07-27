@@ -14,6 +14,7 @@
 import { resolveEndpoint } from './index.js';
 import { toOAIMessages, readSSEStream, assembledToToolCall, extractThinking } from '../oai.js';
 import { buildHeaders, post, throwHttpError, parseUsage } from '../http-client.js';
+import { createProxyFetch } from '../proxy.js';
 
 // ── Async (non-streaming) ────────────────────────────────────────────────────
 
@@ -28,14 +29,15 @@ import { buildHeaders, post, throwHttpError, parseUsage } from '../http-client.j
  * @returns {Promise<{text:string, thinking?:string, toolCalls:Array, usage?:object}>}
  */
 export async function callAsync(messages, tools, toolChoice, signal, systemPrompt, model, providerName) {
-  const { url, apiKey } = resolveEndpoint(providerName, model);
+  const { url, apiKey, useProxy } = resolveEndpoint(providerName, model);
+  const doFetch = useProxy ? createProxyFetch() : undefined;
 
   const resp = await post(url, buildHeaders(apiKey), {
     model,
     messages: toOAIMessages(messages, systemPrompt, model),
     tools: tools?.length ? tools : undefined,
     tool_choice: tools?.length ? toolChoice : undefined,
-  }, signal);
+  }, signal, doFetch);
 
   if (!resp.ok) await throwHttpError(resp, providerName ?? model);
 
@@ -82,7 +84,8 @@ export async function callAsync(messages, tools, toolChoice, signal, systemPromp
  * @returns {Promise<{toolCalls:Array, usage?:object}>}
  */
 export async function callStream(messages, tools, toolChoice, signal, onText, onThinking, systemPrompt, model, providerName) {
-  const { url, apiKey } = resolveEndpoint(providerName, model);
+  const { url, apiKey, useProxy } = resolveEndpoint(providerName, model);
+  const doFetch = useProxy ? createProxyFetch() : undefined;
 
   const resp = await post(url, buildHeaders(apiKey), {
     model,
@@ -91,7 +94,7 @@ export async function callStream(messages, tools, toolChoice, signal, onText, on
     tool_choice: tools?.length ? toolChoice : undefined,
     stream: true,
     stream_options: { include_usage: true },
-  }, signal);
+  }, signal, doFetch);
 
   if (!resp.ok) await throwHttpError(resp, providerName ?? model);
 

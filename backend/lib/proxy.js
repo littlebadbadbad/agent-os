@@ -1,45 +1,23 @@
 /**
  * Runtime proxy configuration module.
  *
- * • Initialises from env vars (HTTPS_PROXY / HTTP_PROXY / ALL_PROXY) on import.
- * • Default when no env var: proxy ON, http://localhost:7890.
- * • Exports getProxyConfig / setProxyConfig for runtime API changes.
- * • Exports testProxy for one-off connectivity probes (does NOT touch the
- *   global dispatcher — safe to call concurrently).
+ * Passive config holder + test utility. NO global state mutation:
+ *   - Does NOT replace globalThis.fetch
+ *   - Does NOT call setGlobalDispatcher
+ *   - Does NOT apply any side-effect on import
  *
- * Why we replace globalThis.fetch:
- *   Node.js 22's built-in fetch uses an internal undici instance that is
- *   completely separate from the npm "undici" package, so setGlobalDispatcher
- *   has no effect on it.  Replacing globalThis.fetch with undici's own fetch
- *   (which does respect setGlobalDispatcher) makes all bare fetch() calls in
- *   every module go through the proxy.
+ * Consumers (model chat pipeline, browser plugin, MCP, skill) obtain a
+ * proxy-aware fetch via {@link createProxyFetch} when they need it.
  *
  * @typedef {ProxyConfig} ProxyConfig
  */
 
 /** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
 
-import { setGlobalDispatcher, ProxyAgent, Agent, fetch as undiciFetch } from 'undici';
+import { ProxyAgent, Agent, fetch as undiciFetch } from 'undici';
 import { createLogger } from './logger.js';
 
 const log = createLogger('proxy');
-
-// ── Direct (non-proxied) Agent ────────────────────────────────────────────────
-// Used by subsystems (MCP, etc.) that need per-connection proxy control.
-// Created once and reused — Agents pool connections internally.
-
-const _directAgent = new Agent({ connect: { timeout: 10_000 } });
-
-/**
- * Create a fetch function that bypasses the globally configured proxy.
- * Returns a new function on each call (safe to pass around), but the
- * underlying undici Agent is shared (connection pooling).
- *
- * @returns {(input: RequestInfo, init?: RequestInit) => Promise<Response>}
- */
-export function createDirectFetch() {
-  return (input, init) => undiciFetch(input, { ...init, dispatcher: _directAgent });
-}
 
 // ── Sentinel value ────────────────────────────────────────────────────────────
 // When the frontend/API sends this string as the password it means "don't
@@ -51,7 +29,6 @@ export const PASSWORD_MASK = '••••••';
 
 /** @type {ProxyConfig} */
 let _cfg = {
-  enabled:        true,
   protocol:       'http',
   host:           'localhost',
   port:           7890,
@@ -94,36 +71,13 @@ function buildProxyUri(cfg) {
   return `${cfg.protocol}://${auth}${cfg.host}:${cfg.port}`;
 }
 
-/**
- * (Re-)apply the global undici dispatcher and replace globalThis.fetch so that
- * all bare fetch() calls anywhere in this process route through the proxy.
- */
-function applyDispatcher(cfg) {
-  if (cfg.enabled) {
-    setGlobalDispatcher(new ProxyAgent({
-      uri:            buildProxyUri(cfg),
-      connectTimeout: cfg.connectTimeout,
-    }));
-    log.info(`Proxy ON  → ${cfg.protocol}://${cfg.host}:${cfg.port}`);
-  } else {
-    setGlobalDispatcher(new Agent({ connect: { timeout: cfg.connectTimeout } }));
-    log.info('Proxy OFF → direct connection');
-  }
-  // Always replace globalThis.fetch with undici's fetch so the global
-  // dispatcher (set above) is respected by all bare fetch() calls.
-  globalThis.fetch = undiciFetch;
-}
-
-// Apply on module load
-applyDispatcher(_cfg);
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /** Valid proxy protocols. */
 export const VALID_PROTOCOLS = ['http', 'https', 'socks5', 'socks4'];
 
 /** Allowed field names for proxy config updates. */
-export const ALLOWED_FIELDS = ['enabled', 'protocol', 'host', 'port', 'username', 'password', 'noProxy', 'connectTimeout'];
+export const ALLOWED_FIELDS = ['protocol', 'host', 'port', 'username', 'password', 'noProxy', 'connectTimeout'];
 
 /**
  * Validate and sanitise a partial proxy config update.
@@ -166,10 +120,6 @@ export function validateProxyUpdate(partial) {
     out.connectTimeout = ms;
   }
 
-  if ('enabled' in out) {
-    out.enabled = Boolean(out.enabled);
-  }
-
   return out;
 }
 
@@ -195,6 +145,25 @@ export function validateTestTarget(target) {
 }
 
 /**
+ * Create a fetch function that routes through the configured proxy.
+ * Creates a new ProxyAgent on each call (the agent is pooled by undici).
+ *
+ * Consumers (model chat, MCP, skill, etc.) use this when they need to
+ * proxy their outgoing HTTP requests.
+ *
+ * @param {Partial<ProxyConfig>} [overrides]  optional overrides (not persisted)
+ * @returns {(input: RequestInfo, init?: RequestInit) => Promise<Response>}
+ */
+export function createProxyFetch(overrides) {
+  const cfg = overrides ? { ..._cfg, ...overrides } : _cfg;
+  const dispatcher = new ProxyAgent({
+    uri:            buildProxyUri(cfg),
+    connectTimeout: cfg.connectTimeout,
+  });
+  return (input, init) => undiciFetch(input, { ...init, dispatcher });
+}
+
+/**
  * Return a copy of the current config with the password masked.
  * @returns {ProxyConfig & { password: string }}
  */
@@ -203,7 +172,7 @@ export function getProxyConfig() {
 }
 
 /**
- * Update zero or more fields and immediately re-apply the global dispatcher.
+ * Update zero or more fields and persist the change.
  *
  * Special password handling:
  *   • password === PASSWORD_MASK  → leave stored password unchanged (sentinel)
@@ -219,13 +188,12 @@ export function setProxyConfig(partial) {
     delete update.password; // sentinel — preserve existing password
   }
   _cfg = { ..._cfg, ...update };
-  applyDispatcher(_cfg);
   return getProxyConfig();
 }
 
 /**
- * Test connectivity using the current config (or inline overrides).
- * Creates its own temporary dispatcher — does NOT modify the global one.
+ * Test connectivity through the proxy.
+ * Creates its own temporary dispatcher — does NOT touch the proxy config.
  *
  * Password sentinel is respected: if overrides.password === PASSWORD_MASK the
  * stored password is used for the test.
@@ -235,21 +203,15 @@ export function setProxyConfig(partial) {
  * @returns {Promise<{ ok: boolean, status?: number, ms: number, error?: string }>}
  */
 export async function testProxy(target = 'https://www.google.com', overrides) {
-  // Resolve overrides: strip sentinel so _cfg.password is used instead
   const resolved = overrides ? { ...overrides } : {};
   if (resolved.password === PASSWORD_MASK) delete resolved.password;
   const cfg = { ..._cfg, ...resolved };
 
   const start = Date.now();
-  let dispatcher;
-  if (cfg.enabled) {
-    dispatcher = new ProxyAgent({
-      uri:            buildProxyUri(cfg),
-      connectTimeout: cfg.connectTimeout,
-    });
-  } else {
-    dispatcher = new Agent({ connect: { timeout: cfg.connectTimeout } });
-  }
+  const dispatcher = new ProxyAgent({
+    uri:            buildProxyUri(cfg),
+    connectTimeout: cfg.connectTimeout,
+  });
 
   try {
     const res = await undiciFetch(target, {

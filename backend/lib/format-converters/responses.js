@@ -19,6 +19,7 @@
 import { resolveEndpoint } from './index.js';
 import { toOAIMessages, readSSEStream, assembledToToolCall, extractThinking } from '../oai.js';
 import { buildHeaders, post, throwHttpError, parseUsage } from '../http-client.js';
+import { createProxyFetch } from '../proxy.js';
 
 /**
  * Convert SDK messages to Responses API format.
@@ -73,9 +74,10 @@ function buildRequestBody(model, messages, tools, toolChoice, systemPrompt) {
  * @returns {Promise<{text:string, thinking?:string, toolCalls:Array, usage?:object}>}
  */
 export async function callAsync(messages, tools, toolChoice, signal, systemPrompt, model, providerName) {
-  const { url, apiKey } = resolveEndpoint(providerName, model);
+  const { url, apiKey, useProxy } = resolveEndpoint(providerName, model);
+  const doFetch = useProxy ? createProxyFetch() : undefined;
 
-  const resp = await post(url, buildHeaders(apiKey), buildRequestBody(model, messages, tools, toolChoice, systemPrompt), signal);
+  const resp = await post(url, buildHeaders(apiKey), buildRequestBody(model, messages, tools, toolChoice, systemPrompt), signal, doFetch);
 
   if (!resp.ok) await throwHttpError(resp, providerName ?? model);
 
@@ -137,12 +139,13 @@ export async function callAsync(messages, tools, toolChoice, signal, systemPromp
  * @returns {Promise<{toolCalls:Array, usage?:object}>}
  */
 export async function callStream(messages, tools, toolChoice, signal, onText, onThinking, systemPrompt, model, providerName) {
-  const { url, apiKey } = resolveEndpoint(providerName, model);
+  const { url, apiKey, useProxy } = resolveEndpoint(providerName, model);
+  const doFetch = useProxy ? createProxyFetch() : undefined;
 
   const resp = await post(url, buildHeaders(apiKey), {
     ...buildRequestBody(model, messages, tools, toolChoice, systemPrompt),
     stream: true,
-  }, signal);
+  }, signal, doFetch);
 
   if (!resp.ok) await throwHttpError(resp, providerName ?? model);
 

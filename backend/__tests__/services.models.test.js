@@ -29,7 +29,7 @@ beforeEach(async () => {
 
 describe('listModels', () => {
   it('returns provider name and models for a known provider', async () => {
-    mockGetMergedProvider.mockReturnValue({ name: 'openai', vendor: 'customendpoint', models: [{ id: 'gpt-4' }] });
+    mockGetMergedProvider.mockReturnValue({ name: 'openai', models: [{ id: 'gpt-4' }] });
     mockListMergedModelsForProvider.mockReturnValue([{ id: 'gpt-4', name: 'GPT-4' }]);
     const result = await models.listModels('openai');
     expect(result).toEqual({ provider: 'openai', models: [{ id: 'gpt-4', name: 'GPT-4' }] });

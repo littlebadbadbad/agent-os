@@ -41,6 +41,12 @@ export interface DropdownPanelProps {
 
   /** z-index for the panel. Default: `200`. */
   zIndex?: number;
+
+  /** Fixed panel width in px. When set, overrides the content-driven width. */
+  panelWidth?: number;
+
+  /** Fixed panel height in px. When set, overrides the content-driven height. */
+  panelHeight?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -66,6 +72,8 @@ export function DropdownPanel({
   onClose,
   className,
   zIndex = 200,
+  panelWidth,
+  panelHeight,
 }: DropdownPanelProps) {
   const [open, setOpen] = useState(false);
 
@@ -120,7 +128,13 @@ export function DropdownPanel({
       {open && (
         <div
           className={styles.panel}
-          style={{ top: position.top, right: position.right, zIndex }}
+          style={{
+            top: position.top,
+            right: position.right,
+            zIndex,
+            width: panelWidth,
+            height: panelHeight,
+          }}
         >
           {typeof children === 'function' ? children({ close }) : children}
         </div>

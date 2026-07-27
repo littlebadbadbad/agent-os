@@ -18,7 +18,6 @@ import { join } from 'path';
 const SAMPLE_BUILT_IN = vi.hoisted(() => ([
   {
     name: 'deepseek',
-    vendor: 'customendpoint',
     apiKey: '',
     apiType: 'chat-completions',
     models: [
@@ -27,7 +26,6 @@ const SAMPLE_BUILT_IN = vi.hoisted(() => ([
   },
   {
     name: 'openai',
-    vendor: 'customendpoint',
     apiKey: '',
     apiType: 'chat-completions',
     models: [
@@ -39,7 +37,6 @@ const SAMPLE_BUILT_IN = vi.hoisted(() => ([
 const SAMPLE_CUSTOM = vi.hoisted(() => ([
   {
     name: 'deepseek',
-    vendor: 'customendpoint',
     apiKey: '${input:chat.lm.secret.custom-deepseek}',
     apiType: 'chat-completions',
     models: [
@@ -48,7 +45,6 @@ const SAMPLE_CUSTOM = vi.hoisted(() => ([
   },
   {
     name: 'custom-only-provider',
-    vendor: 'customendpoint',
     apiKey: '',
     apiType: 'chat-completions',
     models: [
@@ -133,7 +129,6 @@ describe('getBuiltInConfig', () => {
     const config = getBuiltInConfig();
     for (const provider of config) {
       expect(provider).toHaveProperty('name');
-      expect(provider).toHaveProperty('vendor', 'customendpoint');
       expect(provider).toHaveProperty('apiKey');
       expect(provider).toHaveProperty('apiType', 'chat-completions');
       expect(provider).toHaveProperty('models');
@@ -227,8 +222,8 @@ describe('getMergedConfig', () => {
 
   it('correctly handles multiple custom providers overriding built-in', () => {
     const multiCustom = [
-      { name: 'deepseek', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions', models: [{ id: 'ds-override', name: 'DS', url: 'https://ds.example.com/v1', toolCalling: true, vision: false, maxInputTokens: 100, maxOutputTokens: 100 }] },
-      { name: 'openai', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions', models: [{ id: 'oa-override', name: 'OA', url: 'https://oa.example.com/v1', toolCalling: true, vision: true, maxInputTokens: 200, maxOutputTokens: 200 }] },
+      { name: 'deepseek', apiKey: '', apiType: 'chat-completions', models: [{ id: 'ds-override', name: 'DS', url: 'https://ds.example.com/v1', toolCalling: true, vision: false, maxInputTokens: 100, maxOutputTokens: 100 }] },
+      { name: 'openai', apiKey: '', apiType: 'chat-completions', models: [{ id: 'oa-override', name: 'OA', url: 'https://oa.example.com/v1', toolCalling: true, vision: true, maxInputTokens: 200, maxOutputTokens: 200 }] },
     ];
     readFileSync.mockReturnValue(JSON.stringify(multiCustom));
     const merged = getMergedConfig();
@@ -319,7 +314,6 @@ describe('addCustomProvider', () => {
     writeFileSync.mockReturnValue(undefined);
     const newEntry = {
       name: 'NewCustom',
-      vendor: 'customendpoint',
       apiKey: '${input:chat.lm.secret.new}',
       apiType: 'chat-completions',
       models: [{ id: 'new-model', name: 'New Model', url: 'https://new.example.com/v1', toolCalling: false, vision: false, maxInputTokens: 10000, maxOutputTokens: 1000 }],
@@ -332,7 +326,7 @@ describe('addCustomProvider', () => {
   });
 
   it('throws when name is missing', () => {
-    expect(() => addCustomProvider({ vendor: 'customendpoint', models: [{ id: 'm' }] })).toThrow(
+    expect(() => addCustomProvider({ name: '', models: [{ id: 'm' }] })).toThrow(
       'Provider entry must have name and at least one model',
     );
   });
@@ -405,7 +399,6 @@ describe('removeCustomProvider', () => {
 describe('updateCustomProvider', () => {
   const UPDATED_ENTRY = {
     name: 'deepseek',
-    vendor: 'customendpoint',
     apiKey: '${input:chat.lm.secret.updated}',
     apiType: 'chat-completions',
     models: [{ id: 'updated-model', name: 'Updated', url: 'https://updated.example.com/v1', toolCalling: true, vision: true, maxInputTokens: 999, maxOutputTokens: 999 }],
@@ -427,7 +420,6 @@ describe('updateCustomProvider', () => {
     writeFileSync.mockReturnValue(undefined);
     updateCustomProvider('brand-new', {
       name: 'brand-new',
-      vendor: 'customendpoint',
       apiKey: '',
       apiType: 'chat-completions',
       models: [{ id: 'bn', name: 'BN', url: 'https://bn.example.com/v1', toolCalling: false, vision: false, maxInputTokens: 100, maxOutputTokens: 100 }],
@@ -513,7 +505,7 @@ describe('_resetCache', () => {
     expect(first).toEqual(SAMPLE_CUSTOM);
 
     // Change what readFileSync returns
-    const newCustom = [{ name: 'new', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions', models: [] }];
+    const newCustom = [{ name: 'new', apiKey: '', apiType: 'chat-completions', models: [] }];
     // Note: _resetCache() was called in beforeEach, so we need to test that the
     // cache is cleared and next call re-reads from disk
     _resetCache();
@@ -530,7 +522,6 @@ describe('getMergedConfig (edge cases)', () => {
     const builtIn = getBuiltInConfig();
     const allOverrides = builtIn.map((p) => ({
       name: p.name,
-      vendor: 'customendpoint',
       apiKey: '',
       apiType: 'chat-completions',
       models: [{ id: `override-${p.name}`, name: `Override ${p.name}`, url: 'https://override.example.com/v1', toolCalling: false, vision: false, maxInputTokens: 1, maxOutputTokens: 1 }],
@@ -544,7 +535,7 @@ describe('getMergedConfig (edge cases)', () => {
   });
 
   it('handles circular reference in custom config gracefully', () => {
-    const circular = [{ name: 'circular', vendor: 'customendpoint', apiKey: '', apiType: 'chat-completions', models: [{ id: 'c', name: 'c', url: 'https://c.example.com/v1', toolCalling: false, vision: false, maxInputTokens: 1, maxOutputTokens: 1 }] }];
+    const circular = [{ name: 'circular', apiKey: '', apiType: 'chat-completions', models: [{ id: 'c', name: 'c', url: 'https://c.example.com/v1', toolCalling: false, vision: false, maxInputTokens: 1, maxOutputTokens: 1 }] }];
     readFileSync.mockReturnValue(JSON.stringify(circular));
     const merged = getMergedConfig();
     const circ = merged.find((p) => p.name === 'circular');

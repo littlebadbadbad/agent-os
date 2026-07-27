@@ -10,7 +10,6 @@ import { createPluginApiClient } from '../apiClient';
 const client = createPluginApiClient('proxy');
 
 export interface ProxyConfig {
-  readonly enabled: boolean;
   readonly protocol: string;
   readonly host: string;
   readonly port: number;

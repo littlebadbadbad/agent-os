@@ -61,7 +61,7 @@ function ensureCustomConfigFile() {
  * Parse the custom config JSON file.
  * Returns the parsed array or throws on error.
  *
- * @returns {Array<{name: string, vendor: string, apiKey: string, apiType: string, models: Array}>}
+ * @returns {Array<{name: string, apiKey: string, apiType: string, models: Array}>}
  */
 function parseCustomConfig() {
   ensureCustomConfigFile();

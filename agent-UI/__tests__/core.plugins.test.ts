@@ -173,14 +173,14 @@ describe('core model-config plugin', () => {
 
   it('saveCustomModelConfig calls model-config.saveCustom', async () => {
     mockCall.mockResolvedValue(undefined);
-    const cfg = [{ name: 'cfg', vendor: 'v', apiKey: '', apiType: 'chat-completions' as const, models: [] }];
+    const cfg = [{ name: 'cfg', apiKey: '', apiType: 'chat-completions' as const, models: [] }];
     await saveCustomModelConfig(cfg);
     expect(mockCall).toHaveBeenCalledWith('saveCustom', { config: cfg });
   });
 
   it('addCustomModelProvider calls model-config.addCustom', async () => {
     mockCall.mockResolvedValue(undefined);
-    const entry = { name: 'New', vendor: 'v', apiKey: '', apiType: 'chat-completions' as const, models: [] };
+    const entry = { name: 'New', apiKey: '', apiType: 'chat-completions' as const, models: [] };
     await addCustomModelProvider(entry);
     expect(mockCall).toHaveBeenCalledWith('addCustom', { entry });
   });
@@ -193,7 +193,7 @@ describe('core model-config plugin', () => {
 
   it('updateCustomModelProvider calls model-config.updateCustom', async () => {
     mockCall.mockResolvedValue(undefined);
-    await updateCustomModelProvider('Old', { name: 'New', vendor: 'v', apiKey: '', apiType: 'chat-completions', models: [] });
-    expect(mockCall).toHaveBeenCalledWith('updateCustom', { name: 'Old', entry: { name: 'New', vendor: 'v', apiKey: '', apiType: 'chat-completions', models: [] } });
+    await updateCustomModelProvider('Old', { name: 'New', apiKey: '', apiType: 'chat-completions', models: [] });
+    expect(mockCall).toHaveBeenCalledWith('updateCustom', { name: 'Old', entry: { name: 'New', apiKey: '', apiType: 'chat-completions', models: [] } });
   });
 });

@@ -53,7 +53,7 @@ beforeEach(() => {
     url: 'https://api.deepseek.com/v1/chat/completions',
     apiKey: 'sk-test-key',
     modelConfig: { id: 'deepseek-v4-flash', url: 'https://api.deepseek.com/v1/chat/completions', toolCalling: true, vision: false, maxInputTokens: 1048576, maxOutputTokens: 8192 },
-    providerConfig: { name: 'DeepSeek', vendor: 'customendpoint' },
+    providerConfig: { name: 'DeepSeek' },
   });
 });
 

@@ -88,7 +88,10 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
     setTestStatus('testing');
     setTestMsg('');
     try {
-      const result = await testProxyTarget(undefined, form);
+      // Omit password mask from test overrides — backend resolves it
+      const { password: pw, ...overrides } = form;
+      const testOverrides = pw === '••••••' ? overrides : form;
+      const result = await testProxyTarget(undefined, testOverrides);
       if (result.ok) {
         setTestStatus('ok');
         setTestMsg(result.ms != null ? `连通 (${result.ms} ms)` : '连通');
@@ -114,22 +117,8 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
       </div>
 
       <div className={styles.body}>
-        {/* Enable toggle */}
-        <div className={styles.toggleRow}>
-          <span className={styles.toggleLabel}>启用代理</span>
-          <button
-            type="button"
-            className={`${styles.toggle} ${form.enabled ? styles.toggleOn : ''}`}
-            onClick={() => setField('enabled', !form.enabled)}
-            disabled={disabled}
-            aria-pressed={form.enabled}
-          >
-            <span className={styles.toggleThumb} />
-          </button>
-        </div>
-
-        {/* Config fields */}
-        <div className={`${styles.fields} ${!form.enabled ? styles.fieldsDisabled : ''}`}>
+        {/* Config fields — always active (proxy toggle removed) */}
+        <div className={styles.fields}>
 
           {/* Protocol */}
           <label className={styles.label}>协议</label>
@@ -140,7 +129,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
                 type="button"
                 className={`${styles.protoBtn} ${form.protocol === p ? styles.protoBtnActive : ''}`}
                 onClick={() => setField('protocol', p)}
-                disabled={disabled || !form.enabled}
+                disabled={disabled}
               >
                 {p}
               </button>
@@ -156,7 +145,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
                 value={form.host}
                 onChange={(e) => setField('host', e.target.value)}
                 placeholder="localhost"
-                disabled={disabled || !form.enabled}
+                disabled={disabled}
               />
             </div>
             <div className={styles.portGroup}>
@@ -168,7 +157,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
                 max={65535}
                 value={form.port}
                 onChange={(e) => setField('port', Number(e.target.value))}
-                disabled={disabled || !form.enabled}
+                disabled={disabled}
               />
             </div>
           </div>
@@ -181,7 +170,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
             onChange={(e) => setField('username', e.target.value)}
             placeholder="留空则无认证"
             autoComplete="off"
-            disabled={disabled || !form.enabled}
+            disabled={disabled}
           />
 
           {/* Password */}
@@ -193,7 +182,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
             onChange={(e) => setField('password', e.target.value)}
             placeholder="留空则无认证"
             autoComplete="new-password"
-            disabled={disabled || !form.enabled}
+            disabled={disabled}
           />
 
           {/* No-proxy */}
@@ -203,7 +192,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
             value={form.noProxy}
             onChange={(e) => setField('noProxy', e.target.value)}
             placeholder="localhost,127.0.0.1"
-            disabled={disabled || !form.enabled}
+            disabled={disabled}
           />
 
           {/* Connect timeout */}
@@ -215,7 +204,7 @@ export function ProxyManagerPanel({ onClose }: ProxyManagerPanelProps) {
             step={500}
             value={form.connectTimeout}
             onChange={(e) => setField('connectTimeout', Number(e.target.value))}
-            disabled={disabled || !form.enabled}
+            disabled={disabled}
           />
         </div>
 

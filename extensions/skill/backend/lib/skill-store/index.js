@@ -33,7 +33,7 @@ export { parseFrontmatter };
  *   fetchAndInstallSkill: (url: string) => Promise<object>,
  * }}
  */
-export function createSkillStore(agentDir, { SKILLS_DIR, readSkillDir, toWireEntry, writeSkill, skillDir: _skillDir }) {
+export function createSkillStore(agentDir, { SKILLS_DIR, readSkillDir, toWireEntry, writeSkill, skillDir: _skillDir }, proxyConfig = null) {
   /** Convert an arbitrary name to a safe directory name. */
   function safeFolderName(name) {
     return name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'skill';
@@ -137,15 +137,17 @@ export function createSkillStore(agentDir, { SKILLS_DIR, readSkillDir, toWireEnt
   async function fetchAndInstallSkill(url, { useProxy = true } = {}) {
     const parsed = new URL(url);
 
-    // Resolve the fetch function based on proxy preference.
-    // Dynamic import of undici bypasses the globally configured proxy.
-    const resolveFetch = useProxy
-      ? () => globalThis.fetch.bind(globalThis)
-      : async () => {
-          const { fetch: uf, Agent } = await import('undici');
-          const agent = new Agent({ connect: { timeout: 10_000 } });
+    // Select fetch function:
+    //   useProxy=true  → proxy-aware fetch via undici ProxyAgent
+    //   useProxy=false → default Node.js fetch (direct)
+    const resolveFetch = useProxy && proxyConfig
+      ? async () => {
+          const { fetch: uf, ProxyAgent } = await import('undici');
+          const proxyUri = `${proxyConfig.protocol}://${proxyConfig.host}:${proxyConfig.port}`;
+          const agent = new ProxyAgent({ uri: proxyUri, connectTimeout: proxyConfig.connectTimeout ?? 10_000 });
           return (input, init) => uf(input, { ...init, dispatcher: agent });
-        };
+        }
+      : () => globalThis.fetch.bind(globalThis);
 
     const requestFetch = await resolveFetch();
 
