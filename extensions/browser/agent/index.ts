@@ -8,7 +8,6 @@ export type {
   BrowserSnapshotResult,
   BrowserWaitResult,
   BrowserAdapter,
-  HttpBrowserAdapterConfig,
   BrowserInputEvent,
   BrowserInputMouseMove,
   BrowserInputMouseDown,
@@ -36,12 +35,8 @@ export { createBrowserTools } from './tools';
 export { createBrowserToolSet } from './toolSet';
 
 // ── Stream config ──────────────────────────────────────────────────────────────
-export {
-  DEFAULT_STREAM_CONFIG,
-  mergeStreamConfig,
-  isValidStreamConfig,
-} from './streamConfig';
 export type { StreamConfig } from './streamConfig';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 export { toArrayBuffer } from './toArrayBuffer';
+export { safeLaunchConfig } from './safeConfig';

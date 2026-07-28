@@ -1,85 +1,18 @@
 /**
- * extensions/browser/ui/BrowserConsole.tsx — xterm.js-based browser console
+ * extensions/browser/ui/BrowserConsole.tsx — DOM-based browser console
  *
- * Replaces the plain <pre> console area with a proper terminal emulator:
- *   - ANSI-colored log levels (info/warn/error)
+ * Pure DOM console panel with:
+ *   - ANSI-colored log lines via anser
  *   - Auto-scroll to bottom
- *   - Resize-aware via FitAddon
- *   - Dark terminal theme matching the host UI
+ *   - Bottom input bar for inline REPL (when onInput is provided)
+ *   - Per-tab isolation via tabKey
  *
- * Only ever receives the ACTIVE tab's console output — isolation is
- * handled by the backend (per-page buffers in BrowserInstance).
+ * No xterm.js — just <div> + <input>, zero flicker, native IME support.
  */
 
-import { useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import '@xterm/xterm/css/xterm.css';
-import type { ReactElement } from 'react';
-
-// ── ANSI helpers ────────────────────────────────────────────────────────────
-
-const ANSI = {
-  reset:  '\x1b[0m',
-  red:    '\x1b[31m',
-  green:  '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue:   '\x1b[34m',
-  magenta:'\x1b[35m',
-  cyan:   '\x1b[36m',
-  grey:   '\x1b[90m',
-  bold:   '\x1b[1m',
-};
-
-/** Map Playwright console types to ANSI colors. */
-const LEVEL_COLORS: Record<string, string> = {
-  log:     '',
-  info:    ANSI.blue,
-  warn:    ANSI.yellow,
-  error:   ANSI.red,
-  debug:   ANSI.grey,
-  pageerror: ANSI.red + ANSI.bold,
-  download:  ANSI.cyan,
-};
-
-/**
- * Render a console log line with ANSI color coding.
- * Wraps the leading [type] tag in color.
- */
-function colorizeLine(line: string): string {
-  const match = line.match(/^\[(\w+)\]/);
-  if (!match) return line;
-  const level = match[1];
-  const color = LEVEL_COLORS[level] ?? '';
-  if (!color) return line;
-  const rest = line.slice(match[0].length);
-  return `${color}${match[0]}${ANSI.reset}${rest}`;
-}
-
-// ── Theme ────────────────────────────────────────────────────────────────────
-
-const TERMINAL_THEME = {
-  background: '#0d1117',
-  foreground: '#c9d1d9',
-  cursor:     '#c9d1d9',
-  selectionBackground: '#3b5998',
-  black:      '#484f58',
-  red:        '#ff7b72',
-  green:      '#3fb950',
-  yellow:     '#d29922',
-  blue:       '#58a6ff',
-  magenta:    '#bc8cff',
-  cyan:       '#39c5cf',
-  white:      '#b1bac4',
-  brightBlack:  '#6e7681',
-  brightRed:    '#ffa198',
-  brightGreen:  '#56d364',
-  brightYellow: '#e3b341',
-  brightBlue:   '#79c0ff',
-  brightMagenta:'#d2a8ff',
-  brightCyan:   '#56d4dd',
-  brightWhite:  '#f0f6fc',
-};
+import { useEffect, useRef, useMemo, type ReactElement, type KeyboardEvent } from 'react';
+import Anser from 'anser';
+import styles from './BrowserPanel.module.scss';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -90,93 +23,77 @@ const MAX_LINES = 500;
 export interface BrowserConsoleProps {
   /** Raw console text (plain or with ANSI markers). */
   text: string;
+  /**
+   * Identity key for the current tab within a session.
+   * When this changes (tab switch), the console fully clears.
+   */
+  tabKey?: string;
+  /** Called when the user types a full line and presses Enter at the prompt. */
+  onInput?: (line: string) => void;
 }
 
-export function BrowserConsole({ text }: BrowserConsoleProps): ReactElement {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const terminalRef  = useRef<Terminal | null>(null);
-  const fitAddonRef  = useRef<FitAddon | null>(null);
-  const lastTextRef  = useRef('');
+export function BrowserConsole({ text, tabKey, onInput }: BrowserConsoleProps): ReactElement {
+  const logEndRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
 
-  // ── Init xterm ──────────────────────────────────────────────────────────
+  // ── Auto-scroll on new content ─────────────────────────────────────────
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const term = new Terminal({
-      theme: TERMINAL_THEME,
-      fontSize: 11,
-      fontFamily: "'SF Mono', 'Cascadia Code', 'Consolas', 'Menlo', monospace",
-      lineHeight: 1.35,
-      cursorBlink: false,
-      cursorStyle: 'underline',
-      disableStdin: true,
-      allowProposedApi: true,
-      rows: 5,
-      cols: 80,
-      scrollback: MAX_LINES,
-    });
-
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-
-    term.open(container);
-    fitAddon.fit();
-
-    terminalRef.current = term;
-    fitAddonRef.current = fitAddon;
-
-    // Re-fit on resize.
-    const observer = new ResizeObserver(() => {
-      try { fitAddon.fit(); } catch { /* not mounted */ }
-    });
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-      term.dispose();
-      terminalRef.current = null;
-      fitAddonRef.current = null;
-    };
-  }, []);
-
-  // ── Update content ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const term = terminalRef.current;
-    if (!term) return;
-
-    const prev = lastTextRef.current;
-    if (prev === text) return;
-
-    // If text was reset (tab switch), clear and rewrite all.
-    if (text.length < prev.length || !prev) {
-      term.reset();
-      const lines = text.split('\n');
-      // Only write last MAX_LINES to avoid memory issues.
-      const slice = lines.length > MAX_LINES ? lines.slice(-MAX_LINES) : lines;
-      for (const line of slice) {
-        term.writeln(colorizeLine(line));
-      }
-    } else {
-      // Append only the new portion.
-      const diff = text.slice(prev.length);
-      const lines = diff.split('\n');
-      for (const line of lines) {
-        if (line) term.writeln(colorizeLine(line));
-      }
-    }
-
-    lastTextRef.current = text;
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [text]);
 
+  // ── Focus input when in REPL mode ──────────────────────────────────────
+  useEffect(() => {
+    if (onInput && inputRef.current) inputRef.current.focus();
+  }, [onInput, tabKey]);
+
+  // ── Parse ANSI lines ───────────────────────────────────────────────────
+  const lines = useMemo(() => {
+    const raw = text.split('\n');
+    const slice = raw.length > MAX_LINES ? raw.slice(-MAX_LINES) : raw;
+    return slice.map((line) => {
+      const html = Anser.ansiToHtml(line, { use_classes: true });
+      return { key: crypto?.randomUUID?.() ?? Math.random().toString(36), html };
+    });
+  }, [text]);
+
+  // ── Handle Enter key in input bar ───────────────────────────────────────
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && onInput) {
+      const value = inputRef.current?.value ?? '';
+      inputRef.current!.value = '';
+      onInput(value);
+    }
+  };
+
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    />
+    <>
+      {/* Scrollable log */}
+      <div className={styles['console-log']}>
+        {lines.map(({ key, html }) => (
+          <div
+            key={key}
+            className={styles['console-line']}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ))}
+        <div ref={logEndRef} />
+      </div>
+
+      {/* Input bar — only when onInput is provided */}
+      {onInput && (
+        <div className={styles['console-input-area']}>
+          <span className={styles['console-prompt']}>{'\u203A'}</span>
+          <input
+            ref={inputRef}
+            className={styles['console-input-field']}
+            type="text"
+            onKeyDown={handleKeyDown}
+            placeholder="Type JavaScript and press Enter to evaluate"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      )}
+    </>
   );
 }

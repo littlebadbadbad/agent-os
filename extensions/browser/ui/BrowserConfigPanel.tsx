@@ -1,5 +1,6 @@
 import { useState, useCallback, type ReactElement } from 'react';
 import type { BrowserLaunchConfig } from '../agent/index';
+import { safeLaunchConfig } from '../agent/safeConfig';
 import styles from './BrowserPanel.module.scss';
 
 // ── BrowserConfigPanel ────────────────────────────────────────────────────────
@@ -78,14 +79,15 @@ export function BrowserConfigPanel({
       parsed = JSON.parse(json);
       setParseError(null);
     } catch (e) {
-      setParseError((e as SyntaxError).message);
+      setParseError(e instanceof Error ? e.message : String(e));
       return;
     }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      setParseError('Config must be a JSON object { … }');
+    const config = safeLaunchConfig(parsed);
+    if (!config) {
+      setParseError('Config must be a JSON object with valid browser config fields');
       return;
     }
-    onApply(parsed as BrowserLaunchConfig);
+    onApply(config);
   }, [json, onApply]);
 
   const handleLoadExample = useCallback(() => {

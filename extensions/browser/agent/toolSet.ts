@@ -1,4 +1,4 @@
-import { MAIN_CONVERSATION_ID, type ToolSet, type ToolSetContext, type CompactToolCardDescriptor, type ToolCallInfo, type PluginSlotDeclaration } from "@agent-type";
+import { type ToolSet, type ToolSetContext, type CompactToolCardDescriptor, type ToolCallInfo, type PluginSlotDeclaration } from "@agent-type";
 import type { BrowserAdapter } from "./types";
 import { createBrowserTools } from "./tools";
 
@@ -11,8 +11,10 @@ function argStr(args: Record<string, unknown> | undefined, key: string): string 
   return typeof v === "string" ? v : undefined;
 }
 
-function resObj(result: unknown): Record<string, unknown> | undefined {
-  if (result && typeof result === "object") return result as Record<string, unknown>;
+function resObj(value: unknown): object | undefined {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
   return undefined;
 }
 
@@ -139,10 +141,14 @@ export function getBrowserSlotDeclarations(
 ): readonly PluginSlotDeclaration[] {
   return [
     {
-      type: "panel",
+      type: "app",
+      icon: "\uD83C\uDF10",
       label: "Browser",
-      showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
       order: 50,
+      defaultWidth: 1100,
+      defaultHeight: 750,
+      resizable: true,
+      minimizable: true,
     },
     {
       type: "compactToolCard",

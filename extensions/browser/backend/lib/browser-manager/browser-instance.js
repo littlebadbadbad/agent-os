@@ -269,10 +269,8 @@ export class BrowserInstance {
       ...(cfg.channel  ? { channel:  cfg.channel }   : {}),
     };
     if (this.#useProxy) {
-      launchOpts.proxy = {
-        server: `${proxyCfg.protocol}://${proxyCfg.host}:${proxyCfg.port}`,
-        ...(proxyCfg.username ? { username: proxyCfg.username, password: proxyCfg.password } : {}),
-      };
+      // Local proxy server handles upstream auth — no credentials exposed to Chromium.
+      launchOpts.proxy = { server: `http://${proxyCfg.host}:${proxyCfg.port}` };
     }
     this.#browser = await chromium.launch(launchOpts);
 

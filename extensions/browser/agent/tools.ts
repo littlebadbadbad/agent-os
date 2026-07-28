@@ -1,6 +1,7 @@
 ﻿import { z } from 'zod';
 import { defineTool } from '@agent-type';
-import type { BrowserAdapter, BrowserLaunchConfig, NetworkResourceType } from './types';
+import type { BrowserAdapter, NetworkResourceType } from './types';
+import { safeLaunchConfig } from './safeConfig';
 
 /**
  * Create the browser-management tool set for an agent.
@@ -19,7 +20,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
     description: 'List active Playwright browser sessions.',
     parameters: z.object({}),
     execute: async (_, context) => ({
-      sessions: await adapter.listSessions({ sessionId: context.sessionId }),
+      sessions: await adapter.listSessions(),
     }),
   });
 
@@ -49,8 +50,8 @@ export function createBrowserTools(adapter: BrowserAdapter) {
     }),
     execute: async ({ label, startUrl, useProxy, launchConfig }, context) =>
       adapter.createSession({
-        label, startUrl, useProxy, sessionId: context.sessionId,
-        launchConfig: launchConfig as BrowserLaunchConfig | undefined,
+        label, startUrl, useProxy,
+        launchConfig: safeLaunchConfig(launchConfig),
       }),
   });
 
@@ -64,7 +65,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       id: z.string().describe('Session id.'),
     }),
     execute: async ({ id }, context) => {
-      await adapter.closeSession(id, context.sessionId);
+      await adapter.closeSession(id);
       // Clean up any stored read cursor.
       for (const key of readCursors.keys()) {
         if (key.endsWith(`:${id}`)) readCursors.delete(key);
@@ -97,7 +98,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       timeout: z.number().int().min(1_000).max(60_000).optional().describe('Max wait in ms (default 30000).'),
     }),
     execute: async ({ id, url, waitUntil, timeout }, context) =>
-      adapter.navigate(id, url, { waitUntil, timeout, sessionId: context.sessionId }),
+      adapter.navigate(id, url, { waitUntil, timeout }),
   });
 
   // ── browser_run ───────────────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       ),
     }),
     execute: async ({ id, script }, context) => {
-      const raw = await adapter.evaluate(id, script, context.sessionId);
+      const raw = await adapter.evaluate(id, script);
       // Forward __toolAttachments__ returned by the script so binary data
       // (images, documents, etc.) reaches the LLM as proper message attachments.
       if (raw !== null && typeof raw === 'object' && '__toolAttachments__' in (raw as object)) {
@@ -156,7 +157,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
     execute: async ({ id, fromOffset, maxLines }, context) => {
       const cursorKey       = `${context.sessionId}:${id}`;
       const effectiveOffset = fromOffset ?? readCursors.get(cursorKey) ?? 0;
-      const result          = await adapter.readOutput(id, effectiveOffset, context.sessionId);
+      const result          = await adapter.readOutput(id, effectiveOffset);
       readCursors.set(cursorKey, result.offset);
 
       const limit = maxLines ?? DEFAULT_MAX_LINES;
@@ -186,7 +187,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       id: z.string().describe('Session id.'),
     }),
     execute: async ({ id }, context) =>
-      adapter.snapshot(id, context.sessionId),
+      adapter.snapshot(id),
   });
 
   // ── browser_wait ─────────────────────────────────────────────────────────────
@@ -208,7 +209,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       timeout: z.number().int().min(500).max(60_000).optional().describe('Max wait in ms (default 10000).'),
     }),
     execute: async ({ id, selector, waitUntil, timeout }, context) =>
-      adapter.wait(id, { selector, waitUntil, timeout, sessionId: context.sessionId }),
+      adapter.wait(id, { selector, waitUntil, timeout }),
   });
 
   // ── browser_screenshot ───────────────────────────────────────────────────────
@@ -227,8 +228,8 @@ export function createBrowserTools(adapter: BrowserAdapter) {
     }),
     execute: async ({ id, selector }, context) => {
       const [{ data, mimeType }, snap] = await Promise.all([
-        adapter.screenshotData(id, context.sessionId, selector),
-        adapter.snapshot(id, context.sessionId),
+        adapter.screenshotData(id, selector),
+        adapter.snapshot(id),
       ]);
       return {
         url:   snap.url,
@@ -261,8 +262,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
     execute: async ({ id, launchConfig }, context) =>
       adapter.setLaunchConfig(
         id,
-        launchConfig as BrowserLaunchConfig,
-        context.sessionId,
+        safeLaunchConfig(launchConfig) ?? {},
       ),
   });
 
@@ -277,7 +277,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       index: z.number().int().min(0).describe('Zero-based tab index.'),
     }),
     execute: async ({ id, index }, context) =>
-      adapter.switchTab(id, index, context.sessionId),
+      adapter.switchTab(id, index),
   });
 
   // ── browser_network ───────────────────────────────────────────────────────────
@@ -366,7 +366,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       ),
     }),
     execute: async ({ id, ...opts }, context) =>
-      adapter.getNetworkRequests(id, { ...opts, sessionId: context.sessionId }),
+      adapter.getNetworkRequests(id, { ...opts }),
   });
 
   // ── browser_clear_network ──────────────────────────────────────────────────────────────
@@ -384,7 +384,7 @@ export function createBrowserTools(adapter: BrowserAdapter) {
       ),
     }),
     execute: async ({ id, tabIndex }, context) => {
-      await adapter.clearNetworkRequests(id, { tabIndex, sessionId: context.sessionId });
+      await adapter.clearNetworkRequests(id, { tabIndex });
       return { cleared: true, tabIndex: tabIndex ?? 'all' };
     },
   });

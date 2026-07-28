@@ -8,7 +8,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['agent/__tests__/**/*.test.ts', 'backend/__tests__/**/*.test.js'],
+    include: ['agent/__tests__/**/*.test.ts', 'backend/__tests__/**/*.test.js', 'ui/__tests__/**/*.test.ts', 'ui/__tests__/**/*.test.tsx'],
     environment: 'node',
     reporters: ['verbose'],
   },

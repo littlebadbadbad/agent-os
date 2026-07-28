@@ -25,6 +25,10 @@ import styles from './BrowserPanel.module.scss';
 export interface BrowserPageInfo {
   url: string | null;
   title: string | null;
+  /** Full console buffer — sent once on connect or tab switch. */
+  consoleOutput?: string;
+  /** New console lines since last info message. */
+  consoleAppend?: string;
   /** Current tab list — present whenever tabs change (from stream message). */
   tabs?: BrowserTabInfo[];
   /** Index of the active tab — present together with `tabs`. */
@@ -42,8 +46,8 @@ export interface BrowserLiveViewProps {
   adapter: BrowserAdapter;
   /** Browser session id to stream. */
   browserId: string;
-  /** Called when the server sends an updated page URL / title / console lines. */
-  onPageInfo?: (info: BrowserPageInfo & { consoleOutput?: string; consoleAppend?: string }) => void;
+  /** Called when the server sends updated page URL / title / console lines. */
+  onPageInfo?: (info: BrowserPageInfo) => void;
   /**
    * Initial stream configuration (FPS, quality).
    * Passed to `adapter.connectStream()` on mount.

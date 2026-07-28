@@ -531,10 +531,112 @@
 
 .console-area {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: #0d1117;
   padding: 0;
-  /* xterm.js fills this container — no additional font/color needed */
+}
+
+.console-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 8px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10.5px;
+  line-height: 1.45;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--primary) 18%, transparent) transparent;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 18%, transparent); border-radius: 3px; }
+}
+
+.console-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 1em;
+}
+
+// ── anser ANSI colour classes ──────────────────────────────────────────────
+
+:global {
+  .ansi-black-fg         { color: #484f58; }
+  .ansi-red-fg           { color: #ff7b72; }
+  .ansi-green-fg         { color: #3fb950; }
+  .ansi-yellow-fg        { color: #d29922; }
+  .ansi-blue-fg          { color: #58a6ff; }
+  .ansi-magenta-fg       { color: #bc8cff; }
+  .ansi-cyan-fg          { color: #39c5cf; }
+  .ansi-white-fg         { color: #b1bac4; }
+  .ansi-bright-black-fg  { color: #6e7681; }
+  .ansi-bright-red-fg    { color: #ffa198; }
+  .ansi-bright-green-fg  { color: #56d364; }
+  .ansi-bright-yellow-fg { color: #e3b341; }
+  .ansi-bright-blue-fg   { color: #79c0ff; }
+  .ansi-bright-magenta-fg{ color: #d2a8ff; }
+  .ansi-bright-cyan-fg   { color: #56d4dd; }
+  .ansi-bright-white-fg  { color: #f0f6fc; }
+
+  .ansi-black-bg         { background: #484f58; }
+  .ansi-red-bg           { background: #ff7b72; }
+  .ansi-green-bg         { background: #3fb950; }
+  .ansi-yellow-bg        { background: #d29922; }
+  .ansi-blue-bg          { background: #58a6ff; }
+  .ansi-magenta-bg       { background: #bc8cff; }
+  .ansi-cyan-bg          { background: #39c5cf; }
+  .ansi-white-bg         { background: #b1bac4; }
+  .ansi-bright-black-bg  { background: #6e7681; }
+  .ansi-bright-red-bg    { background: #ffa198; }
+  .ansi-bright-green-bg  { background: #56d364; }
+  .ansi-bright-yellow-bg { background: #e3b341; }
+  .ansi-bright-blue-bg   { background: #79c0ff; }
+  .ansi-bright-magenta-bg{ background: #d2a8ff; }
+  .ansi-bright-cyan-bg   { background: #56d4dd; }
+  .ansi-bright-white-bg  { background: #f0f6fc; }
+
+  .ansi-bold             { font-weight: 700; }
+  .ansi-italic           { font-style: italic; }
+  .ansi-underline        { text-decoration: underline; }
+}
+
+.console-input-area {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 8px;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 10%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 93%, transparent);
+}
+
+.console-prompt {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-weight: 700;
+  color: #4ade80;
+  user-select: none;
+}
+
+.console-input-field {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--primary-light);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10.5px;
+  outline: none;
+  caret-color: #4ade80;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+    font-style: italic;
+  }
 }
 
 .console-empty {

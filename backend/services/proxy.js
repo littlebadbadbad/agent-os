@@ -5,16 +5,17 @@
  * Transport layers (IPC, Network) delegate to these functions exclusively.
  */
 
-import { getProxyConfig, setProxyConfig, testProxy, validateProxyUpdate, validateTestTarget } from '../lib/proxy.js';
+import { getUpstreamConfig, setProxyConfig, testProxy, validateProxyUpdate, validateTestTarget } from '../lib/proxy.js';
 
 /** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
 
 /**
- * Get the current proxy configuration.
+ * Get the upstream proxy configuration (with masked password).
+ * Used by the UI proxy manager — shows the actual upstream settings.
  * @returns {ProxyConfig}
  */
 export function getConfig() {
-  return getProxyConfig();
+  return getUpstreamConfig();
 }
 
 /**

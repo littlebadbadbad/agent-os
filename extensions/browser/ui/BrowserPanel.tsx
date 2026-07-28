@@ -1,317 +1,128 @@
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  type ReactElement,
-} from 'react';
-import type {
-  BrowserAdapter,
-  BrowserEntry,
-  BrowserLaunchConfig,
-  StreamConfig,
-} from '../agent/index';
-import { DEFAULT_STREAM_CONFIG } from '../agent/index';
-import type { BrowserPageInfo } from './BrowserSessionView';
+/**
+ * extensions/browser/ui/BrowserPanel.tsx — Browser plugin app panel (app slot)
+ *
+ * Lean orchestrator backed by the unified useBrowserStore hook.
+ * Owns only the new-session creation bar state; everything else lives in the store.
+ */
+
+import { useState, useRef, useCallback, type ReactElement } from 'react';
+import type { BrowserAdapter, BrowserLaunchConfig } from '../agent/types';
+import type { BrowserPageInfo } from './BrowserLiveView';
+import { useBrowserStore } from './hooks/useBrowserStore';
 import { BrowserTabBar } from './BrowserTabBar';
 import { BrowserSessionView } from './BrowserSessionView';
 import styles from './BrowserPanel.module.scss';
 
-// ── BrowserPanel ──────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface BrowserPanelProps {
   adapter: BrowserAdapter;
-  sessionId: string;
 }
 
-export function BrowserPanel({ adapter, sessionId }: BrowserPanelProps): ReactElement {
-  const [sessions, setSessions]     = useState<BrowserEntry[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [creating, setCreating]     = useState(false);
-  const [showNewBar, setShowNewBar] = useState(false);
-  const [urlInput, setUrlInput]     = useState('');
-  const [useProxy, setUseProxy]     = useState(true);
+export type { BrowserPageInfo };
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function BrowserPanel({ adapter }: BrowserPanelProps): ReactElement {
+  const store = useBrowserStore(adapter);
+
+  // New-session creation bar state (local to panel, no need to persist).
   const urlInputRef = useRef<HTMLInputElement>(null);
-
-  const [consoleLogs, setConsoleLogs] = useState<Record<string, string>>({});
-
-  // ── Stream config & viewport state (lifted) ─────────────────────────────
-  const [streamConfig, setStreamConfig] = useState<StreamConfig>({ ...DEFAULT_STREAM_CONFIG });
-  const [viewport, setViewport] = useState<{ width: number; height: number }>({ width: 1280, height: 720 });
-  const [pageInfo, setPageInfo]       = useState<Record<string, BrowserPageInfo>>({});
-
-  const [addrInput, setAddrInput]   = useState('');
-  const [navigating, setNavigating] = useState(false);
-
-  const [jsInput, setJsInput]     = useState('');
-  const [jsRunning, setJsRunning] = useState(false);
-  const [jsResult, setJsResult]   = useState<string | null>(null);
-  const jsInputRef      = useRef<HTMLInputElement>(null);
-  const consoleEndRef   = useRef<HTMLDivElement>(null);
-  const addrFocusedRef  = useRef(false);
-
-  // Pending launch config for the NEXT new session (controlled via BrowserTabBar ⚙)
+  const [showNewBar, setShowNewBar] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [useProxy, setUseProxy] = useState(true);
   const [newSessionConfig, setNewSessionConfig] = useState<BrowserLaunchConfig>({});
-  // Whether a config-triggered restart is in progress for the selected session
-  const [configApplying, setConfigApplying] = useState(false);
 
-  // ── Initial load ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    adapter.listSessions({ sessionId }).then(list => {
-      setSessions(list);
-      if (list.length > 0) setSelectedId(list[0].id);
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Stream callback — routes console + tab info ─────────────────────────
 
-  // ── Periodic session-list sync (3 s) ──────────────────────────────────────
-  useEffect(() => {
-    const timerId = setInterval(async () => {
-      try {
-        const list = await adapter.listSessions({ sessionId });
-        setSessions(prev =>
-          prev
-            .filter(s => list.some(l => l.id === s.id))
-            .map(s => {
-              const fresh = list.find(l => l.id === s.id);
-              return fresh ? { ...s, alive: fresh.alive, url: fresh.url } : s;
-            }),
-        );
-      } catch { /* backend restarting */ }
-    }, 3000);
-    return () => clearInterval(timerId);
-  }, [adapter, sessionId]);
+  const handlePageInfo = useCallback(
+    (browserId: string, info: BrowserPageInfo) => {
+      const tabIdx = info.activeTabIndex ?? 0;
 
-  // ── Derive selected id ────────────────────────────────────────────────────
-  const validSelectedId: string | null =
-    sessions.some(s => s.id === selectedId)
-      ? selectedId
-      : sessions.length > 0 ? sessions[sessions.length - 1].id : null;
+      if (info.consoleOutput !== undefined) {
+        store.setConsoleOutput(browserId, tabIdx, info.consoleOutput);
+      }
+      if (info.consoleAppend) {
+        store.appendConsoleOutput(browserId, tabIdx, info.consoleAppend);
+      }
+      if (info.activeTabIndex !== undefined) {
+        store.setActiveTab(browserId, info.activeTabIndex);
+      }
+      if (info.tabs !== undefined && info.activeTabIndex !== undefined) {
+        store.updateTabInfo(browserId, info.tabs, info.activeTabIndex);
+      }
+    },
+    [store],
+  );
 
-  // ── Create session ────────────────────────────────────────────────────────
-  const handleCreate = useCallback(async (startUrl?: string) => {
-    if (creating) return;
-    setCreating(true);
-    setShowNewBar(false);
-    setUrlInput('');
-    try {
-      const entry = await adapter.createSession({
-        label: startUrl ? new URL(startUrl).hostname : 'browser',
-        startUrl,
-        useProxy,
-        launchConfig: newSessionConfig,
-        sessionId,
-      });
-      setSessions(prev => [...prev, entry]);
-      setSelectedId(entry.id);
-    } catch {
-      // noop
-    } finally {
-      setCreating(false);
-    }
-  }, [adapter, creating, useProxy, sessionId]);
+  // ── Derive active console text ──────────────────────────────────────────
 
-  // ── Close session ─────────────────────────────────────────────────────────────
-  const handleClose = useCallback(async (id: string) => {
-    try { await adapter.closeSession(id, sessionId); } catch {}
-    setSessions(prev => prev.filter(s => s.id !== id));
-    setSelectedId(prev => prev === id ? null : prev);
-    setConsoleLogs(prev => { const n = { ...prev }; delete n[id]; return n; });
-    setPageInfo(prev => { const n = { ...prev }; delete n[id]; return n; });
-  }, [adapter, sessionId]);
+  const activeEntry = store.selectedEntry;
+  const activeTabIdx = activeEntry
+    ? (store.activeTabBySession[activeEntry.id] ?? activeEntry.activeTabIndex ?? 0)
+    : 0;
+  const activeLog = activeEntry
+    ? store.getLog(activeEntry.id, activeTabIdx)
+    : '';
 
-  // ── Apply launch config change to a live session ───────────────────────────────
-  const handleApplyConfig = useCallback(async (
-    id: string,
-    config: BrowserLaunchConfig,
-  ) => {
-    setConfigApplying(true);
-    try {
-      const updated = await adapter.setLaunchConfig(id, config, sessionId);
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
-    } catch { /* ignore */ } finally {
-      setConfigApplying(false);
-    }
-  }, [adapter, sessionId]);
+  // ── Console REPL ────────────────────────────────────────────────────────
 
-  // ── Toggle proxy on a live session ────────────────────────────────────────────
-  const handleToggleProxy = useCallback(async (id: string) => {
-    const session = sessions.find(s => s.id === id);
-    if (!session) return;
-    try {
-      const updated = await adapter.setProxy(id, !session.useProxy, sessionId);
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
-    } catch { /* ignore — UI will reflect existing state */ }
-  }, [adapter, sessions, sessionId]);
+  const handleAppendToLog = useCallback(
+    (text: string) => {
+      if (!activeEntry) return;
+      store.appendConsoleOutput(activeEntry.id, activeTabIdx, text);
+    },
+    [store, activeEntry, activeTabIdx],
+  );
 
-  // ── Switch active tab within a session ─────────────────────────────────
-  const handleSwitchTab = useCallback(async (id: string, index: number) => {
-    try {
-      const updated = await adapter.switchTab(id, index, sessionId);
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
-    } catch { /* ignore */ }
-  }, [adapter, sessionId]);
+  // ── Viewport resize ────────────────────────────────────────────────────
 
-  // ── Stream config change (FPS / quality) ────────────────────────────────
-  const handleStreamConfigChange = useCallback((partial: Partial<StreamConfig>) => {
-    setStreamConfig(prev => ({ ...prev, ...partial }));
-  }, []);
+  const handleViewportResize = useCallback(
+    (w: number, h: number) => {
+      store.updateViewport(w, h);
+      if (activeEntry) store.setViewportSize(activeEntry.id, w, h);
+    },
+    [store, activeEntry],
+  );
 
-  // ── Viewport resize ──────────────────────────────────────────────────────
-  const handleViewportResize = useCallback(async (width: number, height: number) => {
-    setViewport({ width, height });
-    if (!validSelectedId) return;
-    try {
-      const updated = await adapter.setViewportSize(validSelectedId, width, height, sessionId);
-      setSessions(prev => prev.map(s => s.id === validSelectedId ? { ...s, ...updated } : s));
-    } catch { /* viewport resize failed — UI retains the value */ }
-  }, [adapter, sessionId, validSelectedId]);
+  // ── Render ─────────────────────────────────────────────────────────────
 
-  // ── Page info from live stream ────────────────────────────────────────────
-  const handlePageInfo = useCallback((
-    browserId: string,
-    info: BrowserPageInfo & { consoleOutput?: string; consoleAppend?: string },
-  ) => {
-    setPageInfo(prev => ({
-      ...prev,
-      [browserId]: { url: info.url, title: info.title },
-    }));
-    if (info.consoleOutput !== undefined) {
-      setConsoleLogs(prev => ({ ...prev, [browserId]: info.consoleOutput! }));
-    }
-    if (info.consoleAppend) {
-      setConsoleLogs(prev => ({
-        ...prev,
-        [browserId]: (prev[browserId] ?? '') + info.consoleAppend,
-      }));
-    }
-    // Update tab list in the session entry when the stream reports a change.
-    if (info.tabs !== undefined) {
-      setSessions(prev => prev.map(s =>
-        s.id === browserId
-          ? { ...s, tabs: info.tabs!, activeTabIndex: info.activeTabIndex ?? 0 }
-          : s,
-      ));
-    }
-  }, []);
-
-  // ── Navigate to URL ───────────────────────────────────────────────────────
-  const handleNavigate = useCallback(async (id: string, url: string) => {
-    const trimmed = url.trim();
-    if (!trimmed || navigating) return;
-    let finalUrl = trimmed;
-    if (!/^[a-z][a-z0-9+\-.]*:\/\//i.test(finalUrl)) finalUrl = `https://${finalUrl}`;
-    setNavigating(true);
-    try {
-      await adapter.navigate(id, finalUrl, { waitUntil: 'domcontentloaded', sessionId });
-      // The WS stream will push the updated URL/title via the next info message.
-    } catch { /* navigation errors are visible on the live stream */ }
-    finally {
-      setNavigating(false);
-    }
-  }, [adapter, navigating, sessionId]);
-
-  // ── Execute JS ────────────────────────────────────────────────────────────
-  const handleRunJs = useCallback(async (id: string) => {
-    const script = jsInput.trim();
-    if (!script || jsRunning) return;
-    setJsRunning(true);
-    setJsResult(null);
-    try {
-      const result = await adapter.evaluate(id, script, sessionId);
-      const text = result === undefined ? '(undefined)'
-        : result === null ? '(null)'
-        : typeof result === 'object' ? JSON.stringify(result, null, 2)
-        : String(result);
-      setJsResult(`\u2713 ${text}`);
-    } catch (err) {
-      setJsResult(`\u2717 ${String(err)}`);
-    } finally {
-      setJsRunning(false);
-    }
-  }, [adapter, jsInput, jsRunning, sessionId]);
-
-  // ── Side-effects ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    setJsResult(null);
-    setJsInput('');
-  }, [validSelectedId]);
-
-  // Sync addr bar when switching sessions (always).
-  useEffect(() => {
-    if (validSelectedId) setAddrInput(pageInfo[validSelectedId]?.url ?? '');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validSelectedId]);
-
-  // Sync addr bar when page navigates, but only if user is not actively typing.
-  useEffect(() => {
-    if (!addrFocusedRef.current && validSelectedId)
-      setAddrInput(pageInfo[validSelectedId]?.url ?? '');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageInfo]);
-
-  useEffect(() => {
-    if (showNewBar) urlInputRef.current?.focus();
-  }, [showNewBar]);
-
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const selectedEntry = sessions.find(s => s.id === validSelectedId) ?? null;
-  const info = validSelectedId ? (pageInfo[validSelectedId] ?? null) : null;
-  const log  = validSelectedId ? (consoleLogs[validSelectedId] ?? '') : '';
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className={styles['panel']}>
       <BrowserTabBar
-        sessions={sessions}
-        selectedId={validSelectedId}
-        creating={creating}
+        sessions={store.sessions}
+        selectedId={store.selectedId}
+        creating={store.creating}
         showNewBar={showNewBar}
         urlInput={urlInput}
         useProxy={useProxy}
         newSessionConfig={newSessionConfig}
         urlInputRef={urlInputRef}
-        onSelect={setSelectedId}
-        onClose={handleClose}
-        onCreate={handleCreate}
+        onSelect={store.select}
+        onClose={store.close}
+        onCreate={(url) => store.create(url, useProxy, newSessionConfig)}
         onShowNewBar={setShowNewBar}
         onUrlChange={setUrlInput}
         onUseProxyChange={setUseProxy}
         onNewSessionConfigChange={setNewSessionConfig}
       />
 
-      {selectedEntry ? (
+      {activeEntry ? (
         <BrowserSessionView
-          key={selectedEntry.id}
-          entry={selectedEntry}
+          key={activeEntry.id}
+          entry={activeEntry}
           adapter={adapter}
-          browserId={selectedEntry.id}
-          addrInput={addrInput}
-          navigating={navigating}
-          info={info}
-          log={log}
-          jsInput={jsInput}
-          jsRunning={jsRunning}
-          jsResult={jsResult}
-          consoleEndRef={consoleEndRef}
-          jsInputRef={jsInputRef}
-          onAddrChange={setAddrInput}
-          onAddrFocus={() => { addrFocusedRef.current = true; }}
-          onAddrBlur={() => { addrFocusedRef.current = false; }}
-          onNavigate={() => handleNavigate(validSelectedId!, addrInput)}
-          onPageInfo={(i) => handlePageInfo(validSelectedId!, i)}
-          onToggleProxy={() => handleToggleProxy(validSelectedId!)}
-          tabs={selectedEntry.tabs}
-          activeTabIndex={selectedEntry.activeTabIndex}
-          onSwitchTab={(idx) => handleSwitchTab(validSelectedId!, idx)}
-          onApplyConfig={(cfg) => handleApplyConfig(validSelectedId!, cfg)}
-          configApplying={configApplying}
-          onJsChange={setJsInput}
-          onRunJs={() => handleRunJs(validSelectedId!)}
-          streamConfig={streamConfig}
-          onStreamConfigChange={handleStreamConfigChange}
-          viewport={viewport}
+          log={activeLog}
+          onPageInfo={(info) => handlePageInfo(activeEntry.id, info)}
+          onToggleProxy={() => store.toggleProxy(activeEntry.id)}
+          onSwitchTab={(idx) => store.switchTab(activeEntry.id, idx)}
+          onApplyConfig={(cfg) => store.applyConfig(activeEntry.id, cfg)}
+          configApplying={store.configApplying}
+          streamConfig={store.streamConfig}
+          onStreamConfigChange={store.updateStreamConfig}
+          viewport={store.viewport}
           onViewportResize={handleViewportResize}
+          onAppendToLog={handleAppendToLog}
         />
       ) : (
         <div className={styles['empty-state']}>

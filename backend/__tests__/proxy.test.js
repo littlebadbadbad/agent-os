@@ -4,6 +4,9 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
+// ── Local proxy server mock — self-contained, uses a class for `new` compatibility ─
+const MOCK_LOCAL_PORT = 12345;
+
 vi.mock('undici', () => {
   const mockFetch = vi.fn(() => Promise.resolve(new Response('ok', { status: 200 })));
   return {
@@ -11,6 +14,19 @@ vi.mock('undici', () => {
     Agent: vi.fn(),
     fetch: mockFetch,
   };
+});
+
+vi.mock('../lib/local-proxy-server.js', () => {
+  class MockLocalProxy {
+    constructor() {
+      this._addr = { host: '127.0.0.1', port: MOCK_LOCAL_PORT };
+    }
+    getAddress() { return this._addr; }
+    start()  { return Promise.resolve(this._addr); }
+    restart() { return Promise.resolve(this._addr); }
+    stop() {}
+  }
+  return { LocalProxyServer: MockLocalProxy };
 });
 
 async function loadProxy() {
@@ -123,30 +139,44 @@ describe('proxy validateTestTarget', () => {
 });
 
 describe('proxy config operations', () => {
-  it('getProxyConfig returns empty password when none set', async () => {
+  it('getProxyConfig returns local address with empty auth', async () => {
     const p = await loadProxy();
-    expect(p.getProxyConfig().password).toBe('');
+    const cfg = p.getProxyConfig();
+    expect(cfg.protocol).toBe('http');
+    expect(cfg.host).toBe('127.0.0.1');
+    expect(cfg.port).toBe(12345);
+    expect(cfg.username).toBe('');
+    expect(cfg.password).toBe('');
   });
-  it('setProxyConfig updates host and port', async () => {
+  it('getUpstreamConfig returns upstream config with masked password', async () => {
     const p = await loadProxy();
-    p.setProxyConfig({ host: 'new.example.com', port: 3128 });
-    expect(p.getProxyConfig().host).toBe('new.example.com');
-    expect(p.getProxyConfig().port).toBe(3128);
+    p.setProxyConfig({ host: 'upstream.example.com', port: 8080, password: 'secret' });
+    const cfg = p.getUpstreamConfig();
+    expect(cfg.host).toBe('upstream.example.com');
+    expect(cfg.port).toBe(8080);
+    expect(cfg.password).toBe(p.PASSWORD_MASK);
+  });
+  it('setProxyConfig updates upstream and restarts local proxy', async () => {
+    const p = await loadProxy();
+    const result = p.setProxyConfig({ host: 'new.example.com', port: 3128 });
+    // setProxyConfig returns upstream config (masked), not local address
+    expect(result.host).toBe('new.example.com');
+    expect(result.port).toBe(3128);
   });
   it('setProxyConfig preserves password with mask', async () => {
     const p = await loadProxy();
-    // First set a real password
     p.setProxyConfig({ password: 'my-secret' });
-    const afterSet = p.getProxyConfig();
-    expect(afterSet.password).toBe(p.PASSWORD_MASK);
+    const cfg = p.getUpstreamConfig();
+    expect(cfg.password).toBe(p.PASSWORD_MASK);
     // Now update with mask — password should be preserved
     p.setProxyConfig({ password: p.PASSWORD_MASK });
-    expect(p.getProxyConfig().password).toBe(p.PASSWORD_MASK);
+    expect(p.getUpstreamConfig().password).toBe(p.PASSWORD_MASK);
   });
   it('setProxyConfig updates real password', async () => {
     const p = await loadProxy();
     p.setProxyConfig({ password: 'new-secret' });
-    expect(p.getProxyConfig().password).toBe(p.PASSWORD_MASK);
+    // getUpstreamConfig shows masked password
+    expect(p.getUpstreamConfig().password).toBe(p.PASSWORD_MASK);
   });
   it('testProxy returns ok on success', async () => {
     const p = await loadProxy();
@@ -171,8 +201,11 @@ describe('proxy env var init', () => {
     delete process.env.http_proxy; delete process.env.ALL_PROXY; delete process.env.all_proxy;
     process.env.HTTPS_PROXY = 'https://user:pass@proxy.example.com:8443';
     const p = await import('../lib/proxy.js');
-    expect(p.getProxyConfig().host).toBe('proxy.example.com');
-    expect(p.getProxyConfig().port).toBe(8443);
+    // getProxyConfig returns local address, not upstream
+    expect(p.getProxyConfig().host).toBe('127.0.0.1');
+    // getUpstreamConfig shows the env-loaded upstream
+    expect(p.getUpstreamConfig().host).toBe('proxy.example.com');
+    expect(p.getUpstreamConfig().port).toBe(8443);
   });
   it('handles malformed URL gracefully', async () => {
     vi.resetModules();

@@ -3,14 +3,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockGetProxyConfig = vi.fn();
+const mockGetUpstreamConfig = vi.fn();
 const mockSetProxyConfig = vi.fn();
 const mockTestProxy = vi.fn();
 const mockValidateProxyUpdate = vi.fn();
 const mockValidateTestTarget = vi.fn();
 
 vi.mock('../lib/proxy.js', () => ({
-  getProxyConfig: mockGetProxyConfig,
+  getUpstreamConfig: mockGetUpstreamConfig,
   setProxyConfig: mockSetProxyConfig,
   testProxy: mockTestProxy,
   validateProxyUpdate: mockValidateProxyUpdate,
@@ -25,11 +25,11 @@ describe('proxy service', () => {
     proxy = await import('../services/proxy.js');
   });
 
-  it('getConfig returns proxy config', () => {
-    mockGetProxyConfig.mockReturnValue({ host: 'localhost', port: 7890 });
+  it('getConfig returns upstream proxy config (for UI display)', () => {
+    mockGetUpstreamConfig.mockReturnValue({ host: 'localhost', port: 7890 });
     const cfg = proxy.getConfig();
     expect(cfg.host).toBe('localhost');
-    expect(mockGetProxyConfig).toHaveBeenCalled();
+    expect(mockGetUpstreamConfig).toHaveBeenCalled();
   });
 
   it('updateConfig validates and updates', () => {

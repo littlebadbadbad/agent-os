@@ -16,6 +16,7 @@
 
 import { ProxyAgent, Agent, fetch as undiciFetch } from 'undici';
 import { createLogger } from './logger.js';
+import { LocalProxyServer } from './local-proxy-server.js';
 
 const log = createLogger('proxy');
 
@@ -60,6 +61,23 @@ if (envUrl) {
     log.warn(`Could not parse proxy URL from env: ${envUrl}`);
   }
 }
+
+// ── Local proxy server (hides upstream credentials from plugins) ──────────────
+
+/** @type {LocalProxyServer} */
+const _localProxy = new LocalProxyServer();
+
+// Start on port 0 (OS-assigned free port — guaranteed no conflicts).
+// The promise is captured but not awaited: port-0 bind completes in <1 ms,
+// and no plugin code runs before server startup finishes.
+_localProxy.start(_cfg).then((addr) => {
+  log.info(`Local proxy server running on 127.0.0.1:${addr.port}`);
+}).catch((err) => {
+  log.error('Failed to start local proxy server', err.message);
+});
+
+// Clean up on exit.
+process.on('exit', () => _localProxy.stop());
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -164,15 +182,36 @@ export function createProxyFetch(overrides) {
 }
 
 /**
- * Return a copy of the current config with the password masked.
- * @returns {ProxyConfig & { password: string }}
+ * Return the local proxy address (no credentials exposed).
+ * Plugins receive this via getBackendConfig('proxy') — they see only
+ * the local forwarding address, never the upstream proxy credentials.
+ * @returns {ProxyConfig}
  */
 export function getProxyConfig() {
+  const addr = _localProxy.getAddress();
+  return {
+    protocol:       'http',
+    host:           '127.0.0.1',
+    port:           addr?.port ?? 0,
+    username:       '',
+    password:       '',
+    noProxy:        _cfg.noProxy,
+    connectTimeout: _cfg.connectTimeout,
+  };
+}
+
+/**
+ * Return the upstream config with the password masked.
+ * Used by the UI (proxy core plugin) to display current settings.
+ * @returns {ProxyConfig & { password: string }}
+ */
+export function getUpstreamConfig() {
   return { ..._cfg, password: _cfg.password ? PASSWORD_MASK : '' };
 }
 
 /**
  * Update zero or more fields and persist the change.
+ * Restarts the local proxy server so the new upstream config takes effect.
  *
  * Special password handling:
  *   • password === PASSWORD_MASK  → leave stored password unchanged (sentinel)
@@ -188,7 +227,12 @@ export function setProxyConfig(partial) {
     delete update.password; // sentinel — preserve existing password
   }
   _cfg = { ..._cfg, ...update };
-  return getProxyConfig();
+  // Restart local proxy with the new upstream config.
+  // Port-0 guarantees a new free port, no conflict risk.
+  _localProxy.restart(_cfg).catch((err) => {
+    log.error('Failed to restart local proxy server', err.message);
+  });
+  return getUpstreamConfig();
 }
 
 /**

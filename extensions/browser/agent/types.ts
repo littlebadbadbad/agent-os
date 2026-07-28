@@ -510,85 +510,75 @@ export interface BrowserStreamCallbacks {
  */
 export interface BrowserAdapter {
   /** List all active browser sessions. */
-  listSessions(opts: { sessionId: string }): Promise<BrowserEntry[]>;
+  listSessions(opts?: { sessionId?: string }): Promise<BrowserEntry[]>;
 
   /**
    * Launch a new browser session.
-   * @param opts.label     Display label.
-   * @param opts.headless  Use headless mode (default: true).
-   * @param opts.startUrl  URL to navigate to immediately after launch.
-   * @param opts.sessionId Agent session id (for scoped implementations).
+   * @param opts.label       Display label.
+   * @param opts.startUrl    URL to navigate to immediately after launch.
+   * @param opts.useProxy    Route traffic through global proxy (default: true).
+   * @param opts.launchConfig  Additional launch/context configuration.
+   * @param opts.sessionId   Optional agent session id (legacy, unused).
    */
   createSession(opts: {
     label?: string;
-    headless?: boolean;
     startUrl?: string;
-    /** Whether to route traffic through the global proxy (default: true). */
     useProxy?: boolean;
-    /** Additional launch/context configuration. */
     launchConfig?: BrowserLaunchConfig;
-    sessionId: string;
+    sessionId?: string;
   }): Promise<BrowserEntry>;
 
   /**
    * Close and remove a browser session.
-   * @param id        Browser session id.
-   * @param sessionId Agent session id (for scoped implementations).
+   * @param id  Browser session id.
    */
-  closeSession(id: string, sessionId: string): Promise<void>;
+  closeSession(id: string): Promise<void>;
 
   /**
    * Navigate the session's page to a URL.
    * @param opts.waitUntil  Load state to wait for (default: 'domcontentloaded').
    * @param opts.timeout    Max wait in ms (default: 30 000).
-   * @param opts.sessionId  Agent session id (for scoped implementations).
    */
   navigate(
     id: string,
     url: string,
-    opts: { waitUntil?: string; timeout?: number; sessionId: string },
+    opts?: { waitUntil?: string; timeout?: number },
   ): Promise<BrowserNavigateResult>;
 
   /**
    * Evaluate an arbitrary JavaScript script in the page context.
    * The script is wrapped in an async IIFE on the backend, so statements,
    * `return`, and top-level `await` all work.
-   * @param sessionId Agent session id (for scoped implementations).
    */
-  evaluate(id: string, script: string, sessionId: string): Promise<unknown>;
+  evaluate(id: string, script: string): Promise<unknown>;
 
   /**
    * Read buffered console log output since `fromOffset`.
    * Analogous to `TerminalManagerAdapter.readOutput()`.
-   * @param sessionId Agent session id (for scoped implementations).
    */
   readOutput(
     id: string,
     fromOffset: number,
-    sessionId: string,
   ): Promise<BrowserOutput>;
 
   /**
    * Return text-only page state (URL + title + console log).
    * Does not include a screenshot.
-   * @param sessionId Agent session id (for scoped implementations).
    */
-  snapshot(id: string, sessionId: string): Promise<BrowserSnapshotResult>;
+  snapshot(id: string): Promise<BrowserSnapshotResult>;
 
   /**
    * Wait for a CSS selector to become visible, or for a load state.
    * @param opts.selector   CSS selector to wait for.
    * @param opts.waitUntil  'networkidle' | 'load'
    * @param opts.timeout    Max wait in ms (default: 10 000).
-   * @param opts.sessionId  Agent session id (for scoped implementations).
    */
   wait(
     id: string,
-    opts: {
+    opts?: {
       selector?: string;
       waitUntil?: string;
       timeout?: number;
-      sessionId: string;
     },
   ): Promise<BrowserWaitResult>;
 
@@ -600,7 +590,6 @@ export interface BrowserAdapter {
   setLaunchConfig(
     id: string,
     config: BrowserLaunchConfig,
-    sessionId: string,
   ): Promise<BrowserEntry>;
 
   /**
@@ -611,7 +600,6 @@ export interface BrowserAdapter {
   setProxy(
     id: string,
     useProxy: boolean,
-    sessionId: string,
   ): Promise<BrowserEntry>;
 
   /**
@@ -621,7 +609,6 @@ export interface BrowserAdapter {
   switchTab(
     id: string,
     index: number,
-    sessionId: string,
   ): Promise<BrowserEntry>;
 
   /**
@@ -633,18 +620,14 @@ export interface BrowserAdapter {
     id: string,
     width: number,
     height: number,
-    sessionId: string,
   ): Promise<BrowserEntry>;
 
   /**
    * Capture a JPEG screenshot of the current page and return it as base64.
    * Intended for the `browser_screenshot` AI tool so the model can see the page.
-   * @param id        Browser session id.
-   * @param sessionId Agent session id (for scoped implementations).
    */
   screenshotData(
     id: string,
-    sessionId: string,
     selector?: string,
   ): Promise<{ data: string; mimeType: string }>;
 
@@ -653,13 +636,9 @@ export interface BrowserAdapter {
    * JSON control messages). Accepts input events (mouse, keyboard, wheel) via
    * the returned `BrowserStreamConnection.send()`.
    *
-   * The transport mechanism is fully encapsulated — the HTTP adapter uses
-   * WebSocket while the IPC adapter uses Electron IPC push events and `invoke`.
-   *
    * @param id        Browser session id.
    * @param callbacks Frame, message, and connection-state callbacks.
    * @param config    Optional initial stream configuration (FPS, quality).
-   *                  Omit to use backend defaults (24 FPS, quality 80).
    */
   connectStream(
     id: string,
@@ -673,27 +652,17 @@ export interface BrowserAdapter {
    */
   getNetworkRequests(
     id: string,
-    opts: NetworkQueryOptions & { sessionId: string },
+    opts?: NetworkQueryOptions,
   ): Promise<NetworkQueryResult>;
 
   /**
    * Clear all recorded network entries for a session (or a single tab).
-   * Equivalent to pressing the "Clear" button in the browser DevTools Network panel.
-   * @param id       Browser session id.
    * @param opts.tabIndex  Clear only this tab (0-based). Omit to clear all tabs.
-   * @param opts.sessionId Agent session id.
    */
   clearNetworkRequests(
     id: string,
-    opts: { tabIndex?: number; sessionId: string },
+    opts?: { tabIndex?: number },
   ): Promise<void>;
-}
-
-// ── Config ─────────────────────────────────────────────────────────────────────
-
-export interface HttpBrowserAdapterConfig {
-  /** Base URL of the backend (default: `'/api'`). */
-  baseUrl?: string;
 }
 
 // ── Module augmentation ───────────────────────────────────────────────────────

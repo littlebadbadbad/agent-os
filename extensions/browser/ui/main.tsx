@@ -2,23 +2,19 @@
  * extensions/browser/ui/main.tsx — Browser plugin UI entry (iframe)
  *
  * Slot-driven rendering:
- *   - Reads `slotContext` from `window.__UAP_PLUGIN_HOST__` to know
- *     which slot instance it's rendering.
- *   - Receives host→iframe messages via `host.onSlotMessage()`.
+ *   - App slot: creates a BrowserAdapter from the API client (no agent state)
+ *   - ToolCard slot: receives tool call info via host messages
  *
  * Communication contract:
  *   Plugin UI code MUST NOT use `window.parent.postMessage()` or
  *   `window.addEventListener("message")` directly. All communication
- *   with the host flows through the injected {@link UiPluginHost}.
+ *   with the host flows through the injected UiPluginHost.
  */
 
-import { StrictMode, useSyncExternalStore } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import type {
-  UiPluginHost,
-  SlotHostMessage,
-  ToolCallInfo,
-} from "@agent-type";
+import type { UiPluginHost, SlotHostMessage, ToolCallInfo } from "@agent-type";
+import { createBrowserUiAdapter } from "../agent/pluginAdapter";
 import { BrowserPanel } from "./BrowserPanel";
 import { BrowserToolCard } from "./BrowserToolCard";
 
@@ -63,77 +59,38 @@ waitForHost()
 function bootApp(host: UiPluginHost): void {
   const slotCtx = host.getSlotContext();
 
-  // ── Reactive store ────────────────────────────────────────────────────────
+  // ── Create UI-side adapter directly from API client (no agent state) ────
+  const adapter = createBrowserUiAdapter(host.apiClient);
 
-  let sessionState = host.getPluginState()?.[0] ?? null;
-  let browserState = host.getPluginState()?.[1] ?? null;
-  const listeners = new Set<() => void>();
-
-  const emitChange = () => {
-    const state = host.getPluginState();
-    sessionState = state?.[0] ?? null;
-    browserState = state?.[1] ?? null;
-    listeners.forEach((l) => l());
-  };
-
-  const subscribe = (cb: () => void): (() => void) => {
-    listeners.add(cb);
-    return () => { listeners.delete(cb); };
-  };
-
-  const getSnapshot = () => browserState;
-
+  // ── Tool card message handling ───────────────────────────────────────────
   let toolCallInfo: ToolCallInfo | null = null;
-
-  // ── Host→iframe messages ──────────────────────────────────────────────────
-  //
-  // The host pushes SlotHostMessage payloads via `host._pushToIframe()`,
-  // which delivers them to our `onSlotMessage` callback. Messages sent
-  // before we register this subscriber are buffered by the host and
-  // replayed on registration, so we never miss the initial toolCallInfo.
+  const toolCardListeners = new Set<() => void>();
 
   host.onSlotMessage((msg: SlotHostMessage) => {
-    switch (msg.type) {
-      case "panel":
-        emitChange();
-        break;
-      case "toolCard":
-        toolCallInfo = msg.payload.toolCallInfo ?? null;
-        listeners.forEach((l) => l());
-        break;
+    if (msg.type === "toolCard") {
+      toolCallInfo = msg.payload.toolCallInfo ?? null;
+      toolCardListeners.forEach((l) => l());
     }
+    // App slot doesn't need state messages — we have our own adapter.
   });
 
-  // ── App component ──────────────────────────────────────────────────────────
-
+  // ── App component ────────────────────────────────────────────────────────
   function BrowserPluginApp() {
-    const state = useSyncExternalStore(subscribe, getSnapshot);
-    const browserAdapter = state?.browserAdapter;
-
     if (slotCtx.slotType === "toolCard") {
-      if (toolCallInfo) return <BrowserToolCard info={toolCallInfo} />;
-      return (
-        <div style={{ padding: 16, color: "#858585", fontFamily: "system-ui" }}>
-          Waiting for tool call info...
-        </div>
-      );
+      return toolCallInfo
+        ? <BrowserToolCard info={toolCallInfo} />
+        : (
+          <div style={{ padding: 16, color: "#858585", fontFamily: "system-ui" }}>
+            Waiting for tool call info...
+          </div>
+        );
     }
 
-    if (!browserAdapter) {
-      return (
-        <div style={{ padding: 16, color: "#858585", fontFamily: "system-ui" }}>
-          Browser adapter not available in this session.
-        </div>
-      );
-    }
-
-    return (
-      <BrowserPanel adapter={browserAdapter} sessionId={sessionState?.id ?? "unknown"} />
-    );
+    // App slot (and any other non-toolCard slot): render with self-made adapter.
+    return <BrowserPanel adapter={adapter} />;
   }
 
-  // ── Mount ──────────────────────────────────────────────────────────────────
-
+  // ── Mount ────────────────────────────────────────────────────────────────
   const rootEl = document.getElementById("root");
   if (rootEl) {
     const root = createRoot(rootEl);
@@ -142,6 +99,5 @@ function bootApp(host: UiPluginHost): void {
         <BrowserPluginApp />
       </StrictMode>,
     );
-
   }
 }
