@@ -1,7 +1,0 @@
-{
-  "id": "delegation-nudge",
-  "name": "Delegation Nudge",
-  "version": "0.1.0",
-  "description": "Monitors tool-result volume per run. When ≥3 large results are produced, injects a one-line delegation reminder into the system prompt.",
-  "agentEntry": "activate.js"
-}
