@@ -36,7 +36,7 @@ export { MAIN_CONVERSATION_ID, ctxKey } from '@agent-type';
  * no-op, preventing arbitrary ToolSets from suppressing each other's
  * system-prompt fragments.
  */
-export const TOOL_STATE_TOOLSET_BRAND = Symbol.for('sdk.ToolStateToolSet');
+export const TOOL_STATE_TOOLSET_BRAND = Symbol('sdk.ToolStateToolSet');
 
 /**
  * Check whether a ToolSet is authorised to call `suppressToolSetPrompt`.

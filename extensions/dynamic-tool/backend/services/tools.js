@@ -3,7 +3,7 @@
  */
 
 export function createToolServices(stores) {
-  const { toolStore, moduleStore, depStore } = stores;
+  const { toolStore, moduleStore, depStore, proxyRequest } = stores;
 
   function getToolsList() {
     const tools = toolStore.listTools().map((entry) => {
@@ -67,7 +67,9 @@ export function createToolServices(stores) {
     const tool = toolStore.getTool(name);
     if (!tool) throw new Error(`Tool "${name}" not found`);
     if (tool.runtime === 'frontend') throw new Error(`Tool "${name}" is a frontend tool`);
-    const result = await toolStore.executeTool(name, args, ctx ?? {});
+    const base = ctx ?? {};
+    const enrichedCtx = proxyRequest ? { ...base, proxyRequest } : base;
+    const result = await toolStore.executeTool(name, args, enrichedCtx);
     return { result };
   }
 

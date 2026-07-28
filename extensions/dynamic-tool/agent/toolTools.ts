@@ -14,22 +14,15 @@ export function createToolCrudTools(
   const createToolTool = defineTool({
     name: 'create_tool',
     group: 'Dynamic Tools',
-    description:
-      'Create and register a new dynamic tool. ' +
-      'Backend tools (runtime=backend) run as Node.js ESM modules on the server. ' +
-      'Frontend tools (runtime=frontend) execute directly in the browser. ' +
-      'The tool is immediately available after creation.',
+    description: 'Create and register a new dynamic tool.',
     parameters: z.object({
-      name: z.string().describe('Snake_case tool name (e.g. "fetch_weather"). Must be unique.'),
-      description: z.string().describe('Clear description of what the tool does \u2014 shown to the AI.'),
+      name: z.string().describe('Snake_case name, e.g. "fetch_weather". Must be unique.'),
+      description: z.string().describe('Description shown to the AI when calling this tool.'),
       parameters_schema: z.record(z.string(), z.unknown()).optional()
-        .describe('JSON Schema for the tool arguments. Defaults to an empty object schema.'),
-      implementation: z.string().describe(
-        'For backend tools: full ESM module source \u2014 must export `async function run(args, context)`.\n' +
-        'For frontend tools: function body (no `export`, no `async function` wrapper) \u2014 receives `args` and `context`.',
-      ),
+        .describe('JSON Schema for tool arguments. Defaults to empty object schema.'),
+      implementation: z.string().describe('Source code. Backend: full ESM. Frontend: bare function body.'),
       runtime: z.enum(['backend', 'frontend']).default('backend')
-        .describe('Execution environment. Defaults to "backend".'),
+        .describe('"backend" (Node.js ESM) or "frontend" (browser JS).'),
     }),
     execute: async ({ name, description, parameters_schema, implementation, runtime }) => {
       const entry = await adapter.createTool({
@@ -46,7 +39,7 @@ export function createToolCrudTools(
     name: 'list_dynamic_tools',
     group: 'Dynamic Tools',
     isReadOnly: true,
-    description: 'List all persisted dynamic tools \u2014 names, descriptions, runtimes, and creation times.',
+    description: 'List all persisted dynamic tools.',
     parameters: z.object({}),
     execute: async () => {
       const tools = await adapter.listTools();
@@ -61,15 +54,13 @@ export function createToolCrudTools(
   const updateToolTool = defineTool({
     name: 'update_tool',
     group: 'Dynamic Tools',
-    description:
-      'Update an existing dynamic tool. Provide only the fields you want to change. ' +
-      'The tool proxy is immediately re-registered with the new definition.',
+    description: 'Update an existing dynamic tool. Provide only the fields to change.',
     parameters: z.object({
-      name: z.string().describe('The exact name of the tool to update.'),
+      name: z.string().describe('The exact tool name to update.'),
       description: z.string().optional().describe('New description.'),
       parameters_schema: z.record(z.string(), z.unknown()).optional().describe('New JSON Schema for arguments.'),
-      implementation: z.string().optional().describe('New implementation source.'),
-      runtime: z.enum(['backend', 'frontend']).optional().describe('Change the execution environment.'),
+      implementation: z.string().optional().describe('New source code.'),
+      runtime: z.enum(['backend', 'frontend']).optional().describe('Change execution environment.'),
     }),
     execute: async ({ name, description, parameters_schema, implementation, runtime }) => {
       const patch: Parameters<DynamicToolAdapter['updateTool']>[1] = {
@@ -88,8 +79,8 @@ export function createToolCrudTools(
     name: 'delete_tool',
     group: 'Dynamic Tools',
     isDestructive: true,
-    description: 'Permanently delete a dynamic tool. The tool is immediately unregistered.',
-    parameters: z.object({ name: z.string().describe('The exact name of the tool to delete.') }),
+    description: 'Permanently delete a dynamic tool.',
+    parameters: z.object({ name: z.string().describe('The exact tool name to delete.') }),
     execute: async ({ name }) => {
       onUnregister(name);
       await adapter.deleteTool(name);

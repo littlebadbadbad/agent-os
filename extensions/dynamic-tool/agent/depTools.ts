@@ -19,12 +19,10 @@ export function createDepTools(adapter: DynamicToolAdapter) {
   const installToolDepsTool = defineTool({
     name: 'install_tool_deps',
     group: 'Dynamic Tools',
-    description:
-      'Install one or more npm packages into the tool-scripts scope. ' +
-      'After installation, backend tools can import them directly: `import axios from "axios"`.',
+    description: 'Install npm packages into the tool-scripts scope.',
     parameters: z.object({
       packages: z.array(z.string()).min(1)
-        .describe('npm package names to install, e.g. ["axios", "lodash@4", "@types/node"].'),
+        .describe('npm package names, e.g. ["axios", "lodash@4"].'),
     }),
     execute: async ({ packages }) => {
       const result = await adapter.installDeps(packages);

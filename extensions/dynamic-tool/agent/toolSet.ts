@@ -9,57 +9,31 @@ import { createToolCrudTools } from './toolTools';
 import { createModuleTools } from './moduleTools';
 import { createDepTools } from './depTools';
 
-const BASE_SYSTEM_PROMPT = `\
+const SYSTEM_PROMPT = `\
 ## Dynamic Tools
 
-You can create, update and delete backend tools (Node.js ESM modules) or frontend
-tools (inline JavaScript) at any time using the meta-tools below.
+You can create backend tools (Node.js ESM on server) and frontend tools (inline JS in browser).
 
-### Creating a backend tool
-1. Call \`create_tool\` with \`runtime: "backend"\`.
-2. The \`implementation\` field must be a complete ESM module that exports:
-   \`\`\`js
-   export async function run(args, context) { /* \u2026 */ }
-   \`\`\`
-3. You may import any package that has been installed via \`install_tool_deps\`.
-4. You may import shared utility modules via \`import { x } from '#modules/name'\`.
+### Backend Tool (\`runtime: "backend"\`)
+- \`implementation\`: full ESM module exporting \`async function run(args, context)\`
+- \`context\` available: \`{ sessionId, agentName, conversationId, proxyRequest }\`
+- Can import \`#modules/<name>\` (shared modules) and installed npm packages
+- \`proxyRequest(url, init?)\`: like \`fetch\` but routes through configured proxy — use for foreign/blocked APIs. Falls back to direct fetch when no proxy configured.
 
-### Creating a frontend tool
-1. Call \`create_tool\` with \`runtime: "frontend"\`.
-2. The \`implementation\` field is a function body (no wrapper) that has access
-   to \`args\` and \`context\` (the full ToolExecutionContext).
+### Frontend Tool (\`runtime: "frontend"\`)
+- \`implementation\`: bare function body \`(args, context) => { ... }\` (no export/function wrapper)
+- \`context\` available: full \`ToolExecutionContext\` — \`requestUserInput\`, \`cancelUserInput\`, \`sendMessage\`, \`signal\`, \`handler\`, \`sessionId\`, \`agentName\`, \`conversationId\`, \`sourceAgent\`, \`isSubAgent\`
 
-Always call \`list_dynamic_tools\` before creating \u2014 a tool with that name may already exist.`;
+### Shared Modules (\`create_module\` / \`update_module\`)
+Reusable ESM code imported by backend tools: \`import { x } from '#modules/name'\`
+- Use kebab-case names (e.g. \`"string-utils"\`)
+- Must contain at least one \`export\`
+- Call \`list_modules\` before creating — prefer \`update_module\` over duplicates
 
-const MODULES_SYSTEM_PROMPT = `\
-## Shared Modules
-
-Reusable utility code can be extracted into shared modules and imported by any
-backend tool:
-
-\`\`\`js
-import { myHelper } from '#modules/my-utils';
-\`\`\`
-
-- Use kebab-case names (e.g. "string-utils", "http-client").
-- Modules must contain at least one \`export\` statement.
-- Call \`list_modules\` before \`create_module\` \u2014 prefer \`update_module\`
-  over creating near-duplicates.`;
-
-const DEPS_SYSTEM_PROMPT = `\
-## Third-party npm Dependencies
-
-Install packages from npm into the tool-scripts scope:
-\`\`\`
-install_tool_deps(["axios", "date-fns@3", "@types/node"])
-\`\`\`
-
-After installation, import normally in backend tool scripts:
-\`\`\`js
-import axios from 'axios';
-\`\`\`
-
-Call \`list_tool_deps\` first \u2014 the package may already be installed.`;
+### npm Dependencies (\`install_tool_deps\`)
+Install packages for backend tools: \`install_tool_deps(["axios", "date-fns@3"])\`
+After install, import normally: \`import axios from 'axios'\`
+Call \`list_tool_deps\` first — the package may already be installed.`;
 
 export const DYNAMIC_TOOL_SYMBOL = Symbol('dynamic-tool');
 
@@ -98,7 +72,7 @@ export function createDynamicToolset(adapter: DynamicToolAdapter): ToolSet {
     },
 
     onGetSystemPrompt(_ctx: ToolSetContext, _promptCtx: SystemPromptContext): string {
-      return [BASE_SYSTEM_PROMPT, MODULES_SYSTEM_PROMPT, DEPS_SYSTEM_PROMPT].join('\n\n');
+      return SYSTEM_PROMPT;
     },
 
     onGetSymbolState: (_ctx: ToolSetContext) => ({

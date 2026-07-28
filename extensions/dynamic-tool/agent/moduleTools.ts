@@ -10,19 +10,12 @@ export function createModuleTools(adapter: DynamicToolAdapter) {
   const createModuleTool = defineTool({
     name: 'create_module',
     group: 'Dynamic Tools',
-    description:
-      'Create a shared ESM module that backend tool scripts can import via ' +
-      '`import { x } from \'#modules/name\'`. ' +
-      'Use kebab-case names (e.g. "string-utils", "http-client"). ' +
-      'Run list_modules first \u2014 prefer update_module over creating near-duplicates.',
+    description: 'Create a shared ESM module for backend tool imports.',
     parameters: z.object({
-      name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Must be kebab-case (e.g. "string-utils")')
-        .describe('Kebab-case module name, e.g. "string-utils" or "http-client".'),
-      description: z.string().describe('Clear description of what the module provides.'),
-      content: z.string().describe(
-        'Full ESM source (.mjs). Must contain at least one `export` statement. ' +
-        'Example: `export function trim(s) { return s.trim(); }`',
-      ),
+      name: z.string().regex(/^[a-z][a-z0-9-]*$/, 'Must be kebab-case, e.g. "string-utils"')
+        .describe('Kebab-case name, e.g. "string-utils".'),
+      description: z.string().describe('What this module provides.'),
+      content: z.string().describe('Full ESM source. Must contain at least one export.'),
     }),
     execute: async ({ name, description, content }) => {
       await adapter.createModule({ name, description, content });
@@ -37,7 +30,7 @@ export function createModuleTools(adapter: DynamicToolAdapter) {
     name: 'list_modules',
     group: 'Dynamic Tools',
     isReadOnly: true,
-    description: 'List all shared modules available for import in backend tool scripts.',
+    description: 'List all shared modules.',
     parameters: z.object({}),
     execute: async () => {
       const modules = await adapter.listModules();
@@ -78,7 +71,7 @@ export function createModuleTools(adapter: DynamicToolAdapter) {
     name: 'delete_module',
     group: 'Dynamic Tools',
     isDestructive: true,
-    description: 'Permanently delete a shared module. Any backend tool importing it will fail until the module is recreated.',
+    description: 'Permanently delete a shared module.',
     parameters: z.object({ name: z.string().describe('The exact kebab-case module name to delete.') }),
     execute: async ({ name }) => {
       await adapter.deleteModule(name);

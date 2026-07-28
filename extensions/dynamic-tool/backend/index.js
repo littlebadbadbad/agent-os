@@ -9,6 +9,7 @@ import { createToolStore } from './lib/store.js';
 import { createModuleStore } from './lib/moduleStore.js';
 import { createDepStore } from './lib/depStore.js';
 import { createToolEnv } from './lib/toolEnv.js';
+import { createProxyRequest } from './lib/proxyRequest.js';
 import { createToolServices } from './services/tools.js';
 
 export function activate(host) {
@@ -17,7 +18,8 @@ export function activate(host) {
   const toolStore = createToolStore(dataDir, toolEnv);
   const moduleStore = createModuleStore(dataDir, toolEnv);
   const depStore = createDepStore(toolEnv);
-  const svc = createToolServices({ toolStore, moduleStore, depStore });
+  const proxyRequest = createProxyRequest(() => host.getBackendConfig('proxy'));
+  const svc = createToolServices({ toolStore, moduleStore, depStore, proxyRequest });
 
   host.defineApi('listTools', async () => svc.getToolsList());
   host.defineApi('createTool', async (params) => svc.createTool(params));

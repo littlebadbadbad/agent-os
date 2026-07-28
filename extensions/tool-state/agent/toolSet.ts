@@ -14,11 +14,11 @@ import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
 import { ctxKey, resolveToolSetTools } from '@agent-type';
 import type { ToolStateEntry, ToolStateSymbolState } from './types';
 import type { PluginSlotDeclaration, PluginStateExtension } from '@agent-type';
+import { TOOL_STATE_TOOLSET_BRAND } from '@agent-sdk/tools/toolSet';
 
 // ── Brand symbol ──────────────────────────────────────────────────────────────
 
 export const TOOL_STATE_SYMBOL = Symbol('tool-state');
-const TOOL_STATE_TOOLSET_BRAND = Symbol.for('sdk.ToolStateToolSet');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
