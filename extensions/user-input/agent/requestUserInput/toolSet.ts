@@ -250,14 +250,6 @@ export function createUserInputToolSet(
     };
   };
 
-  patchFn.comment =
-    "`context.requestUserInput(request, id?)` → `Promise<string | null>` — " +
-    "suspends tool execution until the user responds (bound) or resolves " +
-    "immediately (detached, answer arrives as user message).\n" +
-    "Set `request.mode = 'detached'` for fire-and-forget prompts.\n" +
-    "`context.cancelUserInput?(id)` — cancel a pending prompt programmatically.\n" +
-    "`context.sendMessage?(text)` — send a user message into the conversation.";
-
   const slotDeclarations: readonly PluginSlotDeclaration[] = [
     {
       type: "inlinePrompt" as const,

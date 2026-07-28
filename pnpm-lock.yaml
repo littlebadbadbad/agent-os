@@ -205,12 +205,6 @@ importers:
 
   extensions/browser:
     dependencies:
-      '@xterm/addon-fit':
-        specifier: ^0.11.0
-        version: 0.11.0
-      '@xterm/xterm':
-        specifier: ^6.0.0
-        version: 6.0.0
       anser:
         specifier: ^2.3.5
         version: 2.3.5
@@ -242,46 +236,6 @@ importers:
       vite:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
-
-  extensions/cron:
-    dependencies:
-      croner:
-        specifier: ^10.0.1
-        version: 10.0.1
-      cronstrue:
-        specifier: ^3.14.0
-        version: 3.14.0
-    devDependencies:
-      '@types/react':
-        specifier: '*'
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: '*'
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: '*'
-        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
-      react:
-        specifier: '*'
-        version: 19.2.4
-      react-dom:
-        specifier: '*'
-        version: 19.2.4(react@19.2.4)
-      sass:
-        specifier: '*'
-        version: 1.98.0
-      vite:
-        specifier: '*'
-        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
-
-  extensions/delegation-nudge:
-    devDependencies:
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
 
   extensions/devops:
     dependencies:
@@ -1912,9 +1866,6 @@ packages:
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
 
-  '@xterm/addon-fit@0.11.0':
-    resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
-
   '@xterm/addon-search@0.16.0':
     resolution: {integrity: sha512-9OeuBFu0/uZJPu+9AHKY6g/w0Czyb/Ut0A5t79I4ULoU4IfU5BEpPFVGQxP4zTTMdfZEYkVIRYbHBX1xWwjeSA==}
 
@@ -2146,14 +2097,6 @@ packages:
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
-
-  croner@10.0.1:
-    resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
-    engines: {node: '>=18.0'}
-
-  cronstrue@3.14.0:
-    resolution: {integrity: sha512-XnW4vuK/jPJjmTyDWiej1Zq36Od7ITwxaV2O1pzHZuyMVvdy7NAvyvIBzybt+idqSpfqYuoDG7uf/ocGtJVWxA==}
-    hasBin: true
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -4753,8 +4696,6 @@ snapshots:
 
   '@xmldom/xmldom@0.9.10': {}
 
-  '@xterm/addon-fit@0.11.0': {}
-
   '@xterm/addon-search@0.16.0': {}
 
   '@xterm/xterm@6.0.0': {}
@@ -4969,10 +4910,6 @@ snapshots:
   confbox@0.2.4: {}
 
   convert-source-map@2.0.0: {}
-
-  croner@10.0.1: {}
-
-  cronstrue@3.14.0: {}
 
   cross-spawn@7.0.6:
     dependencies:

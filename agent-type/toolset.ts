@@ -122,21 +122,11 @@ export type ToolSetStateContext = {
 // ── Tool context patch ────────────────────────────────────────────────────────
 
 /**
- * A callable that patches `ToolExecutionContext` for every tool call in a
- * session, optionally carrying a human-readable `comment` that describes
- * what it injects.
- *
- * The `comment` field is read by `createDynamicToolset` to inform the AI
- * about context fields available inside frontend tool implementations.
- * Write it as a compact Markdown snippet — one line per injected field,
- * with type signature and a short purpose note.
+ * A callable that patches `ToolExecutionContext` for every tool call in a session.
  *
  * @example
  * ```ts
- * onPatchToolContext: Object.assign(
- *   (ctx, signal) => ({ myField: buildValue(ctx) }),
- *   { comment: '`context.myField` — the computed value for this session.' },
- * ),
+ * onPatchToolContext: (ctx, signal) => ({ myField: buildValue(ctx) }),
  * ```
  */
 export interface ToolContextPatch<Ctx = ToolExecutionContextExtension> {
@@ -144,8 +134,6 @@ export interface ToolContextPatch<Ctx = ToolExecutionContextExtension> {
     ctx: ToolSetContext,
     signal: AbortSignal,
   ): Partial<ToolExecutionContext<Ctx>> | undefined;
-  /** Markdown description of the ToolExecutionContext fields this patch injects. */
-  comment?: string;
 }
 
 // ── System-prompt context ─────────────────────────────────────────────────────
@@ -601,10 +589,6 @@ export type ToolSet<
   /**
    * Called after `onResolveToolArgs` to build a partial `ToolExecutionContext`
    * patch for this tool call.
-   *
-   * Attach a `comment` string to the function to document what fields this
-   * patch injects — `createDynamicToolset` reads those comments to inform the
-   * AI about context available inside frontend tool implementations.
    *
    * Patches from all ToolSets are shallow-merged in registration order (later
    * wins on conflicts) and applied on top of the base context.  The most
