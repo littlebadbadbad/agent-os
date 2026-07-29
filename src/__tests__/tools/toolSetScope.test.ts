@@ -357,10 +357,9 @@ describe('createToolSetScope — Scope Lifecycle', () => {
       expect(result).toContain('Content');
     });
 
-    it('passes userMessage and sectionCache through to buildSystemPrompt', () => {
+    it('passes userMessage through to buildSystemPrompt', () => {
       const spy = vi.fn(() => 'fragment');
       const ts = makeToolSet('a', {
-        sectionId: 'test',
         onGetSystemPrompt: spy,
       });
       const scope = createToolSetScope(() => [ts], NOOP_HANDLER);

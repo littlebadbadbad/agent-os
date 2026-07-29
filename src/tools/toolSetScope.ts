@@ -38,8 +38,6 @@ import type {
 } from '@agent-type';
 import type { ToolCallPipeline } from './callToolPipeline';
 import type { ToolRegistry } from './registry';
-import type { SystemPromptCache } from '@agent-sdk/tools/prompts/section';
-export type { SystemPromptCache };
 import { buildSystemPrompt, applyToolFilters, composeToolSetAfterTurn, dispatchOnBeforeRun, dispatchOnAfterRun, dispatchOnBeforeInvoke, dispatchOnInterceptMessage, type ComposedAfterTurnResult } from './agentRuntime';
 import { mergeAllToolSetStates, collectSnapshotData } from './sharedStateCollector';
 import { createToolCallPipeline, withErrorBoundary } from './callToolPipeline';
@@ -128,9 +126,8 @@ export function createToolSetScope(
       base: string | undefined,
       ctx: ToolSetContext,
       userMessage?: string,
-      sectionCache?: SystemPromptCache,
     ): string | undefined {
-      return buildSystemPrompt(base, resolve(), ctx, userMessage, sectionCache, brand);
+      return buildSystemPrompt(base, resolve(), ctx, userMessage, brand);
     },
 
     filterTools(tools: readonly Tool[], ctx: ToolSetContext): readonly Tool[] {

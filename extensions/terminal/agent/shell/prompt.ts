@@ -11,13 +11,3 @@
  *
  * @module
  */
-
-import type { SectionId } from '@agent-type';
-
-// ── Section identifier ────────────────────────────────────────────────────────
-
-/**
- * Section ID for the Terminal system-prompt section.
- * Registered in `SECTION_IDS` so that `SectionId` resolves to it.
- */
-export const TERMINAL_SECTION_ID: SectionId = 'terminal';

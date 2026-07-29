@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildSystemPrompt, applyToolFilters, composeToolSetAfterTurn } from '../../tools/agentRuntime';
-import { createSystemPromptCache } from '../../tools/prompts/section';
 import { MAIN_CONVERSATION_ID } from '../../tools/toolSet';
 import type { ToolSet, ToolSetContext, SystemPromptContext, CompactionNotice } from '@agent-type';
 import type { Tool, AgentMessage } from '@agent-type';
-import type { SectionId } from '@agent-type';
 
 function makeTsCtx(sessionId = 'sess-1'): ToolSetContext {
   return { sessionId, agentName: 'main', conversationId: MAIN_CONVERSATION_ID };
@@ -53,73 +51,23 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('Content');
   });
 
-  it('sorts toolSets by sectionPriority ascending', () => {
-    const tsLow = makeToolSet({
-      sectionId: 'low' as SectionId,
-      sectionPriority: 10,
-      onGetSystemPrompt: () => 'LOW',
-    });
-    const tsHigh = makeToolSet({
-      sectionId: 'high' as SectionId,
-      sectionPriority: 50,
-      onGetSystemPrompt: () => 'HIGH',
-    });
-    const result = buildSystemPrompt(undefined, [tsHigh, tsLow], makeTsCtx());
-    const lowIdx = result!.indexOf('LOW');
-    const highIdx = result!.indexOf('HIGH');
-    expect(lowIdx).toBeLessThan(highIdx);
-  });
-
-  it('deduplicates toolSets with the same sectionId (lowest priority wins)', () => {
+  it('iterates toolSets in registration order', () => {
+    const order: string[] = [];
     const ts1 = makeToolSet({
-      sectionId: 'dup' as SectionId,
-      sectionPriority: 10,
-      onGetSystemPrompt: () => 'FIRST',
+      name: 'first',
+      onGetSystemPrompt: () => { order.push('first'); return 'A'; },
     });
     const ts2 = makeToolSet({
-      sectionId: 'dup' as SectionId,
-      sectionPriority: 20,
-      onGetSystemPrompt: () => 'SECOND',
+      name: 'second',
+      onGetSystemPrompt: () => { order.push('second'); return 'B'; },
     });
-    const result = buildSystemPrompt(undefined, [ts2, ts1], makeTsCtx());
-    expect(result).toContain('FIRST');
-    expect(result).not.toContain('SECOND');
-  });
-
-  it('includes toolSets without sectionId in original order after sorted ones', () => {
-    const tsWithSection = makeToolSet({
-      sectionId: 'a' as SectionId,
-      sectionPriority: 10,
-      onGetSystemPrompt: () => 'SECTION',
-    });
-    const tsWithout1 = makeToolSet({ onGetSystemPrompt: () => 'A' });
-    const tsWithout2 = makeToolSet({ onGetSystemPrompt: () => 'B' });
-    const result = buildSystemPrompt(undefined, [tsWithout2, tsWithSection, tsWithout1], makeTsCtx());
-    const secIdx = result!.indexOf('SECTION');
-    const aIdx = result!.indexOf('A');
-    const bIdx = result!.indexOf('B');
-    expect(secIdx).toBeLessThan(aIdx);
-    expect(secIdx).toBeLessThan(bIdx);
-    // B before A because the registration order is B → A (tsWithout2 returns B, tsWithout1 returns A)
-    expect(bIdx).toBeLessThan(aIdx);
-  });
-
-  it('uses sectionCache when sectionId is present', () => {
-    const cache = createSystemPromptCache();
-    const factory = vi.fn(() => 'Cached section');
-    const ts = makeToolSet({
-      sectionId: 'cacheable' as SectionId,
-      sectionPriority: 10,
-      onGetSystemPrompt: factory,
-    });
-    buildSystemPrompt(undefined, [ts], makeTsCtx(), undefined, cache);
-    buildSystemPrompt(undefined, [ts], makeTsCtx(), undefined, cache);
-    expect(factory).toHaveBeenCalledTimes(1);
+    buildSystemPrompt(undefined, [ts1, ts2], makeTsCtx());
+    expect(order).toEqual(['first', 'second']);
   });
 
   it('passes userMessage to system prompt context', () => {
     const spy = vi.fn(() => 'section');
-    const ts = makeToolSet({ sectionId: 'test' as SectionId, onGetSystemPrompt: spy });
+    const ts = makeToolSet({ onGetSystemPrompt: spy });
     buildSystemPrompt('Base', [ts], makeTsCtx(), 'user query');
     expect(spy).toHaveBeenCalled();
     const promptCtx = (spy.mock.calls[0] as unknown as [unknown, SystemPromptContext])[1];
@@ -132,7 +80,7 @@ describe('buildSystemPrompt', () => {
   it('provides suppressToolSetPrompt in the prompt context', () => {
     const spy = vi.fn(() => 'section');
     const ts = makeBrandedToolSet({ onGetSystemPrompt: spy });
-    buildSystemPrompt('Base', [ts], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    buildSystemPrompt('Base', [ts], makeTsCtx(), undefined, TEST_BRAND);
     const promptCtx = (spy.mock.calls[0] as unknown as [unknown, SystemPromptContext])[1];
     expect(typeof promptCtx.suppressToolSetPrompt).toBe('function');
   });
@@ -140,7 +88,7 @@ describe('buildSystemPrompt', () => {
   it('gives non-branded ToolSets a no-op suppressToolSetPrompt', () => {
     const spy = vi.fn(() => 'section');
     const ts = makeToolSet({ onGetSystemPrompt: spy }); // no brand
-    buildSystemPrompt('Base', [ts], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    buildSystemPrompt('Base', [ts], makeTsCtx(), undefined, TEST_BRAND);
     const promptCtx = (spy.mock.calls[0] as unknown as [unknown, SystemPromptContext])[1];
     expect(typeof promptCtx.suppressToolSetPrompt).toBe('function');
     // Calling it should not throw and should not actually suppress anything
@@ -160,7 +108,7 @@ describe('buildSystemPrompt', () => {
         return 'SUPPRESSOR_FRAGMENT';
       },
     });
-    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, TEST_BRAND);
     // Both fragments should survive — suppression was ignored
     expect(result).toContain('TARGET_FRAGMENT');
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
@@ -178,7 +126,7 @@ describe('buildSystemPrompt', () => {
         return 'SUPPRESSOR_FRAGMENT';
       },
     });
-    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, TEST_BRAND);
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
     expect(result).not.toContain('TARGET_FRAGMENT');
   });
@@ -196,7 +144,7 @@ describe('buildSystemPrompt', () => {
         return undefined;
       },
     });
-    buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, TEST_BRAND);
     expect(targetSpy).toHaveBeenCalled();
   });
 
@@ -213,7 +161,7 @@ describe('buildSystemPrompt', () => {
       },
     });
     // Target is first, suppressor is second — suppressor runs after target
-    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, TEST_BRAND);
     expect(result).not.toContain('TARGET_FRAGMENT');
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
   });
@@ -231,7 +179,7 @@ describe('buildSystemPrompt', () => {
       },
     });
     // Suppressor is first, target is second — suppressor runs before target
-    const result = buildSystemPrompt(undefined, [suppressorTs, targetTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    const result = buildSystemPrompt(undefined, [suppressorTs, targetTs], makeTsCtx(), undefined, TEST_BRAND);
     expect(result).not.toContain('TARGET_FRAGMENT');
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
   });
@@ -245,7 +193,7 @@ describe('buildSystemPrompt', () => {
       name: 'B',
       onGetSystemPrompt: () => 'FRAGMENT_B',
     });
-    const result = buildSystemPrompt(undefined, [ts1, ts2], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    const result = buildSystemPrompt(undefined, [ts1, ts2], makeTsCtx(), undefined, TEST_BRAND);
     expect(result).toContain('FRAGMENT_A');
     expect(result).toContain('FRAGMENT_B');
   });
@@ -262,7 +210,7 @@ describe('buildSystemPrompt', () => {
         return 'SUPP';
       },
     });
-    const result = buildSystemPrompt(undefined, [ts1, ts2, ts3, suppressor], makeTsCtx(), undefined, undefined, TEST_BRAND);
+    const result = buildSystemPrompt(undefined, [ts1, ts2, ts3, suppressor], makeTsCtx(), undefined, TEST_BRAND);
     expect(result).not.toContain('FRAGMENT_A');
     expect(result).not.toContain('FRAGMENT_B');
     expect(result).toContain('FRAGMENT_C');

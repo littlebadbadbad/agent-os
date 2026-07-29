@@ -2,10 +2,6 @@
  * Prompt primitives for the Variable ToolSet.
  */
 
-import type { SectionId } from '@agent-type';
-
-export const VARIABLE_SECTION_ID: SectionId = 'variable';
-
 export const VAR_EXPAND_DESCRIPTION =
   'Browse the JSON structure of a variable like a debugger.\n' +
   '\n' +

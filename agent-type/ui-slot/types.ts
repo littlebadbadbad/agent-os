@@ -116,8 +116,6 @@ export interface PanelSlotDeclaration extends IframeConfig {
   readonly showTab: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
   /** Optional emoji/icon for the tab. */
   readonly icon?: string;
-  /** Sort order in the tab bar (lower = first). Default 100. */
-  readonly order?: number;
   /**
    * Optional badge text shown next to the tab label.
    * Return `null` to hide the badge. Called on every state update.
@@ -210,8 +208,6 @@ export interface ToolButtonSlotDeclaration extends IframeConfig {
   readonly label: string;
   /** Optional emoji/icon for the button. */
   readonly icon?: string;
-  /** Sort order in the AIControlBar (lower = first). Default 100. */
-  readonly order?: number;
   /** Whether to show this button. Called on every state update. */
   readonly showBtn: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
   /**
@@ -240,9 +236,6 @@ export interface AppSlotDeclaration extends IframeConfig {
   readonly icon: string;
   /** Display name shown in the app window title bar and tooltip. */
   readonly label: string;
-  /** Sort order in the app launcher bar (lower = first). Default 100. */
-  readonly order?: number;
-  /** Default window width in pixels. Default 600. */
   readonly defaultWidth?: number;
   /** Default window height in pixels. Default 400. */
   readonly defaultHeight?: number;

@@ -128,7 +128,7 @@ describe('brand gates suppressToolSetPrompt', () => {
     // Verify buildSystemPrompt grants the real callback
     const spy = vi.fn<() => string>(() => 'fragment');
     branded.onGetSystemPrompt = spy;
-    buildSystemPrompt(undefined, [branded], makeCtx(), undefined, undefined, BRAND);
+    buildSystemPrompt(undefined, [branded], makeCtx(), undefined, BRAND);
 
     const promptCtx = spy.mock.calls[0]![1] as SystemPromptContext;
     const logged: string[] = [];
@@ -150,7 +150,7 @@ describe('brand gates suppressToolSetPrompt', () => {
     // Verify buildSystemPrompt grants only a no-op
     const spy = vi.fn<() => string>(() => 'fragment');
     unbranded.onGetSystemPrompt = spy;
-    buildSystemPrompt(undefined, [unbranded], makeCtx(), undefined, undefined, BRAND);
+    buildSystemPrompt(undefined, [unbranded], makeCtx(), undefined, BRAND);
 
     const promptCtx = spy.mock.calls[0]![1] as SystemPromptContext;
     promptCtx.suppressToolSetPrompt('Other');
@@ -211,7 +211,7 @@ describe('brand gates suppressToolSetPrompt', () => {
     };
 
     const result = buildSystemPrompt(
-      undefined, [target, suppressor], makeCtx(), undefined, undefined, BRAND,
+      undefined, [target, suppressor], makeCtx(), undefined, BRAND,
     );
 
     expect(result).toContain('SUPPRESSOR');

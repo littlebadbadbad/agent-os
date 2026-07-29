@@ -4,7 +4,7 @@ import type { ToolSet, ToolSetContext, Tool, AgentRunOutcome, PluginSlotDeclarat
 import type { SessionEntryData } from '@agent-type';
 import { planStore } from './store';
 import { createPlanTools } from './tools';
-import { PLAN_GUIDANCE, PLAN_SECTION_ID } from './prompt';
+import { PLAN_GUIDANCE } from './prompt';
 
 const PLAN_MODE_ALLOWED = new Set([
   'plan_write', 'plan_exit', 'read_file', 'list_dir',
@@ -53,8 +53,6 @@ export function createPlanToolSet(): ToolSet {
   return {
     name: 'plan',
     symbol: PLAN_SYMBOL,
-    sectionId: PLAN_SECTION_ID,
-    sectionPriority: 60,
     tools,
 
     /**

@@ -7,7 +7,6 @@ import type { KnowledgeGraph, KnowledgeNode, MemoryGraphToolSetOptions, MemoryGr
 import { MEMORY_GRAPH_SYMBOL } from './types';
 import { memoryGraphStore, convKey } from './store';
 import { createMemoryGraphTools } from './tools';
-import { MEMORY_GRAPH_SECTION_ID } from './prompt';
 
 // ── System prompt builder ─────────────────────────────────────────────────────
 
@@ -101,8 +100,6 @@ export function createMemoryGraphToolSet(options: MemoryGraphToolSetOptions = {}
     name: 'memory-graph',
     symbol: MEMORY_GRAPH_SYMBOL,
     coreTools: ['memory_recall'],
-    sectionId: MEMORY_GRAPH_SECTION_ID,
-    sectionPriority: 70,
     tools,
 
     // ── Per-run hook ────────────────────────────────────────────────────────

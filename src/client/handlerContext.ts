@@ -2,7 +2,7 @@ import { toDescriptors } from '@agent-sdk/tools/toDescriptor';
 import type { ToolManager } from '@agent-sdk/client/toolManager';
 import type { HandlerContext, ToolChoice, ToolSetContext } from '@agent-type';
 import { MAIN_CONVERSATION_ID } from '@agent-sdk/tools/toolSet';
-import type { ToolSetScope, SystemPromptCache } from '@agent-sdk/tools/toolSetScope';
+import type { ToolSetScope } from '@agent-sdk/tools/toolSetScope';
 import type { ToolCallPipeline } from '@agent-sdk/tools/callToolPipeline';
 
 /**
@@ -16,9 +16,6 @@ import type { ToolCallPipeline } from '@agent-sdk/tools/callToolPipeline';
  * `SystemPromptContext` that includes the user message, the agent's base system
  * prompt, and the accumulated prompt from all ToolSets that ran before it.
  * `userMessage` is `undefined` for headless/programmatic calls.
- *
- * When `sectionCache` is provided, `buildSystemPrompt` uses it to avoid
- * recomputing unchanged system-prompt sections on every LLM turn.
  */
 export function buildHandlerContext(
   toolManager: ToolManager,
@@ -30,12 +27,11 @@ export function buildHandlerContext(
   userMessage: string | undefined,
   scope: ToolSetScope,
   callToolFn: ToolCallPipeline,
-  sectionCache?: SystemPromptCache,
 ): HandlerContext {
   const ctx: ToolSetContext = { sessionId, agentName, conversationId: MAIN_CONVERSATION_ID };
 
   const tools = scope.filterTools(toolManager.getTools(), ctx);
-  const resolvedSystemPrompt = scope.buildSystemPrompt(systemPrompt, ctx, userMessage, sectionCache);
+  const resolvedSystemPrompt = scope.buildSystemPrompt(systemPrompt, ctx, userMessage);
 
   return {
     tools: toDescriptors(tools),

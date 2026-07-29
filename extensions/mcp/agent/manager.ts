@@ -425,7 +425,6 @@ export function createMcpToolset(adapter: McpAdapter): {
       type: "toolButton",
       label: "MCP",
       icon: "\u{1F50C}",
-      order: 20,
       showBtn: () => true,
       badge: () => {
         const connected = store

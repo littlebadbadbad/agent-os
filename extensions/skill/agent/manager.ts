@@ -325,7 +325,6 @@ export function createSkillToolset(
       label: "Skills",
       icon: "🎞️",
       showBtn: () => true,
-      order: 30,
       containingHeight: "560px",
       badge: () => {
         const count = loadedSkills.size;

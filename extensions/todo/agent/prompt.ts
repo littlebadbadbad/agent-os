@@ -5,11 +5,6 @@
  */
 
 import type { TodoItem } from './types';
-import type { SectionId } from '@agent-type';
-
-// ── Section ID ────────────────────────────────────────────────────────────────
-
-export const SECTION_ID: SectionId = 'task_tracking';
 
 // ── Tool descriptions ─────────────────────────────────────────────────────────
 

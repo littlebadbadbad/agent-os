@@ -144,7 +144,6 @@ export function getBrowserSlotDeclarations(
       type: "app",
       icon: "\uD83C\uDF10",
       label: "Browser",
-      order: 50,
       defaultWidth: 1100,
       defaultHeight: 750,
       resizable: true,

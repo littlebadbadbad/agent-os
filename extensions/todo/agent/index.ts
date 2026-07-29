@@ -7,7 +7,6 @@ export { TODO_SYMBOL } from './toolSet';
 export type { TodoSymbolState, TodoItem, TodoStatus, TodoPriority } from './types';
 export { todoItemSchema, todoArraySchema, emptySchema } from './types';
 export {
-  SECTION_ID,
   TODO_WRITE_DESCRIPTION,
   TODO_READ_DESCRIPTION,
   TODO_ITEM_DESCRIPTION,

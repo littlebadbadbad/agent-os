@@ -9,7 +9,6 @@
 import type { ToolSet, ToolSetContext, AgentHandler } from '@agent-type';
 import type { Tool } from '@agent-type';
 import type { ConversationHandle } from './registryConversation';
-import type { SystemPromptCache } from '../prompts/section';
 
 // ── Internal entry ────────────────────────────────────────────────────────────
 
@@ -24,8 +23,6 @@ export type InternalEntry = {
   createdAt: string;
   activeConversationId: string;
   conversations: Map<string, ConversationHandle>;
-  /** Per-agent prompt-section cache — shared across all conversations. */
-  sectionCache: SystemPromptCache;
 };
 
 // ── Factory options ──────────────────────────────────────────────────────────

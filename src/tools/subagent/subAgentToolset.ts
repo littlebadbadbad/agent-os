@@ -41,7 +41,7 @@ import { createCrudTools } from "./subAgentCrudTools";
 import { createConvTools } from "./subAgentConvTools";
 import { createDelegateTaskTool } from "./delegateTool";
 import { parentFromContext } from "./subAgentHelpers";
-import { SUBAGENT_SECTION_ID, SUBAGENT_DECISION_FRAMEWORK } from "./prompt";
+import { SUBAGENT_DECISION_FRAMEWORK } from "./prompt";
 import type { Tool, ToolSet, ToolSetContext, AgentQueryFns, AgentHandler } from '@agent-type';
 import type { SubAgentRegistry, SubAgentSerializedEntry } from "./registryTypes";
 import type { SessionEntryData } from "../../client/sessionManager.types";
@@ -182,8 +182,6 @@ export function createSubAgentToolset(
       `send_${suffix}_message`,
       `delegate_${suffix}_task`,
     ],
-    sectionId: SUBAGENT_SECTION_ID,
-    sectionPriority: 30,
     tools: allTools,
 
     // ── Lifecycle hooks ────────────────────────────────────────────────

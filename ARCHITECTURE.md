@@ -23,7 +23,7 @@ All cross-layer shared types live here. Import via `@agent-type/<file>`. No runt
 | `core.ts` | `Tool<TName,TSchema,TResult>`, `ToolCall`, `ToolResult`, `Attachment`, `TokenUsage`, `AgentStreamChunk` (union: `text\|thinking\|tool_call\|tool_result\|attachment\|usage`), `AgentTurnResponse`, `AgentSessionState`, `SessionStateLike`, `ToolExecutionContext` (has `requestUserInput`, `sendMessage`, `flushPersistence`), `UserInputRequest` |
 | `handler.ts` | `AgentHandler(msgs[], ctx) → Promise<AgentTurnResponse \| ReadableStream<AgentStreamChunk>>`, `HandlerContext` (tools, callTool, toolChoice, systemPrompt, signal) |
 | `message.ts` | `UserMessage`, `AssistantMessage` (content, toolCalls?, thinking?, attachments?), `ToolResultMessage`, `AgentMessage` union, `ToolChoice` (`auto\|required\|none\|{type:'function',name}`) |
-| `toolset.ts` | `ToolSet` interface (~20 lifecycle hooks), `ToolSetContext` (sessionId, agentName, conversationId), `ctxKey()`, `MAIN_CONVERSATION_ID`, `SystemPromptContext` (has `suppressToolSetPrompt`), `SectionId` (prompt ordering/dedup), `CompactionResult`, `AgentRunOutcome`, `AgentClientLike`, `AgentQueryFns` |
+| `toolset.ts` | `ToolSet` interface (~20 lifecycle hooks), `ToolSetContext` (sessionId, agentName, conversationId), `ctxKey()`, `MAIN_CONVERSATION_ID`, `SystemPromptContext` (has `suppressToolSetPrompt`), `CompactionResult`, `AgentRunOutcome`, `AgentClientLike`, `AgentQueryFns` |
 | `plugin.ts` | `PluginManifest` (3 entries: agentEntry/backendEntry/uiEntry), `BackendPluginHost` (defineApi/defineStream/getPluginDataDir/getAgentDir/getBackendConfig), `AgentPluginHost` (registerToolSet/apiClient/getConfig), `UiPluginHost`/`UiPluginHostInternal` (getPluginState/getSlotContext/onSlotMessage — buffered), `PluginApiClient`, `ToolCallInfo`, `StreamHandler`, `StreamConnection`, `PluginConfiguration` |
 | `ui-slot/types.ts` | 7 `SlotType` values: `panel\|toolCard\|inlinePrompt\|headerBar\|toolButton\|compactToolCard\|autocomplete`. Slot declarations, `SlotContext`, `SlotDisplayContext` (sessionId/agentName/conversationId) |
 | `ui-slot/protocol.ts` | Per-slot host→iframe message types |
@@ -65,7 +65,7 @@ runAgentLoopCore():
 ```
 
 ### System Prompt Assembly (`src/tools/agentRuntime.ts`)
-`buildSystemPrompt()` folds all `onGetSystemPrompt` hooks. Sections with `sectionId` sorted by `sectionPriority` (asc), deduplicated (lowest priority wins per section). Sections without `sectionId` inject unconditionally. `SystemPromptCache` caches `cacheable` sections per session.
+`buildSystemPrompt()` folds all `onGetSystemPrompt` hooks in registration order.
 
 ### ToolSet Lifecycle (hook fire order)
 ```
@@ -219,7 +219,7 @@ Plugin code interacts only via host API. Path access restricted — only `plugin
 
 **Session Isolation**: AgentClient owns `SessionManager`. Each session has its own `ToolManager` (per-session filtered tools). `history` (compacted LLM context) separate from UI `messages`. Persistence via external load/save callbacks.
 
-**System Prompt Sections**: ToolSets with `sectionId` sorted by `sectionPriority` (asc), deduplicated (lowest priority wins per section). Without `sectionId` → unconditional injection. `SystemPromptCache` caches `cacheable` sections per session.
+**System Prompt Sections**: ToolSets are iterated in registration order. Each receives a `SystemPromptContext` with accumulated parts so far. Internally-branded ToolSets may suppress other ToolSets' fragments via `suppressToolSetPrompt`.
 
 ## Constraints
 

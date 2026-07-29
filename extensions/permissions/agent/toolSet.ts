@@ -46,13 +46,6 @@ export type PermissionsToolSetOptions = {
    * (all tools allowed, no restrictions).
    */
   context?: ToolPermissionContext;
-
-  /**
-   * Section ID for system-prompt injection.
-   * Defaults to `'permissions'` — registered in `SECTION_IDS`.
-   * Set to `undefined` to skip system-prompt injection.
-   */
-  sectionId?: 'permissions' | undefined;
 };
 
 // ── Helper: handle an `ask` result ────────────────────────────────────────────
@@ -163,7 +156,6 @@ async function handlePermissionResult(
 export function createPermissionsToolSet(
   options?: PermissionsToolSetOptions,
 ): ToolSet {
-  const { adapter, sectionId } = options ?? {};
   let permissionContext: ToolPermissionContext = options?.context ?? {
     ...DEFAULT_PERMISSION_CONTEXT,
   };
@@ -171,7 +163,6 @@ export function createPermissionsToolSet(
   return {
     name: 'permissions',
     description: 'Tool permission checking',
-    sectionId: sectionId ?? 'permissions',
     tools: [],
 
     // ── Per-tool-call hooks ────────────────────────────────────────────────

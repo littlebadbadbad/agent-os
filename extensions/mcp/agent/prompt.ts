@@ -12,16 +12,6 @@
  * @module
  */
 
-import type { SectionId } from '@agent-type';
-
-// ── Section identifier ────────────────────────────────────────────────────────
-
-/**
- * Section ID for the MCP system-prompt section.
- * Registered in `SECTION_IDS` so that `SectionId` resolves to it.
- */
-export const MCP_SECTION_ID: SectionId = 'mcp';
-
 // ── Tool descriptions ─────────────────────────────────────────────────────────
 
 /**

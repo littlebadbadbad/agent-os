@@ -5,5 +5,5 @@
 export { createPlanToolSet } from './toolSet';
 export { PLAN_SYMBOL } from './toolSet';
 export type { PlanSymbolState } from './types';
-export { PLAN_SECTION_ID, PLAN_GUIDANCE } from './prompt';
+export { PLAN_GUIDANCE } from './prompt';
 export { createPlanTools } from './tools';

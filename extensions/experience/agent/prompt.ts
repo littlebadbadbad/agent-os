@@ -8,8 +8,6 @@
 
 import type { ExperienceItem } from './types';
 
-export const EXPERIENCE_SECTION_ID = 'experience' as const;
-
 function serializeForPrompt(e: ExperienceItem): string {
   const meta = [
     `id=${e.id.slice(0, 8)}`,

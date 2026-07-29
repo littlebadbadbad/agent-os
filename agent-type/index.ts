@@ -81,7 +81,6 @@ export type {
   CompactionResult,
   CompactionNotice,
   AgentRunOutcome,
-  SectionId,
   SessionReadyHelpers,
 } from "./toolset";
 

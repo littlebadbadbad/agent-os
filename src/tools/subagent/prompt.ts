@@ -5,10 +5,6 @@
  * to delegate, not just that the tool exists.
  */
 
-import type { SectionId } from '@agent-type';
-
-export const SUBAGENT_SECTION_ID: SectionId = 'subagent';
-
 // ── Delegation decision framework ─────────────────────────────────────────────
 
 export const SUBAGENT_DECISION_FRAMEWORK = `## Sub-Agents

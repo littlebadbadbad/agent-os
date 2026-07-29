@@ -12,7 +12,7 @@
 
 // ── Module augmentation ───────────────────────────────────────────────────────
 import type { TodoItem } from './types';
-import type { ToolSet, ToolSetContext, SessionEntryExtension, PluginSlotDeclaration, PluginStateExtension } from '@agent-type';
+import type { ToolSet, ToolSetContext, PluginSlotDeclaration, SessionEntryData } from '@agent-type';
 
 export { };
 
@@ -26,7 +26,7 @@ declare module '@agent-type' {
 import { ctxKey } from '@agent-type';
 import type { CompactToolCardDescriptor, ToolCallInfo } from '@agent-type';
 import { createTodoWriteTool, createTodoReadTool } from './tools';
-import { buildTaskTrackingSectionContent, SECTION_ID } from './prompt';
+import { buildTaskTrackingSectionContent } from './prompt';
 import type { TodoSymbolState } from './types';
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
@@ -109,7 +109,6 @@ export function createTodoTools(): ToolSet {
       type: 'panel',
       label: 'Todo',
       showTab: (_ctx, state) => (state?.todos?.length ?? 0) > 0,
-      order: 30,
       badge: (_ctx, state) => {
         const items = state?.todos;
         if (!items || items.length === 0) return null;
@@ -136,8 +135,6 @@ export function createTodoTools(): ToolSet {
     name: 'todo',
     description: 'Task tracking: decompose work into items, mark progress, track completion.',
     coreTools: ['todo_write', 'todo_read'],
-    sectionId: SECTION_ID,
-    sectionPriority: 40,
     tools: [todoWrite, todoRead],
 
     onGetSystemPrompt(ctx: ToolSetContext): string | undefined {

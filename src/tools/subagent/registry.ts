@@ -6,7 +6,6 @@ import type {
   SubAgentRegistryState,
   SubAgentSerializedEntry,
 } from '@agent-sdk/tools/subagent/registryTypes';
-import { createSystemPromptCache } from '@agent-sdk/tools/prompts/section';
 import type {
   InternalEntry,
   CreateSubAgentRegistryOptions,
@@ -178,7 +177,6 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
         createdAt:            new Date().toISOString(),
         activeConversationId: '',
         conversations:        new Map(),
-        sectionCache:         createSystemPromptCache(),
       };
 
       // Wire agent-level ToolSet hooks FIRST (onInitSession) so that any
@@ -283,7 +281,6 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       conv._state.msgList.truncate(0);
       const convCtx = subCtx(subAgentName, conversationId);
       scope.resetScope(convCtx);
-      entry.sectionCache.invalidate();
       conv._notifyRegistry();
     },
 
@@ -410,7 +407,6 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
           createdAt:            raw.createdAt,
           activeConversationId: '',
           conversations:        new Map(),
-          sectionCache:         createSystemPromptCache(),
         };
 
         entry.activeConversationId = raw.activeConversationId;

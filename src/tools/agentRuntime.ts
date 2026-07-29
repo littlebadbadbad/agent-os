@@ -9,9 +9,8 @@
  * any layer.
  */
 
-import type { Tool, AgentMessage, TokenUsage, AgentHandler, ToolSet, ToolSetContext, SystemPromptContext, CompactionNotice, SectionId } from '@agent-type';
+import type { Tool, AgentMessage, TokenUsage, AgentHandler, ToolSet, ToolSetContext, SystemPromptContext, CompactionNotice } from '@agent-type';
 import type { Attachment, AgentRunOutcome } from '@agent-type';
-import type { SystemPromptCache } from '@agent-sdk/tools/prompts/section';
 import { isBranded } from './toolSet';
 import type { HistoryTracker } from './historyTracker';
 
@@ -85,27 +84,22 @@ export function wrapOnBeforeInvoke(
 /**
  * Fold all ToolSet `onGetSystemPrompt` hooks into a joined prompt string.
  *
- * **Ordering**: ToolSets that declare a `sectionPriority` are sorted ascending.
- * ToolSets without a `sectionPriority` (or with `undefined`) appear after all
- * sorted ToolSets, in their original registration order.
+ * ToolSets are iterated in registration order.  Each ToolSet receives a
+ * `SystemPromptContext` with the accumulated prompt parts so far, enabling
+ * conditional injection and cross-ToolSet awareness.
  *
- * **Deduplication**: When two or more ToolSets share the same `sectionId`,
- * only the one with the lowest `sectionPriority` is included.  The rest are
- * skipped.  ToolSets without a `sectionId` are never deduplicated.
+ * Internally-branded ToolSets (built-in plugins) may call
+ * `suppressToolSetPrompt` to exclude another ToolSet's fragment from the
+ * final prompt.  The suppressed ToolSet's `onGetSystemPrompt` still executes
+ * so it can perform internal bookkeeping.
  *
- * **Caching**: When a `sectionCache` is provided and the ToolSet has a
- * `sectionId`, the fragment is resolved through `SystemPromptCache.resolve()`,
- * which returns a cached value if the section was already computed and its
- * `cacheable` flag is `true`.
- *
- * @param base          Optional base system prompt (injected first).
- * @param toolSets      ToolSets whose `onGetSystemPrompt` to invoke.
- * @param ctx           Stable session/agent context for this turn.
- * @param userMessage   The raw user message text, or `undefined` for
- *                      programmatic calls.
- * @param sectionCache  Optional per-session cache.  When provided, sections
- *                      with a `sectionId` are cached and reused on subsequent
- *                      turns until `sectionCache.invalidate()` is called.
+ * @param base        Optional base system prompt (injected first).
+ * @param toolSets    ToolSets whose `onGetSystemPrompt` to invoke.
+ * @param ctx         Stable session/agent context for this turn.
+ * @param userMessage The raw user message text, or `undefined` for
+ *                    programmatic calls.
+ * @param brand       Optional internal brand symbol for authorising
+ *                    `suppressToolSetPrompt` calls.
  * @returns The joined prompt, or `undefined` when nothing was injected.
  */
 export function buildSystemPrompt(
@@ -113,54 +107,15 @@ export function buildSystemPrompt(
   toolSets: readonly ToolSet[],
   ctx: ToolSetContext,
   userMessage?: string,
-  sectionCache?: SystemPromptCache,
   brand?: symbol,
 ): string | undefined {
   const parts: string[] = [];
   if (base) parts.push(base);
 
-  // 1. Separate ToolSets with a sectionId from those without.
-  //    Section-aware ToolSets are sorted and deduplicated.
-  //    Section-unaware ToolSets are injected unconditionally in order.
-  const withSection: ToolSet[] = [];
-  const withoutSection: ToolSet[] = [];
-  for (const ts of toolSets) {
-    if (ts.sectionId) {
-      withSection.push(ts);
-    } else {
-      withoutSection.push(ts);
-    }
-  }
-
-  // 2. Sort by sectionPriority ascending, then deduplicate by sectionId.
-  const seen = new Set<SectionId>();
-  const ordered = [...withSection]
-    .sort((a, b) => (a.sectionPriority ?? 100) - (b.sectionPriority ?? 100))
-    .filter((ts) => {
-      const id = ts.sectionId!;
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
-
-  // 3. Compute each section fragment, optionally caching.
-  //    ToolSets may call `suppressToolSetPrompt` to request that another
-  //    ToolSet's fragment be excluded from the final prompt.  Suppression
-  //    does NOT prevent the target's `onGetSystemPrompt` from executing —
-  //    only its result is discarded.
-  const allOrdered = [...ordered, ...withoutSection];
-
-  /** Names of ToolSets whose prompt fragment should be suppressed. */
   const suppressed = new Set<string>();
-  /** Collected { name, fragment } pairs — filtered after the loop. */
   const collected: Array<{ name: string; fragment: string | undefined }> = [];
 
-  for (const ts of allOrdered) {
-    // Only internally-branded ToolSets (built-in plugins) are authorised to
-    // suppress other ToolSets' prompts.  External/third-party ToolSets receive
-    // a no-op so they cannot interfere with each other's fragments.
-    // A brand must be configured (from the agent client config) for any
-    // ToolSet to be recognised as internal.
+  for (const ts of toolSets) {
     const promptCtx: SystemPromptContext = {
       userMessage,
       baseSystemPrompt: base,
@@ -170,25 +125,15 @@ export function buildSystemPrompt(
         : () => { /* no-op: only branded ToolSets can suppress */ },
     };
 
-    const compute = () => ts.onGetSystemPrompt?.(ctx, promptCtx, toolSets);
-    const fragment = ts.sectionId && sectionCache
-      ? sectionCache.resolve(ts.sectionId, compute as () => string | undefined)
-      : compute();
-
+    const fragment = ts.onGetSystemPrompt?.(ctx, promptCtx, toolSets);
     collected.push({ name: ts.name, fragment });
-    // Tentatively add to `parts` so later ToolSets see it in
-    // `currentSystemPromptParts`.  Suppressed fragments are removed in
-    // the post-loop filter below.
     if (fragment) parts.push(fragment);
   }
 
-  // 4. Post-filter: remove fragments from ToolSets that were suppressed
-  //    after their fragment was already added to `parts`.
   if (suppressed.size > 0) {
     const filtered = collected.filter(
       ({ name, fragment }) => fragment !== undefined && !suppressed.has(name),
     );
-    // Rebuild parts from scratch: base + surviving fragments.
     parts.length = 0;
     if (base) parts.push(base);
     for (const { fragment } of filtered) parts.push(fragment!);

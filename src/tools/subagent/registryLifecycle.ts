@@ -157,7 +157,7 @@ export function createLifecycleFunctions(
         if (userText !== cachedUserText) {
           cachedUserText = userText;
           cachedSystemPrompt = scope.buildSystemPrompt(
-            entry.systemPrompt, convCtx, userText, entry.sectionCache,
+            entry.systemPrompt, convCtx, userText,
           );
         }
         return handler(msgs, {

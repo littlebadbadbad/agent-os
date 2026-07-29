@@ -17,7 +17,6 @@ import { createAgentSession } from "./agentSession";
 import { buildHandlerContext } from "./handlerContext";
 import { createToolSetScope } from "@agent-sdk/tools/toolSetScope";
 import type { SessionEntryData } from "./sessionManager.types";
-import { createSystemPromptCache } from "@agent-sdk/tools/prompts/section";
 
 export type SessionFactoryDeps = {
   masterTools: Tool[];
@@ -64,11 +63,6 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
 
   return function makeSession(entryData: SessionEntryData) {
     const { id: sessionId } = entryData;
-
-    // Per-session prompt-section cache — shared across all turns so that
-    // cacheable sections (e.g. static tool usage guidance) are computed
-    // once and reused.  Invalidated on session reset.
-    const sectionCache = createSystemPromptCache();
 
     const slot = createToolManager(entryData);
     slots.set(sessionId, slot);
@@ -126,7 +120,6 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
               userMessage,
               scope,
               pipeline,
-              sectionCache,
             ),
           ),
       callTool,
@@ -148,7 +141,6 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
       },
       enableAttachments,
       onClearHistory: () => {
-        sectionCache.invalidate();
         scope.resetScope(tsCtx);
       },
       onInterceptMessage: (

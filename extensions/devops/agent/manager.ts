@@ -59,7 +59,6 @@ export function createDevopsToolset(
       icon: '\u2699\uFE0F',
       label: 'Azure DevOps',
       shouldRender: () => true,
-      order: 50,
       defaultWidth: 1200,
       defaultHeight: 800,
       resizable: true,

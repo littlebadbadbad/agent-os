@@ -12,12 +12,4 @@
  * @module
  */
 
-import type { SectionId } from '@agent-type';
-
-// ── Section identifier ────────────────────────────────────────────────────────
-
-/**
- * Section ID for the Memory Graph system-prompt section.
- * Registered in `SECTION_IDS` so that `SectionId` resolves to it.
- */
-export const MEMORY_GRAPH_SECTION_ID: SectionId = 'memory_graph';
+// ── Tool descriptions ─────────────────────────────────────────────────────────

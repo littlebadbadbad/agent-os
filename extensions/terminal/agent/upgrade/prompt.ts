@@ -2,10 +2,6 @@
  * extensions/terminal/agent/upgrade/prompt.ts — System prompt section
  */
 
-import type { SectionId } from "@agent-type";
-
-export const UPGRADE_SECTION_ID: SectionId = "upgrade";
-
 // ── Self-upgrade workflow guidance ─────────────────────────────────────────
 
 export const WORKFLOW_GUIDANCE = `\

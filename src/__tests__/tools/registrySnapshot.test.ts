@@ -96,7 +96,6 @@ function makeEntry(overrides?: Partial<InternalEntry>): InternalEntry {
     createdAt: '2025-01-01T00:00:00.000Z',
     activeConversationId: 'conv-1',
     conversations: new Map(),
-    sectionCache: { resolve: vi.fn(), invalidate: vi.fn(), entries: vi.fn(() => ({})) } as any,
     ...overrides,
   };
 }

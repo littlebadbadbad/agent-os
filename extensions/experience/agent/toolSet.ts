@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import type { ToolSet, ToolSetContext, Tool, ToolCallInfo, CompactToolCardDescriptor, PluginSlotDeclaration } from '@agent-type';
 import { ctxKey, MAIN_CONVERSATION_ID } from '@agent-type';
-import { buildExperienceSectionContent, EXPERIENCE_SECTION_ID } from './prompt';
+import { buildExperienceSectionContent } from './prompt';
 import type { ExperienceItem, ExperienceInput, ExperienceStore, ExperienceSymbolState } from './types';
 
 // ── Symbol ────────────────────────────────────────────────────────────────────
@@ -229,7 +229,6 @@ export function createExperienceToolSet(): ToolSet {
       type: 'panel',
       label: 'Experience',
       showTab: (ctx) => ctx.conversationId === MAIN_CONVERSATION_ID,
-      order: 20,
       badge: () => {
         if (globalItems.length === 0) return null;
         return String(globalItems.length);
@@ -253,8 +252,6 @@ export function createExperienceToolSet(): ToolSet {
     name: 'experience',
     description: 'Persistent trigger->insight experience records for pattern matching.',
     coreTools: ['experience_add', 'experience_list'],
-    sectionId: EXPERIENCE_SECTION_ID,
-    sectionPriority: 50,
     tools: [experienceAdd, experienceUpdate, experienceDelete, experienceList],
 
     // Sub-agents: no experience tools, no system-prompt injection.

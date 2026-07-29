@@ -265,28 +265,6 @@ export type InterceptResult = { readonly intercepted: true } | void;
  */
 export type ToolSetState = Partial<AgentSessionState>;
 
-// ── Section identifier ────────────────────────────────────────────────────────
-
-/**
- * System-prompt section identifier for ordering and deduplication.
- *
- * When multiple ToolSets register the same section ID, only the one
- * with the lowest `sectionPriority` is included in the final prompt —
- * the others are skipped.  ToolSets without a `sectionId` are always
- * included (no deduplication applied).
- *
- * Sections are injected in ascending `sectionPriority` order.  For the
- * canonical list of known section IDs and their recommended priority
- * ranges, see `SECTION_IDS` in `prompts/section.ts`.
- *
- * ToolSets that do NOT set `sectionId` are **not sorted** and are
- * **never deduplicated** — they always inject their prompt fragment
- * unconditionally, preserving backward compatibility.
- *
- * @default undefined (no section association — unconditional injection)
- */
-export type SectionId = string;
-
 // ── ToolSet ────────────────────────────────────────────────────────────────────
 
 /**
@@ -338,34 +316,6 @@ export type ToolSet<
    * contributions in the system prompt it injects.
    */
   description?: string;
-
-  /**
-   * System-prompt section identifier for ordering and deduplication.
-   *
-   * When multiple ToolSets register the same section ID, only the one
-   * with the lowest `sectionPriority` is included in the final prompt —
-   * the others are skipped.  ToolSets without a `sectionId` are always
-   * included (no deduplication applied).
-   *
-   * Sections are injected in ascending `sectionPriority` order.  For the
-   * canonical list of known section IDs and their recommended priority
-   * ranges, see `SECTION_IDS` in `prompts/section.ts`.
-   *
-   * ToolSets that do NOT set `sectionId` are **not sorted** and are
-   * **never deduplicated** — they always inject their prompt fragment
-   * unconditionally, preserving backward compatibility.
-   *
-   * @default undefined (no section association — unconditional injection)
-   */
-  sectionId?: SectionId;
-
-  /**
-   * Sort priority within the system prompt.  Lower values appear first.
-   * Only meaningful when `sectionId` is also set.
-   *
-   * @default 100
-   */
-  sectionPriority?: number;
 
   /**
    * Tools to register in every session.

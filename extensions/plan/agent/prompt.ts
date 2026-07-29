@@ -5,15 +5,6 @@
 // `toolSet.ts` so that the prompt content lives in a single, importable
 // module alongside the prompt assembly pipeline.
 
-import type { SectionId } from '@agent-type';
-
-// ── Section ID ────────────────────────────────────────────────────────────────
-
-/**
- * Canonical section identifier for planning guidance.
- */
-export const PLAN_SECTION_ID: SectionId = 'planning';
-
 // ── Plan guidance (system-prompt fragment) ────────────────────────────────────
 
 /**
