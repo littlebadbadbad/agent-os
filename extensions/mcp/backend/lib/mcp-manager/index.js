@@ -10,9 +10,9 @@
  * Why backend?  Browser fetch is subject to CORS; Node.js fetch is not.
  *
  * Proxy support:
- *   Each MCP server entry has a `useProxy` flag (default true).
+ *   Each MCP server entry has a `useProxy` flag (default false).
  *   When true, connections route through the globally configured proxy.
- *   When false, the transport bypasses the proxy via undici's direct Agent.
+ *   When false, the transport connects directly without a proxy.
  *
  * Factory pattern: createMcpManager(agentDir, proxyConfig) returns an isolated
  * instance scoped to the given agent directory.
@@ -112,7 +112,7 @@ export function createMcpManager(agentDir, proxyCfg = null) {
     statusByServer.set(name, { status: 'connecting' });
     log.info(`connecting to MCP server "${name}" (${cfg.transport}) \u2192 ${cfg.url}`);
 
-    const transportOpts = { useProxy: cfg.useProxy !== false, proxyConfig: proxyCfg };
+    const transportOpts = { useProxy: cfg.useProxy === true, proxyConfig: proxyCfg };
     try {
       const client = cfg.transport === 'http'
         ? await createHttpClient(cfg.url, cfg.headers, transportOpts)

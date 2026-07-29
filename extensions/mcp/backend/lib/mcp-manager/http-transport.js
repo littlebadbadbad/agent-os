@@ -8,44 +8,36 @@
  * Sessions are tracked via the Mcp-Session-Id response header.
  *
  * Proxy support:
- *   When `useProxy` is true and a `proxyConfig` is provided, all connections
- *   route through the configured proxy.  When false, the default Node.js
- *   fetch is used (direct connection).
+ *   When `useProxy` is enabled and the target URL is not a local/private address,
+ *   connections route through the configured proxy.  Localhost, loopback, and
+ *   private-network addresses always bypass the proxy.
  */
 
-import { CLIENT_INFO, serializeToolResult } from './transport-utils.js';
-
-// ── Proxy fetch (lazily initialised) ──────────────────────────────────────────
-
-/**
- * Lazily creates an undici ProxyAgent + fetch that routes through the
- * configured proxy.  The Agent is created once and reused (connection pooling).
- */
-let _proxyFetchCache = null;
-async function ensureProxyFetch(proxyConfig) {
-  if (!_proxyFetchCache) {
-    const { fetch: undiciFetch, ProxyAgent } = await import('undici');
-    const proxyUri = `${proxyConfig.protocol}://${proxyConfig.host}:${proxyConfig.port}`;
-    const agent = new ProxyAgent({ uri: proxyUri, connectTimeout: proxyConfig.connectTimeout ?? 10_000 });
-    _proxyFetchCache = (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
-  }
-  return _proxyFetchCache;
-}
+import {
+  CLIENT_INFO,
+  MCP_PROTOCOL_VERSION,
+  serializeToolResult,
+  shouldUseProxy,
+  ensureProxyFetch,
+  wrapTransportError,
+} from './transport-utils.js';
 
 /**
- * @param {string} url
- * @param {Record<string,string>} [extraHeaders]
+ * @param {string} url - MCP server URL.
+ * @param {Record<string,string>} [extraHeaders] - Additional headers (e.g. auth).
  * @param {{ useProxy?: boolean, proxyConfig?: object }} [options]
  */
-export async function createHttpClient(url, extraHeaders = {}, { useProxy = true, proxyConfig } = {}) {
+export async function createHttpClient(url, extraHeaders = {}, { useProxy = false, proxyConfig } = {}) {
   let requestId = 0;
   let sessionId;
 
-  // Select fetch function once: proxy-aware fetch, or default Node.js fetch.
-  const requestFetch = useProxy && proxyConfig
+  // ── Fetch selection ────────────────────────────────────────────────────
+  const _useProxy = shouldUseProxy(url, useProxy, proxyConfig);
+  const requestFetch = _useProxy
     ? await ensureProxyFetch(proxyConfig)
     : globalThis.fetch.bind(globalThis);
 
+  // ── Helpers ────────────────────────────────────────────────────────────
   function buildHeaders() {
     const h = {
       'Content-Type': 'application/json',
@@ -59,7 +51,13 @@ export async function createHttpClient(url, extraHeaders = {}, { useProxy = true
   async function sendRequest(method, params) {
     const id = ++requestId;
     const body = JSON.stringify({ jsonrpc: '2.0', id, method, params });
-    const res = await requestFetch(url, { method: 'POST', headers: buildHeaders(), body });
+
+    let res;
+    try {
+      res = await requestFetch(url, { method: 'POST', headers: buildHeaders(), body });
+    } catch (err) {
+      throw wrapTransportError(err, url);
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -87,9 +85,9 @@ export async function createHttpClient(url, extraHeaders = {}, { useProxy = true
     }).catch(() => {});
   }
 
-  // Handshake
+  // ── Handshake ──────────────────────────────────────────────────────────
   await sendRequest('initialize', {
-    protocolVersion: '2025-03-26',
+    protocolVersion: MCP_PROTOCOL_VERSION,
     capabilities: { tools: {} },
     clientInfo: CLIENT_INFO,
   });

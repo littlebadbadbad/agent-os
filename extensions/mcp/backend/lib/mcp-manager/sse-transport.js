@@ -1,5 +1,5 @@
 /**
- * MCP SSE transport (MCP spec 2024-11-05).
+ * MCP SSE transport (MCP spec 2025-03-26).
  *
  * Opens a long-lived GET SSE stream to receive server-sent results, then
  * POSTs JSON-RPC requests to the endpoint URL advertised by the server's
@@ -7,50 +7,49 @@
  * JSON-RPC id.
  *
  * Proxy support:
- *   When `useProxy` is true and a `proxyConfig` is provided, all connections
- *   route through the configured proxy.  When false, the default Node.js
- *   fetch is used (direct connection).
+ *   When `useProxy` is enabled and the target URL is not a local/private address,
+ *   connections route through the configured proxy.  Localhost, loopback, and
+ *   private-network addresses always bypass the proxy.
  */
 
-import { CLIENT_INFO, serializeToolResult } from './transport-utils.js';
-
-// ── Proxy fetch (lazily initialised) ──────────────────────────────────────────
-
-let _proxyFetchCache = null;
-async function ensureProxyFetch(proxyConfig) {
-  if (!_proxyFetchCache) {
-    const { fetch: undiciFetch, ProxyAgent } = await import('undici');
-    const proxyUri = `${proxyConfig.protocol}://${proxyConfig.host}:${proxyConfig.port}`;
-    const agent = new ProxyAgent({ uri: proxyUri, connectTimeout: proxyConfig.connectTimeout ?? 10_000 });
-    _proxyFetchCache = (input, init) => undiciFetch(input, { ...init, dispatcher: agent });
-  }
-  return _proxyFetchCache;
-}
+import {
+  CLIENT_INFO,
+  MCP_PROTOCOL_VERSION,
+  serializeToolResult,
+  shouldUseProxy,
+  ensureProxyFetch,
+  wrapTransportError,
+} from './transport-utils.js';
 
 /**
- * @param {string} url
- * @param {Record<string,string>} [extraHeaders]
+ * @param {string} url - MCP server SSE URL.
+ * @param {Record<string,string>} [extraHeaders] - Additional headers (e.g. auth).
  * @param {{ useProxy?: boolean, proxyConfig?: object }} [options]
  */
-export async function createSseClient(url, extraHeaders = {}, { useProxy = true, proxyConfig } = {}) {
+export async function createSseClient(url, extraHeaders = {}, { useProxy = false, proxyConfig } = {}) {
   let requestId = 0;
 
-  // Select fetch function once: proxy-aware fetch, or default Node.js fetch.
-  const requestFetch = useProxy && proxyConfig
+  // ── Fetch selection ────────────────────────────────────────────────────
+  const _useProxy = shouldUseProxy(url, useProxy, proxyConfig);
+  const requestFetch = _useProxy
     ? await ensureProxyFetch(proxyConfig)
     : globalThis.fetch.bind(globalThis);
 
-  // `url` is also used as the base for endpoint URL resolution below.
   /** @type {Map<number, {resolve: (v:any)=>void, reject:(e:Error)=>void}>} */
   const pending = new Map();
   let postUrl = '';
   let closed = false;
   let sseReader = null;
 
-  // Open the SSE stream (GET).
-  const sseResponse = await requestFetch(url, {
-    headers: { Accept: 'text/event-stream', ...extraHeaders },
-  });
+  // ── Open SSE stream (GET) ──────────────────────────────────────────────
+  let sseResponse;
+  try {
+    sseResponse = await requestFetch(url, {
+      headers: { Accept: 'text/event-stream', ...extraHeaders },
+    });
+  } catch (err) {
+    throw wrapTransportError(err, url);
+  }
   if (!sseResponse.ok) {
     throw new Error(`MCP SSE connect failed: HTTP ${sseResponse.status}`);
   }
@@ -58,7 +57,7 @@ export async function createSseClient(url, extraHeaders = {}, { useProxy = true,
   sseReader = sseResponse.body.getReader();
   const decoder = new TextDecoder();
 
-  // Endpoint promise — resolves once the server advertises its POST URL.
+  // ── Endpoint discovery ─────────────────────────────────────────────────
   let endpointResolve, endpointReject;
   const endpointReady = new Promise((res, rej) => {
     endpointResolve = res;
@@ -91,14 +90,9 @@ export async function createSseClient(url, extraHeaders = {}, { useProxy = true,
             if (dataLines) {
               if (eventType === 'endpoint') {
                 clearTimeout(endpointTimeout);
-                try {
-                  postUrl = new URL(dataLines.trim(), url).href;
-                } catch {
-                  postUrl = dataLines.trim();
-                }
+                try { postUrl = new URL(dataLines.trim(), url).href; } catch { postUrl = dataLines.trim(); }
                 endpointResolve();
               } else {
-                // JSON-RPC response
                 try {
                   const msg = JSON.parse(dataLines);
                   const p = pending.get(msg.id);
@@ -119,7 +113,6 @@ export async function createSseClient(url, extraHeaders = {}, { useProxy = true,
         }
       }
     } catch (err) {
-      // Connection lost — reject all pending requests.
       const connErr = new Error(`MCP SSE connection lost: ${err.message}`);
       for (const p of pending.values()) p.reject(connErr);
       pending.clear();
@@ -127,8 +120,13 @@ export async function createSseClient(url, extraHeaders = {}, { useProxy = true,
     }
   })();
 
-  await endpointReady;
+  try {
+    await endpointReady;
+  } catch (err) {
+    throw wrapTransportError(err, url);
+  }
 
+  // ── Request helpers ────────────────────────────────────────────────────
   async function sendRequest(method, params) {
     const id = ++requestId;
     return new Promise((resolve, reject) => {
@@ -139,7 +137,7 @@ export async function createSseClient(url, extraHeaders = {}, { useProxy = true,
         body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
       }).catch((err) => {
         pending.delete(id);
-        reject(err instanceof Error ? err : new Error(String(err)));
+        reject(wrapTransportError(err, postUrl));
       });
     });
   }
@@ -152,9 +150,9 @@ export async function createSseClient(url, extraHeaders = {}, { useProxy = true,
     }).catch(() => {});
   }
 
-  // Handshake
+  // ── Handshake ──────────────────────────────────────────────────────────
   await sendRequest('initialize', {
-    protocolVersion: '2024-11-05',
+    protocolVersion: MCP_PROTOCOL_VERSION,
     capabilities: { tools: {} },
     clientInfo: CLIENT_INFO,
   });

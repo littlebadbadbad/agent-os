@@ -56,7 +56,7 @@ function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
   const [url, setUrl] = useState("");
   const [transport, setTransport] = useState<McpTransport>("http");
   const [headersRaw, setHeadersRaw] = useState("");
-  const [useProxy, setUseProxy] = useState(true);
+  const [useProxy, setUseProxy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

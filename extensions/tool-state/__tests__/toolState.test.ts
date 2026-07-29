@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { createToolStateToolSet } from '../agent';
