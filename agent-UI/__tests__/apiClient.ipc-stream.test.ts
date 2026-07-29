@@ -52,6 +52,7 @@ describe('IPC connectStream — lifecycle', () => {
     // The subscribe() should register listeners BEFORE calling connect
     expect(callOrder).toEqual([
       'on:plugin:test:myStream:data',
+      'on:plugin:test:myStream:frame',
       'on:plugin:test:myStream:end',
       'invoke:plugin:test:myStream:connect',
     ]);
