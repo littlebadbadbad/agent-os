@@ -180,7 +180,7 @@ export type SystemPromptContext = {
    * callback.  All other ToolSets get a no-op — preventing arbitrary ToolSets
    * from suppressing each other's prompts.
    *
-   * This is the mechanism used by `ToolStateToolSet` to suppress the prompt
+   * This is the mechanism used by the ToolState plugin to suppress the prompt
    * of a ToolSet whose tools are all disabled — the base layer itself has no
    * knowledge of tool-enable/disable state.  The internal brand is injected
    * by the plugin system at registration time for all built-in plugins.
@@ -328,15 +328,15 @@ export type ToolSet<
 
   /**
    * Names of this ToolSet's tools that must always remain visible to the model,
-   * even when `createToolSearchToolSet` defers the rest behind `tool_search`.
+   * even when the ToolState ToolSet defers non-core tools behind `tool_search`.
    *
    * Declare the tools that the agent needs to *discover* or *initiate* a
    * workflow — once inside a mode (e.g. plan mode) the ToolSet's own
    * `onFilterTools` controls visibility independently.
    *
-   * `createToolSearchToolSet` aggregates `coreTools` from every registered
-   * ToolSet at filter time, so new ToolSets registered dynamically are also
-   * respected without any manual bookkeeping.
+   * The ToolState ToolSet's `onFilterTools` aggregates `coreTools` from every
+   * registered ToolSet at filter time, so new ToolSets registered dynamically
+   * are also respected without any manual bookkeeping.
    */
   coreTools?: readonly string[];
 

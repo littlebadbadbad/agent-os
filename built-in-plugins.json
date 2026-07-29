@@ -8,7 +8,6 @@
     "tool-state",
     "skill",
     "mcp",
-    "cron",
     "devops",
     "experience",
     "git",
@@ -17,8 +16,6 @@
     "variable",
     "tool-result-compressor",
     "memory-graph",
-    "tool-search",
-    "permissions",
-    "delegation-nudge"
+    "permissions"
   ]
 }

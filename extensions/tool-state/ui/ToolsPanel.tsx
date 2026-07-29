@@ -3,28 +3,26 @@ import type { ReactElement } from 'react';
 import type { ToolStateEntry } from '../agent/types';
 import styles from './styles.module.scss';
 
-type ToolState = ToolStateEntry;
-type ToolGroup = { name: string; tools: ToolState[] };
+type ToolGroup = { name: string; tools: ToolStateEntry[] };
 
 const UNGROUPED_LABEL = '未分组工具';
 
-function groupByGroup(toolStates: ToolState[]): ToolGroup[] {
-  const map = new Map<string, ToolState[]>();
-  for (const tool of toolStates) {
+function groupTools(tools: ToolStateEntry[]): ToolGroup[] {
+  const map = new Map<string, ToolStateEntry[]>();
+  for (const tool of tools) {
     const key = tool.group ?? UNGROUPED_LABEL;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(tool);
+    const group = map.get(key);
+    if (group) group.push(tool);
+    else map.set(key, [tool]);
   }
-  const result: ToolGroup[] = [];
-  for (const [key, tools] of map) {
-    result.push({ name: key, tools });
-  }
-  const ungrouped = result.filter((g) => g.name === UNGROUPED_LABEL);
-  const named = result.filter((g) => g.name !== UNGROUPED_LABEL);
+  const groups = [...map.entries()].map(([name, tools]) => ({ name, tools }));
+  // Ungrouped tools first, named groups after
+  const ungrouped = groups.filter((g) => g.name === UNGROUPED_LABEL);
+  const named = groups.filter((g) => g.name !== UNGROUPED_LABEL);
   return [...ungrouped, ...named];
 }
 
-function ToolItem({ tool, onToggle }: { tool: ToolState; onToggle: (name: string) => void }): ReactElement {
+function ToolItem({ tool, onToggle }: { tool: ToolStateEntry; onToggle: (name: string) => void }): ReactElement {
   return (
     <div className={`${styles['tool-item']}${!tool.enabled ? ` ${styles['tool-item--disabled']}` : ''}`}>
       <div className={styles['tool-item-info']}>
@@ -47,7 +45,7 @@ export function ToolsPanel({
   toolStates,
   onToggle,
 }: {
-  toolStates: ToolState[];
+  toolStates: ToolStateEntry[];
   onToggle: (name: string) => void;
 }): ReactElement {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -56,11 +54,11 @@ export function ToolsPanel({
     return <div className={styles['tools-empty']}>No tools registered yet.</div>;
   }
 
-  const groups = groupByGroup(toolStates);
+  const groups = groupTools(toolStates);
 
   return (
     <div className={styles['tools-panel']}>
-      {groups.flatMap(({ name, tools }) => {
+      {groups.map(({ name, tools }) => {
         const isCollapsed = collapsed[name] ?? true;
         const enabledCount = tools.filter((t) => t.enabled).length;
         const allEnabled = enabledCount === tools.length;
@@ -77,8 +75,8 @@ export function ToolsPanel({
               <button type="button" role="switch" aria-checked={allEnabled}
                 className={`${styles['toggle']}${allEnabled ? ` ${styles['toggle--on']}` : ''}`}
                 onClick={() => {
-                  if (allEnabled) { tools.forEach((t) => onToggle(t.name)); }
-                  else { tools.filter((t) => !t.enabled).forEach((t) => onToggle(t.name)); }
+                  const targets = allEnabled ? tools : tools.filter((t) => !t.enabled);
+                  targets.forEach((t) => onToggle(t.name));
                 }}
                 title={allEnabled ? 'Disable all tools in this group' : 'Enable all tools in this group'}>
                 <span className={styles['toggle-thumb']} />

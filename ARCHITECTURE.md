@@ -92,12 +92,11 @@ Sub-agent conversations: parallel hooks `onInitConversation` / `onResetConversat
 | `todo/` `plan/` | task list / plan management |
 | `dynamicTool/` | register tools at runtime |
 | `cron/` *(moved to `extensions/cron/`)* | scheduled tasks |
-| `toolSearch/` | semantic tool discovery (defers non-core tools behind `tool_search`) |
 | `experience/` `memoryGraph/` `variable/` | memory stores |
 | `userInput/` + `pendingInput/` | user input queuing |
 | `historyProcessing/` | ToolResultCompressor, context compaction |
 | `tokenBudget/` | context window management |
-| `permissions/` `toolStateToolSet/` `upgrade/` `track/` | permissions, state persistence, upgrades, usage tracking |
+| `permissions/` `upgrade/` `track/` | permissions, state persistence, upgrades, usage tracking |
 
 > **Note**: `skill/` and `mcp/` have been migrated from built-in ToolSets to independent plugins (see Plugin System).
 

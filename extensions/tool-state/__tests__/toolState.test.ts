@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { createToolStateToolSet } from '../agent';
+import { createToolSearchTool, TOOL_SEARCH_THRESHOLD } from '../agent/tools';
 import { MAIN_CONVERSATION_ID } from '@agent-type';
-import type { Tool } from '@agent-type';
+import type { Tool, ToolExecutionContext, ToolSet, AgentQueryFns } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -10,44 +11,162 @@ function makeCtx(sessionId = 'session-1', agentName = 'main', conversationId = M
   return { sessionId, agentName, conversationId };
 }
 
-function makeTool(name: string, group?: string): Tool {
+function makeExecCtx(sessionId = 'session-1', agentName = 'main', conversationId = MAIN_CONVERSATION_ID): ToolExecutionContext {
+  return {
+    signal: new AbortController().signal,
+    sessionId,
+    agentName,
+    conversationId,
+    sourceAgent: agentName,
+    isSubAgent: agentName !== 'main',
+    toolCallId: 'call_00_test123',
+  };
+}
+
+function makeTool(name: string, description?: string, group?: string): Tool {
   return {
     name,
-    description: `tool ${name}`,
+    description: description ?? `tool ${name}`,
     parameters: z.object({}),
     group,
     execute: async () => null,
   };
 }
 
+// ── createToolSearchTool ──────────────────────────────────────────────────────
+
+describe('createToolSearchTool', () => {
+  it('returns results for deferred tools matching by name', async () => {
+    const tools = [
+      makeTool('visible_tool', 'Always visible'),
+      makeTool('deferred_reader', 'Reads data from files'),
+      makeTool('another_tool', 'Something else'),
+    ];
+    const tool = createToolSearchTool(
+      () => tools,
+      () => new Set(['visible_tool']),
+      () => new Set(),
+    );
+    const result = await tool.execute({ query: 'reader' }, makeExecCtx());
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].name).toBe('deferred_reader');
+  });
+
+  it('returns results matching by description', async () => {
+    const tools = [
+      makeTool('tool_a', 'Handles file processing'),
+      makeTool('tool_b', 'Network requests'),
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'file' }, makeExecCtx());
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].name).toBe('tool_a');
+  });
+
+  it('excludes core tools from search results', async () => {
+    const tools = [
+      makeTool('core_reader', 'Core reader'),
+      makeTool('deferred_writer', 'Deferred writer'),
+    ];
+    const tool = createToolSearchTool(
+      () => tools,
+      () => new Set(['core_reader']),
+      () => new Set(),
+    );
+    const result = await tool.execute({ query: 'reader' }, makeExecCtx());
+    expect(result.results).toHaveLength(0);
+    expect(result.message).toContain('No deferred tools found');
+  });
+
+  it('excludes disabled tools from search results', async () => {
+    const tools = [
+      makeTool('disabled_tool', 'A disabled tool'),
+      makeTool('enabled_tool', 'An enabled tool'),
+    ];
+    const tool = createToolSearchTool(
+      () => tools,
+      () => new Set(),
+      (key: string) => new Set(['disabled_tool']),
+    );
+    const result = await tool.execute({ query: 'tool' }, makeExecCtx());
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].name).toBe('enabled_tool');
+  });
+
+  it('returns empty message when no tools match', async () => {
+    const tool = createToolSearchTool(() => [], () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'nonexistent' }, makeExecCtx());
+    expect(result.results).toHaveLength(0);
+    expect(result.message).toContain('No deferred tools found');
+  });
+
+  it('limits results to 15', async () => {
+    const tools = Array.from({ length: 20 }, (_, i) => makeTool(`tool_${i}`, `Description ${i}`));
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'tool' }, makeExecCtx());
+    expect(result.results.length).toBeLessThanOrEqual(15);
+  });
+
+  it('handles factory-function descriptions', async () => {
+    const tools = [
+      {
+        name: 'dynamic_tool',
+        description: () => 'A dynamically described tool for testing',
+        group: 'test',
+        parameters: z.object({}),
+        execute: async () => 'ok',
+      },
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'testing' }, makeExecCtx());
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].name).toBe('dynamic_tool');
+  });
+
+  it('uses per-scope disabled names via context', async () => {
+    const tools = [makeTool('t1'), makeTool('t2')];
+    const disabledByScope = new Map<string, Set<string>>();
+    disabledByScope.set('session-s1', new Set(['t1']));
+
+    const tool = createToolSearchTool(
+      () => tools,
+      () => new Set(),
+      (key: string) => disabledByScope.get(key) ?? new Set(),
+    );
+    const result = await tool.execute({ query: 't' }, makeExecCtx('session-s1'));
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].name).toBe('t2');
+  });
+});
+
 // ── createToolStateToolSet ────────────────────────────────────────────────────
 
 describe('createToolStateToolSet', () => {
   // ── Shape ──────────────────────────────────────────────────────────────────
 
-  it('returns a ToolSet with name "ToolState"', () => {
+  it('has name "ToolState"', () => {
     const ts = createToolStateToolSet();
     expect(ts.name).toBe('ToolState');
   });
 
-  it('has no tools of its own', () => {
+  it('registers the tool_search tool', () => {
     const ts = createToolStateToolSet();
-    expect(ts.tools).toEqual([]);
+    const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
+    expect(tools.some((t) => t.name === 'tool_search')).toBe(true);
   });
 
-  it('implements ToolStateControl methods', () => {
+  it('onAttach captures the agent reference', () => {
     const ts = createToolStateToolSet();
-    expect(typeof ts.toggleTool).toBe('function');
-    expect(typeof ts.disableNames).toBe('function');
-    expect(typeof ts.enableNames).toBe('function');
-    expect(typeof ts.disableGroup).toBe('function');
-    expect(typeof ts.enableGroup).toBe('function');
-    expect(typeof ts.getDisabledNames).toBe('function');
+    const detach = ts.onAttach?.({
+      getTools: () => [],
+      getRegisteredToolSets: () => [],
+    } as AgentQueryFns);
+    expect(detach).toBeUndefined();
   });
 
   // ── onFilterTools ──────────────────────────────────────────────────────────
 
-  it('onFilterTools returns all tools when nothing is disabled', () => {
+  it('onFilterTools returns all tools when nothing is disabled and below threshold', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
     const tools = [makeTool('t1'), makeTool('t2')];
@@ -55,27 +174,35 @@ describe('createToolStateToolSet', () => {
     expect(filtered).toHaveLength(2);
   });
 
-  it('onFilterTools caches tools for disableGroup use', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('t1', 'grp'), makeTool('t2', 'grp')];
-    ts.onFilterTools!(ctx, tools);
-    ts.disableGroup(ctx, 'grp');
-    const disabled = ts.getDisabledNames(ctx);
-    expect(disabled.has('t1')).toBe(true);
-    expect(disabled.has('t2')).toBe(true);
-  });
-
   it('onFilterTools excludes disabled tools', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
     const tools = [makeTool('t1'), makeTool('t2'), makeTool('t3')];
     ts.onFilterTools!(ctx, tools);
-    ts.disableNames(ctx, new Set(['t2']));
+    ts.toggleTool(ctx, 't2');
     const filtered = ts.onFilterTools!(ctx, tools);
     expect(filtered.map((t: Tool) => t.name)).not.toContain('t2');
     expect(filtered.map((t: Tool) => t.name)).toContain('t1');
     expect(filtered.map((t: Tool) => t.name)).toContain('t3');
+  });
+
+  it('onFilterTools defers non-core tools when above threshold', () => {
+    const ts = createToolStateToolSet();
+    const ctx = makeCtx();
+    // Attach agent with a ToolSet declaring core tools
+    ts.onAttach?.({
+      getTools: () => [],
+      getRegisteredToolSets: () => [{ coreTools: ['core_a', 'core_b'] } as ToolSet],
+    } as AgentQueryFns);
+
+    const tools = Array.from({ length: TOOL_SEARCH_THRESHOLD + 5 }, (_, i) =>
+      makeTool(i < 2 ? `core_${String.fromCharCode(97 + i)}` : `deferred_${i}`),
+    );
+    const filtered = ts.onFilterTools!(ctx, tools);
+    // Only core tools + tool_search should remain
+    expect(filtered.map((t: Tool) => t.name)).toContain('core_a');
+    expect(filtered.map((t: Tool) => t.name)).toContain('core_b');
+    expect(filtered.every((t: Tool) => !t.name.startsWith('deferred_'))).toBe(true);
   });
 
   // ── toggleTool ─────────────────────────────────────────────────────────────
@@ -84,7 +211,9 @@ describe('createToolStateToolSet', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
     ts.toggleTool(ctx, 'echo');
-    expect(ts.getDisabledNames(ctx).has('echo')).toBe(true);
+    ts.onFilterTools!(ctx, [makeTool('echo')]);
+    const state = ts.onGetSymbolState!(ctx);
+    expect(state.toolStates[0].enabled).toBe(false);
   });
 
   it('toggleTool re-enables a disabled tool', () => {
@@ -92,103 +221,56 @@ describe('createToolStateToolSet', () => {
     const ctx = makeCtx();
     ts.toggleTool(ctx, 'echo');
     ts.toggleTool(ctx, 'echo');
-    expect(ts.getDisabledNames(ctx).has('echo')).toBe(false);
+    ts.onFilterTools!(ctx, [makeTool('echo')]);
+    const state = ts.onGetSymbolState!(ctx);
+    expect(state.toolStates[0].enabled).toBe(true);
   });
 
-  // ── disableNames / enableNames ─────────────────────────────────────────────
-
-  it('disableNames disables multiple tools at once', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    ts.disableNames(ctx, new Set(['a', 'b', 'c']));
-    const disabled = ts.getDisabledNames(ctx);
-    expect(disabled.has('a')).toBe(true);
-    expect(disabled.has('b')).toBe(true);
-    expect(disabled.has('c')).toBe(true);
-  });
-
-  it('enableNames re-enables previously disabled tools', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    ts.disableNames(ctx, new Set(['a', 'b']));
-    ts.enableNames(ctx, new Set(['a']));
-    expect(ts.getDisabledNames(ctx).has('a')).toBe(false);
-    expect(ts.getDisabledNames(ctx).has('b')).toBe(true);
-  });
-
-  // ── disableGroup / enableGroup ─────────────────────────────────────────────
-
-  it('disableGroup disables all tools in a group', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('g1', 'G'), makeTool('g2', 'G'), makeTool('other')];
-    ts.onFilterTools!(ctx, tools);
-    ts.disableGroup(ctx, 'G');
-    const disabled = ts.getDisabledNames(ctx);
-    expect(disabled.has('g1')).toBe(true);
-    expect(disabled.has('g2')).toBe(true);
-    expect(disabled.has('other')).toBe(false);
-  });
-
-  it('disableGroup is a no-op when cache is empty', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    expect(() => ts.disableGroup(ctx, 'G')).not.toThrow();
-    expect(ts.getDisabledNames(ctx).size).toBe(0);
-  });
-
-  it('enableGroup re-enables all tools in a group', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('g1', 'G'), makeTool('g2', 'G')];
-    ts.onFilterTools!(ctx, tools);
-    ts.disableGroup(ctx, 'G');
-    ts.enableGroup(ctx, 'G');
-    const disabled = ts.getDisabledNames(ctx);
-    expect(disabled.has('g1')).toBe(false);
-    expect(disabled.has('g2')).toBe(false);
-  });
-
-  // ── onInit ──────────────────────────────────────────────────────────
+  // ── onInit ──────────────────────────────────────────────────────────────────
 
   it('onInit restores disabled tools from entryData.toolStates', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx('s1');
-    ts.onInit!(ctx, {
-      id: 's1',
-      title: 'T',
-      toolStates: { echo: false, search: true },
-    });
-    const disabled = ts.getDisabledNames(ctx);
-    expect(disabled.has('echo')).toBe(true);
-    expect(disabled.has('search')).toBe(false);
+    ts.onInit!(ctx, { id: 's1', title: 'T', toolStates: { echo: false, search: true } });
+    ts.onFilterTools!(ctx, [makeTool('echo'), makeTool('search')]);
+    const state = ts.onGetSymbolState!(ctx);
+    expect(state.toolStates.find((t) => t.name === 'echo')?.enabled).toBe(false);
+    expect(state.toolStates.find((t) => t.name === 'search')?.enabled).toBe(true);
   });
 
   it('onInit ignores missing toolStates', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx('s1');
     expect(() => ts.onInit!(ctx, { id: 's1', title: 'T' })).not.toThrow();
-    expect(ts.getDisabledNames(ctx).size).toBe(0);
+    ts.onFilterTools!(ctx, [makeTool('echo')]);
+    const state = ts.onGetSymbolState!(ctx);
+    expect(state.toolStates[0].enabled).toBe(true);
   });
 
-  // ── onRemove ────────────────────────────────────────────────────────
+  // ── onRemove ────────────────────────────────────────────────────────────────
 
   it('onRemove clears disabled state for the session', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx('s1');
-    ts.disableNames(ctx, new Set(['echo']));
+    const tools = [makeTool('echo')];
+    ts.onFilterTools!(ctx, tools);
+    ts.toggleTool(ctx, 'echo');
     ts.onRemove!(ctx);
-    expect(ts.getDisabledNames(ctx).size).toBe(0);
+    const state = ts.onGetSymbolState!(ctx, { tools });
+    expect(state.toolStates[0].enabled).toBe(true);
   });
 
   it('onRemove does not affect other sessions', () => {
     const ts = createToolStateToolSet();
     const ctx1 = makeCtx('s1');
     const ctx2 = makeCtx('s2');
-    ts.disableNames(ctx1, new Set(['echo']));
-    ts.disableNames(ctx2, new Set(['search']));
+    ts.onFilterTools!(ctx1, [makeTool('echo')]);
+    ts.toggleTool(ctx1, 'echo');
+    ts.onFilterTools!(ctx2, [makeTool('search')]);
+    ts.toggleTool(ctx2, 'search');
     ts.onRemove!(ctx1);
-    expect(ts.getDisabledNames(ctx2).has('search')).toBe(true);
+    const state2 = ts.onGetSymbolState!(ctx2);
+    expect(state2.toolStates.find((t) => t.name === 'search')?.enabled).toBe(false);
   });
 
   // ── onGetSymbolState ───────────────────────────────────────────────────────
@@ -205,8 +287,9 @@ describe('createToolStateToolSet', () => {
   it('onGetSymbolState marks disabled tools with enabled=false', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    ts.disableNames(ctx, new Set(['echo']));
     const tools = [makeTool('echo'), makeTool('search')];
+    ts.onFilterTools!(ctx, tools);
+    ts.toggleTool(ctx, 'echo');
     const state = ts.onGetSymbolState!(ctx, { tools });
     expect(state.toolStates.find((t) => t.name === 'echo')?.enabled).toBe(false);
     expect(state.toolStates.find((t) => t.name === 'search')?.enabled).toBe(true);
@@ -215,7 +298,7 @@ describe('createToolStateToolSet', () => {
   it('onGetSymbolState includes group in each entry', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    const tools = [makeTool('g1', 'Grp')];
+    const tools = [makeTool('g1', undefined, 'Grp')];
     const state = ts.onGetSymbolState!(ctx, { tools });
     expect(state.toolStates[0].group).toBe('Grp');
   });
@@ -255,10 +338,10 @@ describe('createToolStateToolSet', () => {
     const ctx = makeCtx();
     const tools = [makeTool('echo'), makeTool('search')];
     ts.onFilterTools!(ctx, tools);
-    ts.disableNames(ctx, new Set(['echo']));
-    const snap = ts.onBuildSnapshot!(ctx) as { toolStates: Record<string, boolean> };
-    expect(snap.toolStates['echo']).toBe(false);
-    expect(snap.toolStates['search']).toBe(true);
+    ts.toggleTool(ctx, 'echo');
+    const snap = ts.onBuildSnapshot!(ctx);
+    expect(snap.toolStates?.['echo']).toBe(false);
+    expect(snap.toolStates?.['search']).toBe(true);
   });
 
   // ── scope isolation ────────────────────────────────────────────────────────
@@ -267,8 +350,11 @@ describe('createToolStateToolSet', () => {
     const ts = createToolStateToolSet();
     const ctx1 = makeCtx('s1');
     const ctx2 = makeCtx('s2');
-    ts.disableNames(ctx1, new Set(['echo']));
-    expect(ts.getDisabledNames(ctx2).has('echo')).toBe(false);
+    ts.onFilterTools!(ctx1, [makeTool('echo')]);
+    ts.toggleTool(ctx1, 'echo');
+    ts.onFilterTools!(ctx2, [makeTool('echo')]);
+    const state2 = ts.onGetSymbolState!(ctx2);
+    expect(state2.toolStates[0].enabled).toBe(true);
   });
 
   // ── onBeforeToolExecute ────────────────────────────────────────────────────
@@ -276,16 +362,17 @@ describe('createToolStateToolSet', () => {
   it('onBeforeToolExecute blocks disabled tools with a failure result', async () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    ts.disableNames(ctx, new Set(['echo']));
+    ts.onFilterTools!(ctx, [makeTool('echo')]);
+    ts.toggleTool(ctx, 'echo');
     const tool = makeTool('echo');
-    const execCtx = { signal: new AbortController().signal } as any;
+    const execCtx = makeExecCtx();
     const intercept = await ts.onBeforeToolExecute!(ctx, 'echo', tool, {}, execCtx);
     expect(intercept).toEqual({
       allow: false,
       result: {
-        toolCallId: '',
+        toolCallId: 'call_00_test123',
         name: 'echo',
-        result: { ok: false, error: 'Tool "echo" is currently disabled and cannot be executed.' },
+        result: { ok: false, error: 'Tool "echo" is currently disabled.' },
       },
     });
   });
@@ -294,7 +381,7 @@ describe('createToolStateToolSet', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
     const tool = makeTool('echo');
-    const execCtx = { signal: new AbortController().signal } as any;
+    const execCtx = makeExecCtx();
     const intercept = await ts.onBeforeToolExecute!(ctx, 'echo', tool, {}, execCtx);
     expect(intercept).toEqual({ allow: true });
   });
@@ -303,9 +390,10 @@ describe('createToolStateToolSet', () => {
     const ts = createToolStateToolSet();
     const ctx1 = makeCtx('s1');
     const ctx2 = makeCtx('s2');
-    ts.disableNames(ctx1, new Set(['echo']));
+    ts.onFilterTools!(ctx1, [makeTool('echo')]);
+    ts.toggleTool(ctx1, 'echo');
     const tool = makeTool('echo');
-    const execCtx = { signal: new AbortController().signal } as any;
+    const execCtx = makeExecCtx();
     const intercept = await ts.onBeforeToolExecute!(ctx2, 'echo', tool, {}, execCtx);
     expect(intercept).toEqual({ allow: true });
   });
@@ -313,11 +401,66 @@ describe('createToolStateToolSet', () => {
   it('re-enabling a disabled tool allows it to execute again', async () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    ts.disableNames(ctx, new Set(['echo']));
-    ts.enableNames(ctx, new Set(['echo']));
+    ts.onFilterTools!(ctx, [makeTool('echo')]);
+    ts.toggleTool(ctx, 'echo');
+    ts.toggleTool(ctx, 'echo');
     const tool = makeTool('echo');
-    const execCtx = { signal: new AbortController().signal } as any;
+    const execCtx = makeExecCtx();
     const intercept = await ts.onBeforeToolExecute!(ctx, 'echo', tool, {}, execCtx);
     expect(intercept).toEqual({ allow: true });
   });
+
+  // ── onGetSystemPrompt ──────────────────────────────────────────────────────
+
+  it('onGetSystemPrompt returns guidance when deferred tools exist', () => {
+    const ts = createToolStateToolSet();
+    ts.onAttach?.({
+      getTools: () => Array.from({ length: TOOL_SEARCH_THRESHOLD + 5 }, (_, i) => makeTool(`tool_${i}`)),
+      getRegisteredToolSets: () => [],
+    } as unknown as AgentQueryFns);
+
+    const result = ts.onGetSystemPrompt?.(
+      makeCtx(),
+      { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
+      [],
+    );
+    expect(result).toContain('Available Deferred Tools');
+  });
+
+  it('onGetSystemPrompt excludes disabled tools from deferred listing', () => {
+    const ts = createToolStateToolSet();
+    const ctx = makeCtx();
+    const tools = [makeTool('core_tool'), makeTool('disabled_deferred'), makeTool('enabled_deferred')];
+    ts.onAttach?.({
+      getTools: () => tools,
+      getRegisteredToolSets: () => [{ coreTools: ['core_tool'] } as ToolSet],
+    } as unknown as AgentQueryFns);
+    ts.onFilterTools!(ctx, tools);
+    ts.toggleTool(ctx, 'disabled_deferred');
+
+    const result = ts.onGetSystemPrompt?.(
+      ctx,
+      { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
+      [],
+    );
+    expect(result).toContain('enabled_deferred');
+    expect(result).not.toContain('disabled_deferred');
+    expect(result).not.toContain('core_tool');
+  });
+
+  it('onGetSystemPrompt returns undefined when no deferred tools', () => {
+    const ts = createToolStateToolSet();
+    ts.onAttach?.({
+      getTools: () => [makeTool('tool_search')],
+      getRegisteredToolSets: () => [],
+    } as unknown as AgentQueryFns);
+
+    const result = ts.onGetSystemPrompt?.(
+      makeCtx(),
+      { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
+      [],
+    );
+    expect(result).toBeUndefined();
+  });
 });
+

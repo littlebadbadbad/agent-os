@@ -1,52 +1,85 @@
 /**
- * extensions/tool-state/agent/toolSet.ts — Tool enable/disable ToolSet
+ * Tool State ToolSet — per-scope tool enable/disable + semantic tool discovery.
  *
- * Migrated from src/tools/toolStateToolSet/index.ts.
+ * Merged from the former tool-state and tool-search plugins.
  *
- * Key changes:
- * - Uses `onGetSymbolState` instead of `onGetState` (symbol-isolated)
- * - Declares `symbol: TOOL_STATE_SYMBOL`
- * - UI slots: panel (for ToolsPanel in sandboxed iframe)
+ * Responsibilities:
+ *  1. Track and persist per-scope tool enabled/disabled state.
+ *  2. Filter disabled tools from the visible tool list.
+ *  3. When visible tool count exceeds TOOL_SEARCH_THRESHOLD, defer non-core
+ *     tools behind `tool_search`.
+ *  4. Provide `tool_search` for keyword-based deferred-tool discovery.
+ *  5. Suppress system-prompt fragments of fully-disabled ToolSets.
  */
 
 import type { Tool, ToolResult, ToolExecutionContext, SystemPromptContext } from '@agent-type';
-import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
+import type { ToolSet, ToolSetContext, SessionEntryData, AgentQueryFns } from '@agent-type';
 import { ctxKey, resolveToolSetTools } from '@agent-type';
 import type { ToolStateEntry, ToolStateSymbolState } from './types';
-import type { PluginSlotDeclaration, PluginStateExtension } from '@agent-type';
+import { createToolSearchTool, TOOL_SEARCH_THRESHOLD } from './tools';
+import { TOOL_SEARCH_GUIDANCE } from './prompt';
 
-// ── State symbol ──────────────────────────────────────────────────────────────
+// ── Public symbol ─────────────────────────────────────────────────────────────
 
 export const TOOL_STATE_SYMBOL = Symbol('tool-state');
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Internal helpers ──────────────────────────────────────────────────────────
 
-export type ToolStateControl = {
-  toggleTool(ctx: ToolSetContext, name: string): void;
-  disableNames(ctx: ToolSetContext, names: ReadonlySet<string>): void;
-  enableNames(ctx: ToolSetContext, names: ReadonlySet<string>): void;
-  disableGroup(ctx: ToolSetContext, group: string): void;
-  enableGroup(ctx: ToolSetContext, group: string): void;
-  getDisabledNames(ctx: ToolSetContext): ReadonlySet<string>;
-};
+function ensureMap<K, V>(map: Map<K, V>, key: K, factory: () => V): V {
+  let value = map.get(key);
+  if (value === undefined) {
+    value = factory();
+    map.set(key, value);
+  }
+  return value;
+}
 
-export type ToolStateToolSet = ToolSet & ToolStateControl;
+function notifySubscribers(subsMap: Map<string, Set<() => void>>, key: string): void {
+  subsMap.get(key)?.forEach((fn) => fn());
+}
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
-export function createToolStateToolSet(): ToolStateToolSet {
+export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
+  toggleTool(ctx: ToolSetContext, name: string): void;
+} {
   const disabledMap = new Map<string, Set<string>>();
   const toolCache = new Map<string, readonly Tool[]>();
   const subsMap = new Map<string, Set<() => void>>();
+  let agent: AgentQueryFns | null = null;
 
-  function getDisabled(key: string): Set<string> {
-    let s = disabledMap.get(key);
-    if (!s) { s = new Set(); disabledMap.set(key, s); }
-    return s;
+  // ── Core-names resolution ──────────────────────────────────────────────────
+
+  function buildCoreNames(): Set<string> {
+    const names = new Set<string>(['tool_search']);
+    if (agent) {
+      for (const ts of agent.getRegisteredToolSets()) {
+        if (ts.coreTools) {
+          for (const name of ts.coreTools) names.add(name);
+        }
+      }
+    }
+    return names;
   }
 
-  function notifyScope(key: string): void {
-    subsMap.get(key)?.forEach((fn) => fn());
+  // ── Disabled-name lookup (per key, used by tool_search) ────────────────────
+
+  function getDisabledForScope(key: string): ReadonlySet<string> {
+    return disabledMap.get(key) ?? new Set<string>();
+  }
+
+  // ── tool_search (lazy: resolves tools+core+disabled fresh on each call) ────
+
+  const toolSearchTool = createToolSearchTool(
+    () => agent?.getTools() ?? [],
+    () => buildCoreNames(),
+    (key: string) => getDisabledForScope(key),
+  );
+
+  // ── Lifecycle hooks ────────────────────────────────────────────────────────
+
+  function onAttach(a: AgentQueryFns): void {
+    agent = a;
   }
 
   function onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
@@ -55,7 +88,7 @@ export function createToolStateToolSet(): ToolStateToolSet {
         .filter(([, enabled]) => !enabled)
         .map(([name]) => name);
       if (toDisable.length > 0) {
-        const disabled = getDisabled(ctxKey(ctx));
+        const disabled = ensureMap(disabledMap, ctxKey(ctx), () => new Set());
         for (const name of toDisable) disabled.add(name);
       }
     }
@@ -67,21 +100,6 @@ export function createToolStateToolSet(): ToolStateToolSet {
     toolCache.delete(key);
     subsMap.delete(key);
   }
-
-  const toolStateSlotDeclarations: readonly PluginSlotDeclaration[] = [
-    {
-      type: 'panel' as const,
-      label: 'Tools',
-      showTab: () => true,
-      shouldRender: () => true,
-      badge: (_ctx, state) => {
-        const ts = (state as ToolStateSymbolState | undefined)?.toolStates;
-        if (!ts || ts.length === 0) return null;
-        const enabled = ts.filter((t) => t.enabled).length;
-        return enabled < ts.length ? `${enabled}/${ts.length}` : `${ts.length}`;
-      },
-    },
-  ] satisfies readonly PluginSlotDeclaration[];
 
   function onGetSymbolState(ctx: ToolSetContext, stateCtx?: { readonly tools: readonly Tool[] }): ToolStateSymbolState {
     const key = ctxKey(ctx);
@@ -102,10 +120,9 @@ export function createToolStateToolSet(): ToolStateToolSet {
 
   function onSubscribe(ctx: ToolSetContext, fn: () => void): () => void {
     const key = ctxKey(ctx);
-    let subs = subsMap.get(key);
-    if (!subs) { subs = new Set(); subsMap.set(key, subs); }
+    const subs = ensureMap(subsMap, key, () => new Set());
     subs.add(fn);
-    return () => subs!.delete(fn);
+    return () => subs.delete(fn);
   }
 
   function onBuildSnapshot(ctx: ToolSetContext): { toolStates?: Record<string, boolean> } {
@@ -128,9 +145,20 @@ export function createToolStateToolSet(): ToolStateToolSet {
   function onFilterTools(ctx: ToolSetContext, tools: readonly Tool[]): readonly Tool[] {
     const key = ctxKey(ctx);
     toolCache.set(key, tools);
+
+    // Phase 1: remove disabled tools
     const disabled = disabledMap.get(key);
-    if (!disabled || disabled.size === 0) return tools;
-    return tools.filter((t) => !disabled.has(t.name));
+    const enabled = disabled && disabled.size > 0
+      ? tools.filter((t) => !disabled.has(t.name))
+      : tools;
+
+    // Phase 2: if above threshold, keep only core tools (rest discoverable via tool_search)
+    if (enabled.length > TOOL_SEARCH_THRESHOLD) {
+      const coreNames = buildCoreNames();
+      return enabled.filter((t) => coreNames.has(t.name));
+    }
+
+    return enabled;
   }
 
   async function onBeforeToolExecute(
@@ -138,16 +166,18 @@ export function createToolStateToolSet(): ToolStateToolSet {
     toolName: string,
     _tool: Tool,
     _args: Record<string, unknown>,
-    _execCtx: ToolExecutionContext,
+    execCtx: ToolExecutionContext,
   ): Promise<{ allow: true } | { allow: false; result: ToolResult } | void> {
     const disabled = disabledMap.get(ctxKey(ctx));
     if (disabled?.has(toolName)) {
-      const result: ToolResult = {
-        toolCallId: '',
-        name: toolName,
-        result: { ok: false, error: `Tool "${toolName}" is currently disabled and cannot be executed.` },
+      return {
+        allow: false,
+        result: {
+          toolCallId: execCtx.toolCallId ?? '',
+          name: toolName,
+          result: { ok: false, error: `Tool "${toolName}" is currently disabled.` },
+        },
       };
-      return { allow: false, result };
     }
     return { allow: true };
   }
@@ -156,75 +186,63 @@ export function createToolStateToolSet(): ToolStateToolSet {
     ctx: ToolSetContext,
     promptCtx: SystemPromptContext,
     toolSets: readonly ToolSet[],
-  ): undefined {
-    const disabled = disabledMap.get(ctxKey(ctx));
-    if (!disabled || disabled.size === 0) return;
+  ): string | undefined {
+    const key = ctxKey(ctx);
+    const disabled = disabledMap.get(key);
+    let deferredPrompt: string | undefined;
 
-    for (const ts of toolSets) {
-      if (ts === toolStateSelf) continue;
-      const tools = resolveToolSetTools(ts);
-      if (tools.length === 0) continue;
-      const allDisabled = tools.every((t) => disabled.has(t.name));
-      if (allDisabled) promptCtx.suppressToolSetPrompt(ts.name);
+    // Suppress system prompts of fully-disabled ToolSets
+    if (disabled && disabled.size > 0) {
+      for (const ts of toolSets) {
+        if (ts.name === self.name) continue;
+        const tsTools = resolveToolSetTools(ts);
+        if (tsTools.length === 0) continue;
+        if (tsTools.every((t) => disabled.has(t.name))) {
+          promptCtx.suppressToolSetPrompt(ts.name);
+        }
+      }
     }
-    return;
+
+    // Inject deferred-tool guidance when above threshold
+    const allTools = agent?.getTools() ?? [];
+    const coreNames = buildCoreNames();
+    const deferred = allTools.filter(
+      (t) => !coreNames.has(t.name) && !(disabled?.has(t.name) ?? false),
+    );
+    if (deferred.length > 0) {
+      const groups = new Map<string, string[]>();
+      for (const t of deferred) {
+        const g = t.group ?? 'Other';
+        const arr = groups.get(g);
+        if (arr) arr.push(t.name);
+        else groups.set(g, [t.name]);
+      }
+      const nameList = [...groups.entries()]
+        .map(([g, names]) => `- **${g}**: ${names.join(', ')}`)
+        .join('\n');
+      deferredPrompt = `${TOOL_SEARCH_GUIDANCE}\n\nAvailable deferred tools:\n${nameList}`;
+    }
+
+    return deferredPrompt;
   }
 
   function toggleTool(ctx: ToolSetContext, name: string): void {
     const key = ctxKey(ctx);
-    const disabled = getDisabled(key);
+    const disabled = ensureMap(disabledMap, key, () => new Set());
     if (disabled.has(name)) disabled.delete(name);
     else disabled.add(name);
-    notifyScope(key);
+    notifySubscribers(subsMap, key);
   }
 
-  function disableNames(ctx: ToolSetContext, names: ReadonlySet<string>): void {
-    const key = ctxKey(ctx);
-    const disabled = getDisabled(key);
-    for (const n of names) disabled.add(n);
-    notifyScope(key);
-  }
-
-  function enableNames(ctx: ToolSetContext, names: ReadonlySet<string>): void {
-    const key = ctxKey(ctx);
-    const disabled = disabledMap.get(key);
-    if (!disabled) return;
-    for (const n of names) disabled.delete(n);
-    notifyScope(key);
-  }
-
-  function disableGroup(ctx: ToolSetContext, group: string): void {
-    const key = ctxKey(ctx);
-    const cached = toolCache.get(key);
-    if (!cached) return;
-    const names = cached.filter((t) => t.group === group).map((t) => t.name);
-    if (names.length === 0) return;
-    const disabled = getDisabled(key);
-    for (const n of names) disabled.add(n);
-    notifyScope(key);
-  }
-
-  function enableGroup(ctx: ToolSetContext, group: string): void {
-    const key = ctxKey(ctx);
-    const cached = toolCache.get(key);
-    if (!cached) return;
-    const names = new Set(cached.filter((t) => t.group === group).map((t) => t.name));
-    if (names.size === 0) return;
-    const disabled = disabledMap.get(key);
-    if (!disabled) return;
-    for (const n of names) disabled.delete(n);
-    notifyScope(key);
-  }
-
-  function getDisabledNames(ctx: ToolSetContext): ReadonlySet<string> {
-    return disabledMap.get(ctxKey(ctx)) ?? new Set<string>();
-  }
-
-  const toolStateSelf: ToolStateToolSet = {
+  const self: ToolSet<ToolStateSymbolState> & {
+    toggleTool(ctx: ToolSetContext, name: string): void;
+  } = {
     name: 'ToolState',
     symbol: TOOL_STATE_SYMBOL,
-    tools: [],
+    description: 'Per-scope tool enable/disable management + semantic tool discovery',
+    tools: [toolSearchTool],
 
+    onAttach,
     onInit,
     onRemove,
     onGetSymbolState,
@@ -235,14 +253,8 @@ export function createToolStateToolSet(): ToolStateToolSet {
     onGetSystemPrompt,
 
     toggleTool,
-    disableNames,
-    enableNames,
-    disableGroup,
-    enableGroup,
-    getDisabledNames,
+  };
 
-    toolStateSlotDeclarations,
-  } as ToolStateToolSet & { readonly toolStateSlotDeclarations: readonly PluginSlotDeclaration[] };
-
-  return toolStateSelf;
+  return self;
 }
+

@@ -1,6 +1,3 @@
-// ── Module augmentation ───────────────────────────────────────────────────────
-
-
 /** Snapshot of a single tool's enabled/disabled state. */
 export interface ToolStateEntry {
   readonly name: string;
@@ -9,6 +6,21 @@ export interface ToolStateEntry {
   readonly group?: string;
 }
 
+/** State payload exposed through the ToolState symbol. */
+export interface ToolStateSymbolState {
+  readonly type: 'toolState';
+  readonly toolStates: readonly ToolStateEntry[];
+  readonly toggleTool: (name: string) => void;
+}
+
+/** A deferred-tool entry returned by `tool_search`. */
+export interface ToolSearchResult {
+  readonly name: string;
+  readonly summary: string;
+}
+
+// ── Module augmentation ───────────────────────────────────────────────────────
+
 export {};
 
 declare module '@agent-type' {
@@ -16,20 +28,10 @@ declare module '@agent-type' {
     /** Tool enabled/disabled overrides. Key=toolName, value=true (enabled). */
     toolStates?: Record<string, boolean>;
   }
-}
 
-// ── Symbol state interface ────────────────────────────────────────────────────
-
-export interface ToolStateSymbolState {
-  readonly type: 'toolState';
-  readonly toolStates: readonly ToolStateEntry[];
-  readonly toggleTool: (name: string) => void;
-}
-
-declare module "@agent-type" {
   interface PluginStateExtension {
-    readonly type: 'toolState';
-    readonly toolStates: readonly ToolStateEntry[];
-    readonly toggleTool: (name: string) => void;
+    readonly type?: 'toolState';
+    readonly toolStates?: readonly ToolStateEntry[];
+    readonly toggleTool?: (name: string) => void;
   }
 }

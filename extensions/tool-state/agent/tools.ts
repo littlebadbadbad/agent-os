@@ -1,28 +1,22 @@
-/**
- * ToolSearch tool — lets the agent search for deferred tools by keyword.
- *
- * When the total tool count exceeds `TOOL_SEARCH_THRESHOLD`, most tools are
- * deferred (hidden from the initial tool list).  The AI must call this tool
- * to find and use them.
- *
- * @module
- */
-
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import type { Tool } from '@agent-type';
+import type { Tool, ToolExecutionContext } from '@agent-type';
+import { ctxKey } from '@agent-type';
 import type { ToolSearchResult } from './types';
+
+/** Tools stay visible to the model. Beyond this threshold they're deferred behind `tool_search`. */
+export const TOOL_SEARCH_THRESHOLD = 30;
 
 /**
  * Create the `tool_search` tool.
  *
- * @param allTools      All registered tools (used to build search index).
- * @param coreNames     Set of tool names that are always visible (never deferred).
- * @returns The tool_search tool definition.
+ * Searches deferred (non-core) tools by keyword, excluding disabled tools.
+ * The search is case-insensitive and matches both tool names and descriptions.
  */
 export function createToolSearchTool(
   allTools: () => readonly Tool[],
-  coreNames: ReadonlySet<string>,
+  coreNames: () => ReadonlySet<string>,
+  disabledNamesByScope: (scopeKey: string) => ReadonlySet<string>,
 ) {
   return defineTool({
     name: 'tool_search',
@@ -35,26 +29,32 @@ export function createToolSearchTool(
     parameters: z.object({
       query: z.string().min(1).describe('Search keyword to find relevant tools.'),
     }),
-    execute: async ({ query }) => {
+    execute: async ({ query }, context: ToolExecutionContext) => {
       const tools = allTools();
+      const core = coreNames();
+      const scopeKey = ctxKey(context);
+      const disabled = disabledNamesByScope(scopeKey);
       const lower = query.toLowerCase();
 
       const results: ToolSearchResult[] = tools
-        .filter((t) => !coreNames.has(t.name)) // only deferred tools
+        .filter((t) => !core.has(t.name))
+        .filter((t) => !disabled.has(t.name))
         .filter((t) => {
           const desc = typeof t.description === 'function' ? t.description() : t.description;
           return t.name.includes(lower) || desc.toLowerCase().includes(lower);
         })
-        .slice(0, 15) // limit results
+        .slice(0, 15)
         .map((t) => ({
           name: t.name,
-          summary: (typeof t.description === 'function' ? t.description() : t.description).split('\n')[0].slice(0, 120),
+          summary: (typeof t.description === 'function' ? t.description() : t.description)
+            .split('\n')[0]
+            .slice(0, 120),
         }));
 
       if (results.length === 0) {
         return {
           results: [],
-          message: `No deferred tools found matching "${query}". The tool may not exist or may be a core tool (always visible).`,
+          message: `No deferred tools found matching "${query}". The tool may be disabled, a core tool (always visible), or may not exist.`,
         };
       }
 
@@ -66,3 +66,4 @@ export function createToolSearchTool(
     },
   });
 }
+

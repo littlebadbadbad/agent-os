@@ -1,11 +1,25 @@
 /**
- * extensions/tool-state/agent/activate.ts — Tool State plugin activation entry
+ * Tool State plugin activation entry.
  */
 
-import type { AgentPluginHost, ToolSet, PluginSlotDeclaration } from '@agent-type';
+import type { AgentPluginHost, PluginSlotDeclaration } from '@agent-type';
 import { createToolStateToolSet } from './toolSet';
 
+const SLOTS: readonly PluginSlotDeclaration[] = [
+  {
+    type: 'panel',
+    label: 'Tools',
+    showTab: () => true,
+    shouldRender: () => true,
+    badge: (_ctx, state) => {
+      const toolStates = state?.toolStates;
+      if (!toolStates || toolStates.length === 0) return null;
+      const enabled = toolStates.filter((t) => t.enabled).length;
+      return enabled < toolStates.length ? `${enabled}/${toolStates.length}` : `${toolStates.length}`;
+    },
+  },
+] satisfies readonly PluginSlotDeclaration[];
+
 export function activate(host: AgentPluginHost): void {
-  const toolSet = createToolStateToolSet() as ToolSet & { readonly toolStateSlotDeclarations: readonly PluginSlotDeclaration[] };
-  host.registerToolSet(toolSet, toolSet.toolStateSlotDeclarations);
+  host.registerToolSet(createToolStateToolSet(), SLOTS);
 }

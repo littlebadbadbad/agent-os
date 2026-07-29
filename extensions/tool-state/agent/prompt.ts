@@ -1,13 +1,7 @@
 /**
- * System-prompt guidance for ToolSearch.
- *
- * When tools are deferred (tool count > TOOL_SEARCH_THRESHOLD), this guidance
- * tells the AI how to discover and use deferred tools.
- *
- * @module
+ * System-prompt guidance for deferred tool discovery.
  */
 
-/** Guidance injected into the system prompt when ToolSearch is active. */
 export const TOOL_SEARCH_GUIDANCE = `## Available Deferred Tools
 
 Some tools are deferred and not shown in your tool list. If you need a tool that isn't visible:

@@ -1,8 +1,7 @@
 /**
- * extensions/tool-state/agent/index.ts — Barrel exports
+ * Tool State plugin — barrel exports.
  */
 
-export { createToolStateToolSet } from './toolSet';
-export { TOOL_STATE_SYMBOL } from './toolSet';
-export type { ToolStateToolSet, ToolStateControl } from './toolSet';
-export type { ToolStateEntry, ToolStateSymbolState } from './types';
+export { createToolStateToolSet, TOOL_STATE_SYMBOL } from './toolSet';
+export { TOOL_SEARCH_THRESHOLD } from './tools';
+export type { ToolStateEntry, ToolStateSymbolState, ToolSearchResult } from './types';

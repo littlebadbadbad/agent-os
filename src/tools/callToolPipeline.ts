@@ -161,6 +161,10 @@ export function createToolCallPipeline(
  *
  * The result payload is a JSON object `{ _error, code, toolName, message }`
  * — the LLM receives structured context about what went wrong.
+ *
+ * In development mode (import.meta.env.DEV), the full error with stack trace
+ * is logged to the console for debugging. In production, only the error
+ * message is included in the structured result.
  */
 export function withErrorBoundary(
   pipeline: ToolCallPipeline,
@@ -169,15 +173,25 @@ export function withErrorBoundary(
     try {
       return await pipeline(call, signal);
     } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error(
+          `[ToolCallPipeline] Error executing "${call.name}":`,
+          err instanceof Error ? err.stack ?? err.message : err,
+        );
+      }
       const code = isAgentError(err) ? err.code : "TOOL_EXECUTION";
       const toolName = isAgentError(err)
         ? (err.toolName ?? call.name)
         : call.name;
       const message = toErrorMessage(err);
+      const payload: Record<string, unknown> = { _error: true, code, toolName, message };
+      if (import.meta.env.DEV && err instanceof Error && err.stack) {
+        payload.stack = err.stack;
+      }
       return {
         toolCallId: call.id,
         name: call.name,
-        result: JSON.stringify({ _error: true, code, toolName, message }),
+        result: JSON.stringify(payload),
       };
     }
   };
