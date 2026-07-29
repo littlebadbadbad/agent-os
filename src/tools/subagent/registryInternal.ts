@@ -60,6 +60,12 @@ export type CreateSubAgentRegistryOptions = {
    * resolved at the first sub-agent turn, by which time `onAttach` has fired.
    */
   handler: AgentHandler;
+  /**
+   * Internal brand symbol — forwarded from the agent client config.
+   * Passed to `createToolSetScope` so sub-agent scopes also recognise
+   * branded (built-in) ToolSets.
+   */
+  brand?: symbol;
 };
 
 

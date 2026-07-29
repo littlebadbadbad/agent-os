@@ -51,6 +51,7 @@ export type ToolSetScope = ReturnType<typeof createToolSetScope>;
 export function createToolSetScope(
   toolSets: () => readonly ToolSet[],
   handler: AgentHandler,
+  brand?: symbol,
 ) {
   function resolve(): readonly ToolSet[] {
     return toolSets();
@@ -129,7 +130,7 @@ export function createToolSetScope(
       userMessage?: string,
       sectionCache?: SystemPromptCache,
     ): string | undefined {
-      return buildSystemPrompt(base, resolve(), ctx, userMessage, sectionCache);
+      return buildSystemPrompt(base, resolve(), ctx, userMessage, sectionCache, brand);
     },
 
     filterTools(tools: readonly Tool[], ctx: ToolSetContext): readonly Tool[] {

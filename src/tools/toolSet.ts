@@ -21,30 +21,24 @@ export { MAIN_CONVERSATION_ID, ctxKey } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// ── ToolStateToolSet brand ───────────────────────────────────────────────────
+// ── Internal brand check ─────────────────────────────────────────────────────
 
 /**
- * Brand symbol that identifies the ToolStateToolSet.
+ * Check whether a ToolSet carries a specific internal brand.
  *
- * Defined in the base layer so that `buildSystemPrompt` can check it
- * without importing from the ToolStateToolSet module — preserving the
- * module dependency direction (toolset → base, never base → toolset).
+ * The brand is an opaque symbol created by the UI layer and injected into all
+ * built-in plugin ToolSets during plugin activation.  `buildSystemPrompt` uses
+ * this check to gate access to `suppressToolSetPrompt` – only branded ToolSets
+ * (internal/built-in) may suppress other ToolSets' prompt fragments.
  *
- * The base layer uses this brand to gate access to
- * `suppressToolSetPrompt`: only ToolSets carrying this brand (set to
- * `true`) receive a functional callback.  All other ToolSets get a
- * no-op, preventing arbitrary ToolSets from suppressing each other's
- * system-prompt fragments.
+ * External/third-party ToolSets never have the brand because they cannot
+ * recreate the symbol (it's created once per agent-client instance and never
+ * exposed outside the project).
+ *
+ * @param ts    The ToolSet to check.
+ * @param brand The internal brand symbol (from the agent client config).
+ * @returns     `true` when the ToolSet carries the brand.
  */
-export const TOOL_STATE_TOOLSET_BRAND = Symbol('sdk.ToolStateToolSet');
-
-/**
- * Check whether a ToolSet is authorised to call `suppressToolSetPrompt`.
- *
- * Only ToolSets that carry the `TOOL_STATE_TOOLSET_BRAND` (set to `true`)
- * are allowed to suppress other ToolSets' system-prompt fragments.
- * Currently only `ToolStateToolSet` satisfies this check.
- */
-export function canSuppressPrompt(ts: ToolSet): boolean {
-  return (ts as Record<symbol, unknown>)[TOOL_STATE_TOOLSET_BRAND] === true;
+export function isBranded(ts: ToolSet, brand: symbol): boolean {
+  return (ts as Record<symbol, unknown>)[brand] === true;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { createToolStateToolSet, isToolStateToolSet, findToolStateToolSet } from '../agent';
+import { createToolStateToolSet } from '../agent';
 import { MAIN_CONVERSATION_ID } from '@agent-type';
 import type { Tool } from '@agent-type';
 
@@ -35,18 +35,14 @@ describe('createToolStateToolSet', () => {
     expect(ts.tools).toEqual([]);
   });
 
-  it('satisfies isToolStateToolSet type guard', () => {
+  it('implements ToolStateControl methods', () => {
     const ts = createToolStateToolSet();
-    expect(isToolStateToolSet(ts)).toBe(true);
-  });
-
-  it('findToolStateToolSet returns the instance from a list', () => {
-    const ts = createToolStateToolSet();
-    expect(findToolStateToolSet([ts])).toBe(ts);
-  });
-
-  it('findToolStateToolSet returns undefined when not in list', () => {
-    expect(findToolStateToolSet([])).toBeUndefined();
+    expect(typeof ts.toggleTool).toBe('function');
+    expect(typeof ts.disableNames).toBe('function');
+    expect(typeof ts.enableNames).toBe('function');
+    expect(typeof ts.disableGroup).toBe('function');
+    expect(typeof ts.enableGroup).toBe('function');
+    expect(typeof ts.getDisabledNames).toBe('function');
   });
 
   // ── onFilterTools ──────────────────────────────────────────────────────────

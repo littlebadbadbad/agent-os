@@ -88,6 +88,15 @@ export async function activatePlugin(
 
     const originalRegisterToolSet = host.registerToolSet;
     host.registerToolSet = (toolSet, slots?) => {
+      // ── Inject internal brand for built-in plugins ───────────────────
+      // This marks every ToolSet from a built-in plugin as "internal",
+      // granting privileged capabilities (e.g. suppressToolSetPrompt).
+      // External plugins cannot reproduce the symbol, so they never
+      // receive these privileges.
+      if (plugin.builtIn && agentContext.internalBrand) {
+        (toolSet as Record<symbol, unknown>)[agentContext.internalBrand] = true;
+      }
+
       const unregister = originalRegisterToolSet(toolSet, slots);
       toolSetUnregisterFns.push(unregister);
       return unregister;

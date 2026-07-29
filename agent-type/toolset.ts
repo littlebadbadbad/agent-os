@@ -175,15 +175,15 @@ export type SystemPromptContext = {
    * internal bookkeeping), but the returned fragment will be **discarded**
    * and not included in the final system prompt sent to the model.
    *
-   * **Access control**: only ToolSets that carry the
-   * `TOOL_STATE_TOOLSET_BRAND` (defined in the base layer's `toolSet.ts`)
-   * receive a functional callback.  All other ToolSets get a no-op —
-   * preventing arbitrary ToolSets from suppressing each other's prompts.
-   * Currently only `ToolStateToolSet` satisfies this check.
+   * **Access control**: only internally-branded ToolSets (built-in plugins
+   * that carry the agent client's internal brand symbol) receive a functional
+   * callback.  All other ToolSets get a no-op — preventing arbitrary ToolSets
+   * from suppressing each other's prompts.
    *
    * This is the mechanism used by `ToolStateToolSet` to suppress the prompt
    * of a ToolSet whose tools are all disabled — the base layer itself has no
-   * knowledge of tool-enable/disable state.
+   * knowledge of tool-enable/disable state.  The internal brand is injected
+   * by the plugin system at registration time for all built-in plugins.
    *
    * @param toolSetName The `name` of the ToolSet whose prompt should be
    *                   suppressed.  No-op if the name does not match any

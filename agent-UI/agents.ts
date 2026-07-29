@@ -13,6 +13,14 @@ import {
 import { createDefaultUIRenderer } from "./defaultRenderUI";
 import { IS_ELECTRON_IPC } from "./env";
 
+// ── Internal brand ─────────────────────────────────────────────────────────────
+// Opaque symbol used to identify "built-in" ToolSets.
+// Created once per agent-client instance — external code cannot reproduce it.
+// The plugin system injects this brand into all built-in plugin ToolSets at
+// registration time; the SDK uses it to grant privileged capabilities.
+
+const INTERNAL_BRAND = Symbol('agent.internal');
+
 // ── Plugin system ──────────────────────────────────────────────────────────────
 // Initialised after agent creation so plugins can register tools on sessions.
 
@@ -56,6 +64,8 @@ function createCombinedPluginContext(): AgentPluginContext {
       });
     },
     agentName: 'stream+async',
+    /** Internal brand — injected into all built-in plugin ToolSets. */
+    internalBrand: INTERNAL_BRAND,
   };
   return ctx;
 }
@@ -73,9 +83,11 @@ const SYSTEM_PROMPT = "";
 // The tool pool is derived lazily from each agent's live registered tools.
 const asyncSubAgentToolset = createSubAgentToolset("async", {
   withVariables: true,
+  brand: INTERNAL_BRAND,
 });
 const streamSubAgentToolset = createSubAgentToolset("stream", {
   withVariables: true,
+  brand: INTERNAL_BRAND,
 });
 
 const sharedToolSets: [] = [];
@@ -158,6 +170,7 @@ export const asyncAgent = createAgentClient({
   systemPrompt: SYSTEM_PROMPT,
   toolSets: [...sharedToolSets, asyncSubAgentToolset],
   tools: [],
+  internalBrand: INTERNAL_BRAND,
   onSessionsChange: makeDebouncedSave('async-agent'),
   renderUI: createDefaultUIRenderer({
     icon: "⚡",
@@ -177,6 +190,7 @@ export const streamAgent = createAgentClient({
   systemPrompt: SYSTEM_PROMPT,
   toolSets: [...sharedToolSets, streamSubAgentToolset],
   tools: [],
+  internalBrand: INTERNAL_BRAND,
   onSessionsChange: makeDebouncedSave('stream-agent'),
   renderUI: createDefaultUIRenderer({
     icon: "🌊",

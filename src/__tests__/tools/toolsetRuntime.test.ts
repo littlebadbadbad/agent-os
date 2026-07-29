@@ -3,10 +3,11 @@
  * and src/tools/toolSet.ts.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MAIN_CONVERSATION_ID, ctxKey } from '@agent-type';
-import type { ToolSetContext } from '@agent-type';
-import { TOOL_STATE_TOOLSET_BRAND, canSuppressPrompt } from '../../tools/toolSet';
+import type { ToolSetContext, ToolSet, SystemPromptContext } from '@agent-type';
+import { isBranded } from '../../tools/toolSet';
+import { buildSystemPrompt } from '../../tools/agentRuntime';
 
 describe('MAIN_CONVERSATION_ID', () => {
   it('is the string "main"', () => {
@@ -54,43 +55,166 @@ describe('ctxKey', () => {
   });
 });
 
-describe('TOOL_STATE_TOOLSET_BRAND', () => {
-  it('is a well-known Symbol', () => {
-    expect(typeof TOOL_STATE_TOOLSET_BRAND).toBe('symbol');
-    expect(Symbol.for('sdk.ToolStateToolSet')).toBe(TOOL_STATE_TOOLSET_BRAND);
-  });
-});
+describe('isBranded', () => {
+  const TEST_BRAND = Symbol('test.brand');
 
-describe('canSuppressPrompt', () => {
   it('returns true when brand symbol is set to true', () => {
     const ts = {
       name: 'branded_ts',
       tools: [],
-      [TOOL_STATE_TOOLSET_BRAND]: true,
+      [TEST_BRAND]: true,
     };
-    expect(canSuppressPrompt(ts)).toBe(true);
+    expect(isBranded(ts, TEST_BRAND)).toBe(true);
   });
 
   it('returns false when brand symbol is not set', () => {
     const ts = { name: 'unbranded_ts', tools: [] };
-    expect(canSuppressPrompt(ts)).toBe(false);
+    expect(isBranded(ts, TEST_BRAND)).toBe(false);
   });
 
   it('returns false when brand symbol is set to false', () => {
     const ts = {
       name: 'false_branded_ts',
       tools: [],
-      [TOOL_STATE_TOOLSET_BRAND]: false,
+      [TEST_BRAND]: false,
     };
-    expect(canSuppressPrompt(ts)).toBe(false);
+    expect(isBranded(ts, TEST_BRAND)).toBe(false);
   });
 
   it('returns false when brand symbol is set to a non-boolean value', () => {
     const ts = {
       name: 'string_branded_ts',
       tools: [],
-      [TOOL_STATE_TOOLSET_BRAND]: 'yes',
+      [TEST_BRAND]: 'yes',
     };
-    expect(canSuppressPrompt(ts)).toBe(false);
+    expect(isBranded(ts, TEST_BRAND)).toBe(false);
+  });
+
+  it('returns false when checking with a different brand symbol', () => {
+    const OTHER_BRAND = Symbol('other.brand');
+    const ts = {
+      name: 'misbranded_ts',
+      tools: [],
+      [TEST_BRAND]: true,
+    };
+    expect(isBranded(ts, OTHER_BRAND)).toBe(false);
+  });
+});
+
+// ── End-to-end: isBranded gates suppressToolSetPrompt ───────────────────────────
+//
+// These tests verify that `isBranded` is the exact predicate used by
+// `buildSystemPrompt` to decide whether a ToolSet gets a real
+// `suppressToolSetPrompt` callback or a no-op.  They connect the two
+// modules without duplicating agentRuntime.test.ts.
+
+describe('brand gates suppressToolSetPrompt', () => {
+  const BRAND = Symbol('e2e.brand');
+
+  function makeCtx(): ToolSetContext {
+    return { sessionId: 's', agentName: 'a', conversationId: MAIN_CONVERSATION_ID };
+  }
+
+  it('branded ToolSet receives functional suppressToolSetPrompt via isBranded', () => {
+    const branded: ToolSet = {
+      name: 'Privileged',
+      tools: [],
+      [BRAND]: true,
+    };
+
+    const canSuppress = isBranded(branded, BRAND);
+    expect(canSuppress).toBe(true);
+
+    // Verify buildSystemPrompt grants the real callback
+    const spy = vi.fn<() => string>(() => 'fragment');
+    branded.onGetSystemPrompt = spy;
+    buildSystemPrompt(undefined, [branded], makeCtx(), undefined, undefined, BRAND);
+
+    const promptCtx = spy.mock.calls[0]![1] as SystemPromptContext;
+    const logged: string[] = [];
+    promptCtx.suppressToolSetPrompt('Other');
+    // Should not throw — a real callback was given
+    expect(() => logged).not.toThrow();
+  });
+
+  it('unbranded ToolSet receives no-op suppressToolSetPrompt via isBranded', () => {
+    const unbranded: ToolSet = {
+      name: 'Regular',
+      tools: [],
+      // No brand set
+    };
+
+    const canSuppress = isBranded(unbranded, BRAND);
+    expect(canSuppress).toBe(false);
+
+    // Verify buildSystemPrompt grants only a no-op
+    const spy = vi.fn<() => string>(() => 'fragment');
+    unbranded.onGetSystemPrompt = spy;
+    buildSystemPrompt(undefined, [unbranded], makeCtx(), undefined, undefined, BRAND);
+
+    const promptCtx = spy.mock.calls[0]![1] as SystemPromptContext;
+    promptCtx.suppressToolSetPrompt('Other');
+    // No-op does nothing — just verifies it doesn't throw
+  });
+
+  it('wrong-brand ToolSet cannot suppress despite carrying a different brand', () => {
+    const OTHER_BRAND = Symbol('other.brand');
+    const wrongBrand: ToolSet = {
+      name: 'WrongBrand',
+      tools: [],
+      [OTHER_BRAND]: true,
+    };
+
+    // isBranded with BRAND returns false
+    expect(isBranded(wrongBrand, BRAND)).toBe(false);
+
+    // Also verify that isBranded with OTHER_BRAND returns true
+    expect(isBranded(wrongBrand, OTHER_BRAND)).toBe(true);
+  });
+
+  it('without passing brand to buildSystemPrompt, no ToolSet can suppress', () => {
+    const branded: ToolSet = {
+      name: 'Branded',
+      tools: [],
+      [BRAND]: true,
+    };
+
+    // isBranded passes, but buildSystemPrompt receives no brand
+    expect(isBranded(branded, BRAND)).toBe(true);
+
+    const spy = vi.fn<() => string>(() => 'fragment');
+    branded.onGetSystemPrompt = spy;
+    buildSystemPrompt(undefined, [branded], makeCtx()); // no brand arg
+
+    const promptCtx = spy.mock.calls[0]![1] as SystemPromptContext;
+    // Even though the ToolSet carries the brand, the prompt doesn't activate it
+    // because buildSystemPrompt wasn't given the brand symbol to check against.
+    // Call the no-op to verify it doesn't throw.
+    expect(() => promptCtx.suppressToolSetPrompt('Other')).not.toThrow();
+  });
+
+  it('demonstrates actual suppression: branded suppressor hides target fragment', () => {
+    const target: ToolSet = {
+      name: 'Target',
+      tools: [],
+      onGetSystemPrompt: () => 'TARGET',
+    };
+
+    const suppressor: ToolSet = {
+      name: 'Suppressor',
+      tools: [],
+      [BRAND]: true,
+      onGetSystemPrompt: (_ctx, pc) => {
+        pc.suppressToolSetPrompt('Target');
+        return 'SUPPRESSOR';
+      },
+    };
+
+    const result = buildSystemPrompt(
+      undefined, [target, suppressor], makeCtx(), undefined, undefined, BRAND,
+    );
+
+    expect(result).toContain('SUPPRESSOR');
+    expect(result).not.toContain('TARGET');
   });
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildSystemPrompt, applyToolFilters, composeToolSetAfterTurn } from '../../tools/agentRuntime';
 import { createSystemPromptCache } from '../../tools/prompts/section';
-import { MAIN_CONVERSATION_ID, TOOL_STATE_TOOLSET_BRAND } from '../../tools/toolSet';
+import { MAIN_CONVERSATION_ID } from '../../tools/toolSet';
 import type { ToolSet, ToolSetContext, SystemPromptContext, CompactionNotice } from '@agent-type';
 import type { Tool, AgentMessage } from '@agent-type';
 import type { SectionId } from '@agent-type';
@@ -18,12 +18,15 @@ function makeToolSet(overrides?: Partial<ToolSet>): ToolSet {
   };
 }
 
-/** Build a ToolSet that carries the ToolState brand — authorised to call suppressToolSetPrompt. */
+/** Test brand symbol for internal ToolSet identification. */
+const TEST_BRAND = Symbol('test.internal');
+
+/** Build a ToolSet that carries the test brand — authorised to suppressToolSetPrompt. */
 function makeBrandedToolSet(overrides?: Partial<ToolSet>): ToolSet {
   return {
     name: 'branded',
     tools: [],
-    [TOOL_STATE_TOOLSET_BRAND]: true as const,
+    [TEST_BRAND]: true as const,
     ...overrides,
   } as ToolSet;
 }
@@ -129,7 +132,7 @@ describe('buildSystemPrompt', () => {
   it('provides suppressToolSetPrompt in the prompt context', () => {
     const spy = vi.fn(() => 'section');
     const ts = makeBrandedToolSet({ onGetSystemPrompt: spy });
-    buildSystemPrompt('Base', [ts], makeTsCtx());
+    buildSystemPrompt('Base', [ts], makeTsCtx(), undefined, undefined, TEST_BRAND);
     const promptCtx = (spy.mock.calls[0] as unknown as [unknown, SystemPromptContext])[1];
     expect(typeof promptCtx.suppressToolSetPrompt).toBe('function');
   });
@@ -137,7 +140,7 @@ describe('buildSystemPrompt', () => {
   it('gives non-branded ToolSets a no-op suppressToolSetPrompt', () => {
     const spy = vi.fn(() => 'section');
     const ts = makeToolSet({ onGetSystemPrompt: spy }); // no brand
-    buildSystemPrompt('Base', [ts], makeTsCtx());
+    buildSystemPrompt('Base', [ts], makeTsCtx(), undefined, undefined, TEST_BRAND);
     const promptCtx = (spy.mock.calls[0] as unknown as [unknown, SystemPromptContext])[1];
     expect(typeof promptCtx.suppressToolSetPrompt).toBe('function');
     // Calling it should not throw and should not actually suppress anything
@@ -157,7 +160,7 @@ describe('buildSystemPrompt', () => {
         return 'SUPPRESSOR_FRAGMENT';
       },
     });
-    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx());
+    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
     // Both fragments should survive — suppression was ignored
     expect(result).toContain('TARGET_FRAGMENT');
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
@@ -175,7 +178,7 @@ describe('buildSystemPrompt', () => {
         return 'SUPPRESSOR_FRAGMENT';
       },
     });
-    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx());
+    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
     expect(result).not.toContain('TARGET_FRAGMENT');
   });
@@ -193,7 +196,7 @@ describe('buildSystemPrompt', () => {
         return undefined;
       },
     });
-    buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx());
+    buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
     expect(targetSpy).toHaveBeenCalled();
   });
 
@@ -210,7 +213,7 @@ describe('buildSystemPrompt', () => {
       },
     });
     // Target is first, suppressor is second — suppressor runs after target
-    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx());
+    const result = buildSystemPrompt(undefined, [targetTs, suppressorTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
     expect(result).not.toContain('TARGET_FRAGMENT');
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
   });
@@ -228,7 +231,7 @@ describe('buildSystemPrompt', () => {
       },
     });
     // Suppressor is first, target is second — suppressor runs before target
-    const result = buildSystemPrompt(undefined, [suppressorTs, targetTs], makeTsCtx());
+    const result = buildSystemPrompt(undefined, [suppressorTs, targetTs], makeTsCtx(), undefined, undefined, TEST_BRAND);
     expect(result).not.toContain('TARGET_FRAGMENT');
     expect(result).toContain('SUPPRESSOR_FRAGMENT');
   });
@@ -242,7 +245,7 @@ describe('buildSystemPrompt', () => {
       name: 'B',
       onGetSystemPrompt: () => 'FRAGMENT_B',
     });
-    const result = buildSystemPrompt(undefined, [ts1, ts2], makeTsCtx());
+    const result = buildSystemPrompt(undefined, [ts1, ts2], makeTsCtx(), undefined, undefined, TEST_BRAND);
     expect(result).toContain('FRAGMENT_A');
     expect(result).toContain('FRAGMENT_B');
   });
@@ -259,7 +262,7 @@ describe('buildSystemPrompt', () => {
         return 'SUPP';
       },
     });
-    const result = buildSystemPrompt(undefined, [ts1, ts2, ts3, suppressor], makeTsCtx());
+    const result = buildSystemPrompt(undefined, [ts1, ts2, ts3, suppressor], makeTsCtx(), undefined, undefined, TEST_BRAND);
     expect(result).not.toContain('FRAGMENT_A');
     expect(result).not.toContain('FRAGMENT_B');
     expect(result).toContain('FRAGMENT_C');

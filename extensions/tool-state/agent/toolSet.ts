@@ -14,9 +14,8 @@ import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
 import { ctxKey, resolveToolSetTools } from '@agent-type';
 import type { ToolStateEntry, ToolStateSymbolState } from './types';
 import type { PluginSlotDeclaration, PluginStateExtension } from '@agent-type';
-import { TOOL_STATE_TOOLSET_BRAND } from '@agent-sdk/tools/toolSet';
 
-// ── Brand symbol ──────────────────────────────────────────────────────────────
+// ── State symbol ──────────────────────────────────────────────────────────────
 
 export const TOOL_STATE_SYMBOL = Symbol('tool-state');
 
@@ -31,17 +30,7 @@ export type ToolStateControl = {
   getDisabledNames(ctx: ToolSetContext): ReadonlySet<string>;
 };
 
-export type ToolStateToolSet = ToolSet & ToolStateControl & {
-  readonly [TOOL_STATE_TOOLSET_BRAND]: true;
-};
-
-export function isToolStateToolSet(ts: ToolSet): ts is ToolStateToolSet {
-  return (ts as ToolStateToolSet)[TOOL_STATE_TOOLSET_BRAND] === true;
-}
-
-export function findToolStateToolSet(toolSets: readonly ToolSet[]): ToolStateToolSet | undefined {
-  return toolSets.find(isToolStateToolSet);
-}
+export type ToolStateToolSet = ToolSet & ToolStateControl;
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
@@ -235,7 +224,6 @@ export function createToolStateToolSet(): ToolStateToolSet {
     name: 'ToolState',
     symbol: TOOL_STATE_SYMBOL,
     tools: [],
-    [TOOL_STATE_TOOLSET_BRAND]: true as const,
 
     onInit,
     onRemove,

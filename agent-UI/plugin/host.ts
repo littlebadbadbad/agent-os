@@ -35,6 +35,13 @@ export interface AgentPluginContext {
   getTools(): readonly Tool[];
   /** The agent's name/identifier. */
   readonly agentName: string;
+  /**
+   * Internal brand symbol — identifies "built-in" ToolSets.
+   * When set, the plugin lifecycle injects this brand into every built-in
+   * plugin's ToolSet at registration time, granting them privileged
+   * capabilities (e.g. system-prompt suppression).
+   */
+  readonly internalBrand?: symbol;
 }
 
 // ── Factory params ────────────────────────────────────────────────────────────

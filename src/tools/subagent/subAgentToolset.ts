@@ -62,6 +62,8 @@ export function createSubAgentToolset(
     excludeToolNames?: readonly string[];
     withVariables?: boolean;
     handler?: AgentHandler;
+    /** Internal brand symbol — passed through to sub-agent scopes. */
+    brand?: symbol;
   },
 ) {
   const withVariables = options?.withVariables ?? false;
@@ -123,6 +125,7 @@ export function createSubAgentToolset(
         label: suffix,
         toolPool: getFullPool,
         handler: options?.handler ?? getAgent().handler,
+        brand: options?.brand,
         getToolSets: () =>
           getAgent()
             .getRegisteredToolSets()

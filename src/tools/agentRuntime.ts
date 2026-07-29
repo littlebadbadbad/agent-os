@@ -12,7 +12,7 @@
 import type { Tool, AgentMessage, TokenUsage, AgentHandler, ToolSet, ToolSetContext, SystemPromptContext, CompactionNotice, SectionId } from '@agent-type';
 import type { Attachment, AgentRunOutcome } from '@agent-type';
 import type { SystemPromptCache } from '@agent-sdk/tools/prompts/section';
-import { canSuppressPrompt } from './toolSet';
+import { isBranded } from './toolSet';
 import type { HistoryTracker } from './historyTracker';
 
 // ── ToolSet dispatch helpers ──────────────────────────────────────────────────
@@ -114,6 +114,7 @@ export function buildSystemPrompt(
   ctx: ToolSetContext,
   userMessage?: string,
   sectionCache?: SystemPromptCache,
+  brand?: symbol,
 ): string | undefined {
   const parts: string[] = [];
   if (base) parts.push(base);
@@ -155,14 +156,16 @@ export function buildSystemPrompt(
   const collected: Array<{ name: string; fragment: string | undefined }> = [];
 
   for (const ts of allOrdered) {
-    // Only branded ToolSets (e.g. ToolStateToolSet) are authorised to
-    // suppress other ToolSets' prompts.  Non-branded ToolSets receive a
-    // no-op so they cannot interfere with each other's fragments.
+    // Only internally-branded ToolSets (built-in plugins) are authorised to
+    // suppress other ToolSets' prompts.  External/third-party ToolSets receive
+    // a no-op so they cannot interfere with each other's fragments.
+    // A brand must be configured (from the agent client config) for any
+    // ToolSet to be recognised as internal.
     const promptCtx: SystemPromptContext = {
       userMessage,
       baseSystemPrompt: base,
       currentSystemPromptParts: [...parts],
-      suppressToolSetPrompt: canSuppressPrompt(ts)
+      suppressToolSetPrompt: brand && isBranded(ts, brand)
         ? (name: string) => { suppressed.add(name); }
         : () => { /* no-op: only branded ToolSets can suppress */ },
     };

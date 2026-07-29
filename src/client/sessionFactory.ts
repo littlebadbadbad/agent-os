@@ -30,6 +30,12 @@ export type SessionFactoryDeps = {
   maxAgentTurns: number;
   enableAttachments: boolean;
   /**
+   * Internal brand symbol — forwarded from the agent client config.
+   * Passed to `createToolSetScope` so per-session scopes also recognise
+   * branded (built-in) ToolSets.
+   */
+  internalBrand?: symbol;
+  /**
    * Force-flush of debounced session-snapshot saves.
    *
    * Forwarded into every tool's `ToolExecutionContext.flushPersistence` so
@@ -52,6 +58,7 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
     handler,
     maxAgentTurns,
     enableAttachments,
+    internalBrand,
     flushPersistence,
   } = deps;
 
@@ -72,7 +79,7 @@ export function createSessionFactory(deps: SessionFactoryDeps) {
       agentName: id ?? "main",
       conversationId: MAIN_CONVERSATION_ID,
     };
-    const scope = createToolSetScope(getAllToolSets, handler);
+    const scope = createToolSetScope(getAllToolSets, handler, internalBrand);
 
     // Propagate all currently registered master tools.
     for (const tool of masterTools) {

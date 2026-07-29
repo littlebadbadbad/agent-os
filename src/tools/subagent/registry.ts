@@ -29,7 +29,7 @@ import { agentMessagesToUI } from '@agent-sdk';
 export type { CreateSubAgentRegistryOptions };
 
 export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): SubAgentRegistry {
-  const { getToolSets, sessionId, toolPool, handler, label } = options;
+  const { getToolSets, sessionId, toolPool, handler, label, brand } = options;
   const registryLabel = label ?? 'Sub-Agents';
 
   // ── Closure state ──────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
     return { sessionId, agentName, conversationId };
   }
 
-  const scope = createToolSetScope(resolveToolSets, handler);
+  const scope = createToolSetScope(resolveToolSets, handler, brand);
 
   // ── Notification ───────────────────────────────────────────────────────────
 

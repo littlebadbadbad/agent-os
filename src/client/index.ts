@@ -48,6 +48,7 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
     onSessionsChange,
     maxAgentTurns,
     enableAttachments,
+    internalBrand,
   } = config;
 
   let destroy: (() => void) | null = null;
@@ -128,7 +129,7 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
   // reference into the factory without rearranging the construction order.
   const persistenceHolder: { flush?: () => Promise<void> } = {};
 
-  const mainScope = createToolSetScope(getAllToolSets, handler);
+  const mainScope = createToolSetScope(getAllToolSets, handler, internalBrand);
 
   const makeSession = createSessionFactory({
     masterTools,
@@ -140,6 +141,7 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
     handler,
     maxAgentTurns,
     enableAttachments,
+    internalBrand,
     flushPersistence: onSessionsChange
       ? () => persistenceHolder.flush?.() ?? Promise.resolve()
       : undefined,

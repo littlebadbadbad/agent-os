@@ -70,6 +70,20 @@ export type AgentClientConfig = {
    */
   toolSets?: ToolSet[];
   /**
+   * Internal brand symbol that identifies "built-in" ToolSets.
+   *
+   * When set, the SDK uses this to recognise internally-branded ToolSets and
+   * grant them privileged capabilities (e.g. suppressing other ToolSets'
+   * system-prompt fragments via `suppressToolSetPrompt`).
+   *
+   * Created by the UI layer once per agent-client instance and only known to
+   * code within this project — external ToolSets cannot reproduce the symbol
+   * and are therefore never treated as internal.
+   *
+   * @default undefined (no brand — all ToolSets are treated equally)
+   */
+  internalBrand?: symbol;
+  /**
    * Custom UI renderer.  When supplied, `agent.render()` calls this instead of
    * mounting the built-in React widget.
    *
