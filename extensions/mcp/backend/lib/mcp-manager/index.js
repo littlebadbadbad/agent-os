@@ -1,249 +1,232 @@
 /**
- * Backend MCP connection manager — plugin edition.
+ * Backend MCP Manager — plugin edition.
  *
  * Responsibilities:
- *   - Persist server configs to .agent/mcp-servers.json (survives restarts).
- *   - Maintain live MCP client connections (HTTP or SSE transport).
- *   - Return tool lists for each connected server.
+ *   - Persist server configs to `.agent/mcp-servers.json`.
+ *   - Maintain live MCP client connections (streamable-http / legacy-sse / stdio).
+ *   - Return tool lists and server status.
  *   - Execute tool calls on behalf of the frontend agent.
  *
- * Why backend?  Browser fetch is subject to CORS; Node.js fetch is not.
+ * Architecture:
+ *   config-store.js   — persistence layer
+ *   connection.js     — connection lifecycle + transport dispatch
+ *   index.js          — orchestrator (this file)
  *
- * Proxy support:
- *   Each MCP server entry has a `useProxy` flag (default false).
- *   When true, connections route through the globally configured proxy.
- *   When false, the transport connects directly without a proxy.
+ * Each transport is a standalone module under transports/:
+ *   streamable-http.js  — MCP 2025-03-26 (single endpoint POST+GET)
+ *   legacy-sse.js       — MCP 2024-11-05 (deprecated, separate SSE+POST)
+ *   stdio.js            — subprocess stdin/stdout
  *
- * Factory pattern: createMcpManager(agentDir, proxyConfig) returns an isolated
- * instance scoped to the given agent directory.
- *
- * Transport implementations live in sibling files:
- *   http-transport.js  — MCP spec 2025-03-26 (HTTP + SSE fallback)
- *   sse-transport.js   — MCP spec 2024-11-05 (long-lived SSE + POST)
+ * Factory: createMcpManager(agentDir, proxyConfig) returns an isolated instance.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { createHttpClient } from './http-transport.js';
-import { createSseClient } from './sse-transport.js';
+import { createConfigStore } from './config-store.js';
+import { createCryptoConfigStore } from './crypto-config-store.js';
+import { createConnectionManager } from './connection.js';
+
+/**
+ * @typedef {import('./config-store.js').ServerConfig} ServerConfig
+ * @typedef {object} ToolDef
+ * @property {string} name
+ * @property {string} [description]
+ * @property {object} inputSchema
+ * @typedef {object} ServerEntry
+ * @property {string} id
+ * @property {string} name
+ * @property {string} url
+ * @property {'streamable-http'|'legacy-sse'|'stdio'} transport
+ * @property {Record<string,string>} headers
+ * @property {readonly string[]} includeTools
+ * @property {boolean} enabled
+ * @property {boolean} useProxy
+ * @property {'disconnected'|'connecting'|'connected'|'error'} status
+ * @property {string} errorMsg
+ * @property {readonly ToolDef[]} tools
+ * @typedef {object} AddServerInput
+ * @property {string} name
+ * @property {string} url
+ * @property {'streamable-http'|'legacy-sse'|'stdio'} [transport]
+ * @property {Record<string,string>} [headers]
+ * @property {string[]} [includeTools]
+ * @property {boolean} [useProxy]
+ * @property {boolean} [enabled]
+ * @typedef {object} McpManager
+ * @property {() => readonly ServerEntry[]} listServers
+ * @property {(name:string) => ServerEntry|undefined} getServer
+ * @property {(input:AddServerInput) => Promise<ServerEntry>} addServer
+ * @property {(name:string) => void} removeServer
+ * @property {(name:string) => Promise<ServerEntry>} reconnectServer
+ * @property {(name:string) => void} disconnectServerByName
+ * @property {(serverName:string, toolName:string, args:Record<string,unknown>) => Promise<unknown>} callTool
+ * @property {() => void} shutdown
+ * @property {() => Promise<void>} startupReconnect
+ */
 
 // ── Logger ────────────────────────────────────────────────────────────────────
 
 const log = {
-  info:  (msg) => console.log(`[mcp] ${msg}`),
-  warn:  (msg) => console.warn(`[mcp] ${msg}`),
+  info: (msg) => console.log(`[mcp] ${msg}`),
   error: (msg, detail) => console.error(`[mcp] ${msg}${detail ? ': ' + detail : ''}`),
-  ok:    (msg) => console.log(`[mcp] ${msg}`),
+  ok: (msg) => console.log(`[mcp] ${msg}`),
 };
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 /**
- * Create an isolated MCP connection manager.
- *
- * @param {string} agentDir     Absolute path to the `.agent/` directory.
- *                              Config is stored at `join(agentDir, 'mcp-servers.json')`.
- * @param {object} [proxyCfg]   Proxy configuration from host.getBackendConfig('proxy').
- *                              Used to set the direct Agent's connect timeout.
- * @returns {McpManager}  An object with all CRUD and tool-execution methods.
+ * Crypto operations for at-rest encryption (optional).
+ * @typedef {object} CryptoOps
+ * @property {(plaintext:string) => string} encrypt
+ * @property {(encoded:string) => string|null} decrypt
  */
-export function createMcpManager(agentDir, proxyCfg = null) {
-  // Ensure .agent directory exists.
-  try { mkdirSync(agentDir, { recursive: true }); } catch { /* ignore */ }
 
-  const CONFIG_FILE = join(agentDir, 'mcp-servers.json');
+/**
+ * Create an isolated MCP connection manager.
+ * @param {string} agentDir
+ * @param {object|null} proxyCfg
+ * @param {CryptoOps|null} [cryptoOps]
+ * @returns {McpManager}
+ */
+export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null) {
+  const plainStore = createConfigStore(agentDir);
+  const configs = createCryptoConfigStore(plainStore, cryptoOps);
+  const connections = createConnectionManager(proxyCfg);
 
-  // ── Persistence ───────────────────────────────────────────────────────────
-
-  function loadConfigs() {
-    try {
-      if (!existsSync(CONFIG_FILE)) return [];
-      return JSON.parse(readFileSync(CONFIG_FILE, 'utf8'));
-    } catch {
-      return [];
-    }
-  }
-
-  function saveConfigs() {
-    const serializable = [...configs.values()].map(
-      ({ id, name, url, transport, headers, includeTools, useProxy, enabled }) =>
-        ({ id, name, url, transport, headers, includeTools, useProxy, enabled }),
-    );
-    try {
-      writeFileSync(CONFIG_FILE, JSON.stringify(serializable, null, 2), 'utf8');
-    } catch (err) {
-      log.warn('failed to persist mcp-servers.json', err.message);
-    }
-  }
-
-  // ── In-memory state ───────────────────────────────────────────────────────
-
-  /** @type {Map<string, {id,name,url,transport,headers,includeTools,useProxy,enabled}>} */
-  const configs = new Map();
-
-  /** @type {Map<string, {listTools: ()=>Promise, callTool: (name,args)=>Promise<string>, close: ()=>void}>} */
-  const clients = new Map();
-
-  /** @type {Map<string, Array<{name,description,inputSchema}>>} */
-  const toolsByServer = new Map();
-
-  /** @type {Map<string, {status:'disconnected'|'connecting'|'connected'|'error', errorMsg?:string}>} */
+  /** @type {Map<string, {status:'disconnected'|'connecting'|'connected'|'error', errorMsg:string}>} */
   const statusByServer = new Map();
 
-  // Hydrate configs from disk on creation.
-  for (const cfg of loadConfigs()) {
-    configs.set(cfg.name, cfg);
-    statusByServer.set(cfg.name, { status: 'disconnected' });
+  for (const cfg of configs.getAll()) {
+    statusByServer.set(cfg.name, { status: 'disconnected', errorMsg: '' });
   }
 
-  // ── Connection lifecycle ──────────────────────────────────────────────────
+  // ── Entry Builder ──────────────────────────────────────────────────────
 
+  /** @param {ServerConfig} cfg @returns {ServerEntry} */
+  function buildEntry(cfg) {
+    const st = statusByServer.get(cfg.name) ?? { status: 'disconnected', errorMsg: '' };
+    return {
+      id: cfg.id,
+      name: cfg.name,
+      url: cfg.url,
+      transport: cfg.transport,
+      headers: cfg.headers ?? {},
+      includeTools: cfg.includeTools ?? [],
+      enabled: cfg.enabled,
+      useProxy: cfg.useProxy ?? false,
+      status: st.status,
+      errorMsg: st.errorMsg,
+      tools: connections.getTools(cfg.name),
+    };
+  }
+
+  // ── Connection Lifecycle ───────────────────────────────────────────────
+
+  /** @param {string} name */
   async function connectServer(name) {
     const cfg = configs.get(name);
     if (!cfg) throw new Error(`MCP server "${name}" not registered.`);
 
-    // Tear down any existing connection first.
-    if (clients.has(name)) {
-      try { clients.get(name).close(); } catch { /* ignore */ }
-      clients.delete(name);
-      toolsByServer.delete(name);
-    }
+    statusByServer.set(name, { status: 'connecting', errorMsg: '' });
 
-    statusByServer.set(name, { status: 'connecting' });
-    log.info(`connecting to MCP server "${name}" (${cfg.transport}) \u2192 ${cfg.url}`);
-
-    const transportOpts = { useProxy: cfg.useProxy === true, proxyConfig: proxyCfg };
     try {
-      const client = cfg.transport === 'http'
-        ? await createHttpClient(cfg.url, cfg.headers, transportOpts)
-        : await createSseClient(cfg.url, cfg.headers, transportOpts);
-
-      let tools = await client.listTools();
-      if (cfg.includeTools?.length) {
-        const allow = new Set(cfg.includeTools);
-        tools = tools.filter((t) => allow.has(t.name));
-      }
-
-      clients.set(name, client);
-      toolsByServer.set(name, tools);
-      statusByServer.set(name, { status: 'connected' });
-      log.ok(`"${name}" connected \u2014 ${tools.length} tool(s) available`);
+      await connections.connect(cfg);
+      statusByServer.set(name, { status: 'connected', errorMsg: '' });
     } catch (err) {
-      clients.delete(name);
-      toolsByServer.delete(name);
       statusByServer.set(name, { status: 'error', errorMsg: err.message });
-      log.error(`"${name}" connection failed`, err.message);
       throw err;
     }
   }
 
-  function disconnectServer(name) {
-    if (clients.has(name)) {
-      try { clients.get(name).close(); } catch { /* ignore */ }
-      clients.delete(name);
-      toolsByServer.delete(name);
-    }
-    statusByServer.set(name, { status: 'disconnected' });
-    log.info(`"${name}" disconnected`);
-  }
-
-  // ── Public API ────────────────────────────────────────────────────────────
+  // ── Public API ─────────────────────────────────────────────────────────
 
   function listServers() {
-    return [...configs.values()].map((cfg) => {
-      const { status, errorMsg } = statusByServer.get(cfg.name) ?? { status: 'disconnected' };
-      return {
-        ...cfg,
-        status,
-        errorMsg,
-        tools: toolsByServer.get(cfg.name) ?? [],
-      };
-    });
+    return configs.getAll().map(buildEntry);
   }
 
+  /** @param {string} name @returns {ServerEntry|undefined} */
   function getServer(name) {
     const cfg = configs.get(name);
-    if (!cfg) return undefined;
-    const { status, errorMsg } = statusByServer.get(name) ?? { status: 'disconnected' };
-    return { ...cfg, status, errorMsg, tools: toolsByServer.get(name) ?? [] };
+    return cfg ? buildEntry(cfg) : undefined;
   }
 
-  /**
-   * Register a new MCP server config and connect immediately.
-   * Throws if a server with the same name already exists.
-   */
-  async function addServer({ name, url, transport, headers, includeTools, useProxy, enabled = true }) {
-    if (configs.has(name)) {
-      throw new Error(`An MCP server named "${name}" is already registered.`);
+  /** @param {AddServerInput} input @returns {Promise<ServerEntry>} */
+  async function addServer(input) {
+    if (!input.name) throw new Error('name is required');
+    if (configs.get(input.name)) {
+      throw new Error(`An MCP server named "${input.name}" is already registered.`);
     }
+
     const id = `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const cfg = { id, name, url, transport, headers, includeTools, useProxy, enabled };
-    configs.set(name, cfg);
-    statusByServer.set(name, { status: 'disconnected' });
-    saveConfigs();
 
-    if (enabled) {
-      await connectServer(name);
-      saveConfigs(); // persist updated enabled state
+    /** @type {ServerConfig} */
+    const cfg = {
+      id,
+      name: input.name,
+      url: input.url ?? '',
+      transport: input.transport ?? 'streamable-http',
+      headers: input.headers,
+      includeTools: input.includeTools,
+      useProxy: input.useProxy ?? false,
+      enabled: input.enabled ?? true,
+    };
+
+    configs.save(cfg);
+    statusByServer.set(input.name, { status: 'disconnected', errorMsg: '' });
+
+    if (cfg.enabled) {
+      await connectServer(input.name);
     }
-    return getServer(name);
+
+    return buildEntry(cfg);
   }
 
+  /** @param {string} name */
   function removeServer(name) {
-    disconnectServer(name);
-    configs.delete(name);
+    connections.disconnect(name);
+    configs.remove(name);
     statusByServer.delete(name);
-    saveConfigs();
     log.info(`"${name}" removed`);
   }
 
+  /** @param {string} name @returns {Promise<ServerEntry>} */
   async function reconnectServer(name) {
-    if (!configs.has(name)) throw new Error(`MCP server "${name}" not registered.`);
-    await connectServer(name);
-    // Mark as enabled in persisted config.
     const cfg = configs.get(name);
+    if (!cfg) throw new Error(`MCP server "${name}" not registered.`);
+    await connectServer(name);
     cfg.enabled = true;
-    saveConfigs();
-    return getServer(name);
+    configs.save(cfg);
+    return buildEntry(cfg);
   }
 
+  /** @param {string} name */
   function disconnectServerByName(name) {
-    disconnectServer(name);
+    connections.disconnect(name);
+    statusByServer.set(name, { status: 'disconnected', errorMsg: '' });
     const cfg = configs.get(name);
     if (cfg) {
       cfg.enabled = false;
-      saveConfigs();
+      configs.save(cfg);
     }
   }
 
+  /** @param {string} serverName @param {string} toolName @param {Record<string,unknown>} args */
   async function callTool(serverName, toolName, args) {
-    const client = clients.get(serverName);
-    if (!client) {
-      throw new Error(
-        `MCP server "${serverName}" is not connected. Use connect_mcp_server to connect first.`,
-      );
-    }
-    return client.callTool(toolName, args);
+    return connections.callTool(serverName, toolName, args);
   }
 
-  /**
-   * Disconnect ALL MCP servers and clear all state.
-   * Used by the plugin deactivation lifecycle — symmetric to startupReconnect().
-   * Safe to call multiple times.
-   */
   function shutdown() {
-    const serverNames = Array.from(configs.keys());
-    for (const name of serverNames) {
-      disconnectServer(name);
-    }
-    configs.clear();
-    clients.clear();
-    toolsByServer.clear();
+    connections.shutdown();
     statusByServer.clear();
     log.info('MCP manager shut down');
   }
 
-  // ── Return public interface ───────────────────────────────────────────────
+  async function startupReconnect() {
+    const toConnect = configs.getAll().filter((c) => c.enabled);
+    if (toConnect.length === 0) return;
+    log.info(`reconnecting ${toConnect.length} MCP server(s)...`);
+    const results = await Promise.allSettled(toConnect.map((c) => connectServer(c.name)));
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    log.ok(`${ok}/${toConnect.length} MCP server(s) reconnected`);
+  }
 
   return {
     listServers,
@@ -254,14 +237,6 @@ export function createMcpManager(agentDir, proxyCfg = null) {
     disconnectServerByName,
     callTool,
     shutdown,
-    /** Reconnect all servers that were enabled before restart. */
-    async startupReconnect() {
-      const toConnect = [...configs.values()].filter((c) => c.enabled);
-      if (toConnect.length === 0) return;
-      log.info(`reconnecting ${toConnect.length} MCP server(s)...`);
-      const results = await Promise.allSettled(toConnect.map((c) => connectServer(c.name)));
-      const ok = results.filter((r) => r.status === 'fulfilled').length;
-      log.ok(`${ok}/${toConnect.length} MCP server(s) reconnected`);
-    },
+    startupReconnect,
   };
 }

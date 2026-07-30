@@ -1,0 +1,205 @@
+/**
+ * MCP Connection Lifecycle Manager
+ *
+ * Manages per-server MCP client connections: connect, disconnect, reconnect.
+ * Delegates transport selection to the transport implementations.
+ */
+
+import { createStreamableHttpClient } from './transports/streamable-http.js';
+import { createLegacySseClient } from './transports/legacy-sse.js';
+import { createStdioClient } from './transports/stdio.js';
+
+/**
+ * @typedef {import('./config-store.js').ServerConfig} ServerConfig
+ */
+
+/**
+ * @typedef {object} ToolDef
+ * @property {string} name
+ * @property {string} [description]
+ * @property {object} inputSchema
+ */
+
+/**
+ * @typedef {object} ToolCallResult
+ * @property {readonly {type:string,text?:string,data?:string,mimeType?:string,resource?:object}[]} content
+ * @property {boolean} [isError]
+ */
+
+/**
+ * @typedef {object} McpClient
+ * @property {() => Promise<readonly ToolDef[]>} listTools
+ * @property {(name:string, args:Record<string,unknown>) => Promise<ToolCallResult>} callTool
+ * @property {() => void} close
+ */
+
+/**
+ * @typedef {object} ProxyConfig
+ * @property {string} [host]
+ * @property {number} [port]
+ * @property {string} [protocol]
+ * @property {string} [noProxy]
+ * @property {number} [connectTimeout]
+ */
+
+/**
+ * @typedef {object} ConnectionManager
+ * @property {(cfg:ServerConfig) => Promise<readonly ToolDef[]>} connect
+ * @property {(name:string) => void} disconnect
+ * @property {() => void} shutdown
+ */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Logger
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const log = {
+  info: (msg) => console.log(`[mcp] ${msg}`),
+  error: (msg, detail) => console.error(`[mcp] ${msg}${detail ? ': ' + detail : ''}`),
+  ok: (msg) => console.log(`[mcp] ${msg}`),
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Factory
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Create a connection manager that tracks MCP client instances keyed by server name.
+ *
+ * @param {ProxyConfig|null} proxyConfig - Global proxy configuration.
+ * @returns {ConnectionManager}
+ */
+export function createConnectionManager(proxyConfig = null) {
+  /** @type {Map<string, McpClient>} */
+  const clients = new Map();
+
+  /** @type {Map<string, readonly ToolDef[]>} */
+  const toolsByServer = new Map();
+
+  /**
+   * Connect to an MCP server. Tears down any existing connection first.
+   *
+   * @param {ServerConfig} cfg
+   * @returns {Promise<readonly ToolDef[]>}
+   */
+  async function connect(cfg) {
+    const name = cfg.name;
+
+    // Tear down existing connection
+    if (clients.has(name)) {
+      try { clients.get(name).close(); } catch { /* ignore */ }
+      clients.delete(name);
+      toolsByServer.delete(name);
+    }
+
+    log.info(`connecting to MCP server "${name}" (${cfg.transport}) \u2192 ${cfg.url}`);
+
+    const transportOpts = {
+      useProxy: cfg.useProxy === true,
+      proxyConfig: /** @type {import('./transports/utils.js').ProxyConfig} */ (proxyConfig),
+    };
+
+    /** @type {McpClient} */
+    let client;
+    try {
+      switch (cfg.transport) {
+        case 'streamable-http':
+          client = await createStreamableHttpClient(cfg.url, cfg.headers, transportOpts);
+          break;
+        case 'legacy-sse':
+          client = await createLegacySseClient(cfg.url, cfg.headers, transportOpts);
+          break;
+        case 'stdio': {
+          client = await createStdioClient(cfg.url);
+          break;
+        }
+        default:
+          throw new Error(`Unknown transport: ${cfg.transport}`);
+      }
+    } catch (err) {
+      throw err;
+    }
+
+    /** @type {readonly ToolDef[]} */
+    let tools = await client.listTools();
+
+    // Apply tool whitelist if configured
+    if (cfg.includeTools && cfg.includeTools.length > 0) {
+      const allow = new Set(cfg.includeTools);
+      tools = tools.filter((t) => allow.has(t.name));
+    }
+
+    clients.set(name, client);
+    toolsByServer.set(name, tools);
+    log.ok(`"${name}" connected \u2014 ${tools.length} tool(s) available`);
+
+    return tools;
+  }
+
+  /**
+   * Disconnect a server by name.
+   * @param {string} name
+   */
+  function disconnect(name) {
+    if (clients.has(name)) {
+      try { clients.get(name).close(); } catch { /* ignore */ }
+      clients.delete(name);
+      toolsByServer.delete(name);
+      log.info(`"${name}" disconnected`);
+    }
+  }
+
+  /**
+   * Get cached tools for a server.
+   * @param {string} name
+   * @returns {readonly ToolDef[]}
+   */
+  function getTools(name) {
+    return toolsByServer.get(name) ?? [];
+  }
+
+  /**
+   * Check if a server is connected.
+   * @param {string} name
+   * @returns {boolean}
+   */
+  function isConnected(name) {
+    return clients.has(name);
+  }
+
+  /**
+   * Execute a tool call on a connected server.
+   * @param {string} serverName
+   * @param {string} toolName
+   * @param {Record<string,unknown>} args
+   * @returns {Promise<ToolCallResult>}
+   */
+  async function callTool(serverName, toolName, args) {
+    const client = clients.get(serverName);
+    if (!client) {
+      throw new Error(
+        `MCP server "${serverName}" is not connected. Use connect_mcp_server to connect first.`,
+      );
+    }
+    return client.callTool(toolName, args);
+  }
+
+  /**
+   * Shut down all connections.
+   */
+  function shutdown() {
+    for (const [name] of clients) {
+      disconnect(name);
+    }
+    log.info('MCP connection manager shut down');
+  }
+
+  return {
+    connect,
+    disconnect,
+    getTools,
+    isConnected,
+    callTool,
+    shutdown,
+  };
+}

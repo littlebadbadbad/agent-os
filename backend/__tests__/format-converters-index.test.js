@@ -77,6 +77,7 @@ describe('resolveEndpoint', () => {
     expect(result).toEqual({
       url: 'https://api.openai.com/v1/chat/completions',
       apiKey: 'sk-test',
+      useProxy: false,
       modelConfig: modelConfig.model,
       providerConfig: modelConfig.provider,
     });

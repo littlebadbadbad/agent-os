@@ -1,37 +1,51 @@
 /**
- * extensions/mcp/ui/McpManagerPanel.tsx — dropdown panel for managing MCP servers.
+ * MCP Manager Panel — iframe UI for managing MCP servers.
  *
- * Self-contained component: manages its own server list state by calling
- * agent-side methods via `host.bridge`. No dependency on ToolSet state
- * or direct backend calls.
+ * Self-contained: manages its own state by calling agent-side methods
+ * via `host.bridge`. No dependency on ToolSet state or backend calls.
  *
- * Capabilities:
- *  • List all servers with status indicator + tool count
- *  • Connect / disconnect / reload individual servers
- *  • Delete a server (with inline confirmation)
- *  • Add a new server (inline form: name, url, transport, optional headers)
+ * Supports all three MCP transports:
+ *   streamable-http — MCP 2025-03-26 (single POST+GET endpoint)
+ *   legacy-sse      — MCP 2024-11-05 (deprecated, separate SSE+POST)
+ *   stdio           — subprocess stdin/stdout
+ *
+ * Layout:
+ *   .panel → .panelHeader (fixed) + .scrollArea (scrollable)
+ *   scrollArea contains server list + add form as a single scroll unit.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import type { UiPluginHost, PluginStateExtension } from "@agent-type";
+import { useState, useEffect, useCallback } from 'react';
+import type { UiPluginHost, PluginStateExtension } from '@agent-type';
 import type {
   McpTransport,
   McpServerStatus,
   McpServerEntry,
   McpBridge,
-} from "../agent/types";
+} from '../agent/types';
 
-const MCP_TRANSPORTS: McpTransport[] = ["http", "sse"];
-import styles from "./styles.module.scss";
+const MCP_TRANSPORTS: McpTransport[] = ['streamable-http', 'legacy-sse', 'stdio'];
 
-// ── Props ────────────────────────────────────────────────────────────────────
+const TRANSPORT_LABELS: Record<McpTransport, string> = {
+  'streamable-http': 'Streamable HTTP (recommended)',
+  'legacy-sse': 'SSE (legacy)',
+  'stdio': 'stdio (subprocess)',
+};
+
+const IS_STDIO = (t: McpTransport): boolean => t === 'stdio';
+
+import styles from './styles.module.scss';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Props
+// ═══════════════════════════════════════════════════════════════════════════════
 
 export interface McpManagerPanelProps {
-  /** The UiPluginHost with a pre-bound apiClient for this plugin. */
   readonly host: UiPluginHost<PluginStateExtension, McpBridge>;
 }
 
-// ── Status dot ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Status Dot
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function StatusDot({ status }: { status: McpServerStatus }) {
   const cls = {
@@ -43,7 +57,9 @@ function StatusDot({ status }: { status: McpServerStatus }) {
   return <span className={`${styles.dot} ${cls}`} />;
 }
 
-// ── Add-server form ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Add-Server Form
+// ═══════════════════════════════════════════════════════════════════════════════
 
 interface AddFormProps {
   onAdded: () => void;
@@ -52,13 +68,15 @@ interface AddFormProps {
 }
 
 function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [transport, setTransport] = useState<McpTransport>("http");
-  const [headersRaw, setHeadersRaw] = useState("");
+  const [name, setName] = useState('');
+  const [endpoint, setEndpoint] = useState('');
+  const [transport, setTransport] = useState<McpTransport>('streamable-http');
+  const [headersRaw, setHeadersRaw] = useState('');
   const [useProxy, setUseProxy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isStdio = IS_STDIO(transport);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,21 +84,19 @@ function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
     setSaving(true);
     try {
       let headers: Record<string, string> | undefined;
-      if (headersRaw.trim()) {
+      if (!isStdio && headersRaw.trim()) {
         try {
           headers = JSON.parse(headersRaw);
         } catch {
-          throw new Error(
-            'Headers must be valid JSON, e.g. {"Authorization":"Bearer xxx"}',
-          );
+          throw new Error('Headers must be valid JSON, e.g. {"Authorization":"Bearer xxx"}');
         }
       }
       await host.bridge.addServer({
         name: name.trim(),
-        url: url.trim(),
+        url: endpoint.trim(),
         transport,
         headers,
-        useProxy,
+        useProxy: isStdio ? false : useProxy,
       });
       onAdded();
     } catch (err) {
@@ -105,16 +121,32 @@ function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
         autoFocus
       />
 
-      <label className={styles.addLabel}>URL *</label>
-      <input
-        className={styles.addInput}
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://mcp.example.com/mcp"
-        required
-        disabled={saving}
-        type="url"
-      />
+      {isStdio ? (
+        <>
+          <label className={styles.addLabel}>Command *</label>
+          <input
+            className={styles.addInput}
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            placeholder="npx @modelcontextprotocol/server-github"
+            required
+            disabled={saving}
+          />
+        </>
+      ) : (
+        <>
+          <label className={styles.addLabel}>URL *</label>
+          <input
+            className={styles.addInput}
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            placeholder="https://mcp.example.com/mcp"
+            required
+            disabled={saving}
+            type="url"
+          />
+        </>
+      )}
 
       <label className={styles.addLabel}>Transport</label>
       <div className={styles.transportRow}>
@@ -122,62 +154,71 @@ function AddServerForm({ onAdded, onCancel, host }: AddFormProps) {
           <button
             key={t}
             type="button"
-            className={`${styles.transportBtn} ${transport === t ? styles.transportBtnActive : ""}`}
+            className={`${styles.transportBtn} ${transport === t ? styles.transportBtnActive : ''}`}
             onClick={() => setTransport(t)}
             disabled={saving}
           >
-            {t === "http" ? "HTTP (recommended)" : "SSE (legacy)"}
+            {TRANSPORT_LABELS[t]}
           </button>
         ))}
       </div>
 
-      <label className={styles.proxyToggle}>
-        <input
-          type="checkbox"
-          checked={useProxy}
-          onChange={(e) => setUseProxy(e.target.checked)}
-          disabled={saving}
-        />
-        Use proxy (enable to route through system proxy)
-      </label>
+      {isStdio ? (
+        <div className={styles.addError}>
+          stdio servers use the command as the MCP server process to spawn.
+          Headers and proxy options do not apply.
+        </div>
+      ) : (
+        <>
+          <label className={styles.proxyToggle}>
+            <input
+              type="checkbox"
+              checked={useProxy}
+              onChange={(e) => setUseProxy(e.target.checked)}
+              disabled={saving}
+            />
+            Use proxy (route through system proxy)
+          </label>
 
-      <label className={styles.addLabel}>Headers (optional JSON)</label>
-      <input
-        className={styles.addInput}
-        value={headersRaw}
-        onChange={(e) => setHeadersRaw(e.target.value)}
-        placeholder='{"Authorization":"Bearer <token>"}'
-        disabled={saving}
-      />
+          <label className={styles.addLabel}>Headers (optional JSON)</label>
+          <input
+            className={styles.addInput}
+            value={headersRaw}
+            onChange={(e) => setHeadersRaw(e.target.value)}
+            placeholder='{"Authorization":"Bearer <token>"}'
+            disabled={saving}
+          />
+        </>
+      )}
 
       {error && <div className={styles.addError}>{error}</div>}
 
       <div className={styles.addActions}>
-        <button
-          type="button"
-          className={styles.cancelBtn}
-          onClick={onCancel}
-          disabled={saving}
-        >
+        <button type="button" className={styles.cancelBtn} onClick={onCancel} disabled={saving}>
           Cancel
         </button>
         <button
           type="submit"
           className={styles.submitBtn}
-          disabled={saving || !name.trim() || !url.trim()}
+          disabled={saving || !name.trim() || !endpoint.trim()}
         >
-          {saving ? "Connecting\u2026" : "Connect"}
+          {saving ? 'Connecting\u2026' : 'Connect'}
         </button>
       </div>
     </form>
   );
 }
 
-// ── Main panel ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Main Panel
+// ═══════════════════════════════════════════════════════════════════════════════
 
-async function fetchFromAgent(host: UiPluginHost<PluginStateExtension, McpBridge>): Promise<McpServerEntry[]> {
+async function fetchFromAgent(
+  host: UiPluginHost<PluginStateExtension, McpBridge>,
+): Promise<McpServerEntry[]> {
   try {
-    return await host.bridge.sync();
+    const list = await host.bridge.sync();
+    return [...list];
   } catch {
     return [];
   }
@@ -192,7 +233,6 @@ export function McpManagerPanel({ host }: McpManagerPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [opError, setOpError] = useState<Record<string, string>>({});
 
-  // Fetch server list on mount.
   useEffect(() => {
     fetchFromAgent(host).then((list) => {
       setServers(list);
@@ -208,9 +248,9 @@ export function McpManagerPanel({ host }: McpManagerPanelProps) {
   async function withBusy(id: string, fn: () => Promise<void>) {
     setBusyId(id);
     setOpError((prev) => {
-      const n = { ...prev };
-      delete n[id];
-      return n;
+      const next = { ...prev };
+      delete next[id];
+      return next;
     });
     try {
       await fn();
@@ -224,28 +264,26 @@ export function McpManagerPanel({ host }: McpManagerPanelProps) {
     }
   }
 
-  function handleConnect(s: McpServerEntry) {
-    withBusy(s.id, async () => {
-      await host.bridge.connect(s.name);
+  function handleConnect(entry: McpServerEntry) {
+    withBusy(entry.id, async () => {
+      await host.bridge.connect(entry.name);
       await refresh();
     });
   }
 
-  function handleDisconnect(s: McpServerEntry) {
-    host.bridge.disconnect(s.name); refresh();
+  function handleDisconnect(entry: McpServerEntry) {
+    host.bridge.disconnect(entry.name);
+    refresh();
   }
 
-  function handleReload(s: McpServerEntry) {
-    handleConnect(s);
-  }
-
-  function handleDelete(s: McpServerEntry) {
-    if (confirmDeleteId !== s.id) {
-      setConfirmDeleteId(s.id);
+  function handleDelete(entry: McpServerEntry) {
+    if (confirmDeleteId !== entry.id) {
+      setConfirmDeleteId(entry.id);
       return;
     }
     setConfirmDeleteId(null);
-    host.bridge.remove(s.name); refresh();
+    host.bridge.remove(entry.name);
+    refresh();
   }
 
   if (loading) {
@@ -261,156 +299,138 @@ export function McpManagerPanel({ host }: McpManagerPanelProps) {
       <div className={styles.panelHeader}>
         <span className={styles.panelTitle}>MCP Servers</span>
         <div className={styles.panelHeaderActions}>
-          <button
-            className={styles.syncBtn}
-            onClick={() => refresh()}
-            title="Sync status"
-          >
-            ↺
+          <button className={styles.syncBtn} onClick={() => refresh()} title="Sync status">
+            {'\u21BA'}
           </button>
         </div>
       </div>
 
-      <div className={styles.serverList}>
-        {servers.length === 0 && !showAdd && (
-          <div className={styles.empty}>No MCP servers configured.</div>
-        )}
+      <div className={styles.scrollArea}>
+        <div className={styles.serverList}>
+          {servers.length === 0 && !showAdd && (
+            <div className={styles.empty}>No MCP servers configured.</div>
+          )}
 
-        {servers.map((s) => {
-          const busy = busyId === s.id;
-          const isConnected = s.status === "connected";
-          const isConnecting = s.status === "connecting";
-          const expanded = expandedId === s.id;
-          const err = opError[s.id];
+          {servers.map((entry) => {
+            const busy = busyId === entry.id;
+            const isConnected = entry.status === 'connected';
+            const isConnecting = entry.status === 'connecting';
+            const expanded = expandedId === entry.id;
+            const err = opError[entry.id];
 
-          return (
-            <div
-              key={s.id}
-              className={`${styles.serverRow} ${expanded ? styles.serverRowExpanded : ""}`}
-            >
+            return (
               <div
-                className={styles.serverMain}
-                onClick={() => setExpandedId(expanded ? null : s.id)}
+                key={entry.id}
+                className={`${styles.serverRow} ${expanded ? styles.serverRowExpanded : ''}`}
               >
-                <StatusDot
-                  status={busy && !isConnected ? "connecting" : s.status}
-                />
-                <div className={styles.serverInfo}>
-                  <span className={styles.serverName}>{s.name}</span>
-                  <span className={styles.serverMeta}>
-                    {s.transport.toUpperCase()}
-                    {s.useProxy === false
-                      ? " \u00B7 direct"
-                      : " \u00B7 proxy"}
-                    {isConnected &&
-                      s.tools.length > 0 &&
-                      ` \u00B7 ${s.tools.length} tools`}
-                    {s.status === "error" &&
-                      s.errorMsg &&
-                      ` \u00B7 ${s.errorMsg}`}
+                <div
+                  className={styles.serverMain}
+                  onClick={() => setExpandedId(expanded ? null : entry.id)}
+                >
+                  <StatusDot status={busy && !isConnected ? 'connecting' : entry.status} />
+                  <div className={styles.serverInfo}>
+                    <span className={styles.serverName}>{entry.name}</span>
+                    <span className={styles.serverMeta}>
+                      {entry.transport.toUpperCase()}
+                      {isConnected && entry.tools.length > 0 && ` \u00B7 ${entry.tools.length} tools`}
+                      {entry.status === 'error' && entry.errorMsg && ` \u00B7 ${entry.errorMsg}`}
+                    </span>
+                  </div>
+                  <span className={styles.serverChevron}>
+                    {expanded ? '\u25B4' : '\u25BE'}
                   </span>
                 </div>
-                <span className={styles.serverChevron}>
-                  {expanded ? "\u25B4" : "\u25BE"}
-                </span>
-              </div>
 
-              {err && <div className={styles.serverError}>{err}</div>}
+                {err && <div className={styles.serverError}>{err}</div>}
 
-              {expanded && (
-                <div className={styles.serverDetail}>
-                  <div className={styles.serverUrl} title={s.url}>
-                    {s.url}
-                  </div>
-
-                  {isConnected && s.tools.length > 0 && (
-                    <div className={styles.toolList}>
-                      {s.tools.map((t) => (
-                        <span
-                          key={t.name}
-                          className={styles.toolChip}
-                          title={t.description}
-                        >
-                          {t.name}
-                        </span>
-                      ))}
+                {expanded && (
+                  <div className={styles.serverDetail}>
+                    <div className={styles.serverUrl} title={entry.url}>
+                      {entry.url}
                     </div>
-                  )}
 
-                  <div className={styles.serverActions}>
-                    {isConnected ? (
-                      <>
-                        <button
-                          className={styles.actionBtn}
-                          onClick={() => handleReload(s)}
-                          disabled={busy}
-                          title="Reconnect"
-                        >
-                          ↺ Reload
-                        </button>
-                        <button
-                          className={styles.actionBtn}
-                          onClick={() => handleDisconnect(s)}
-                          disabled={busy}
-                          title="Disconnect"
-                        >
-                          ⏸ Disconnect
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-                        onClick={() => handleConnect(s)}
-                        disabled={busy || isConnecting}
-                        title="Connect"
-                      >
-                        {isConnecting ? "Connecting\u2026" : "\u25B6 Connect"}
-                      </button>
+                    {isConnected && entry.tools.length > 0 && (
+                      <div className={styles.toolList}>
+                        {entry.tools.map((t) => (
+                          <span key={t.name} className={styles.toolChip} title={t.description}>
+                            {t.name}
+                          </span>
+                        ))}
+                      </div>
                     )}
 
-                    <button
-                      className={`${styles.actionBtn} ${styles.actionBtnDanger} ${confirmDeleteId === s.id ? styles.actionBtnDangerConfirm : ""}`}
-                      onClick={() => handleDelete(s)}
-                      disabled={busy}
-                      onBlur={() =>
-                        setTimeout(
-                          () =>
-                            setConfirmDeleteId((p) => (p === s.id ? null : p)),
-                          200,
-                        )
-                      }
-                      title={
-                        confirmDeleteId === s.id
-                          ? "Click again to confirm deletion"
-                          : "Delete server"
-                      }
-                    >
-                      {confirmDeleteId === s.id
-                        ? "Confirm delete?"
-                        : "\uD83D\uDDD1 Delete"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                    <div className={styles.serverActions}>
+                      {isConnected ? (
+                        <>
+                          <button
+                            className={styles.actionBtn}
+                            onClick={() => handleConnect(entry)}
+                            disabled={busy}
+                            title="Reconnect"
+                          >
+                            {'\u21BA'} Reload
+                          </button>
+                          <button
+                            className={styles.actionBtn}
+                            onClick={() => handleDisconnect(entry)}
+                            disabled={busy}
+                            title="Disconnect"
+                          >
+                            {'\u23F8'} Disconnect
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                          onClick={() => handleConnect(entry)}
+                          disabled={busy || isConnecting}
+                          title="Connect"
+                        >
+                          {isConnecting ? 'Connecting\u2026' : '\u25B6 Connect'}
+                        </button>
+                      )}
 
-      {showAdd ? (
-        <AddServerForm
-          host={host}
-          onAdded={async () => {
-            await refresh();
-            setShowAdd(false);
-          }}
-          onCancel={() => setShowAdd(false)}
-        />
-      ) : (
-        <button className={styles.addBtn} onClick={() => setShowAdd(true)}>
-          + Add Server
-        </button>
-      )}
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnDanger} ${confirmDeleteId === entry.id ? styles.actionBtnDangerConfirm : ''}`}
+                        onClick={() => handleDelete(entry)}
+                        disabled={busy}
+                        onBlur={() =>
+                          setTimeout(
+                            () => setConfirmDeleteId((prev) => (prev === entry.id ? null : prev)),
+                            200,
+                          )
+                        }
+                        title={
+                          confirmDeleteId === entry.id
+                            ? 'Click again to confirm deletion'
+                            : 'Delete server'
+                        }
+                      >
+                        {confirmDeleteId === entry.id ? 'Confirm delete?' : '\uD83D\uDDD1 Delete'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {showAdd ? (
+          <AddServerForm
+            host={host}
+            onAdded={async () => {
+              await refresh();
+              setShowAdd(false);
+            }}
+            onCancel={() => setShowAdd(false)}
+          />
+        ) : (
+          <button className={styles.addBtn} onClick={() => setShowAdd(true)}>
+            + Add Server
+          </button>
+        )}
+      </div>
     </div>
   );
 }

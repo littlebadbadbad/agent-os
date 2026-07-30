@@ -3,88 +3,124 @@
  *
  * Architecture:
  *   The backend owns all MCP connections (avoids CORS restrictions).
- *   The ToolSet is the single point of authority for both agent tool registration
- *   and the reactive UI store.  All lifecycle operations (connect / disconnect /
- *   reload / remove / addServer) go through the ToolSet so that proxy tools are
- *   always kept in sync with connected MCP servers.
+ *   The ToolSet is the single point of authority for both agent tool
+ *   registration and the reactive UI store. All lifecycle operations
+ *   (connect / disconnect / reload / remove / addServer) go through
+ *   the ToolSet so that proxy tools are kept in sync with connected
+ *   MCP servers.
  *
- * The ToolSet captures agent references via `onAttach` when registered on an agent.
- *
- * Slot declarations and agent APIs are returned alongside the ToolSet — see
- * `createMcpToolset`.
+ * Slot declarations and bridge methods are returned alongside the
+ * ToolSet — see `createMcpToolset`.
  */
 
-import { z } from "zod";
-import { defineTool } from "@agent-type/defineTool";
-import type { Tool, ToolSet, AgentClientLike, PluginSlotDeclaration, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
-import type { McpAdapter, McpServerEntry, McpToolDef } from "./types";
-import { createMcpStore } from "./store";
+import { z } from 'zod';
+import { defineTool } from '@agent-type/defineTool';
+import type {
+  Tool,
+  ToolSet,
+  AgentClientLike,
+  PluginSlotDeclaration,
+  CompactToolCardDescriptor,
+  ToolCallInfo,
+  ToolSetContext,
+  SystemPromptContext,
+} from '@agent-type';
+import type { ToolDef, ContentBlock } from './protocol';
+import type { McpAdapter, McpServerEntry, McpServerConfig, McpBridge } from './types';
+import { createMcpStore } from './store';
+import { MCP_SYSTEM_PROMPT } from './prompt';
 
-// ── Symbol ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Constants
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export const MCP_MANAGER_SYMBOL = Symbol("mcp-manager");
+export const MCP_MANAGER_SYMBOL = Symbol('mcp-manager');
 
-// ── Compact tool-card descriptor helpers ──────────────────────────────────────
+const MCP_TOOL_NAMES: readonly string[] = [
+  'list_mcp_servers',
+  'add_mcp_server',
+  'remove_mcp_server',
+  'connect_mcp_server',
+  'disable_mcp_server',
+];
 
-function str(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
-}
-
-function arrLen(v: unknown): number {
-  return Array.isArray(v) ? v.length : 0;
-}
+const MCP_TRANSPORT_VALUES: readonly [string, ...string[]] = [
+  'streamable-http',
+  'legacy-sse',
+  'stdio',
+];
 
 const COMPACT_LABEL: Record<string, string> = {
-  list_mcp_servers:   "List MCP Servers",
-  add_mcp_server:     "Add MCP Server",
-  remove_mcp_server:  "Remove MCP Server",
-  connect_mcp_server: "Connect MCP Server",
-  disable_mcp_server: "Disable MCP Server",
+  list_mcp_servers: 'List MCP Servers',
+  add_mcp_server: 'Add MCP Server',
+  remove_mcp_server: 'Remove MCP Server',
+  connect_mcp_server: 'Connect MCP Server',
+  disable_mcp_server: 'Disable MCP Server',
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Error Helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function extractErrorMessage(err: Error): string {
+  return err.message;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Compact Tool-Card Descriptor
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function getStringField(value: Record<string, unknown>, key: string): string {
+  const v = value[key];
+  return typeof v === 'string' ? v : '';
+}
+
+function getArrayLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
 
 function mcpDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
   const { name, arguments: args, status, result, error } = info;
-
-  const icon = "🔌";
+  const icon = '\u{1F50C}';
   const label = COMPACT_LABEL[name] ?? name;
 
-  if (status === "error" && error) {
-    const short = error.split("\n")[0];
-    const summary = short.length > 60 ? `${short.slice(0, 60)}…` : short;
-    return { icon, label, summary, status: "error" };
+  if (status === 'error' && error) {
+    const short = error.split('\n')[0];
+    const summary = short.length > 60 ? `${short.slice(0, 60)}\u2026` : short;
+    return { icon, label, summary, status: 'error' };
   }
 
   let summary = label;
+  const record = (args ?? {}) as Record<string, unknown>;
 
   switch (name) {
-    case "list_mcp_servers": {
-      if (status === "running") { summary = "Listing MCP servers…"; break; }
-      const count = arrLen(result);
-      summary = `${count} MCP server${count !== 1 ? "s" : ""}`;
+    case 'list_mcp_servers': {
+      if (status === 'running') { summary = 'Listing MCP servers\u2026'; break; }
+      summary = `${getArrayLength(result)} MCP server${getArrayLength(result) !== 1 ? 's' : ''}`;
       break;
     }
-    case "add_mcp_server": {
-      const serverName = str(args?.name);
-      if (status === "running") { summary = `Adding ${serverName ?? "server"}…`; break; }
-      summary = `${serverName ?? "Server"} added`;
+    case 'add_mcp_server': {
+      const sn = getStringField(record, 'name');
+      if (status === 'running') { summary = `Adding ${sn || 'server'}\u2026`; break; }
+      summary = `${sn || 'Server'} added`;
       break;
     }
-    case "remove_mcp_server": {
-      const serverName = str(args?.name);
-      if (status === "running") { summary = `Removing ${serverName ?? "server"}…`; break; }
-      summary = `${serverName ?? "Server"} removed`;
+    case 'remove_mcp_server': {
+      const sn = getStringField(record, 'name');
+      if (status === 'running') { summary = `Removing ${sn || 'server'}\u2026`; break; }
+      summary = `${sn || 'Server'} removed`;
       break;
     }
-    case "connect_mcp_server": {
-      const serverName = str(args?.name);
-      if (status === "running") { summary = `Connecting ${serverName ?? "server"}…`; break; }
-      summary = `${serverName ?? "Server"} connected`;
+    case 'connect_mcp_server': {
+      const sn = getStringField(record, 'name');
+      if (status === 'running') { summary = `Connecting ${sn || 'server'}\u2026`; break; }
+      summary = `${sn || 'Server'} connected`;
       break;
     }
-    case "disable_mcp_server": {
-      const serverName = str(args?.name);
-      if (status === "running") { summary = `Disabling ${serverName ?? "server"}…`; break; }
-      summary = `${serverName ?? "Server"} disabled`;
+    case 'disable_mcp_server': {
+      const sn = getStringField(record, 'name');
+      if (status === 'running') { summary = `Disabling ${sn || 'server'}\u2026`; break; }
+      summary = `${sn || 'Server'} disabled`;
       break;
     }
   }
@@ -92,11 +128,37 @@ function mcpDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
   return { icon, label, summary, status };
 }
 
-// ── Proxy tool factory ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Content Serialization
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function serializeContentBlock(block: ContentBlock): string {
+  switch (block.type) {
+    case 'text':
+      return block.text;
+    case 'image':
+      return `[Image: ${block.mimeType}]`;
+    case 'audio':
+      return `[Audio: ${block.mimeType}]`;
+    case 'resource': {
+      const r = block.resource;
+      if (r.text) return r.text;
+      return `[Resource: ${r.uri}]`;
+    }
+  }
+}
+
+function serializeContent(blocks: readonly ContentBlock[]): string {
+  return blocks.map(serializeContentBlock).join('\n');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Proxy Tool Factory
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function createMcpProxyTool(
   serverName: string,
-  toolDef: McpToolDef,
+  toolDef: ToolDef,
   adapter: McpAdapter,
 ): Tool {
   return {
@@ -106,70 +168,59 @@ function createMcpProxyTool(
     parameters: z.record(z.string(), z.unknown()),
     rawParametersSchema: toolDef.inputSchema,
     execute: async (args, ctx) => {
-      return adapter.executeTool(
+      const result = await adapter.executeTool(
         serverName,
         toolDef.name,
-        args,
+        args as Record<string, unknown>,
         ctx.sessionId,
         ctx.signal,
       );
+      const text = serializeContent(result.content);
+      if (result.isError) {
+        throw new Error(text);
+      }
+      return text;
     },
   };
 }
 
-// ── Agent registration helpers ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Registered Server Tracker
+// ═══════════════════════════════════════════════════════════════════════════════
 
-type RegisteredEntry = { toolNames: string[]; unregFns: (() => void)[] };
+interface RegisteredEntry {
+  readonly toolNames: readonly string[];
+  readonly unregFns: readonly (() => void)[];
+}
 
-// ── ToolSet factory ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ToolSet Factory
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Build the MCP ToolSet and its standalone slot declarations.
- *
- * Register via `host.registerToolSet(toolSet, slotDeclarations)` — the ToolSet
- * captures the agent reference via `onAttach` and keeps proxy tools in sync
- * whenever servers connect or disconnect.
- *
- * Slot declarations are returned as part of the bundle so they can be passed
- * independently of session state.
- *
- * @param adapter  MCP backend adapter (use `createMcpPluginAdapter` for the default backend).
- */
-export function createMcpToolset(adapter: McpAdapter): {
+export interface McpToolsetBundle {
   readonly toolSet: ToolSet;
   readonly slotDeclarations: readonly PluginSlotDeclaration[];
-  readonly bridgeMethods: import("./types").McpBridge;
-} {
+  readonly bridgeMethods: McpBridge;
+}
+
+/**
+ * Build the MCP ToolSet, its standalone slot declarations, and UI bridge methods.
+ */
+export function createMcpToolset(adapter: McpAdapter): McpToolsetBundle {
   const store = createMcpStore();
-
-  /**
-   * All attached agents (the `createCombinedPluginContext` fans out to both
-   * stream and async agents — `onAttach` fires once per agent).  Using a Set
-   * ensures proxy tools registered by `syncFromAdapter` land on EVERY agent,
-   * not just the last one that called `onAttach`.
-   */
   const attachedAgents = new Set<AgentClientLike>();
-
-  /** serverName → registered proxy tools + unregister fns. */
   const serverRegistry = new Map<string, RegisteredEntry>();
 
-  function registerServerTools(
-    serverName: string,
-    toolDefs: McpToolDef[],
-  ): void {
+  // ── Tool Registration ──────────────────────────────────────────────────
+
+  function registerServerTools(serverName: string, toolDefs: readonly ToolDef[]): void {
     if (attachedAgents.size === 0) return;
     unregisterServerTools(serverName);
-    const proxies = toolDefs.map((t) =>
-      createMcpProxyTool(serverName, t, adapter),
-    );
+    const proxies = toolDefs.map((t) => createMcpProxyTool(serverName, t, adapter));
     const unregFns: (() => void)[] = [];
     for (const proxy of proxies) {
       for (const agent of attachedAgents) {
-        try {
-          unregFns.push(agent.registerTool(proxy));
-        } catch {
-          /* already registered — skip */
-        }
+        unregFns.push(agent.registerTool(proxy));
       }
     }
     serverRegistry.set(serverName, {
@@ -182,22 +233,17 @@ export function createMcpToolset(adapter: McpAdapter): {
     const entry = serverRegistry.get(serverName);
     if (!entry) return;
     for (const fn of entry.unregFns) {
-      try { fn(); } catch { /* ignore */ }
+      fn();
     }
     serverRegistry.delete(serverName);
   }
 
-  // ── Sync store + proxies from adapter ──────────────────────────────────────
+  // ── Sync ───────────────────────────────────────────────────────────────
 
-  async function syncFromAdapter(): Promise<McpServerEntry[]> {
-    let servers: McpServerEntry[];
-    try {
-      servers = await adapter.listServers();
-    } catch {
-      return store.getAll();
-    }
+  async function syncFromAdapter(): Promise<readonly McpServerEntry[]> {
+    const servers = await adapter.listServers();
     for (const server of servers) {
-      if (server.status === "connected" && server.tools.length > 0) {
+      if (server.status === 'connected' && server.tools.length > 0) {
         registerServerTools(server.name, server.tools);
       } else {
         unregisterServerTools(server.name);
@@ -207,28 +253,24 @@ export function createMcpToolset(adapter: McpAdapter): {
     return servers;
   }
 
-  // ── UI-callable lifecycle operations ───────────────────────────────────────
+  // ── Lifecycle Operations ───────────────────────────────────────────────
 
   async function connect(id: string): Promise<void> {
     const entry = store.get(id);
-    if (!entry) throw new Error(`MCP server "${id}" not found.`);
-    store.setStatus(id, "connecting");
-    try {
-      await adapter.reconnectServer(entry.name);
-    } finally {
-      await syncFromAdapter();
+    if (!entry) {
+      throw new Error(`MCP server "${id}" not found.`);
     }
+    store.setStatus(id, 'connecting');
+    await adapter.reconnectServer(entry.name);
+    await syncFromAdapter();
   }
 
   function disconnect(id: string): void {
     const entry = store.get(id);
     if (!entry) return;
-    store.setStatus(id, "disconnected");
+    store.setStatus(id, 'disconnected');
     unregisterServerTools(entry.name);
-    adapter
-      .disconnectServer(entry.name)
-      .then(() => syncFromAdapter())
-      .catch(() => {});
+    adapter.disconnectServer(entry.name).then(() => syncFromAdapter()).catch(() => {});
   }
 
   function remove(id: string): void {
@@ -236,20 +278,10 @@ export function createMcpToolset(adapter: McpAdapter): {
     if (!entry) return;
     unregisterServerTools(entry.name);
     store.remove(id);
-    adapter
-      .removeServer(entry.name)
-      .then(() => syncFromAdapter())
-      .catch(() => {});
+    adapter.removeServer(entry.name).then(() => syncFromAdapter()).catch(() => {});
   }
 
-  async function addServer(
-    config: Pick<McpServerEntry, "name" | "url" | "transport"> & {
-      headers?: Record<string, string>;
-      includeTools?: string[];
-      enabled?: boolean;
-      useProxy?: boolean;
-    },
-  ): Promise<McpServerEntry> {
+  async function addServer(config: McpServerConfig): Promise<McpServerEntry> {
     const entry = await adapter.addServer({
       ...config,
       enabled: config.enabled ?? true,
@@ -258,17 +290,12 @@ export function createMcpToolset(adapter: McpAdapter): {
     return store.getByName(config.name) ?? entry;
   }
 
-  async function sync(): Promise<McpServerEntry[]> {
-    return syncFromAdapter();
-  }
-
-  // ── Agent meta-tools ──────────────────────────────────────────────────────
+  // ── Meta-Tools ─────────────────────────────────────────────────────────
 
   const listMcpServers = defineTool({
-    name: "list_mcp_servers",
-    group: "MCP",
-    description:
-      "List all registered MCP servers with their connection status, transport type, and available tools.",
+    name: 'list_mcp_servers',
+    group: 'MCP',
+    description: 'List all registered MCP servers — status, transport, tools, errors. Refreshes from backend.',
     parameters: z.object({}),
     execute: async () => {
       await syncFromAdapter();
@@ -287,93 +314,76 @@ export function createMcpToolset(adapter: McpAdapter): {
   });
 
   const addMcpServer = defineTool({
-    name: "add_mcp_server",
-    group: "MCP",
-    description:
-      "Register a new MCP server and connect to it so its tools are immediately available. " +
-      'Use transport "http" for MCP 2025-03-26 Streamable HTTP servers (recommended). ' +
-      'Use "sse" for legacy 2024-11-05 SSE servers.',
+    name: 'add_mcp_server',
+    group: 'MCP',
+    description: 'Register + connect a MCP server. Three transports: streamable-http (recommended), legacy-sse, stdio.',
     parameters: z.object({
-      name: z
-        .string()
-        .describe(
-          'Unique name for this server, e.g. "github" or "filesystem".',
-        ),
-      url: z.string().url().describe("Endpoint URL."),
-      transport: z
-        .enum(["http", "sse"])
-        .describe('"http" (recommended) or "sse" (legacy).'),
-      headers: z
-        .record(z.string(), z.string())
-        .optional()
-        .describe(
-          'Extra HTTP headers, e.g. { "Authorization": "Bearer <token>" }.',
-        ),
-      includeTools: z
-        .array(z.string())
-        .optional()
-        .describe("If set, only expose these tool names from the server."),
+      name: z.string().describe('Unique name for this server, e.g. "github" or "filesystem".'),
+      url: z.string().describe('Endpoint URL (for streamable-http/legacy-sse) or command (for stdio).'),
+      transport: z.enum(MCP_TRANSPORT_VALUES).describe(
+        '"streamable-http" (recommended), "legacy-sse", or "stdio".',
+      ),
+      headers: z.record(z.string(), z.string()).optional().describe(
+        'Extra HTTP headers, e.g. {"Authorization":"Bearer <token>"}. (HTTP transports only)',
+      ),
+      includeTools: z.array(z.string()).optional().describe(
+        'If set, only expose these tool names from the server.',
+      ),
     }),
     execute: async ({ name, url, transport, headers, includeTools }) => {
       try {
         const entry = await addServer({
           name,
           url,
-          transport,
+          transport: transport as McpServerConfig['transport'],
           headers,
           includeTools,
         });
-        if (entry.status === "error")
+        if (entry.status === 'error') {
           return { ok: false, error: entry.errorMsg };
+        }
         return {
           ok: true,
           message: `MCP server "${name}" connected. ${entry.tools.length} tool(s) available.`,
         };
-      } catch (err: unknown) {
-        const msg =
-          err instanceof Error
-            ? err.message
-            : typeof err === 'object' && err !== null && 'message' in err
-              ? String((err as { message: unknown }).message)
-              : String(err);
-        return { ok: false, error: msg };
+      } catch (err) {
+        return { ok: false, error: extractErrorMessage(err as Error) };
       }
     },
   });
 
   const removeMcpServer = defineTool({
-    name: "remove_mcp_server",
-    group: "MCP",
-    description:
-      "Disconnect and permanently remove an MCP server. All its tools are removed from the agent.",
+    name: 'remove_mcp_server',
+    group: 'MCP',
+    description: 'Permanently remove a server — disconnects and deletes config. All proxy tools are unregistered.',
     parameters: z.object({
-      name: z.string().describe("Name of the MCP server to remove."),
+      name: z.string().describe('Name of the MCP server to remove.'),
     }),
     execute: async ({ name }) => {
       const entry = store.getByName(name);
-      if (!entry)
+      if (!entry) {
         return { ok: false, error: `No MCP server named "${name}" found.` };
+      }
       remove(entry.id);
       return { ok: true, message: `MCP server "${name}" removed.` };
     },
   });
 
   const connectMcpServer = defineTool({
-    name: "connect_mcp_server",
-    group: "MCP",
-    description:
-      "Connect (or reconnect) to a registered MCP server and activate its tools. " +
-      "Also use this to reload the tool list after the server adds or removes tools.",
+    name: 'connect_mcp_server',
+    group: 'MCP',
+    description: 'Connect/reconnect to a server. Also refreshes tool list after server-side changes.',
     parameters: z.object({
-      name: z.string().describe("Name of the MCP server."),
+      name: z.string().describe('Name of the MCP server.'),
     }),
     execute: async ({ name }) => {
       const entry = store.getByName(name);
-      if (!entry)
+      if (!entry) {
         return {
           ok: false,
           error: `No MCP server named "${name}" found. Use add_mcp_server first.`,
         };
+      }
       try {
         await connect(entry.id);
         const updated = store.getByName(name);
@@ -381,110 +391,99 @@ export function createMcpToolset(adapter: McpAdapter): {
           ok: true,
           message: `MCP server "${name}" connected. ${updated?.tools.length ?? 0} tool(s) available.`,
         };
-      } catch (err: unknown) {
-        const msg =
-          err instanceof Error
-            ? err.message
-            : typeof err === 'object' && err !== null && 'message' in err
-              ? String((err as { message: unknown }).message)
-              : String(err);
-        return { ok: false, error: msg };
+      } catch (err) {
+        return { ok: false, error: extractErrorMessage(err as Error) };
       }
     },
   });
 
   const disableMcpServer = defineTool({
-    name: "disable_mcp_server",
-    group: "MCP",
-    description:
-      "Disconnect from an MCP server and remove its tools (keeps the server registered for later re-connection).",
+    name: 'disable_mcp_server',
+    group: 'MCP',
+    description: 'Disconnect but keep config. Tools are removed until re-connected with connect_mcp_server.',
     parameters: z.object({
-      name: z.string().describe("Name of the MCP server to disable."),
+      name: z.string().describe('Name of the MCP server to disable.'),
     }),
     execute: async ({ name }) => {
       const entry = store.getByName(name);
-      if (!entry)
+      if (!entry) {
         return { ok: false, error: `No MCP server named "${name}" found.` };
+      }
       disconnect(entry.id);
       return { ok: true, message: `MCP server "${name}" disconnected.` };
     },
   });
 
-  // ── ToolSet ───────────────────────────────────────────────────────────────
-
-  const MCP_TOOL_NAMES: readonly string[] = [
-    "list_mcp_servers",
-    "add_mcp_server",
-    "remove_mcp_server",
-    "connect_mcp_server",
-    "disable_mcp_server",
-  ];
+  // ── Slot Declarations ──────────────────────────────────────────────────
 
   const slotDeclarations: readonly PluginSlotDeclaration[] = [
     {
-      type: "toolButton",
-      label: "MCP",
-      icon: "\u{1F50C}",
+      type: 'toolButton',
+      label: 'MCP',
+      icon: '\u{1F50C}',
+      containingWidth: '420px',
+      containingHeight: '580px',
       showBtn: () => true,
       badge: () => {
-        const connected = store
-          .getAll()
-          .filter((s) => s.status === "connected").length;
+        const connected = store.getAll().filter((s) => s.status === 'connected').length;
         return connected > 0 ? `${connected}` : null;
       },
     },
     {
-      type: "toolCard",
+      type: 'toolCard',
       toolNames: MCP_TOOL_NAMES,
     },
     {
-      type: "compactToolCard",
+      type: 'compactToolCard',
       toolNames: MCP_TOOL_NAMES,
       getDescriptor: mcpDescriptor,
     },
   ];
 
+  // ── ToolSet ────────────────────────────────────────────────────────────
+
   const toolset: ToolSet = {
     symbol: MCP_MANAGER_SYMBOL,
-    name: "mcp-manager",
-    coreTools: ["list_mcp_servers"],
-    tools: [
-      listMcpServers,
-      addMcpServer,
-      removeMcpServer,
-      connectMcpServer,
-      disableMcpServer,
-    ],
+    name: 'mcp-manager',
+    coreTools: ['list_mcp_servers'],
+    tools: [listMcpServers, addMcpServer, removeMcpServer, connectMcpServer, disableMcpServer],
 
     onAttach(agent: AgentClientLike): () => void {
       attachedAgents.add(agent);
-      // Register all currently-connected server proxy tools.
       for (const server of store.getAll()) {
-        if (server.status === "connected" && server.tools.length > 0) {
+        if (server.status === 'connected' && server.tools.length > 0) {
           registerServerTools(server.name, server.tools);
         }
       }
-      // Auto-sync from backend on first attach.
-      syncFromAdapter().catch(() => {});
+      // Trigger async background sync — do not block onAttach return.
+      // Tests that depend on the store being populated after onAttach
+      // should await bridgeMethods.sync() first.
+      const syncPromise = syncFromAdapter();
+      syncPromise.catch(() => {});
       return () => {
         attachedAgents.delete(agent);
-        // Only clean up when ALL agents detach — single-agent cleanup would
-        // remove tools that the other agent still needs.
         if (attachedAgents.size === 0) {
           for (const entry of serverRegistry.values()) {
             for (const fn of entry.unregFns) {
-              try { fn(); } catch { /* ignore */ }
+              fn();
             }
           }
           serverRegistry.clear();
         }
       };
     },
+
+    onGetSystemPrompt(
+      _ctx: ToolSetContext,
+      _promptCtx: SystemPromptContext,
+    ): string {
+      return MCP_SYSTEM_PROMPT;
+    },
   };
 
-  // ── Bridge methods (callable from plugin UI via host.bridge) ────────────
+  // ── Bridge Methods ─────────────────────────────────────────────────────
 
-  const bridgeMethods: import("./types").McpBridge = {
+  const bridgeMethods: McpBridge = {
     sync: () => syncFromAdapter(),
     connect: async (name) => {
       const entry = store.getByName(name);

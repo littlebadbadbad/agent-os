@@ -7,13 +7,15 @@
  * their slot declaration — those values are passed to IframeSandbox
  * which applies them as inline styles, overriding these defaults.
  *
- * DropdownPanel now has `overflow-y: auto` and `max-height`, so
- * content taller than the viewport can scroll.
+ * Scroll behaviour: the iframe handles its own scrolling internally,
+ * so the container only needs to clip its border-radius. If the iframe's
+ * declared dimensions exceed the DropdownPanel bounds, the DropdownPanel's
+ * own max-height + overflow-y: auto will scroll the whole container.
  */
 
 .panel {
   width: 380px;
   height: 480px;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 8px;
 }

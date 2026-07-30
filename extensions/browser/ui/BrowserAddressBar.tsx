@@ -1,37 +1,22 @@
 /**
- * extensions/browser/ui/BrowserAddressBar.tsx
- *
- * Address / navigation bar for a single browser session.
- * Extracted from BrowserSessionView for modularity.
+ * BrowserAddressBar — navigation bar for a single browser session.
  */
 
-import { useState, useRef, useCallback, type ReactElement } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactElement } from 'react';
 import styles from './BrowserPanel.module.scss';
 
 export interface BrowserAddressBarProps {
-  /** Current page URL. */
   url: string;
-  /** Current page title, or null. */
   pageTitle: string | null;
-  /** Whether the browser session is alive. */
   alive: boolean;
-  /** Whether proxy is enabled for this session. */
   useProxy: boolean;
-  /** Whether a navigation is in progress. */
   navigating: boolean;
-  /** Called when user navigates to a URL. */
   onNavigate(url: string): void;
-  /** Called when user clicks the proxy toggle button. */
   onToggleProxy(): void;
-  /** Called when user opens the config panel. */
   onToggleConfig(): void;
-  /** Called when user opens the video settings panel. */
   onToggleVideoSettings(): void;
 }
 
-/**
- * Address bar with navigation input, page title, proxy toggle, config/video buttons.
- */
 export function BrowserAddressBar({
   url,
   pageTitle,
@@ -45,21 +30,26 @@ export function BrowserAddressBar({
 }: BrowserAddressBarProps): ReactElement {
   const [addrInput, setAddrInput] = useState(url);
   const addrFocusedRef = useRef(false);
+  const addrInputRef = useRef(addrInput);
+  addrInputRef.current = addrInput;
 
-  // Sync external url changes into the input (unless user is editing).
-  if (url !== addrInput && !addrFocusedRef.current) {
-    // Only sync when address bar is not focused — avoid stealing user input.
-  }
+  // Sync external URL changes into the input, but only when the user is not editing.
+  useEffect(() => {
+    if (!addrFocusedRef.current && url !== addrInput) {
+      setAddrInput(url);
+    }
+    // addrInput intentionally omitted — only react to external url changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
 
   const handleNavigate = useCallback(() => {
-    const trimmed = addrInput.trim();
+    const trimmed = addrInputRef.current.trim();
     if (!trimmed || navigating) return;
-    let finalUrl = trimmed;
-    if (!/^[a-z][a-z0-9+\-.]*:\/\//i.test(finalUrl)) {
-      finalUrl = `https://${finalUrl}`;
-    }
+    const finalUrl = /^[a-z][a-z0-9+\-.]*:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
     onNavigate(finalUrl);
-  }, [addrInput, navigating, onNavigate]);
+  }, [navigating, onNavigate]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -16,7 +16,14 @@ export function createMcpService(manager) {
 
     async addMcpServer({ name, url, transport, headers, includeTools, useProxy }) {
       if (!name) throw new Error('name is required');
-      const server = await manager.addServer({ name, url, transport, headers, includeTools, useProxy });
+      const server = await manager.addServer({
+        name,
+        url,
+        transport: transport ?? 'streamable-http',
+        headers,
+        includeTools,
+        useProxy,
+      });
       return { server };
     },
 
@@ -41,7 +48,7 @@ export function createMcpService(manager) {
     async executeMcpTool({ server, tool, args, sessionId }) {
       if (!server) throw new Error('server is required');
       if (!tool) throw new Error('tool is required');
-      const result = await manager.callTool(server, tool, args, sessionId);
+      const result = await manager.callTool(server, tool, args);
       return { result };
     },
   };

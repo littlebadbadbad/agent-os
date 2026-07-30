@@ -1,168 +1,44 @@
 /**
- * Enhanced prompt descriptions for the MCP ToolSet.
+ * MCP — System prompt fragment injected via `onGetSystemPrompt`.
  *
- * Each description follows a uniform structure:
- *   1. **Summary** — one-line purpose statement.
- *   2. **When to use** — concrete scenarios where this tool is the right choice.
- *   3. **Behavior notes** — subtle details, defaults, edge cases, and gotchas.
- *
- * Import these constants from ToolSet implementations that compose the
- * system prompt via `ToolSet.onGetSystemPrompt`.
- *
- * @module
+ * The goal: give the AI clear, concise guidance on how to use MCP tools.
+ * Tool descriptions (`manager.ts`) are intentionally lightweight —
+ * one or two lines. All the nuance lives here in the system prompt.
  */
 
-// ── Tool descriptions ─────────────────────────────────────────────────────────
+export const MCP_SYSTEM_PROMPT = `## MCP Server Management
 
-/**
- * `list_mcp_servers` — list all registered MCP servers.
- *
- * **Summary**
- * Returns every MCP server known to the session, along with its connection
- * status, transport type, and the list of tools it exposes.
- *
- * **When to use**
- * - At the start of a session to discover which MCP-powered tools are
- *   already available.
- * - Before calling a tool from an MCP server — confirm the server is
- *   connected and the tool name is in its list.
- * - After adding, connecting, or disabling a server to verify the
- *   operation succeeded.
- * - To inspect error messages on servers that failed to connect.
- *
- * **Behavior notes**
- * - Results are refreshed from the backend on every call, so the returned
- *   state is always current.
- * - Servers that are `enabled: false` are registered but not connected.
- *   Call `connect_mcp_server` to activate them.
- * - The `toolCount` and `tools` fields reflect what is currently
- *   registered on the agent — only connected servers contribute tools.
- * - An `errorMsg` field is present when the server is in an error state
- *   (e.g. connection refused, invalid URL, auth failure).
- */
-export const MCP_LIST_DESCRIPTION =
-  'List all registered MCP servers with their connection status, transport type, and available tools. ' +
-  'Use this first to see what MCP-powered tools are available before calling them. ' +
-  'Refreshes from the backend on every call. ' +
-  'Check `errorMsg` for servers in an error state and `status` to see if a server is connected.';
+MCP lets you connect external tool servers (GitHub, filesystem, databases, etc.).
+Use the meta-tools below to manage them.
 
-/**
- * `add_mcp_server` — register and connect a new MCP server.
- *
- * **Summary**
- * Adds a new MCP server configuration, connects to it, and registers its
- * tools on the agent — making them immediately available for use.
- *
- * **When to use**
- * - When you need to use a new MCP server that is not yet registered.
- * - When configuring the session with external tooling (GitHub MCP,
- *   filesystem MCP, database MCP, etc.).
- *
- * **Behavior notes**
- * - Supports two transport protocols:
- *   - **`http`** (recommended) — MCP 2025-03-26 Streamable HTTP. Simpler,
- *     single-persistent-connection model.
- *   - **`sse`** (legacy) — MCP 2024-11-05 Server-Sent Events. Older
- *     protocol, prefer `http` for new servers.
- * - The `headers` parameter allows passing authentication or custom
- *   headers, e.g. `{ "Authorization": "Bearer <token>" }`.
- * - The `includeTools` parameter acts as a whitelist: if set, only the
- *   named tools from that server are exposed. Omit to expose all tools.
- * - If the server fails to connect (wrong URL, auth error, network
- *   unreachable), the response includes `ok: false` and the error
- *   message — the server entry is still saved in a `disconnected` state
- *   so you can retry with `connect_mcp_server`.
- * - Server names must be unique — adding a duplicate name will fail.
- */
-export const MCP_ADD_DESCRIPTION =
-  'Register a new MCP server and connect to it so its tools are immediately available. ' +
-  'Use transport "http" for MCP 2025-03-26 Streamable HTTP servers (recommended). ' +
-  'Use "sse" for legacy 2024-11-05 SSE servers. ' +
-  'Supports custom headers for authentication. ' +
-  'Optional includeTools whitelist to expose only specific tools from the server. ' +
-  'If connection fails, the server is saved in disconnected state for later retry.';
+### Adding a Server (\`add_mcp_server\`)
+Three transport types — choose based on what the server supports:
 
-/**
- * `remove_mcp_server` — disconnect and permanently remove an MCP server.
- *
- * **Summary**
- * Removes the server configuration entirely: disconnects, unregisters
- * all its proxy tools from the agent, and deletes its entry.
- *
- * **When to use**
- * - When an MCP server is no longer needed and should be permanently
- *   cleaned up.
- * - Before adding a server with the same name but different configuration
- *   (add will fail on duplicate names — remove first).
- *
- * **Behavior notes**
- * - This is a destructive operation — the server configuration is gone
- *   and must be re-added with `add_mcp_server` to use it again.
- * - All proxy tools registered by this server are immediately removed
- *   from the agent. Calls to those tools will fail after removal.
- * - If the server is currently connected, it is disconnected gracefully
- *   before removal.
- * - Returns `ok: false` with an error if the server name is not found.
- */
-export const MCP_REMOVE_DESCRIPTION =
-  'Disconnect and permanently remove an MCP server. All its tools are removed from the agent. ' +
-  'The server must be re-added with add_mcp_server to use it again. ' +
-  'Use this for cleanup when a server is no longer needed, or before re-adding with different settings.';
+| Transport | When to use | URL format | Notes |
+|-----------|-------------|------------|-------|
+| \`streamable-http\` | **Recommended** for all new MCP servers (2025-03-26 spec) | \`https://host:port/mcp\` | Single endpoint. Supports custom headers and system proxy. |
+| \`legacy-sse\` | Older servers (2024-11-05 spec, deprecated) | \`https://host:port/sse\` | Separate SSE+POST endpoints. Supports headers and proxy. |
+| \`stdio\` | Local subprocess servers (e.g. \`npx\` packages) | Command string like \`npx @modelcontextprotocol/server-github\` | No headers, no proxy. The command is spawned as a subprocess. |
 
-/**
- * `connect_mcp_server` — connect (or reconnect) to a registered MCP server.
- *
- * **Summary**
- * Activates a registered but disconnected MCP server, registering its
- * tools on the agent. Also use this to reload tools after a server has
- * added or removed tools on its end.
- *
- * **When to use**
- * - To activate a server that was added but is in `disconnected` state.
- * - To re-enable a server that was disabled with `disable_mcp_server`.
- * - To refresh the tool list from a server that may have updated its
- *   capabilities since the last connection.
- *
- * **Behavior notes**
- * - The server must already be registered (use `add_mcp_server` first or
- *   check with `list_mcp_servers`).
- * - If the server is already connected, calling this will reconnect and
- *   refresh the tool list — useful after a server-side tool update.
- * - On success, the response includes the updated tool count from the
- *   server.
- * - If the connection fails (server offline, auth expired, etc.), the
- *   server stays in `disconnected` state and the error is returned.
- */
-export const MCP_CONNECT_DESCRIPTION =
-  'Connect (or reconnect) to a registered MCP server and activate its tools. ' +
-  'Also use this to reload the tool list after the server adds or removes tools. ' +
-  'The server must already be registered (use add_mcp_server first). ' +
-  'If already connected, reconnects and refreshes the tool list.';
+**Parameters:**
+- \`name\` — must be unique. Use obvious names like \`github\`, \`filesystem\`.
+- \`url\` — HTTP URL for HTTP transports; shell command for \`stdio\`.
+- \`transport\` — see table above. Defaults to \`streamable-http\`.
+- \`headers\` — (HTTP only) auth headers like \`{"Authorization": "Bearer <token>"}\`.
+- \`includeTools\` — optional whitelist. If set, only those tool names from the server are exposed. Omit to expose all.
+- \`useProxy\` — (HTTP only) route through system proxy.
 
-/**
- * `disable_mcp_server` — disconnect from an MCP server (keep registration).
- *
- * **Summary**
- * Disconnects from a server and removes its proxy tools from the agent,
- * but keeps the server registration so it can be reconnected later.
- *
- * **When to use**
- * - When you want to temporarily remove a server's tools from the agent
- *   without deleting the configuration.
- * - To free up tool-naming space or reduce agent confusion when many
- *   MCP servers are registered.
- *
- * **Behavior notes**
- * - Unlike `remove_mcp_server`, the server entry is preserved in
- *   `disconnected` state. Call `connect_mcp_server` to re-enable.
- * - All proxy tools from this server are immediately removed from the
- *   agent — they will not appear in tool lists or be callable.
- * - If the server is already disconnected, calling this is a no-op
- *   (returns success without action).
- * - Returns `ok: false` with an error if the server name is not found.
- */
-export const MCP_DISABLE_DESCRIPTION =
-  'Disconnect from an MCP server and remove its tools (keeps the server registered for later re-connection). ' +
-  'Use connect_mcp_server to re-enable. ' +
-  'Unlike remove_mcp_server, the server configuration is preserved. ' +
-  'Use this to temporarily hide a server\'s tools without losing the setup.';
+### Lifecycle
+1. **\`list_mcp_servers\`** → see all registered servers, their status (connected/disconnected/error), and tools.
+2. **\`add_mcp_server\`** → register + connect. Tools become available immediately after success.
+3. **\`connect_mcp_server\`** → reconnect a disconnected server, or refresh the tool list after server-side changes.
+4. **\`disable_mcp_server\`** → disconnect but keep the config for later use.
+5. **\`remove_mcp_server\`** → permanently delete. The server must be re-added to use again.
+
+### Best Practices
+- Start every session with \`list_mcp_servers\` to see what MCP tools are available.
+- If an MCP-proxied tool fails, check the server's status via \`list_mcp_servers\` — it may have disconnected.
+- Names must be unique. Remove a server first if you need to re-add with the same name.
+- \`includeTools\` is useful when a server exposes many tools but you only need a few — keeps the agent's tool list focused.
+- stdio servers are local processes — they start when connected and terminate when disabled or removed.
+- Connection errors are non-fatal: the server is saved in \`disconnected\` state for later retry.`;

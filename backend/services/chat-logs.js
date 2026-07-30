@@ -42,7 +42,7 @@ export function queryLogs(params = {}) {
  */
 export function fetchLog(id) {
   if (!id) return null;
-  return getLog(id);
+  return getLog(id) ?? null;
 }
 
 /**

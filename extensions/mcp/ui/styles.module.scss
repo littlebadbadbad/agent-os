@@ -1,8 +1,34 @@
-// ── Panel layout ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MCP Plugin — Panel & Tool Card Styles
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+//  Layout structure (toolButton panel):
+//    .panel                          — flex column, fills iframe 100%×100%
+//      .panelHeader                  — fixed-height header
+//      .scrollArea                   — flex:1, overflow-y:auto, single scroll
+//        .serverList                 — all server rows (no own scroll)
+//        .addBtn / .addForm          — at bottom of scroll area
+//
+//  Single scroll container ensures add form is always reachable:
+//  user scrolls the entire content as one unit.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Panel root ────────────────────────────────────────────────────────────────
 
 .panel {
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+// ── Scrollable content area ───────────────────────────────────────────────────
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -24,10 +50,7 @@
   color: var(--text-primary);
 }
 
-.panelHeaderActions {
-  display: flex;
-  gap: var(--sp-1);
-}
+.panelHeaderActions { display: flex; gap: var(--sp-1); }
 
 .syncBtn {
   display: flex;
@@ -42,20 +65,15 @@
   cursor: pointer;
   font-size: var(--font-md);
   transition: background 0.1s, color 0.1s;
-
-  &:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
+  &:hover { background: var(--bg-hover); color: var(--text-primary); }
 }
 
-// ── Server list ───────────────────────────────────────────────────────────────
+// ── Server list (no own scroll — parent scrollArea handles it) ────────────────
 
 .serverList {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--sp-1) 0;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
 .empty {
@@ -63,17 +81,15 @@
   text-align: center;
   font-size: var(--font-sm);
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .serverRow {
   border-bottom: 1px solid var(--border-subtle);
-
   &:last-child { border-bottom: none; }
 }
 
-.serverRowExpanded {
-  background: var(--bg-hover);
-}
+.serverRowExpanded { background: var(--bg-hover); }
 
 .serverMain {
   display: flex;
@@ -82,7 +98,6 @@
   padding: 7px var(--sp-3);
   cursor: pointer;
   transition: background 0.1s;
-
   &:hover { background: var(--bg-hover); }
 }
 
@@ -142,11 +157,7 @@
 
 // ── Tool chips ────────────────────────────────────────────────────────────────
 
-.toolList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
+.toolList { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .toolChip {
   display: inline-block;
@@ -162,11 +173,7 @@
 
 // ── Row action buttons ────────────────────────────────────────────────────────
 
-.serverActions {
-  display: flex;
-  gap: var(--sp-1);
-  flex-wrap: wrap;
-}
+.serverActions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
 
 .actionBtn {
   padding: 3px 8px;
@@ -178,7 +185,6 @@
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   white-space: nowrap;
-
   &:disabled { opacity: 0.45; cursor: not-allowed; }
   &:not(:disabled):hover { background: var(--bg-hover); color: var(--text-primary); }
 }
@@ -190,18 +196,10 @@
 }
 
 .actionBtnDanger {
-  &:not(:disabled):hover {
-    background: var(--red-subtle);
-    color: var(--red-light);
-    border-color: rgba(248, 81, 73, 0.3);
-  }
+  &:not(:disabled):hover { background: var(--red-subtle); color: var(--red-light); border-color: rgba(248, 81, 73, 0.3); }
 }
 
-.actionBtnDangerConfirm {
-  background: var(--red-subtle);
-  color: var(--red-light);
-  border-color: rgba(248, 81, 73, 0.5);
-}
+.actionBtnDangerConfirm { background: var(--red-subtle); color: var(--red-light); border-color: rgba(248, 81, 73, 0.5); }
 
 // ── Status dots ───────────────────────────────────────────────────────────────
 
@@ -239,7 +237,6 @@
   text-align: left;
   transition: background 0.1s;
   flex-shrink: 0;
-
   &:hover { background: var(--bg-hover); }
 }
 
@@ -267,21 +264,6 @@
   margin-bottom: -6px;
 }
 
-.proxyToggle {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--font-xs, 11px);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 2px 0;
-
-  input[type="checkbox"] {
-    accent-color: var(--blue-light);
-    cursor: pointer;
-  }
-}
-
 .addInput {
   width: 100%;
   padding: 5px var(--sp-2);
@@ -292,16 +274,23 @@
   font-size: var(--font-sm);
   box-sizing: border-box;
   transition: border-color 0.15s;
-
   &:focus { outline: none; border-color: var(--blue-light); }
   &:disabled { opacity: 0.5; }
   &::placeholder { color: var(--text-muted); }
 }
 
-.transportRow {
+.proxyToggle {
   display: flex;
+  align-items: center;
   gap: var(--sp-2);
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 0;
+  input[type="checkbox"] { accent-color: var(--blue-light); cursor: pointer; }
 }
+
+.transportRow { display: flex; gap: var(--sp-2); }
 
 .transportBtn {
   flex: 1;
@@ -313,7 +302,6 @@
   font-size: var(--font-xs, 11px);
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
-
   &:disabled { opacity: 0.45; }
 }
 
@@ -358,125 +346,44 @@
   color: var(--blue-light);
   border-radius: var(--radius-md);
   font-size: var(--font-sm);
-  font-weight: 500;
   cursor: pointer;
   transition: background 0.1s;
-  &:hover { background: rgba(88, 166, 255, 0.15); }
-  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  flex-shrink: 0;
+  &:hover { background: var(--blue-hover); }
+  &:disabled { opacity: 0.5; }
 }
 
-// ── Tool card ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Tool Card (embedded in chat stream)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-.tc-card {
+.tcCard {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
   background: var(--bg-secondary);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 13px;
+  padding: 0;
+  overflow: hidden;
 }
 
-.tc-header {
+.tcHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
-}
-
-.tc-icon {
-  font-size: 16px;
-}
-
-.tc-title {
-  font-weight: 600;
-  color: var(--text-primary);
-  flex: 1;
-}
-
-.tc-status {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
   font-weight: 500;
+  color: var(--text-primary);
+  flex-shrink: 0;
 }
 
-.tc-status--running {
-  background: var(--blue-subtle);
-  color: var(--primary-light);
-}
-
-.tc-status--done {
-  background: var(--green-subtle);
-  color: var(--green);
-}
-
-.tc-status--error {
-  background: var(--red-subtle);
-  color: var(--red);
-}
-
-.tc-section {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-
-  &:last-child { border-bottom: none; }
-}
-
-.tc-section-title {
-  font-size: 11px;
-  font-weight: 600;
+.tcBody {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--font-xs, 11px);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
-.tc-args {
-  margin: 0;
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--text-primary);
   white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.4;
-}
-
-.tc-error {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.tc-error-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--red);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
-.tc-error-body {
-  margin: 0;
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--red);
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.4;
-}
-
-.tc-result {
-  padding: 8px 12px;
-}
-
-.tc-result-body {
-  margin: 0;
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.4;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
 }

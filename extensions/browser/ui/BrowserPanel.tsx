@@ -25,6 +25,8 @@ export type { BrowserPageInfo };
 
 export function BrowserPanel({ adapter }: BrowserPanelProps): ReactElement {
   const store = useBrowserStore(adapter);
+  const storeRef = useRef(store);
+  storeRef.current = store;
 
   // New-session creation bar state (local to panel, no need to persist).
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -33,26 +35,25 @@ export function BrowserPanel({ adapter }: BrowserPanelProps): ReactElement {
   const [useProxy, setUseProxy] = useState(true);
   const [newSessionConfig, setNewSessionConfig] = useState<BrowserLaunchConfig>({});
 
-  // ── Stream callback — routes console + tab info ─────────────────────────
-
   const handlePageInfo = useCallback(
     (browserId: string, info: BrowserPageInfo) => {
+      const s = storeRef.current;
       const tabIdx = info.activeTabIndex ?? 0;
 
       if (info.consoleOutput !== undefined) {
-        store.setConsoleOutput(browserId, tabIdx, info.consoleOutput);
+        s.setConsoleOutput(browserId, tabIdx, info.consoleOutput);
       }
       if (info.consoleAppend) {
-        store.appendConsoleOutput(browserId, tabIdx, info.consoleAppend);
+        s.appendConsoleOutput(browserId, tabIdx, info.consoleAppend);
       }
       if (info.activeTabIndex !== undefined) {
-        store.setActiveTab(browserId, info.activeTabIndex);
+        s.setActiveTab(browserId, info.activeTabIndex);
       }
       if (info.tabs !== undefined && info.activeTabIndex !== undefined) {
-        store.updateTabInfo(browserId, info.tabs, info.activeTabIndex);
+        s.updateTabInfo(browserId, info.tabs, info.activeTabIndex);
       }
     },
-    [store],
+    [],
   );
 
   // ── Derive active console text ──────────────────────────────────────────
@@ -65,24 +66,27 @@ export function BrowserPanel({ adapter }: BrowserPanelProps): ReactElement {
     ? store.getLog(activeEntry.id, activeTabIdx)
     : '';
 
-  // ── Console REPL ────────────────────────────────────────────────────────
-
   const handleAppendToLog = useCallback(
     (text: string) => {
-      if (!activeEntry) return;
-      store.appendConsoleOutput(activeEntry.id, activeTabIdx, text);
+      const s = storeRef.current;
+      const id = s.selectedEntry?.id;
+      if (!id) return;
+      const tabIdx = s.activeTabBySession[id] ?? 0;
+      s.appendConsoleOutput(id, tabIdx, text);
     },
-    [store, activeEntry, activeTabIdx],
+    [],
   );
 
   // ── Viewport resize ────────────────────────────────────────────────────
 
   const handleViewportResize = useCallback(
     (w: number, h: number) => {
-      store.updateViewport(w, h);
-      if (activeEntry) store.setViewportSize(activeEntry.id, w, h);
+      const s = storeRef.current;
+      s.updateViewport(w, h);
+      const entry = s.selectedEntry;
+      if (entry) s.setViewportSize(entry.id, w, h);
     },
-    [store, activeEntry],
+    [],
   );
 
   // ── Render ─────────────────────────────────────────────────────────────

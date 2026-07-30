@@ -1,107 +1,115 @@
-import type { PluginStateExtension } from '@agent-type';
+/**
+ * MCP Plugin — Core Types
+ *
+ * Defines the shared contracts between agent, backend, and UI layers.
+ * All types are precise — no `any`, no `unknown`, no `as`.
+ */
 
-// ── Transport & status ────────────────────────────────────────────────────────
+import type { ToolDef, ToolCallResult } from './protocol';
 
-export type McpTransport = 'http' | 'sse';
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Transport
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * MCP transport protocol.
+ *
+ * - `streamable-http`:  MCP 2025-03-26 Streamable HTTP (single endpoint, POST+GET).
+ * - `legacy-sse`:       MCP 2024-11-05 HTTP+SSE (deprecated, separate SSE+POST endpoints).
+ * - `stdio`:            MCP stdio transport (subprocess stdin/stdout).
+ */
+export type McpTransport = 'streamable-http' | 'legacy-sse' | 'stdio';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Server Status
+// ═══════════════════════════════════════════════════════════════════════════════
 
 export type McpServerStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-// ── Tool definition from a connected MCP server ───────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Server Entry (agent-side view)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export type McpToolDef = {
-  name:         string;
-  description?: string;
-  inputSchema:  Record<string, unknown>;
-};
+export interface McpServerEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly url: string;
+  readonly transport: McpTransport;
+  readonly headers: Record<string, string>;
+  readonly includeTools: readonly string[];
+  readonly enabled: boolean;
+  readonly useProxy: boolean;
+  readonly status: McpServerStatus;
+  readonly errorMsg: string;
+  readonly tools: readonly ToolDef[];
+}
 
-// ── Server entry ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Server Config (used to create/update a server)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export type McpServerEntry = {
-  /** Stable id assigned by the backend. */
-  readonly id:    string;
-  /** Display name — must be unique. */
-  name:           string;
-  url:            string;
-  transport:      McpTransport;
-  headers?:       Record<string, string>;
-  includeTools?:  string[];
-  enabled:        boolean;
-  /** Whether to route connections through the globally configured proxy. */
-  useProxy?:      boolean;
-  status:         McpServerStatus;
-  errorMsg?:      string;
-  /** Tools exposed by this server (populated when connected). */
-  tools:          McpToolDef[];
-};
+export interface McpServerConfig {
+  readonly name: string;
+  readonly url: string;
+  readonly transport: McpTransport;
+  readonly headers?: Record<string, string>;
+  readonly includeTools?: readonly string[];
+  readonly enabled?: boolean;
+  readonly useProxy?: boolean;
+}
 
-// ── Adapter interface ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Adapter — agent ↔ backend contract
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Plug-in contract for the MCP backend.
- *
- * The default HTTP implementation delegates all MCP connections to the backend
- * (Node.js has no CORS restrictions) and calls `/api/mcp/*`.
- */
-export type McpAdapter = {
-  /** Return all registered MCP servers with their current status and tools. */
-  listServers(): Promise<McpServerEntry[]>;
+export interface McpAdapter {
+  /** List all registered MCP servers with current status and tools. */
+  listServers(): Promise<readonly McpServerEntry[]>;
 
-  /**
-   * Add a new server and attempt to connect.
-   * Returns the full server entry after the connect attempt.
-   */
-  addServer(config: Pick<McpServerEntry, 'name' | 'url' | 'transport'> & {
-    headers?:      Record<string, string>;
-    includeTools?: string[];
-    enabled?:      boolean;
-    useProxy?:     boolean;
-  }): Promise<McpServerEntry>;
+  /** Register a new server and attempt to connect. */
+  addServer(config: McpServerConfig): Promise<McpServerEntry>;
 
-  /** Remove a server (disconnect first if needed). */
+  /** Permanently remove a server (disconnect first). */
   removeServer(name: string): Promise<void>;
 
-  /** Reconnect (re-establish the MCP session and refresh the tool list). */
+  /** Reconnect to a server (re-establish session + refresh tools). */
   reconnectServer(name: string): Promise<void>;
 
-  /** Disconnect without removing from the registry. */
+  /** Disconnect without removing from registry. */
   disconnectServer(name: string): Promise<void>;
 
   /**
    * Execute an MCP tool on the backend proxy.
    *
-   * @param server     Name of the MCP server.
-   * @param tool       Name of the tool to execute.
-   * @param args       Tool arguments.
-   * @param sessionId  Optional session ID forwarded from the tool execution context.
-   * @param signal     Optional abort signal — cancels the HTTP request if the
-   *                   parent tool call is aborted (e.g. user cancels the session).
+   * Returns the structured MCP `ToolCallResult` — preserving all content
+   * types (text, image, resource, etc.).
    */
-  executeTool(server: string, tool: string, args: unknown, sessionId?: string, signal?: AbortSignal): Promise<unknown>;
-};
+  executeTool(
+    serverName: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    sessionId: string,
+    signal: AbortSignal,
+  ): Promise<ToolCallResult>;
+}
 
-// ── Bridge: shared agent↔UI object ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Bridge — shared agent↔UI reference
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * MCP bridge — agent and UI hold the same reference.
- * Agent writes methods during activation; UI calls them via `host.bridge`.
- */
 export interface McpBridge {
   /** Sync server list from backend. */
-  sync(): Promise<McpServerEntry[]>;
+  sync(): Promise<readonly McpServerEntry[]>;
+
   /** Connect/reconnect to a server by name. */
   connect(name: string): Promise<void>;
+
   /** Disconnect a server by name. */
   disconnect(name: string): void;
+
   /** Remove a server by name. */
   remove(name: string): void;
+
   /** Add a new server and connect. */
-  addServer(config: {
-    name: string;
-    url: string;
-    transport: McpTransport;
-    headers?: Record<string, string>;
-    includeTools?: string[];
-    enabled?: boolean;
-    useProxy?: boolean;
-  }): Promise<McpServerEntry>;
+  addServer(config: McpServerConfig): Promise<McpServerEntry>;
 }

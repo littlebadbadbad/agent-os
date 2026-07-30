@@ -110,8 +110,9 @@ export function useBrowserStore(adapter: BrowserAdapter): BrowserStoreState & Br
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;
-  /** Ref-based guard to prevent double creation (works synchronously). */
   const creatingRef = useRef(false);
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const validSelectedId: string | null =
@@ -235,7 +236,7 @@ export function useBrowserStore(adapter: BrowserAdapter): BrowserStoreState & Br
 
   const toggleProxy = useCallback(
     async (id: string) => {
-      const session = sessions.find((s) => s.id === id);
+      const session = sessionsRef.current.find((s) => s.id === id);
       if (!session) return;
       try {
         const updated = await adapterRef.current.setProxy(id, !session.useProxy);
@@ -244,7 +245,7 @@ export function useBrowserStore(adapter: BrowserAdapter): BrowserStoreState & Br
         // ignore
       }
     },
-    [sessions],
+    [],
   );
 
   const switchTab = useCallback(async (id: string, index: number) => {

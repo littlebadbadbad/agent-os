@@ -35,14 +35,15 @@ export function activate(host) {
   }
 
   const proxyConfig = host.getBackendConfig('proxy');
-  const manager = createMcpManager(agentDir, proxyConfig);
+  const keyEncryption = host.getBackendConfig('keyEncryption');
+  const manager = createMcpManager(agentDir, proxyConfig, keyEncryption);
   _manager = manager;
   const service = createMcpService(manager);
 
   // ── CRUD servers ─────────────────────────────────────────────────────────
   host.defineApi('listServers', async (_params) => service.getMcpServers());
   host.defineApi('addServer', async (params) => {
-    const { name, url = '', transport = 'http', headers, includeTools, useProxy } = params || {};
+    const { name, url = '', transport = 'streamable-http', headers, includeTools, useProxy } = params || {};
     return service.addMcpServer({ name, url, transport, headers, includeTools, useProxy });
   });
   host.defineApi('removeServer', async (params) => {

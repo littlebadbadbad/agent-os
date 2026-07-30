@@ -19,6 +19,7 @@ import { pluginRouter } from './lib/plugin-router.js';
 import { createPluginScanner } from './lib/plugin-scanner.js';
 import { getProxyConfig } from './lib/proxy.js';
 import { decryptPat, getPublicKeyPem } from './lib/rsa.js';
+import { encrypt, decrypt } from './lib/key-encryption.js';
 import { createPluginConfigStore } from './lib/plugin-config-store.js';
 import { registerCorePlugins } from './core/index.js';
 /**
@@ -168,6 +169,7 @@ export const pluginScanner = createPluginScanner(pluginRouter, PLUGINS_DIR, DATA
   proxy: getProxyConfig,
   rsaDecrypt: () => decryptPat,
   rsaPublicKey: getPublicKeyPem,
+  keyEncryption: () => ({ encrypt, decrypt }),
 }, AGENT_DIR);
 
 export const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
