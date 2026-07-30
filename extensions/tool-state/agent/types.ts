@@ -13,10 +13,26 @@ export interface ToolStateSymbolState {
   readonly toggleTool: (name: string) => void;
 }
 
-/** A deferred-tool entry returned by `tool_search`. */
-export interface ToolSearchResult {
+/** Full detail for the best match — everything the AI needs to invoke the tool. */
+export interface ToolSearchDetail {
   readonly name: string;
-  readonly summary: string;
+  readonly description: string;
+  readonly parameters: Record<string, unknown>;
+  readonly score: number;
+}
+
+/** Summary for secondary matches — just enough to decide if it's the right tool. */
+export interface ToolSearchSummary {
+  readonly name: string;
+  readonly description: string;
+  readonly score: number;
+}
+
+/** Result shape returned by `tool_search`. */
+export interface ToolSearchResults {
+  readonly top: ToolSearchDetail | null;
+  readonly others: readonly ToolSearchSummary[];
+  readonly total: number;
 }
 
 // ── Module augmentation ───────────────────────────────────────────────────────

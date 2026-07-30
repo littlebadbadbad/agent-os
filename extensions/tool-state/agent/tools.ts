@@ -2,16 +2,54 @@ import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
 import type { Tool, ToolExecutionContext } from '@agent-type';
 import { ctxKey } from '@agent-type';
-import type { ToolSearchResult } from './types';
+import type { ToolSearchDetail, ToolSearchSummary, ToolSearchResults } from './types';
+import { scoreTool, resolveDescription } from './scoring';
 
 /** Tools stay visible to the model. Beyond this threshold they're deferred behind `tool_search`. */
 export const TOOL_SEARCH_THRESHOLD = 30;
 
+/** Maximum number of results returned by tool_search. */
+const MAX_RESULTS = 15;
+
+function parametersToJsonSchema(tool: Tool): Record<string, unknown> {
+  if (tool.rawParametersSchema) {
+    return typeof tool.rawParametersSchema === 'function'
+      ? tool.rawParametersSchema()
+      : tool.rawParametersSchema;
+  }
+
+  const zodSchema = typeof tool.parameters === 'function'
+    ? tool.parameters()
+    : tool.parameters;
+
+  const raw = z.toJSONSchema(zodSchema, { reused: 'inline' });
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key !== '$schema') {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+function noMatches(query: string): ToolSearchResults {
+  return {
+    top: null,
+    others: [],
+    total: 0,
+  };
+}
+
 /**
  * Create the `tool_search` tool.
  *
- * Searches deferred (non-core) tools by keyword, excluding disabled tools.
- * The search is case-insensitive and matches both tool names and descriptions.
+ * Accepts one or more space-separated keywords, scores deferred (non-core,
+ * non-disabled) tools by relevance, and returns:
+ *
+ * - **top** — the best match with full description and complete JSON Schema
+ *   parameters so the AI can invoke the tool immediately.
+ * - **others** — remaining matches (≤14) with name and description only.
  */
 export function createToolSearchTool(
   allTools: () => readonly Tool[],
@@ -22,46 +60,67 @@ export function createToolSearchTool(
     name: 'tool_search',
     group: 'Tool Management',
     description:
-      'Search for tools by keyword. ' +
-      'Use this when you need a tool that is not in your visible tool list. ' +
-      'Provide a keyword and the matching tools (name + summary) will be returned. ' +
-      'You can then call the returned tools directly.',
+      'Search for deferred tools by one or more space-separated keywords. ' +
+      'The best match is returned with its full parameter schema so you can call it directly. ' +
+      'Use this when the tool you need is not in your visible tool list.',
     parameters: z.object({
-      query: z.string().min(1).describe('Search keyword to find relevant tools.'),
+      query: z.string().min(1).describe(
+        'One or more space-separated keywords, e.g. "file read" or "git commit". ' +
+        'Matches against tool name, description, and group.',
+      ),
     }),
     execute: async ({ query }, context: ToolExecutionContext) => {
       const tools = allTools();
       const core = coreNames();
       const scopeKey = ctxKey(context);
       const disabled = disabledNamesByScope(scopeKey);
-      const lower = query.toLowerCase();
 
-      const results: ToolSearchResult[] = tools
-        .filter((t) => !core.has(t.name))
-        .filter((t) => !disabled.has(t.name))
-        .filter((t) => {
-          const desc = typeof t.description === 'function' ? t.description() : t.description;
-          return t.name.includes(lower) || desc.toLowerCase().includes(lower);
-        })
-        .slice(0, 15)
-        .map((t) => ({
-          name: t.name,
-          summary: (typeof t.description === 'function' ? t.description() : t.description)
-            .split('\n')[0]
-            .slice(0, 120),
-        }));
+      const queryWords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 0);
 
-      if (results.length === 0) {
-        return {
-          results: [],
-          message: `No deferred tools found matching "${query}". The tool may be disabled, a core tool (always visible), or may not exist.`,
-        };
+      if (queryWords.length === 0) {
+        return noMatches(query);
       }
 
+      const deferred = tools.filter(
+        (t) => !core.has(t.name) && !disabled.has(t.name),
+      );
+
+      if (deferred.length === 0) {
+        return noMatches(query);
+      }
+
+      const scored = deferred
+        .map((tool) => ({ tool, score: scoreTool(tool, queryWords) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_RESULTS);
+
+      if (scored.length === 0) {
+        return noMatches(query);
+      }
+
+      const [best, ...rest] = scored;
+
+      const top: ToolSearchDetail = {
+        name: best.tool.name,
+        description: resolveDescription(best.tool),
+        parameters: parametersToJsonSchema(best.tool),
+        score: best.score,
+      };
+
+      const others: ToolSearchSummary[] = rest.map((entry) => ({
+        name: entry.tool.name,
+        description: resolveDescription(entry.tool),
+        score: entry.score,
+      }));
+
       return {
-        results,
-        count: results.length,
-        hint: 'Call any of these tools by name directly. The tool will be loaded and executed.',
+        top,
+        others,
+        total: scored.length,
       };
     },
   });

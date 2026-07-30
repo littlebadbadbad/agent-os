@@ -37,7 +37,7 @@ function makeTool(name: string, description?: string, group?: string): Tool {
 // ── createToolSearchTool ──────────────────────────────────────────────────────
 
 describe('createToolSearchTool', () => {
-  it('returns results for deferred tools matching by name', async () => {
+  it('returns top match for deferred tools matching by name', async () => {
     const tools = [
       makeTool('visible_tool', 'Always visible'),
       makeTool('deferred_reader', 'Reads data from files'),
@@ -49,8 +49,28 @@ describe('createToolSearchTool', () => {
       () => new Set(),
     );
     const result = await tool.execute({ query: 'reader' }, makeExecCtx());
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].name).toBe('deferred_reader');
+    expect(result.top).not.toBeNull();
+    expect(result.top!.name).toBe('deferred_reader');
+    expect(result.total).toBe(1);
+    expect(result.others).toHaveLength(0);
+  });
+
+  it('returns top match with full description and parameters schema', async () => {
+    const tools = [
+      makeTool('file_reader', 'Reads and parses files from the filesystem. Supports text, JSON, and binary formats.'),
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'file' }, makeExecCtx());
+    expect(result.top).not.toBeNull();
+    expect(result.top!.name).toBe('file_reader');
+    expect(result.top!.description).toBe(
+      'Reads and parses files from the filesystem. Supports text, JSON, and binary formats.',
+    );
+    expect(result.top!.parameters).toBeDefined();
+    expect(typeof result.top!.parameters).toBe('object');
+    // Should have JSON Schema properties (type, properties, additionalProperties)
+    expect(result.top!.parameters).toHaveProperty('type', 'object');
+    expect(result.top!.parameters).toHaveProperty('properties');
   });
 
   it('returns results matching by description', async () => {
@@ -60,8 +80,37 @@ describe('createToolSearchTool', () => {
     ];
     const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
     const result = await tool.execute({ query: 'file' }, makeExecCtx());
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].name).toBe('tool_a');
+    expect(result.top).not.toBeNull();
+    expect(result.top!.name).toBe('tool_a');
+    expect(result.total).toBe(1);
+  });
+
+  it('supports multiple space-separated keywords', async () => {
+    const tools = [
+      makeTool('git_commit', 'Creates a git commit'),
+      makeTool('file_read', 'Reads a file from disk'),
+      makeTool('git_diff', 'Shows git diff'),
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'git file' }, makeExecCtx());
+    // git_commit matches "git"; file_read matches "file" — the one matching more keywords ranks higher
+    expect(result.top).not.toBeNull();
+    // Both match one keyword, but name match scores higher... let's verify
+    expect(result.total).toBeGreaterThanOrEqual(2);
+  });
+
+  it('ranks results by relevance score', async () => {
+    const tools = [
+      makeTool('file_reader', 'Some utility tool'),
+      makeTool('file_writer', 'Writes files to disk'),
+      makeTool('read_config', 'Reads configuration'),
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'file read' }, makeExecCtx());
+    expect(result.top).not.toBeNull();
+    // file_reader matches both "file" AND "read" — should rank highest
+    expect(result.top!.name).toBe('file_reader');
+    expect(result.top!.score).toBeGreaterThan(0);
   });
 
   it('excludes core tools from search results', async () => {
@@ -75,8 +124,8 @@ describe('createToolSearchTool', () => {
       () => new Set(),
     );
     const result = await tool.execute({ query: 'reader' }, makeExecCtx());
-    expect(result.results).toHaveLength(0);
-    expect(result.message).toContain('No deferred tools found');
+    expect(result.total).toBe(0);
+    expect(result.top).toBeNull();
   });
 
   it('excludes disabled tools from search results', async () => {
@@ -90,38 +139,40 @@ describe('createToolSearchTool', () => {
       (key: string) => new Set(['disabled_tool']),
     );
     const result = await tool.execute({ query: 'tool' }, makeExecCtx());
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].name).toBe('enabled_tool');
+    expect(result.total).toBe(1);
+    expect(result.top!.name).toBe('enabled_tool');
   });
 
-  it('returns empty message when no tools match', async () => {
+  it('returns empty when no tools match', async () => {
     const tool = createToolSearchTool(() => [], () => new Set(), () => new Set());
     const result = await tool.execute({ query: 'nonexistent' }, makeExecCtx());
-    expect(result.results).toHaveLength(0);
-    expect(result.message).toContain('No deferred tools found');
+    expect(result.total).toBe(0);
+    expect(result.top).toBeNull();
+    expect(result.others).toHaveLength(0);
   });
 
   it('limits results to 15', async () => {
     const tools = Array.from({ length: 20 }, (_, i) => makeTool(`tool_${i}`, `Description ${i}`));
     const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
     const result = await tool.execute({ query: 'tool' }, makeExecCtx());
-    expect(result.results.length).toBeLessThanOrEqual(15);
+    expect(result.total).toBeLessThanOrEqual(15);
   });
 
   it('handles factory-function descriptions', async () => {
     const tools = [
       {
         name: 'dynamic_tool',
-        description: () => 'A dynamically described tool for testing',
+        description: () => 'A dynamically described tool for testing features',
         group: 'test',
-        parameters: z.object({}),
+        parameters: z.object({ input: z.string() }),
         execute: async () => 'ok',
       },
     ];
     const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
     const result = await tool.execute({ query: 'testing' }, makeExecCtx());
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].name).toBe('dynamic_tool');
+    expect(result.total).toBe(1);
+    expect(result.top!.name).toBe('dynamic_tool');
+    expect(result.top!.description).toContain('dynamically described');
   });
 
   it('uses per-scope disabled names via context', async () => {
@@ -135,8 +186,41 @@ describe('createToolSearchTool', () => {
       (key: string) => disabledByScope.get(key) ?? new Set(),
     );
     const result = await tool.execute({ query: 't' }, makeExecCtx('session-s1'));
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].name).toBe('t2');
+    expect(result.total).toBe(1);
+    expect(result.top!.name).toBe('t2');
+  });
+
+  it('handles tools with rawParametersSchema', async () => {
+    const rawSchema = { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] };
+    const tools: Tool[] = [
+      {
+        name: 'read_raw',
+        description: 'Read using raw schema',
+        parameters: () => z.object({}),
+        rawParametersSchema: rawSchema,
+        execute: async () => null,
+      },
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'read' }, makeExecCtx());
+    expect(result.top).not.toBeNull();
+    expect(result.top!.parameters).toEqual(rawSchema);
+  });
+
+  it('others list contains secondary matches with name and description', async () => {
+    const tools = [
+      makeTool('tool_a', 'Primary match for testing'),
+      makeTool('tool_b', 'Secondary match also for testing'),
+      makeTool('tool_c', 'Third match for testing purposes'),
+    ];
+    const tool = createToolSearchTool(() => tools, () => new Set(), () => new Set());
+    const result = await tool.execute({ query: 'testing' }, makeExecCtx());
+    expect(result.total).toBe(3);
+    expect(result.top).not.toBeNull();
+    expect(result.others).toHaveLength(2);
+    expect(result.others[0].name).toBeDefined();
+    expect(result.others[0].description).toBeDefined();
+    expect(result.others[0].score).toBeGreaterThan(0);
   });
 });
 
