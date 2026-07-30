@@ -25,7 +25,8 @@ describe('interceptResult', () => {
     const returned = interceptResult(store, 'echo', result, 100);
     const parsed = returned.result as Record<string, unknown>;
     expect(parsed._var).toMatch(/^\$var:/);
-    expect(parsed.hint).toContain('var_expand');
+    expect(parsed._strategy).toBeDefined();
+    expect(typeof parsed._hint).toBe('string');
   });
 
   it('handles null result gracefully', () => {

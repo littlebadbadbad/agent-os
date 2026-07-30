@@ -55,7 +55,7 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
   return {
     name: 'variable',
     symbol: VARIABLE_SYMBOL,
-    coreTools: ['var_write', 'var_expand', 'var_read_path'],
+    coreTools: ['var_write', 'var_overview', 'var_explore'],
     tools: [...tools],
 
     onResolveToolArgs(ctx: ToolSetContext, toolName: string, args: Record<string, unknown>) {
@@ -104,7 +104,8 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
         `- Pass handles directly as tool args — the runtime auto-resolves them. Never read a var just to forward it.\n` +
         `- Append a JSON path to target a nested field: \`$var:xxxx.a.b[0]\` resolves to that value inline.\n` +
         `- Interpolate inside strings: \`"result: $var:xxxx.field"\`.\n` +
-        `- Use \`var_expand\` / \`var_read_path\` only when you must inspect or reason about the content.` +
+        `- Call \`var_overview\` first on any large variable to see its structure and get a recommended exploration strategy.\n` +
+        `- Then use \`var_explore\` with the suggested path to drill into specific sections.` +
         (hasAttachments
           ? `\n- Forward attachment handles to sub-agents via \`attachment_handles\` without reading them.`
           : '')

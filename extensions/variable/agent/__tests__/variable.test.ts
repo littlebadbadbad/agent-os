@@ -41,11 +41,11 @@ describe('createVariableToolSet', () => {
     expect(ts.name).toBe('variable');
   });
 
-  it('exports var_expand, var_read_path, var_write, var_list, var_delete tools', () => {
+  it('exports var_overview, var_explore, var_write, var_list, var_delete', () => {
     const ts = createVariableToolSet();
     const names = (ts.tools as any[]).map((t) => t.name);
-    expect(names).toContain('var_expand');
-    expect(names).toContain('var_read_path');
+    expect(names).toContain('var_overview');
+    expect(names).toContain('var_explore');
     expect(names).toContain('var_write');
     expect(names).toContain('var_list');
     expect(names).toContain('var_delete');
@@ -53,7 +53,7 @@ describe('createVariableToolSet', () => {
 
   // ── var_write ──────────────────────────────────────────────────────────────
 
-  it('var_write stores JSON and returns a handle', async () => {
+  it('var_write stores JSON and returns handle + overview', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
@@ -62,10 +62,12 @@ describe('createVariableToolSet', () => {
       ctx,
     );
     expect(result.handle).toMatch(/^\$var:[0-9a-f]{8}$/);
-    expect(result.size).toBe(13); // JSON.stringify('"hello world"').length
+    expect(result.size).toBe(13);
+    expect(result.rootType).toBe('string');
+    expect(result.strategy).toBe('simple');
   });
 
-  it('var_write stores object JSON', async () => {
+  it('var_write stores object JSON with overview fields', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
@@ -74,6 +76,8 @@ describe('createVariableToolSet', () => {
       ctx,
     );
     expect(result.handle).toMatch(/^\$var:[0-9a-f]{8}$/);
+    expect(result.rootType).toBe('object');
+    expect(typeof result.strategyHint).toBe('string');
   });
 
   it('var_write returns error for invalid JSON', async () => {
@@ -84,17 +88,58 @@ describe('createVariableToolSet', () => {
     expect(result.error).toMatch(/Invalid JSON/);
   });
 
-  // ── var_expand ─────────────────────────────────────────────────────────────
+  // ── var_overview ──────────────────────────────────────────────────────────
 
-  it('var_expand returns error for unknown handle', async () => {
+  it('var_overview returns error for unknown handle', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
-    const result = await getTool(ts, 'var_expand').execute({ handle: '$var:deadbeef' }, ctx);
+    const result = await getTool(ts, 'var_overview').execute({ handle: '$var:deadbeef' }, ctx);
     expect(result.error).toMatch(/not found/);
   });
 
-  it('var_expand shows object children', async () => {
+  it('var_overview returns full structural overview', async () => {
+    const ts = createVariableToolSet();
+    const sessionId = freshSessionId();
+    const ctx = makeToolCtx(sessionId);
+    const { handle } = await getTool(ts, 'var_write').execute(
+      { json: '{"a":1,"b":"hello","c":[1,2,3]}' },
+      ctx,
+    );
+    const result = await getTool(ts, 'var_overview').execute({ handle }, ctx);
+    expect(result.rootType).toBe('object');
+    expect(result.rootChildCount).toBe(3);
+    expect(result.maxDepth).toBeGreaterThanOrEqual(1);
+    expect(typeof result.strategy).toBe('string');
+    expect(typeof result.strategyHint).toBe('string');
+    expect(result.rootKeys.length).toBe(3);
+  });
+
+  it('var_overview detects strategy for wide objects', async () => {
+    const ts = createVariableToolSet();
+    const sessionId = freshSessionId();
+    const ctx = makeToolCtx(sessionId);
+    const obj: Record<string, number> = {};
+    for (let i = 0; i < 60; i++) obj[`k${i}`] = i;
+    const { handle } = await getTool(ts, 'var_write').execute(
+      { json: JSON.stringify(obj) },
+      ctx,
+    );
+    const overview = await getTool(ts, 'var_overview').execute({ handle }, ctx);
+    expect(overview.strategy).toBe('browse-keys');
+  });
+
+  // ── var_explore ───────────────────────────────────────────────────────────
+
+  it('var_explore returns error for unknown handle', async () => {
+    const ts = createVariableToolSet();
+    const sessionId = freshSessionId();
+    const ctx = makeToolCtx(sessionId);
+    const result = await getTool(ts, 'var_explore').execute({ handle: '$var:deadbeef' }, ctx);
+    expect(result.error).toMatch(/not found/);
+  });
+
+  it('var_explore shows object children with type info', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
@@ -102,15 +147,15 @@ describe('createVariableToolSet', () => {
       { json: '{"a":1,"b":"hello","c":[1,2]}' },
       ctx,
     );
-    const result = await getTool(ts, 'var_expand').execute({ handle }, ctx);
+    const result = await getTool(ts, 'var_explore').execute({ handle }, ctx);
     expect(result.type).toBe('object');
     expect(result.totalChildren).toBe(3);
     expect(result.children.find((c: any) => c.key === 'a').value).toBe(1);
     expect(result.children.find((c: any) => c.key === 'b').type).toBe('string');
-    expect(result.children.find((c: any) => c.key === 'c').length).toBe(2);
+    expect(result.children.find((c: any) => c.key === 'c').elementCount).toBe(2);
   });
 
-  it('var_expand paginates large objects', async () => {
+  it('var_explore paginates children', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
@@ -120,13 +165,13 @@ describe('createVariableToolSet', () => {
       { json: JSON.stringify(bigObj) },
       ctx,
     );
-    const page1 = await getTool(ts, 'var_expand').execute({ handle, page: 1, pageSize: 10 }, ctx);
+    const page1 = await getTool(ts, 'var_explore').execute({ handle, page: 1, pageSize: 10 }, ctx);
     expect(page1.totalChildren).toBe(50);
     expect(page1.totalPages).toBe(5);
     expect(page1.children).toHaveLength(10);
   });
 
-  it('var_expand resolves nested path', async () => {
+  it('var_explore navigates to nested path', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
@@ -134,52 +179,42 @@ describe('createVariableToolSet', () => {
       { json: '{"items":[{"id":1},{"id":2}]}' },
       ctx,
     );
-    const result = await getTool(ts, 'var_expand').execute({ handle, path: 'items' }, ctx);
+    const result = await getTool(ts, 'var_explore').execute({ handle, path: 'items' }, ctx);
     expect(result.type).toBe('array');
     expect(result.totalChildren).toBe(2);
   });
 
-  it('var_expand returns string info with preview', async () => {
-    const ts = createVariableToolSet();
-    const sessionId = freshSessionId();
-    const ctx = makeToolCtx(sessionId);
-    const { handle } = await getTool(ts, 'var_write').execute({ json: '"short"' }, ctx);
-    const result = await getTool(ts, 'var_expand').execute({ handle }, ctx);
-    expect(result.type).toBe('string');
-    expect(result.charCount).toBe(5); // "short".length
-  });
-
-  // ── var_read_path ──────────────────────────────────────────────────────────
-
-  it('var_read_path returns error for unknown handle', async () => {
-    const ts = createVariableToolSet();
-    const sessionId = freshSessionId();
-    const ctx = makeToolCtx(sessionId);
-    const result = await getTool(ts, 'var_read_path').execute({ handle: '$var:deadbeef' }, ctx);
-    expect(result.error).toMatch(/not found/);
-  });
-
-  it('var_read_path reads root string value', async () => {
+  it('var_explore reads string content directly', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
     const { handle } = await getTool(ts, 'var_write').execute({ json: '"stored text"' }, ctx);
-    const result = await getTool(ts, 'var_read_path').execute({ handle }, ctx);
+    const result = await getTool(ts, 'var_explore').execute({ handle }, ctx);
     expect(result.type).toBe('string');
     expect(result.value).toBe('stored text');
   });
 
-  it('var_read_path supports pagination via offset and maxLength', async () => {
+  it('var_explore paginates string via page/pageSize', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
     const { handle } = await getTool(ts, 'var_write').execute({ json: '"ABCDEFGH"' }, ctx);
-    const result = await getTool(ts, 'var_read_path').execute({ handle, offset: 2, maxLength: 3 }, ctx);
-    expect(result.value).toBe('CDE');
+    const result = await getTool(ts, 'var_explore').execute({ handle, page: 2, pageSize: 3 }, ctx);
+    expect(result.value).toBe('DEF');
     expect(result.hasMore).toBe(true);
   });
 
-  it('var_read_path reads nested path', async () => {
+  it('var_explore returns primitive value directly', async () => {
+    const ts = createVariableToolSet();
+    const sessionId = freshSessionId();
+    const ctx = makeToolCtx(sessionId);
+    const { handle } = await getTool(ts, 'var_write').execute({ json: '42' }, ctx);
+    const result = await getTool(ts, 'var_explore').execute({ handle }, ctx);
+    expect(result.type).toBe('number');
+    expect(result.value).toBe(42);
+  });
+
+  it('var_explore reads value at nested string path', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
@@ -187,44 +222,9 @@ describe('createVariableToolSet', () => {
       { json: '{"data":{"name":"Alice","age":30}}' },
       ctx,
     );
-    const result = await getTool(ts, 'var_read_path').execute({ handle, path: 'data.name' }, ctx);
+    const result = await getTool(ts, 'var_explore').execute({ handle, path: 'data.name' }, ctx);
     expect(result.type).toBe('string');
     expect(result.value).toBe('Alice');
-  });
-
-  it('var_read_path returns primitive directly', async () => {
-    const ts = createVariableToolSet();
-    const sessionId = freshSessionId();
-    const ctx = makeToolCtx(sessionId);
-    const { handle } = await getTool(ts, 'var_write').execute({ json: '42' }, ctx);
-    const result = await getTool(ts, 'var_read_path').execute({ handle }, ctx);
-    expect(result.type).toBe('number');
-    expect(result.value).toBe(42);
-  });
-
-  it('var_read_path returns key list for objects', async () => {
-    const ts = createVariableToolSet();
-    const sessionId = freshSessionId();
-    const ctx = makeToolCtx(sessionId);
-    const { handle } = await getTool(ts, 'var_write').execute({ json: '{"x":1,"y":2}' }, ctx);
-    const result = await getTool(ts, 'var_read_path').execute({ handle }, ctx);
-    expect(result.type).toBe('object');
-    expect(result.keys).toEqual(['x', 'y']);
-    expect(result.totalKeys).toBe(2);
-  });
-
-  it('var_read_path paginates key list for arrays', async () => {
-    const ts = createVariableToolSet();
-    const sessionId = freshSessionId();
-    const ctx = makeToolCtx(sessionId);
-    const arr = Array.from({ length: 25 }, (_, i) => i);
-    const { handle } = await getTool(ts, 'var_write').execute({ json: JSON.stringify(arr) }, ctx);
-    // page 2 with pageSize 10
-    const result = await getTool(ts, 'var_read_path').execute({ handle, offset: 2, maxLength: 10 }, ctx);
-    expect(result.type).toBe('array');
-    expect(result.keys).toEqual(['10','11','12','13','14','15','16','17','18','19']);
-    expect(result.totalKeys).toBe(25);
-    expect(result.totalPages).toBe(3);
   });
 
   // ── var_list ───────────────────────────────────────────────────────────────
@@ -239,13 +239,14 @@ describe('createVariableToolSet', () => {
     expect(result.total).toBe(2);
   });
 
-  it('var_list reports valueType for json variables', async () => {
+  it('var_list reports valueType and strategy for json variables', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeToolCtx(sessionId);
     await getTool(ts, 'var_write').execute({ json: '{"k":1}' }, ctx);
     const result = await getTool(ts, 'var_list').execute({}, ctx);
     expect(result.variables[0].valueType).toBe('object');
+    expect(typeof result.variables[0].strategy).toBe('string');
   });
 
   // ── var_delete ─────────────────────────────────────────────────────────────
@@ -391,7 +392,7 @@ describe('createVariableToolSet', () => {
     expect(prompt).toBeUndefined();
   });
 
-  it('onGetSystemPrompt returns variable registry when variables exist', async () => {
+  it('onGetSystemPrompt mentions var_overview and var_explore', async () => {
     const ts = createVariableToolSet();
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
@@ -401,6 +402,8 @@ describe('createVariableToolSet', () => {
     const prompt = ts.onGetSystemPrompt!(ctx);
     expect(prompt).toMatch(/## Variable Store/);
     expect(prompt).toMatch(/\$var:/);
+    expect(prompt).toMatch(/var_overview/);
+    expect(prompt).toMatch(/var_explore/);
   });
 
   // ── onResolveToolArgs ──────────────────────────────────────────────────────
@@ -410,7 +413,7 @@ describe('createVariableToolSet', () => {
     const sessionId = freshSessionId();
     const ctx = makeCtx(sessionId);
     const args = { handle: '$var:12345678' };
-    const result = ts.onResolveToolArgs!(ctx, 'var_read_path', args);
+    const result = ts.onResolveToolArgs!(ctx, 'var_overview', args);
     expect(result).toBe(args); // same reference — untouched
   });
 

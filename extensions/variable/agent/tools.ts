@@ -1,172 +1,180 @@
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import type { VariableStore, JsonValue } from './types';
+import type { VariableStore, VariableEntry } from './types';
+import { isVariableHandle } from './store';
 import { parsePath } from './json-path';
-import { expandNode, readAtPath } from './json-expand';
+import { exploreNode } from './json-explore';
 import { jsonTypeOf } from './json-expand';
+import { generateOverview } from './json-overview';
+import { analyzeJson, type ExploreStrategy } from './json-analyze';
+import { walkJson } from './json-walk';
 
 const DEFAULT_PAGE_SIZE = 20;
-const DEFAULT_MAX_LENGTH = 8_000;
+
+// ── Handle resolution ────────────────────────────────────────────────────────
+
+function resolve(
+  store: VariableStore,
+  handle: string,
+): { ok: true; entry: VariableEntry } | { ok: false; error: string } {
+  if (!isVariableHandle(handle)) {
+    return { ok: false, error: `Invalid handle format: "${handle}". Expected "$var:xxxxxxxx".` };
+  }
+  const entry = store.resolve(handle);
+  if (!entry) {
+    return { ok: false, error: `Variable "${handle}" not found.` };
+  }
+  return { ok: true, entry };
+}
+
+function strategyLabel(entry: VariableEntry): ExploreStrategy | undefined {
+  if (entry.kind !== 'json') return undefined;
+  const type = jsonTypeOf(entry.value);
+  if (type !== 'object' && type !== 'array') return undefined;
+  return analyzeJson(entry.value, walkJson(entry.value)).name;
+}
+
+// ── Tools ─────────────────────────────────────────────────────────────────────
 
 export function createVariableTools(getStore: (sessionId: string) => VariableStore) {
-  // ── var_expand ────────────────────────────────────────────────────────────
 
-  const varExpand = defineTool({
-    name: 'var_expand',
+  const varOverview = defineTool({
+    name: 'var_overview',
     group: 'Variables',
     description:
-      'Browse the JSON structure of a variable like a debugger.\n' +
-      'Expand the root or any path to see direct children with their types and value previews.\n' +
-      'Use page/pageSize to navigate large objects or arrays.',
+      'Get a full structural overview of a variable in one call.\n' +
+      'Returns: root type, size, depth/breadth, type counts, paginated root keys with size previews,\n' +
+      'top-10 largest sub-fields, and a recommended strategy with a concrete action hint.\n' +
+      'Always call this FIRST before drilling into a large variable.',
     parameters: z.object({
       handle: z.string().describe('Variable handle, e.g. "$var:a1b2c3d4".'),
-      path: z.string().optional().describe(
-        'Dot/bracket path to expand, e.g. "result.items" or "[0].name". Leave empty to expand root.',
-      ),
-      page: z.number().int().min(1).optional().describe('Page number (1-indexed). Defaults to 1.'),
-      pageSize: z.number().int().min(1).max(100).optional().describe(
-        `Items per page for objects/arrays. Defaults to ${DEFAULT_PAGE_SIZE}.`,
-      ),
     }),
-    execute: async ({ handle, path = '', page = 1, pageSize = DEFAULT_PAGE_SIZE }, context) => {
-      const store = getStore(context.sessionId);
-      const entry = store.resolve(handle as `$var:${string}`);
-      if (!entry) return { error: `Variable "${handle}" not found.` };
-
+    execute: async ({ handle }, context) => {
+      const r = resolve(getStore(context.sessionId), handle);
+      if (!r.ok) return { error: r.error };
+      const entry = r.entry;
       if (entry.kind === 'attachment') {
         return {
-          path: '',
           type: 'attachment',
           mimeType: entry.attachment.source === 'data' ? entry.attachment.mimeType : 'image/*',
           size: entry.size,
-          hint: 'Use var_read_path to retrieve this attachment inline (visible to vision models).',
+          hint: 'Use var_explore to retrieve this attachment inline.',
         };
       }
-
-      return expandNode(entry.value, parsePath(path), page, pageSize);
+      return generateOverview(entry.value);
     },
   });
 
-  // ── var_read_path ─────────────────────────────────────────────────────────
-
-  const varReadPath = defineTool({
-    name: 'var_read_path',
+  const varExplore = defineTool({
+    name: 'var_explore',
     group: 'Variables',
     description:
-      'Read the value at a specific JSON path within a variable.\n' +
-      'Primitives (number, boolean, null) are returned directly.\n' +
-      'Strings: paginated by character offset/maxLength.\n' +
-      'Objects/arrays: returns the paginated key list so you can drill deeper — use offset as page number (1-based) and maxLength as page size.',
+      'Navigate to any JSON path within a variable. Automatically adapts to the target type:\n' +
+      '- Object / Array → paginated child list with per-child type, size, and value previews\n' +
+      '- String         → paginated content (page = chunk number, pageSize = chars per chunk)\n' +
+      '- Number/Boolean/Null → value returned inline\n' +
+      'Call after var_overview using the strategy hint to pick the right path.',
     parameters: z.object({
       handle: z.string().describe('Variable handle, e.g. "$var:a1b2c3d4".'),
-      path: z.string().optional().describe(
-        'Dot/bracket path to the target value, e.g. "data.items[0].text". Leave empty for root.',
-      ),
-      offset: z.number().int().min(0).optional().describe(
-        'For strings: 0-based character offset. For objects/arrays: 1-based page number (0 = page 1). Defaults to 0.',
-      ),
-      maxLength: z.number().int().min(1).max(100_000).optional().describe(
-        `For strings: max characters to return. For objects/arrays: keys per page. Defaults to ${DEFAULT_MAX_LENGTH}.`,
+      path: z.string().optional().describe('Dot/bracket path, e.g. "results" or "items[0].name". Empty = root.'),
+      page: z.number().int().min(1).optional().describe(`Page number (1-indexed). Default: 1.`),
+      pageSize: z.number().int().min(1).max(100).optional().describe(
+        `Children per page (objects/arrays) or chars per chunk (strings). Default: ${DEFAULT_PAGE_SIZE}.`,
       ),
     }),
-    execute: async ({ handle, path = '', offset = 0, maxLength = DEFAULT_MAX_LENGTH }, context) => {
-      const store = getStore(context.sessionId);
-      const entry = store.resolve(handle as `$var:${string}`);
-      if (!entry) return { error: `Variable "${handle}" not found.` };
-
+    execute: async ({ handle, path = '', page = 1, pageSize = DEFAULT_PAGE_SIZE }, context) => {
+      const r = resolve(getStore(context.sessionId), handle);
+      if (!r.ok) return { error: r.error };
+      const entry = r.entry;
       if (entry.kind === 'attachment') {
-        // Return attachment inline so vision models can see it.
         return {
-          path: '',
           type: 'attachment',
           mimeType: entry.attachment.source === 'data' ? entry.attachment.mimeType : 'image/*',
           size: entry.size,
           __toolAttachments__: [entry.attachment],
         };
       }
-
-      return readAtPath(entry.value, parsePath(path), offset, maxLength);
+      return exploreNode(entry.value, parsePath(path), page, pageSize);
     },
   });
-
-  // ── var_write ─────────────────────────────────────────────────────────────
 
   const varWrite = defineTool({
     name: 'var_write',
     group: 'Variables',
     description:
-      'Store a JSON value as a variable and get back a handle.\n' +
-      'The `json` parameter must be a valid JSON string, e.g. \'{"key":"value"}\', \'[1,2,3]\', \'"text"\', \'42\'.\n' +
-      'Use when you want to save a computed value for later use by other tools.',
+      'Store a JSON value and get back a handle with its structural overview.\n' +
+      'Pass valid JSON text, e.g. \'{"key":"value"}\', \'[1,2,3]\', \'"text"\', \'42\'.',
     parameters: z.object({
       json: z.string().min(1).describe('Valid JSON string to parse and store.'),
-      name: z.string().optional().describe('Optional human-readable label for this variable.'),
+      name: z.string().optional().describe('Human-readable label.'),
     }),
     execute: async ({ json, name }, context) => {
-      let value: JsonValue;
-      try {
-        value = JSON.parse(json) as JsonValue;
-      } catch (e) {
+      let value: unknown;
+      try { value = JSON.parse(json); } catch (e) {
         return { error: `Invalid JSON: ${(e as Error).message}` };
       }
       const store = getStore(context.sessionId);
       const handle = store.store(
-        { kind: 'json', value },
+        { kind: 'json', value: value as never },
         { source: 'user', ...(name !== undefined && { name }) },
       );
-      return { handle, size: JSON.stringify(value).length };
+      const overview = generateOverview(value as never);
+      return {
+        handle,
+        size: overview.sizeBytes,
+        sizeLabel: overview.sizeLabel,
+        rootType: overview.rootType,
+        strategy: overview.strategy,
+        strategyHint: overview.strategyHint,
+      };
     },
   });
-
-  // ── var_list ──────────────────────────────────────────────────────────────
 
   const varList = defineTool({
     name: 'var_list',
     group: 'Variables',
-    description: 'List all variables in the current session. Returns metadata only — no content.',
+    description:
+      'List all variables in the session with structural summaries.\n' +
+      'JSON variables include valueType and strategy so you can prioritize which to explore first.',
     parameters: z.object({
-      kind: z.enum(['json', 'attachment']).optional().describe('Filter by variable kind.'),
+      kind: z.enum(['json', 'attachment']).optional().describe('Filter by kind.'),
     }),
     execute: async ({ kind }, context) => {
       const store = getStore(context.sessionId);
       const entries = store.list().filter((e) => !kind || e.kind === kind);
       return {
         variables: entries.map((e) => {
-          const meta: Record<string, unknown> = {
+          const base = {
             handle: e.handle,
             kind: e.kind,
             size: e.size,
             source: e.source,
-            ...(e.name !== undefined && { name: e.name }),
-            ...(e.toolName !== undefined && { toolName: e.toolName }),
+            ...(e.name !== undefined ? { name: e.name } : {}),
+            ...(e.toolName !== undefined ? { toolName: e.toolName } : {}),
           };
-          if (e.kind === 'json') {
-            meta.valueType = jsonTypeOf(e.value);
-          } else {
-            meta.mimeType = e.attachment.source === 'data' ? e.attachment.mimeType : 'image/*';
+          if (e.kind === 'attachment') {
+            return { ...base, mimeType: e.attachment.source === 'data' ? e.attachment.mimeType : 'image/*' };
           }
-          return meta;
+          return { ...base, valueType: jsonTypeOf(e.value), ...(strategyLabel(e) !== undefined && { strategy: strategyLabel(e) }) };
         }),
         total: entries.length,
       };
     },
   });
 
-  // ── var_delete ────────────────────────────────────────────────────────────
-
   const varDelete = defineTool({
     name: 'var_delete',
     group: 'Variables',
-    description: 'Delete a variable by handle, freeing its memory.',
+    description: 'Delete a variable by handle to free memory.',
     parameters: z.object({
       handle: z.string().describe('Variable handle to delete.'),
     }),
     execute: async ({ handle }, context) => {
+      if (!isVariableHandle(handle)) return { error: `Invalid handle format: "${handle}".` };
       const store = getStore(context.sessionId);
-      const deleted = store.delete(handle as `$var:${string}`);
-      return { success: deleted, ...(deleted ? {} : { error: `Variable "${handle}" not found.` }) };
+      return store.delete(handle) ? { success: true } : { error: `Variable "${handle}" not found.` };
     },
   });
 
-  return [varExpand, varReadPath, varWrite, varList, varDelete] as const;
+  return [varOverview, varExplore, varWrite, varList, varDelete] as const;
 }
