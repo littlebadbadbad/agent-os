@@ -10,7 +10,6 @@ export {
   createTerminalToolSet,
   createTerminalPluginAdapter,
 } from './shell';
-export type { TerminalToolSet } from './shell';
 export type {
   ShellFamily,
   TerminalEntry,

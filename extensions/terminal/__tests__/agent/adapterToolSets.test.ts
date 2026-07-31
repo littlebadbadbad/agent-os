@@ -1,13 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTerminalToolSet } from '../../agent/shell';
-import { resolveToolSetTools, MAIN_CONVERSATION_ID } from '@agent-type';
+import { resolveToolSetTools } from '@agent-type';
 import type { TerminalManagerAdapter } from '../../agent/shell';
 
-function makeTsCtx(sessionId = 'session-1') {
-  return { sessionId, agentName: 'main', conversationId: MAIN_CONVERSATION_ID };
-}
-
-// ── Fixtures ──────────────────────────────────────────────────────────────────
+// ── Fixtures ─────────────────────────────────────────────────────────────────
 
 function makeTerminalAdapter(): TerminalManagerAdapter {
   return {
@@ -28,18 +24,12 @@ function makeTerminalAdapter(): TerminalManagerAdapter {
   };
 }
 
-// ── createTerminalToolSet ─────────────────────────────────────────────────────
+// ── createTerminalToolSet ────────────────────────────────────────────────────
 
 describe('createTerminalToolSet', () => {
   it('returns a ToolSet with name "terminal"', () => {
     const ts = createTerminalToolSet(makeTerminalAdapter());
     expect(ts.name).toBe('terminal');
-  });
-
-  it('exposes the adapter via .adapter property', () => {
-    const adapter = makeTerminalAdapter();
-    const ts = createTerminalToolSet(adapter);
-    expect(ts.adapter).toBe(adapter);
   });
 
   it('tools is an array (eager form)', () => {
@@ -59,12 +49,9 @@ describe('createTerminalToolSet', () => {
     expect(names).toHaveLength(6);
   });
 
-  it('onGetSymbolState returns the adapter in symbol-state', () => {
-    const adapter = makeTerminalAdapter();
-    const ts = createTerminalToolSet(adapter);
-    const state = ts.onGetSymbolState!(makeTsCtx('session-1'));
-    expect(state.terminalAdapter).toBe(adapter);
-    expect(state.type).toBe('terminal');
+  it('does not expose onGetSymbolState (UI creates its own adapter)', () => {
+    const ts = createTerminalToolSet(makeTerminalAdapter());
+    expect(ts.onGetSymbolState).toBeUndefined();
   });
 
   it('does not implement onInit, onReset, or onBuildSnapshot', () => {

@@ -3,9 +3,8 @@
  */
 export { createTerminalTools } from './tools';
 export { createTerminalToolSet } from './toolSet';
-export { createTerminalPluginAdapter } from './pluginAdapter';
+export { createTerminalPluginAdapter, createTerminalUiAdapter } from './pluginAdapter';
 export { createReadCursor } from './cursor';
-export type { TerminalToolSet } from './toolSet';
 export type { ReadCursor } from './cursor';
 export type {
   ShellFamily,

@@ -202,3 +202,6 @@ export function createTerminalPluginAdapter(
     },
   };
 }
+
+/** Alias — UI iframe uses the same factory as the agent side. */
+export const createTerminalUiAdapter = createTerminalPluginAdapter;
