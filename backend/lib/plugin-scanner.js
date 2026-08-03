@@ -27,6 +27,7 @@ import { createLogger } from './logger.js';
 import { createPluginHost } from './plugin-host.js';
 import { createPluginStateStore } from './plugin-state-store.js';
 import { createPluginInstaller } from './plugin-installer.js';
+import { createPluginServiceRegistry } from './plugin-services.js';
 import { RELEASE_PLUGINS_DIR } from './paths.js';
 import builtInPlugins from '../../built-in-plugins.json' with { type: 'json' };
 
@@ -93,6 +94,9 @@ const STATE_NOT_INSTALLED = 'not_installed';
 export function createPluginScanner(router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
   /** @type {Map<string, { manifest: PluginManifest, state: string }>} */
   const _plugins = new Map();
+
+  /** Shared inter-plugin service registry — created once, shared across all plugin hosts. */
+  const _services = createPluginServiceRegistry();
 
   /**
    * Stores the ES module reference returned by dynamic import() for each
@@ -294,7 +298,7 @@ export function createPluginScanner(router, pluginsDir, dataRoot, backendService
         }
 
         // Create sandboxed host.
-        const host = createPluginHost(name, manifest, router, pluginsDir, dataRoot, backendServices, agentDir);
+        const host = createPluginHost(name, manifest, router, pluginsDir, dataRoot, backendServices, agentDir, _services);
 
         // Call activate with the host (R1: error-isolated).
         await Promise.resolve(mod.activate(host));

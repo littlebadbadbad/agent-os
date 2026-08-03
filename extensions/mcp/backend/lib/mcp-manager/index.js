@@ -84,15 +84,16 @@ const log = {
  * @param {string} agentDir
  * @param {object|null} proxyCfg
  * @param {CryptoOps|null} [cryptoOps]
+ * @param {() => (import('@agent-type/services').TerminalService | undefined)} [getTerminalService]
  * @returns {McpManager}
  */
-export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null) {
+export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, getTerminalService = undefined) {
   const plainStore = createConfigStore(agentDir);
   const configs = createCryptoConfigStore(plainStore, cryptoOps);
-  const connections = createConnectionManager(proxyCfg);
+  const connections = createConnectionManager(proxyCfg, getTerminalService);
 
   /** @type {Map<string, {status:'disconnected'|'connecting'|'connected'|'error', errorMsg:string}>} */
-  const statusByServer = new Map();
+  const statusByServer  = new Map();
 
   for (const cfg of configs.getAll()) {
     statusByServer.set(cfg.name, { status: 'disconnected', errorMsg: '' });

@@ -16,6 +16,7 @@
  */
 
 /** @import { ProxyConfig, PluginManifest, BackendPluginHost } from '../../agent-type/plugin.ts' */
+/** @import { PluginServiceRegistry } from '../../agent-type/plugin-services.ts' */
 /** @import { pluginRouter } from './plugin-router.js' */
 
 import { join } from 'path';
@@ -43,9 +44,10 @@ const log = createLogger('plugin-host');
  * @param {string} dataRoot     - Absolute path to the data root directory (for plugin data dirs).
  * @param {BackendServices} [backendServices]  - Optional map of backend service accessors.
  * @param {string} [agentDir]   - Absolute path to the `.agent/` directory.
+ * @param {PluginServiceRegistry} [services]   - Shared inter-plugin service registry.
  * @returns {BackendPluginHost}
  */
-export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoot, backendServices = {}, agentDir = null) {
+export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoot, backendServices = {}, agentDir = null, services = null) {
   const pluginDataDir = join(dataRoot, 'plugin-data', pluginId);
 
   // Ensure the plugin's data directory exists.
@@ -108,6 +110,13 @@ export function createPluginHost(pluginId, manifest, router, pluginsDir, dataRoo
       }
       return accessor();
     },
+
+    /**
+     * Shared inter-plugin service registry.
+     * Plugins register services during activation; other plugins resolve
+     * them by name.  The same registry is shared across all plugin hosts.
+     */
+    services,
   };
 
   return host;

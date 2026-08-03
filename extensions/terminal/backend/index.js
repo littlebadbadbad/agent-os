@@ -15,6 +15,10 @@ import * as terminals from './services/terminals.js';
 import * as upgrade from './services/upgrade.js';
 
 /** @import { BackendPluginHost, StreamConnection } from '@agent-type' */
+/** @import { TerminalService } from '@agent-type/services' */
+
+/** @type {(() => void) | undefined} */
+let _unregisterService;
 
 /**
  * Activate the terminal plugin backend.
@@ -22,6 +26,28 @@ import * as upgrade from './services/upgrade.js';
  */
 export function activate(host) {
   upgrade.init(host);
+
+  // ── Inter-plugin service registration ───────────────────────────────────
+  // Expose the full terminal management surface so other backend plugins
+  // (e.g., MCP for stdio transport) can create and control terminals
+  // without going through the agent layer.
+
+  /** @type {TerminalService} */
+  const terminalService = {
+    listTerminals: () => terminals.listTerminals(),
+    availableShells: () => ({ shells: terminals.availableShells() }),
+    createTerminalSession: (params) => terminals.createTerminalSession(params),
+    spawnCommand: (params) => terminals.spawnCommandSession(params),
+    removeTerminalSession: (params) => terminals.removeTerminalSession(params),
+    sendTerminalInput: (params) => terminals.sendTerminalInput(params),
+    readTerminalOutput: (params) => terminals.readTerminalOutput(params),
+    resizeTerminalSession: (params) => terminals.resizeTerminalSession(params),
+    waitTerminal: (params) => terminals.waitTerminal(params),
+    sleepTerminal: (params) => terminals.sleepTerminal(params),
+    cancelWait: (params) => terminals.cancelWait(params),
+  };
+
+  _unregisterService = host.services.register('terminal', terminalService);
 
   // ── RPC APIs ──────────────────────────────────────────────────────────────
 
@@ -193,9 +219,14 @@ export function activate(host) {
 
 /**
  * Deactivate hook — called by the plugin lifecycle when the plugin is
- * disabled or uninstalled.  Kills all PTY terminal processes.
+ * disabled or uninstalled.  Unregisters inter-plugin services and kills
+ * all PTY terminal processes.
  * Symmetric to activate(host).
  */
 export function deactivate() {
+  if (_unregisterService) {
+    _unregisterService();
+    _unregisterService = undefined;
+  }
   terminals.killAllTerminals();
 }

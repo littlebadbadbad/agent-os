@@ -53,14 +53,17 @@ export function TerminalPanel({ adapter, sessionId }: TerminalPanelProps): React
     const intervalId = setInterval(async () => {
       try {
         const list = await adapter.listTerminals({ sessionId });
-        setTerminals(prev =>
-          prev
+        setTerminals(prev => {
+          const prevIds = new Set(prev.map(t => t.id));
+          const updated = prev
             .filter(t => list.some(l => l.id === t.id))
             .map(t => {
               const fresh = list.find(l => l.id === t.id);
               return fresh ? { ...t, running: fresh.running, exitCode: fresh.exitCode } : t;
-            }),
-        );
+            });
+          const added = list.filter(l => !prevIds.has(l.id));
+          return [...updated, ...added];
+        });
       } catch { /* backend may be restarting */ }
     }, 3000);
     return () => clearInterval(intervalId);

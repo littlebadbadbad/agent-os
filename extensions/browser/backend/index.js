@@ -12,6 +12,10 @@ import * as svc from './services/browser.js';
 import { setProxyGetter } from './proxy-host.js';
 
 /** @import { BackendPluginHost, ProxyConfig, StreamConnection } from '../../../../agent-type/plugin.ts' */
+/** @import { BrowserService } from '@agent-type/services' */
+
+/** @type {(() => void) | undefined} */
+let _unregisterService;
 
 /**
  * Activate the browser plugin backend.
@@ -22,6 +26,32 @@ import { setProxyGetter } from './proxy-host.js';
 export function activate(host) {
   // Inject proxy getter — the ONLY bridge to backend proxy config.
   setProxyGetter(() => /** @type {ProxyConfig} */ (host.getBackendConfig('proxy')));
+
+  // ── Inter-plugin service registration ───────────────────────────────────
+  // Expose the full browser management surface so other backend plugins
+  // (e.g., Skill for web scraping) can launch and control browser sessions
+  // without going through the agent layer.
+
+  /** @type {BrowserService} */
+  const browserService = {
+    listSessions: () => ({ sessions: svc.getBrowserList() }),
+    createSession: (params) => svc.launchBrowser(params),
+    closeSession: (params) => { svc.closeBrowser(params); },
+    navigate: (params) => svc.navigateBrowser(params),
+    evaluate: (params) => svc.evaluateBrowser(params),
+    readOutput: (params) => svc.readBrowserOutput({ id: params.id, fromOffset: params.fromOffset ?? 0 }),
+    snapshot: (params) => svc.snapshotBrowser(params),
+    wait: (params) => svc.waitBrowser(params),
+    screenshotData: (params) => svc.screenshotBrowser(params),
+    setLaunchConfig: (params) => svc.configureBrowser(params),
+    setProxy: (params) => svc.setBrowserProxy(params),
+    switchTab: (params) => svc.switchBrowserTab(params),
+    setViewportSize: (params) => svc.setViewportSize(params),
+    getNetworkRequests: (params) => svc.getBrowserNetworkRequests(params),
+    clearNetworkRequests: (params) => { svc.clearBrowserNetworkRequests(params); },
+  };
+
+  _unregisterService = host.services.register('browser', browserService);
 
   // ── CRUD sessions ──────────────────────────────────────────────────────
   host.defineApi('listSessions', async (_params) => ({ sessions: svc.getBrowserList() }));
@@ -126,9 +156,14 @@ export function activate(host) {
 
 /**
  * Deactivate hook — called by the plugin lifecycle when the plugin is
- * disabled or uninstalled.  Closes all browser sessions (Playwright
- * processes, network connections).  Symmetric to activate(host).
+ * disabled or uninstalled.  Unregisters inter-plugin services and closes
+ * all browser sessions (Playwright processes, network connections).
+ * Symmetric to activate(host).
  */
 export async function deactivate() {
+  if (_unregisterService) {
+    _unregisterService();
+    _unregisterService = undefined;
+  }
   await svc.closeAllBrowsers();
 }

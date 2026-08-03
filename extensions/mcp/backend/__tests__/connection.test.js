@@ -93,15 +93,23 @@ describe('ConnectionManager', () => {
       expect(tools).toHaveLength(1);
     });
 
-    it('creates stdio client', async () => {
+    it('creates stdio client with terminal service (lazy resolver)', async () => {
       const client = makeMockClient([{ name: 'stdio_tool', inputSchema: { type: 'object' } }]);
       mockStdio.createStdioClient.mockResolvedValue(client);
 
-      const mgr = createConnectionManager();
+      const mockTerminal = { _tag: 'mock-terminal' };
+      const mgr = createConnectionManager(null, () => mockTerminal);
       const tools = await mgr.connect(makeConfig({ transport: 'stdio', url: 'node server.js' }));
 
       expect(mockStdio.createStdioClient.mock.calls[0][0]).toBe('node server.js');
+      expect(mockStdio.createStdioClient.mock.calls[0][1]).toBe(mockTerminal);
       expect(tools[0].name).toBe('stdio_tool');
+    });
+
+    it('throws when stdio transport is used without TerminalService (resolver returns undefined)', async () => {
+      const mgr = createConnectionManager(null, () => undefined);
+      await expect(mgr.connect(makeConfig({ transport: 'stdio', url: 'node server.js' })))
+        .rejects.toThrow('stdio transport requires TerminalService');
     });
 
     it('throws for unknown transport', async () => {

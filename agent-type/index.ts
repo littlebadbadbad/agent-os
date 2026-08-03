@@ -98,6 +98,9 @@ export type {
 // ── Plugin Bridge (shared agent↔UI object) ───────────────────────────────────
 export type { PluginBridge } from "./plugin-bridge";
 
+// ── Plugin services (inter-plugin backend communication) ─────────────────────
+export type { PluginServiceRegistry } from "./plugin-services";
+
 // ── Plugin types ──────────────────────────────────────────────────────────────
 export type {
   Logger,

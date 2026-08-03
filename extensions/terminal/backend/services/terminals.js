@@ -14,6 +14,7 @@ import {
   resizeTerminal,
   listAvailableShells,
   streamTerminalOutput,
+  spawnCommand,
 } from '../lib/shell-manager/index.js';
 
 export { killAllTerminals } from '../lib/shell-manager/index.js';
@@ -42,6 +43,17 @@ export function createTerminalSession({ label, shell, cwd } = {}) {
   }
   const term = createTerminal({ label, shell, cwd });
   return term.info();
+}
+
+/**
+ * Run an arbitrary command via child_process.spawn({ shell: true }).
+ * Essential for .cmd/.bat on Windows where node-pty can't resolve them.
+ * Returns the same info shape as createTerminalSession.
+ */
+export function spawnCommandSession({ commandLine, label, cwd } = {}) {
+  if (!commandLine) throw new Error('commandLine is required');
+  const cmd = spawnCommand({ commandLine, label, cwd });
+  return cmd.info();
 }
 
 export function removeTerminalSession({ id }) {

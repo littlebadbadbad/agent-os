@@ -3,6 +3,7 @@ import type { AgentSessionState, SessionStateLike, PluginStateExtension, Tool, A
 import type { PluginSlotDeclaration, SlotContext, SlotHostMessage } from "./ui-slot";
 import type { ModelMeta } from "./model";
 import type { PluginBridge } from "./plugin-bridge";
+import type { PluginServiceRegistry } from "./plugin-services";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Plugin manifest & lifecycle types
@@ -243,6 +244,25 @@ export interface BackendPluginHost {
    * ```
    */
   readonly logger: Logger;
+
+  /**
+   * Shared inter-plugin service registry.
+   *
+   * Internal (built-in) plugins register service implementations here
+   * during activation so that other backend plugins can resolve and
+   * call them directly — without going through the agent layer or
+   * HTTP/IPC transport.
+   *
+   * @example
+   * ```ts
+   * // Terminal backend registers:
+   * host.services.register('terminal', { createTerminalSession, ... });
+   *
+   * // MCP backend resolves:
+   * const terminal = host.services.resolve('terminal');
+   * ```
+   */
+  readonly services: PluginServiceRegistry;
 }
 
 /**

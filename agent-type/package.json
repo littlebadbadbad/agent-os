@@ -10,6 +10,21 @@
       "types": "./index.ts",
       "import": "./index.ts",
       "default": "./index.ts"
+    },
+    "./services": {
+      "types": "./services/index.ts",
+      "import": "./services/index.ts",
+      "default": "./services/index.ts"
+    },
+    "./plugin-services": {
+      "types": "./plugin-services.ts",
+      "import": "./plugin-services.ts",
+      "default": "./plugin-services.ts"
+    },
+    "./*": {
+      "types": "./*.ts",
+      "import": "./*.ts",
+      "default": "./*.ts"
     }
   }
 }

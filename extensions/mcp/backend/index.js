@@ -36,7 +36,12 @@ export function activate(host) {
 
   const proxyConfig = host.getBackendConfig('proxy');
   const keyEncryption = host.getBackendConfig('keyEncryption');
-  const manager = createMcpManager(agentDir, proxyConfig, keyEncryption);
+
+  // Lazy resolver — terminal plugin may not be activated yet at this point.
+  // Resolution happens when `stdio` transport actually needs a terminal session.
+  const getTerminalService = () => host.services.resolve('terminal');
+
+  const manager = createMcpManager(agentDir, proxyConfig, keyEncryption, getTerminalService);
   _manager = manager;
   const service = createMcpService(manager);
 
@@ -68,9 +73,28 @@ export function activate(host) {
   });
 
   // ── Startup reconnect ─────────────────────────────────────────────────────
-  manager.startupReconnect().catch((err) => {
-    console.warn('[mcp] startup reconnect failed:', err?.message ?? err);
-  });
+  // Terminal plugin may not be activated yet — poll until ready, then
+  // reconnect all enabled servers.  Timeout falls through anyway
+  // (non-stdio servers don't need the terminal service).
+
+  const TERMINAL_WAIT_MS = 20_000;
+  const TERMINAL_POLL_MS = 200;
+  const maxTries = Math.ceil(TERMINAL_WAIT_MS / TERMINAL_POLL_MS);
+
+  const doReconnect = () => {
+    manager.startupReconnect().catch((err) => {
+      console.warn('[mcp] startup reconnect failed:', err?.message ?? err);
+    });
+  };
+
+  let tries = 0;
+  const poll = setInterval(() => {
+    tries++;
+    if (getTerminalService() || tries >= maxTries) {
+      clearInterval(poll);
+      doReconnect();
+    }
+  }, TERMINAL_POLL_MS);
 }
 
 /**

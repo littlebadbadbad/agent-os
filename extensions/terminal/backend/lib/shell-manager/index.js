@@ -1,30 +1,28 @@
 /**
  * shell-manager — public API for interactive terminal management.
  *
- * Thin coordination layer on top of the two sub-modules:
- *   shell-discovery    — host shell enumeration
- *   terminal-instance  — PTY-backed TerminalInstance class
+ * Thin coordination layer on top of:
+ *   shell-discovery     — host shell enumeration
+ *   terminal-instance   — PTY-backed TerminalInstance (interactive shells)
+ *   command-session     — child_process.spawn wrapper (arbitrary commands)
  *
- * Exported surface (consumed by routes/terminals.js and tests):
- *   listAvailableShells()
- *   createTerminal(opts?)          → TerminalInstance
- *   getTerminal(id)                → TerminalInstance | null
- *   listTerminalEntries()          → info[] (all live terminals)
- *   removeTerminal(id)             → boolean
- *   writeToTerminal(id, text)
- *   streamTerminalOutput(id, cb, signal?)  → unsubscribe fn
+ * Both TerminalInstance and CommandSession share the same registry and
+ * expose identical read/write/subscribe/info/kill surfaces.
  */
 
 import { randomBytes } from 'crypto';
 import { listAvailableShells } from './shell-discovery.js';
 import { TerminalInstance }    from './terminal-instance.js';
+import { CommandSession }      from './command-session.js';
 
 export { listAvailableShells };
 
-// ── Registry ──────────────────────────────────────────────────────────────────
+/** @typedef {TerminalInstance | CommandSession} Session */
 
-/** @type {Map<string, TerminalInstance>} */
-const _terminals = new Map();
+// ── Unified session registry ──────────────────────────────────────────────────
+
+/** @type {Map<string, Session>} */
+const _sessions = new Map();
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -37,96 +35,105 @@ const _terminals = new Map();
 export function createTerminal({ label, shell, cwd } = {}) {
   const id   = `term_${randomBytes(4).toString('hex')}`;
   const term = new TerminalInstance(id, { label, shell, cwd });
-  _terminals.set(id, term);
+  _sessions.set(id, term);
   return term;
 }
 
 /**
- * Look up a terminal by id.
- * @param {string} id
- * @returns {TerminalInstance | null}
+ * Run a command via child_process.spawn({ shell: true }).
+ *
+ * Unlike createTerminal (node-pty), this handles .cmd/.bat on Windows and
+ * arbitrary command lines — essential for running npx, python, node scripts.
+ *
+ * @param {{ commandLine: string; label?: string; cwd?: string }} opts
+ * @returns {CommandSession}
  */
-export function getTerminal(id) {
-  return _terminals.get(id) ?? null;
+export function spawnCommand({ commandLine, label, cwd }) {
+  const id  = `cmd_${randomBytes(4).toString('hex')}`;
+  const cmd = new CommandSession(id, { commandLine, label, cwd });
+  _sessions.set(id, cmd);
+  return cmd;
 }
 
 /**
- * Return serialisable info for all registered terminals.
- * @returns {ReturnType<TerminalInstance['info']>[]}
+ * Look up a session by id.
+ * @param {string} id
+ * @returns {Session | null}
+ */
+export function getSession(id) {
+  return _sessions.get(id) ?? null;
+}
+
+/** Backward-compat alias — all callers go through getSession now. */
+export const getTerminal = getSession;
+
+/**
+ * Return serialisable info for all registered sessions.
+ * @returns {ReturnType<Session['info']>[]}
  */
 export function listTerminalEntries() {
-  return [..._terminals.values()].map(t => t.info());
+  return [..._sessions.values()].map(s => s.info());
 }
 
 /**
- * Kill and deregister a terminal.
- * Guaranteed not to throw — safe to call multiple times or on terminals
- * whose PTY process never started (e.g. node-pty spawn failure).
+ * Kill and deregister a session.  Never throws.
  * @param {string} id
- * @returns {boolean} false if the id was not found
+ * @returns {boolean}
  */
 export function removeTerminal(id) {
-  const term = _terminals.get(id);
-  if (!term) return false;
-  try { term.kill(); } catch { /* PTY already gone or never started */ }
-  _terminals.delete(id);
+  const session = _sessions.get(id);
+  if (!session) return false;
+  try { session.kill(); } catch { /* already gone */ }
+  _sessions.delete(id);
   return true;
 }
 
 /**
- * Resize the PTY viewport of a terminal.
+ * Resize the PTY viewport (no-op for CommandSessions).
  * @param {string} id
  * @param {number} cols
  * @param {number} rows
  */
 export function resizeTerminal(id, cols, rows) {
-  const term = _terminals.get(id);
-  if (!term) throw new Error(`Terminal "${id}" not found`);
-  term.resize(cols, rows);
+  const session = _sessions.get(id);
+  if (!session) throw new Error(`Session "${id}" not found`);
+  if (session instanceof TerminalInstance) session.resize(cols, rows);
 }
 
 /**
- * Write text (or a control byte such as \x03) directly to the PTY.
+ * Write text to a session's stdin.
  * @param {string} id
  * @param {string} text
  */
 export function writeToTerminal(id, text) {
-  const term = _terminals.get(id);
-  if (!term) throw new Error(`Terminal "${id}" not found`);
-  term.write(text);
+  const session = _sessions.get(id);
+  if (!session) throw new Error(`Session "${id}" not found`);
+  session.write(text);
 }
 
 /**
- * Subscribe a callback to real-time PTY output.
- * `onData({ text, done, exitCode? })` is called for each chunk and once on exit.
- * Returns an unsubscribe function; also cancelled when `signal` aborts.
- *
+ * Subscribe a callback to real-time output.
  * @param {string} id
  * @param {(evt: { text: string; done: boolean; exitCode?: number }) => void} onData
  * @param {AbortSignal} [signal]
  * @returns {() => void}
  */
 export function streamTerminalOutput(id, onData, signal) {
-  const term = _terminals.get(id);
-  if (!term) throw new Error(`Terminal "${id}" not found`);
-  const unsub = term.subscribe(onData);
+  const session = _sessions.get(id);
+  if (!session) throw new Error(`Session "${id}" not found`);
+  const unsub = session.subscribe(onData);
   signal?.addEventListener('abort', unsub, { once: true });
   return unsub;
 }
 
 /**
- * Kill and deregister ALL terminal sessions.
- * Used by the plugin deactivation lifecycle — symmetric to activate().
- * Safe to call multiple times; terminals already killed are skipped.
+ * Kill and deregister ALL sessions.
  */
 export function killAllTerminals() {
-  const ids = Array.from(_terminals.keys());
-  for (const id of ids) {
-    removeTerminal(id);
-  }
+  for (const id of Array.from(_sessions.keys())) removeTerminal(id);
 }
 
 // ── Cleanup on server exit ────────────────────────────────────────────────────
 process.on('exit', () => {
-  for (const term of _terminals.values()) term.kill();
+  for (const session of _sessions.values()) session.kill();
 });

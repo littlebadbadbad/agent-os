@@ -67,9 +67,10 @@ const log = {
  * Create a connection manager that tracks MCP client instances keyed by server name.
  *
  * @param {ProxyConfig|null} proxyConfig - Global proxy configuration.
+ * @param {() => (import('@agent-type/services').TerminalService | undefined)} [getTerminalService] - Lazy resolver for the terminal cross-plugin service.
  * @returns {ConnectionManager}
  */
-export function createConnectionManager(proxyConfig = null) {
+export function createConnectionManager(proxyConfig = null, getTerminalService = undefined) {
   /** @type {Map<string, McpClient>} */
   const clients = new Map();
 
@@ -110,7 +111,11 @@ export function createConnectionManager(proxyConfig = null) {
           client = await createLegacySseClient(cfg.url, cfg.headers, transportOpts);
           break;
         case 'stdio': {
-          client = await createStdioClient(cfg.url);
+          const terminalService = typeof getTerminalService === 'function' ? getTerminalService() : undefined;
+          if (!terminalService) {
+            throw new Error('stdio transport requires TerminalService — ensure the terminal plugin is enabled');
+          }
+          client = await createStdioClient(cfg.url, terminalService);
           break;
         }
         default:
