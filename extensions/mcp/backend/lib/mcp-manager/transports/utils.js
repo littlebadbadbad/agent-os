@@ -11,8 +11,13 @@
 /** MCP client identity advertised during the `initialize` handshake. */
 const CLIENT_INFO = Object.freeze({ name: 'agent-sdk-backend', version: '0.1.0' });
 
-/** Latest MCP protocol version supported by this client. */
-const MCP_PROTOCOL_VERSION = '2025-03-26';
+/**
+ * Latest MCP protocol version requested by this client during `initialize`.
+ * The transport tracks whatever version the server actually negotiates back
+ * (see `negotiateProtocolVersion`) and uses THAT value for the
+ * `MCP-Protocol-Version` header on every subsequent request, per spec.
+ */
+const MCP_PROTOCOL_VERSION = '2025-06-18';
 
 /**
  * @typedef {object} ClientInfo
@@ -22,47 +27,44 @@ const MCP_PROTOCOL_VERSION = '2025-03-26';
 
 /**
  * @typedef {object} ContentBlock
- * @property {'text'|'image'|'audio'|'resource'} type
+ * @property {'text'|'image'|'audio'|'resource'|'resource_link'} type
  * @property {string} [text]
  * @property {string} [data]
  * @property {string} [mimeType]
+ * @property {string} [uri]
+ * @property {string} [name]
+ * @property {string} [description]
  * @property {{uri:string,mimeType?:string,text?:string,blob?:string}} [resource]
  */
 
 /**
  * @typedef {object} ToolCallResult
  * @property {readonly ContentBlock[]} content
+ * @property {Record<string,unknown>} [structuredContent]
  * @property {boolean} [isError]
  */
 
 export { CLIENT_INFO, MCP_PROTOCOL_VERSION };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Tool Result Serialization
-// ═══════════════════════════════════════════════════════════════════════════════
-
 /**
- * Serialize an MCP tool-result payload to a plain string suitable for
- * the agent. Preserves content type information.
+ * Decide which protocol version to use for all requests after `initialize`.
+ * Per spec, the client should echo back whatever the server negotiated in
+ * `InitializeResult.protocolVersion` — falling back to our requested
+ * version if the server omitted it.
  *
- * @param {ToolCallResult} result
+ * @param {unknown} initializeResult
  * @returns {string}
  */
-export function serializeToolResult(result) {
-  const text = (result.content ?? [])
-    .map((part) => {
-      if (part.type === 'text') return part.text;
-      if (part.type === 'image') return `[Image: ${part.mimeType}]`;
-      if (part.type === 'audio') return `[Audio: ${part.mimeType}]`;
-      if (part.type === 'resource') {
-        const r = part.resource;
-        if (r.text) return r.text;
-        return `[Resource: ${r.uri}]`;
-      }
-      return '';
-    })
-    .join('\n');
-  return result.isError ? `[Tool error]\n${text}` : text;
+export function negotiateProtocolVersion(initializeResult) {
+  if (
+    initializeResult !== null &&
+    typeof initializeResult === 'object' &&
+    'protocolVersion' in initializeResult &&
+    typeof (/** @type {{protocolVersion:unknown}} */ (initializeResult).protocolVersion) === 'string'
+  ) {
+    return /** @type {{protocolVersion:string}} */ (initializeResult).protocolVersion;
+  }
+  return MCP_PROTOCOL_VERSION;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -192,3 +194,101 @@ export async function ensureProxyFetch(proxyCfg) {
   }
   return _proxyFetchCache;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Cursor Pagination
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Fetch every page of a cursor-paginated list method (e.g. `tools/list`),
+ * accumulating the named result array across pages. Shared by every
+ * transport so pagination is implemented exactly once.
+ *
+ * @template T
+ * @param {(method:string, params?:Record<string,unknown>) => Promise<unknown>} sendRequest
+ * @param {string} method
+ * @param {string} listKey - Key of the array field in each page's result (e.g. "tools").
+ * @returns {Promise<readonly T[]>}
+ */
+export async function paginateList(sendRequest, method, listKey) {
+  /** @type {T[]} */
+  const items = [];
+  /** @type {string|undefined} */
+  let cursor;
+  do {
+    const result = await sendRequest(method, cursor ? { cursor } : {});
+    if (result && typeof result === 'object' && listKey in result) {
+      const page = /** @type {Record<string, unknown>} */ (result);
+      const pageItems = /** @type {readonly T[]} */ (page[listKey]);
+      items.push(...pageItems);
+      cursor = typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
+    } else {
+      cursor = undefined;
+    }
+  } while (cursor);
+  return items;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Shared SSE Frame Parser
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * @typedef {object} SseFrame
+ * @property {string} event - The event name (defaults to "message" per the SSE spec).
+ * @property {string} data - The joined `data:` payload (multiple `data:` lines are
+ *   newline-joined, per the SSE spec).
+ */
+
+/**
+ * Parse a byte stream into SSE frames — a single, spec-correct implementation
+ * shared by every transport that needs to read `text/event-stream` bodies
+ * (Streamable HTTP's POST/GET streams, and the legacy SSE transport).
+ *
+ * Per the SSE spec, a field line is `<field>:<value>`, where exactly one
+ * leading space after the colon (if present) is stripped. Lines starting
+ * with `:` are comments. A blank line dispatches the accumulated frame.
+ *
+ * @param {ReadableStreamDefaultReader<Uint8Array>} reader
+ * @returns {AsyncGenerator<SseFrame>}
+ */
+export async function* parseSseFrames(reader) {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let eventType = '';
+  /** @type {string[]} */
+  let dataLines = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const rawLine of lines) {
+      const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+
+      if (line === '') {
+        if (dataLines.length > 0) {
+          yield { event: eventType || 'message', data: dataLines.join('\n') };
+        }
+        eventType = '';
+        dataLines = [];
+        continue;
+      }
+      if (line.startsWith(':')) continue; // comment line
+
+      const colonIdx = line.indexOf(':');
+      const field = colonIdx === -1 ? line : line.slice(0, colonIdx);
+      let fieldValue = colonIdx === -1 ? '' : line.slice(colonIdx + 1);
+      if (fieldValue.startsWith(' ')) fieldValue = fieldValue.slice(1);
+
+      if (field === 'event') eventType = fieldValue;
+      else if (field === 'data') dataLines.push(fieldValue);
+      // `id:` / `retry:` fields are not needed for MCP's SSE semantics.
+    }
+  }
+}
+

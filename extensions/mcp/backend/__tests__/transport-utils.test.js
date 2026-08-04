@@ -26,65 +26,62 @@ describe('transport utils', () => {
       expect(utils.CLIENT_INFO.version).toBe('0.1.0');
     });
 
-    it('MCP_PROTOCOL_VERSION is 2025-03-26', () => {
-      expect(utils.MCP_PROTOCOL_VERSION).toBe('2025-03-26');
+    it('MCP_PROTOCOL_VERSION is 2025-06-18', () => {
+      expect(utils.MCP_PROTOCOL_VERSION).toBe('2025-06-18');
     });
   });
 
-  // ── serializeToolResult ────────────────────────────────────────────────
+  // ── negotiateProtocolVersion ─────────────────────────────────────────────
 
-  describe('serializeToolResult', () => {
-    it('serializes text content', () => {
-      const result = { content: [{ type: 'text', text: 'Hello' }] };
-      expect(utils.serializeToolResult(result)).toBe('Hello');
+  describe('negotiateProtocolVersion', () => {
+    it('returns the server-negotiated version when present', () => {
+      expect(utils.negotiateProtocolVersion({ protocolVersion: '2025-03-26' })).toBe('2025-03-26');
     });
 
-    it('serializes image content with mime type', () => {
-      const result = { content: [{ type: 'image', mimeType: 'image/png', data: 'abc' }] };
-      expect(utils.serializeToolResult(result)).toBe('[Image: image/png]');
+    it('falls back to MCP_PROTOCOL_VERSION when missing', () => {
+      expect(utils.negotiateProtocolVersion({})).toBe(utils.MCP_PROTOCOL_VERSION);
+      expect(utils.negotiateProtocolVersion(null)).toBe(utils.MCP_PROTOCOL_VERSION);
+      expect(utils.negotiateProtocolVersion({ protocolVersion: 42 })).toBe(utils.MCP_PROTOCOL_VERSION);
     });
+  });
 
-    it('serializes audio content with mime type', () => {
-      const result = { content: [{ type: 'audio', mimeType: 'audio/ogg', data: 'raw' }] };
-      expect(utils.serializeToolResult(result)).toBe('[Audio: audio/ogg]');
-    });
+  // ── parseSseFrames ───────────────────────────────────────────────────────
 
-    it('serializes resource content with text', () => {
-      const result = { content: [{ type: 'resource', resource: { uri: 'file:///data.txt', text: 'content' } }] };
-      expect(utils.serializeToolResult(result)).toBe('content');
-    });
-
-    it('serializes resource content without text (URI fallback)', () => {
-      const result = { content: [{ type: 'resource', resource: { uri: 'file:///data.bin' } }] };
-      expect(utils.serializeToolResult(result)).toBe('[Resource: file:///data.bin]');
-    });
-
-    it('joins multiple content blocks with newlines', () => {
-      const result = {
-        content: [
-          { type: 'text', text: 'First' },
-          { type: 'text', text: 'Second' },
-          { type: 'image', mimeType: 'image/gif', data: 'gifdata' },
-        ],
+  describe('parseSseFrames', () => {
+    function readerFor(text) {
+      const bytes = new TextEncoder().encode(text);
+      let sent = false;
+      return {
+        read: async () => {
+          if (sent) return { done: true, value: undefined };
+          sent = true;
+          return { done: false, value: bytes };
+        },
       };
-      expect(utils.serializeToolResult(result)).toBe('First\nSecond\n[Image: image/gif]');
+    }
+
+    it('parses "data:" without a following space', async () => {
+      const frames = [];
+      for await (const f of utils.parseSseFrames(readerFor('data:{"a":1}\n\n'))) frames.push(f);
+      expect(frames).toEqual([{ event: 'message', data: '{"a":1}' }]);
     });
 
-    it('prepends [Tool error] when isError is true', () => {
-      const result = {
-        content: [{ type: 'text', text: 'Something went wrong' }],
-        isError: true,
-      };
-      expect(utils.serializeToolResult(result)).toBe('[Tool error]\nSomething went wrong');
+    it('parses "data: " with a following space', async () => {
+      const frames = [];
+      for await (const f of utils.parseSseFrames(readerFor('data: {"a":1}\n\n'))) frames.push(f);
+      expect(frames).toEqual([{ event: 'message', data: '{"a":1}' }]);
     });
 
-    it('handles empty content array', () => {
-      const result = { content: [] };
-      expect(utils.serializeToolResult(result)).toBe('');
+    it('captures the event name and ignores comments', async () => {
+      const frames = [];
+      for await (const f of utils.parseSseFrames(readerFor(': comment\nevent: endpoint\ndata: /msg\n\n'))) frames.push(f);
+      expect(frames).toEqual([{ event: 'endpoint', data: '/msg' }]);
     });
 
-    it('handles missing content (null safety)', () => {
-      expect(utils.serializeToolResult({})).toBe('');
+    it('joins multiple data lines with newlines', async () => {
+      const frames = [];
+      for await (const f of utils.parseSseFrames(readerFor('data:line1\ndata:line2\n\n'))) frames.push(f);
+      expect(frames).toEqual([{ event: 'message', data: 'line1\nline2' }]);
     });
   });
 

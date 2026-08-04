@@ -16,7 +16,7 @@ Three transport types — choose based on what the server supports:
 
 | Transport | When to use | URL format | Notes |
 |-----------|-------------|------------|-------|
-| \`streamable-http\` | **Recommended** for all new MCP servers (2025-03-26 spec) | \`https://host:port/mcp\` | Single endpoint. Supports custom headers and system proxy. |
+| \`streamable-http\` | **Recommended** for all new MCP servers (2025-06-18 spec, negotiates down to 2025-03-26) | \`https://host:port/mcp\` | Single endpoint. Supports custom headers and system proxy. |
 | \`legacy-sse\` | Older servers (2024-11-05 spec, deprecated) | \`https://host:port/sse\` | Separate SSE+POST endpoints. Supports headers and proxy. |
 | \`stdio\` | Local subprocess servers (e.g. \`npx\` packages) | Command string like \`npx @modelcontextprotocol/server-github\` | No headers, no proxy. The command is spawned as a subprocess. |
 

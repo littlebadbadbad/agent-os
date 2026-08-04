@@ -14,7 +14,8 @@ import type { ToolDef, ToolCallResult } from './protocol';
 /**
  * MCP transport protocol.
  *
- * - `streamable-http`:  MCP 2025-03-26 Streamable HTTP (single endpoint, POST+GET).
+ * - `streamable-http`:  MCP Streamable HTTP (single endpoint, POST+GET). Negotiates the
+ *   protocol version per-connection; requests 2025-06-18 and adapts down to 2025-03-26.
  * - `legacy-sse`:       MCP 2024-11-05 HTTP+SSE (deprecated, separate SSE+POST endpoints).
  * - `stdio`:            MCP stdio transport (subprocess stdin/stdout).
  */

@@ -1,18 +1,22 @@
 /**
- * MCP Streamable HTTP transport (MCP 2025-03-26).
+ * MCP Streamable HTTP transport (MCP 2025-06-18, negotiable down to 2025-03-26).
  *
  * Single HTTP endpoint supporting both POST (client→server) and GET (server→client).
  *
  * Key protocol behaviors:
  *  - Initialize → send `initialize` request → receive `InitializeResult` with
- *    optional `Mcp-Session-Id` header.
+ *    optional `Mcp-Session-Id` header. The server's negotiated protocol
+ *    version is then echoed back via `MCP-Protocol-Version` on every
+ *    subsequent request.
  *  - Send `notifications/initialized` notification.
  *  - Subsequent requests include `Mcp-Session-Id` header.
  *  - POST responses may be `application/json` (single response) or
- *    `text/event-stream` (SSE stream).
+ *    `text/event-stream` (SSE stream — matched by JSON-RPC id, ignoring
+ *    unrelated notifications/requests the server may interleave).
  *  - GET opens an SSE stream for server-to-client push messages
  *    (e.g. `notifications/tools/list_changed`).
  *  - HTTP DELETE terminates the session.
+ *  - `tools/list` follows cursor-based pagination to completion.
  *
  * Proxy support: when `useProxy` is enabled and the target is not local/private,
  * connections route through the configured proxy.
@@ -24,6 +28,9 @@ import {
   shouldUseProxy,
   ensureProxyFetch,
   wrapTransportError,
+  negotiateProtocolVersion,
+  parseSseFrames,
+  paginateList,
 } from './utils.js';
 
 /**
@@ -58,6 +65,8 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
   let requestId = 0;
   /** @type {string|undefined} */
   let sessionId;
+  /** Protocol version negotiated with the server during `initialize`. */
+  let negotiatedVersion = '';
   let closed = false;
 
   // ── Fetch selection ────────────────────────────────────────────────────
@@ -76,6 +85,9 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
       ...extraHeaders,
     };
     if (sessionId) h['Mcp-Session-Id'] = sessionId;
+    // Per spec, every request AFTER `initialize` must carry the negotiated
+    // protocol version so the server can respond in kind.
+    if (negotiatedVersion) h['MCP-Protocol-Version'] = negotiatedVersion;
     return h;
   }
 
@@ -116,7 +128,7 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
 
     const contentType = res.headers.get('Content-Type') ?? '';
     if (contentType.includes('text/event-stream')) {
-      return extractFirstSseResult(res);
+      return extractSseResult(res, id);
     }
 
     const data = await res.json();
@@ -147,12 +159,9 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
     clientInfo: CLIENT_INFO,
   });
 
-  // Negotiate protocol version
-  if (initResult && typeof initResult === 'object' && 'protocolVersion' in initResult) {
-    const serverVersion = /** @type {{protocolVersion:string}} */ (initResult).protocolVersion;
-    if (serverVersion !== MCP_PROTOCOL_VERSION) {
-      console.warn(`[mcp] Server protocol version ${serverVersion} differs from client ${MCP_PROTOCOL_VERSION}`);
-    }
+  negotiatedVersion = negotiateProtocolVersion(initResult);
+  if (negotiatedVersion !== MCP_PROTOCOL_VERSION) {
+    console.warn(`[mcp] Server protocol version ${negotiatedVersion} differs from client ${MCP_PROTOCOL_VERSION}`);
   }
 
   sendNotification('notifications/initialized');
@@ -160,12 +169,9 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
   // ── Public API ─────────────────────────────────────────────────────────
 
   return {
-    /** List available tools from this server. */
+    /** List available tools from this server, following pagination to completion. */
     async listTools() {
-      const result = await sendRequest('tools/list');
-      return (result && typeof result === 'object' && 'tools' in result)
-        ? /** @type {{tools:readonly ToolDef[]}} */ (result).tools
-        : [];
+      return paginateList(sendRequest, 'tools/list', 'tools');
     },
 
     /** Call a tool on this server. Returns structured ToolCallResult. */
@@ -182,14 +188,7 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
       /** @type {Response} */
       let res;
       try {
-        res = await requestFetch(url, {
-          method: 'GET',
-          headers: {
-            Accept: 'text/event-stream',
-            ...(sessionId ? { 'Mcp-Session-Id': sessionId } : {}),
-            ...extraHeaders,
-          },
-        });
+        res = await requestFetch(url, { method: 'GET', headers: buildHeaders() });
       } catch (err) {
         throw wrapTransportError(/** @type {Error} */ (err), url);
       }
@@ -205,33 +204,13 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
       const reader = res.body?.getReader();
       if (!reader) return;
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let eventType = '';
-      let dataLines = '';
-
       try {
-        while (!closed) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              eventType = line.slice(6).trim();
-            } else if (line.startsWith('data:')) {
-              dataLines += (dataLines ? '\n' : '') + line.slice(5);
-            } else if (line === '' && dataLines) {
-              try {
-                const msg = JSON.parse(dataLines);
-                yield { method: msg.method ?? eventType, params: msg.params };
-              } catch { /* ignore unparseable events */ }
-              eventType = '';
-              dataLines = '';
-            }
-          }
+        for await (const frame of parseSseFrames(reader)) {
+          if (closed) break;
+          try {
+            const msg = JSON.parse(frame.data);
+            yield { method: msg.method ?? frame.event, params: msg.params };
+          } catch { /* ignore unparseable events */ }
         }
       } finally {
         reader.cancel().catch(() => {});
@@ -244,7 +223,7 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
       if (sessionId) {
         requestFetch(url, {
           method: 'DELETE',
-          headers: { 'Mcp-Session-Id': sessionId, ...extraHeaders },
+          headers: buildHeaders(),
         }).catch(() => {});
         sessionId = undefined;
       }
@@ -255,41 +234,37 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
 // ── SSE result extraction (for POST responses that stream) ──────────────
 
 /**
- * Extract the first SSE result event from a POST response body.
+ * Extract the JSON-RPC response matching `expectedId` from a POST
+ * response's SSE body.
+ *
+ * Per spec, the server MAY send other requests/notifications (e.g.
+ * progress updates) on this stream before the actual response — those
+ * MUST be skipped rather than mistaken for the final result.
+ *
  * @param {Response} res
+ * @param {number} expectedId
  * @returns {Promise<unknown>}
  */
-async function extractFirstSseResult(res) {
+async function extractSseResult(res, expectedId) {
   const reader = res.body?.getReader();
   if (!reader) throw new Error('MCP: empty response body');
 
-  const decoder = new TextDecoder();
-  let buffer = '';
-
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-      let dataLines = '';
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          dataLines += line.slice(6);
-        } else if (line === '' && dataLines) {
-          const msg = JSON.parse(dataLines);
-          reader.cancel().catch(() => {});
-          if (msg.error) throw new Error(`MCP error [${msg.error.code}]: ${msg.error.message}`);
-          return msg.result;
-        } else if (!line.startsWith(':') && !line.startsWith('event:') &&
-                   !line.startsWith('id:') && !line.startsWith('retry:')) {
-          dataLines = '';
-        }
+    for await (const frame of parseSseFrames(reader)) {
+      let msg;
+      try {
+        msg = JSON.parse(frame.data);
+      } catch {
+        continue; // Not JSON — e.g. a malformed/unrelated event; skip it.
       }
+      const isMatchingResponse = msg.id === expectedId && ('result' in msg || 'error' in msg);
+      if (!isMatchingResponse) continue; // Unrelated notification/request — ignore and keep reading.
+      if (msg.error) throw new Error(`MCP error [${msg.error.code}]: ${msg.error.message}`);
+      return msg.result;
     }
   } finally {
     reader.cancel().catch(() => {});
   }
   throw new Error('MCP: SSE stream ended without a result');
 }
+

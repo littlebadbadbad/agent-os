@@ -16,6 +16,8 @@ import {
   shouldUseProxy,
   ensureProxyFetch,
   wrapTransportError,
+  parseSseFrames,
+  paginateList,
 } from './utils.js';
 
 /**
@@ -81,7 +83,6 @@ export async function createLegacySseClient(url, extraHeaders = {}, { useProxy =
   if (!body) throw new Error('MCP SSE: empty response body');
 
   sseReader = body.getReader();
-  const decoder = new TextDecoder();
 
   // ── Endpoint discovery ─────────────────────────────────────────────────
   /** @type {(()=>void)|null} */
@@ -103,45 +104,28 @@ export async function createLegacySseClient(url, extraHeaders = {}, { useProxy =
   // `endpointReady` resolve/reject are wired before any data arrives.
   const readLoop = (async () => {
     await Promise.resolve();
-    let buffer = '';
-    let eventType = '';
-    let dataLines = '';
     try {
-      while (!closed && sseReader) {
-        const { done, value } = await sseReader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (line.startsWith('event:')) {
-            eventType = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
-            dataLines += (dataLines ? '\n' : '') + line.slice(5);
-          } else if (line === '' && dataLines) {
-            if (eventType === 'endpoint') {
-              clearTimeout(endpointTimeout);
-              try { postUrl = new URL(dataLines.trim(), url).href; } catch { postUrl = dataLines.trim(); }
-              if (endpointResolve) endpointResolve();
-            } else {
-              try {
-                const msg = JSON.parse(dataLines);
-                const p = pending.get(msg.id);
-                if (p) {
-                  pending.delete(msg.id);
-                  if (msg.error) {
-                    p.reject(new Error(`MCP error [${msg.error.code}]: ${msg.error.message}`));
-                  } else {
-                    p.resolve(msg.result);
-                  }
-                }
-              } catch { /* ignore */ }
-            }
-            eventType = '';
-            dataLines = '';
-          }
+      if (!sseReader) return;
+      for await (const frame of parseSseFrames(sseReader)) {
+        if (closed) break;
+        if (frame.event === 'endpoint') {
+          clearTimeout(endpointTimeout);
+          try { postUrl = new URL(frame.data.trim(), url).href; } catch { postUrl = frame.data.trim(); }
+          if (endpointResolve) endpointResolve();
+          continue;
         }
+        try {
+          const msg = JSON.parse(frame.data);
+          const p = pending.get(msg.id);
+          if (p) {
+            pending.delete(msg.id);
+            if (msg.error) {
+              p.reject(new Error(`MCP error [${msg.error.code}]: ${msg.error.message}`));
+            } else {
+              p.resolve(msg.result);
+            }
+          }
+        } catch { /* ignore unparseable events */ }
       }
     } catch (err) {
       const connErr = new Error(`MCP SSE connection lost: ${err.message}`);
@@ -201,10 +185,7 @@ export async function createLegacySseClient(url, extraHeaders = {}, { useProxy =
 
   return {
     async listTools() {
-      const result = await sendRequest('tools/list');
-      return (result && typeof result === 'object' && 'tools' in result)
-        ? /** @type {{tools:readonly ToolDef[]}} */ (result).tools
-        : [];
+      return paginateList(sendRequest, 'tools/list', 'tools');
     },
 
     async callTool(name, args) {

@@ -5,7 +5,7 @@
  * via `host.bridge`. No dependency on ToolSet state or backend calls.
  *
  * Supports all three MCP transports:
- *   streamable-http — MCP 2025-03-26 (single POST+GET endpoint)
+ *   streamable-http — MCP 2025-06-18 (single POST+GET endpoint, negotiates down to 2025-03-26)
  *   legacy-sse      — MCP 2024-11-05 (deprecated, separate SSE+POST)
  *   stdio           — subprocess stdin/stdout
  *

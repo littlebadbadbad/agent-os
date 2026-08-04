@@ -16,7 +16,7 @@
  * @typedef {import('@agent-type/services').TerminalService} TerminalService
  */
 
-import { CLIENT_INFO, MCP_PROTOCOL_VERSION } from './utils.js';
+import { CLIENT_INFO, MCP_PROTOCOL_VERSION, paginateList } from './utils.js';
 
 /**
  * @typedef {import('./utils.js').ToolCallResult} ToolCallResult
@@ -99,7 +99,7 @@ async function awaitResponse(terminal, terminalId, startOffset, id, signal) {
   let offset = startOffset;
 
   for (;;) {
-    if (signal.aborted) throw new Error('MCP stdio request aborted');
+    if (signal.aborted) throw new Error('MCP connection closed');
 
     const { byId, nextOffset } = drainLines(terminal, terminalId, offset);
     offset = nextOffset;
@@ -196,10 +196,7 @@ export async function createStdioClient(commandLine, terminal, { cwd } = {}) {
 
   return {
     async listTools() {
-      const result = await sendRequest('tools/list');
-      return (result && typeof result === 'object' && 'tools' in result)
-        ? /** @type {{tools:readonly ToolDef[]}} */ (result).tools
-        : [];
+      return paginateList(sendRequest, 'tools/list', 'tools');
     },
 
     async callTool(name, args) {

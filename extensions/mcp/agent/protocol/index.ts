@@ -1,8 +1,9 @@
 /**
  * MCP Protocol — JSON-RPC 2.0 message types.
  *
- * Mirrors the MCP 2025-03-26 specification:
- * https://spec.modelcontextprotocol.io/specification/2025-03-26/
+ * Mirrors the MCP 2025-06-18 specification (backward compatible with
+ * 2025-03-26 and 2024-11-05 servers via version negotiation):
+ * https://modelcontextprotocol.io/specification/2025-06-18/
  *
  * Every type is an exact representation of the spec's TypeScript schema.
  * No loose types, no `any`, no `unknown`.
@@ -78,9 +79,9 @@ export const JSONRPC_ERROR_CODES = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** MCP protocol version strings. */
-export type McpProtocolVersion = '2025-03-26' | '2024-11-05';
+export type McpProtocolVersion = '2025-06-18' | '2025-03-26' | '2024-11-05';
 
-export const LATEST_PROTOCOL_VERSION: McpProtocolVersion = '2025-03-26';
+export const LATEST_PROTOCOL_VERSION: McpProtocolVersion = '2025-06-18';
 
 /** Client implementation info sent during `initialize`. */
 export interface ClientInfo {
@@ -165,8 +166,19 @@ export interface ResourceContent {
   readonly annotations?: ToolAnnotations;
 }
 
+/** Reference to a resource without embedding its contents (added in 2025-06-18). */
+export interface ResourceLinkContent {
+  readonly type: 'resource_link';
+  readonly uri: string;
+  readonly name: string;
+  readonly title?: string;
+  readonly description?: string;
+  readonly mimeType?: string;
+  readonly annotations?: ToolAnnotations;
+}
+
 /** Discriminated union of all content block types. */
-export type ContentBlock = TextContent | ImageContent | AudioContent | ResourceContent;
+export type ContentBlock = TextContent | ImageContent | AudioContent | ResourceContent | ResourceLinkContent;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Tools — §Server / Tools
@@ -184,8 +196,15 @@ export interface ToolAnnotations {
 /** A single tool definition returned by `tools/list`. */
 export interface ToolDef {
   readonly name: string;
+  readonly title?: string;
   readonly description?: string;
   readonly inputSchema: {
+    readonly type: 'object';
+    readonly properties?: Record<string, Record<string, unknown>>;
+    readonly required?: readonly string[];
+  };
+  /** Optional JSON Schema describing `structuredContent` shape (2025-06-18). */
+  readonly outputSchema?: {
     readonly type: 'object';
     readonly properties?: Record<string, Record<string, unknown>>;
     readonly required?: readonly string[];
@@ -208,6 +227,8 @@ export interface ToolCallRequest {
 /** `tools/call` response result. */
 export interface ToolCallResult {
   readonly content: readonly ContentBlock[];
+  /** Machine-readable result conforming to the tool's `outputSchema` (2025-06-18). */
+  readonly structuredContent?: Record<string, unknown>;
   readonly isError?: boolean;
 }
 

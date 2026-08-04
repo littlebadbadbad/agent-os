@@ -13,7 +13,7 @@
  *   index.js          — orchestrator (this file)
  *
  * Each transport is a standalone module under transports/:
- *   streamable-http.js  — MCP 2025-03-26 (single endpoint POST+GET)
+ *   streamable-http.js  — MCP 2025-06-18 (single endpoint POST+GET, negotiable down to 2025-03-26)
  *   legacy-sse.js       — MCP 2024-11-05 (deprecated, separate SSE+POST)
  *   stdio.js            — subprocess stdin/stdout
  *

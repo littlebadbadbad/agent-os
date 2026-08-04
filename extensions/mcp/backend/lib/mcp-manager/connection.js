@@ -102,27 +102,23 @@ export function createConnectionManager(proxyConfig = null, getTerminalService =
 
     /** @type {McpClient} */
     let client;
-    try {
-      switch (cfg.transport) {
-        case 'streamable-http':
-          client = await createStreamableHttpClient(cfg.url, cfg.headers, transportOpts);
-          break;
-        case 'legacy-sse':
-          client = await createLegacySseClient(cfg.url, cfg.headers, transportOpts);
-          break;
-        case 'stdio': {
-          const terminalService = typeof getTerminalService === 'function' ? getTerminalService() : undefined;
-          if (!terminalService) {
-            throw new Error('stdio transport requires TerminalService — ensure the terminal plugin is enabled');
-          }
-          client = await createStdioClient(cfg.url, terminalService);
-          break;
+    switch (cfg.transport) {
+      case 'streamable-http':
+        client = await createStreamableHttpClient(cfg.url, cfg.headers, transportOpts);
+        break;
+      case 'legacy-sse':
+        client = await createLegacySseClient(cfg.url, cfg.headers, transportOpts);
+        break;
+      case 'stdio': {
+        const terminalService = typeof getTerminalService === 'function' ? getTerminalService() : undefined;
+        if (!terminalService) {
+          throw new Error('stdio transport requires TerminalService — ensure the terminal plugin is enabled');
         }
-        default:
-          throw new Error(`Unknown transport: ${cfg.transport}`);
+        client = await createStdioClient(cfg.url, terminalService);
+        break;
       }
-    } catch (err) {
-      throw err;
+      default:
+        throw new Error(`Unknown transport: ${cfg.transport}`);
     }
 
     /** @type {readonly ToolDef[]} */

@@ -126,7 +126,7 @@ describe('StreamableHttpClient', () => {
       });
       expect(initCall).toBeDefined();
       const initBody = JSON.parse(initCall.body);
-      expect(initBody.params.protocolVersion).toBe('2025-03-26');
+      expect(initBody.params.protocolVersion).toBe('2025-06-18');
       expect(initBody.params.clientInfo.name).toBe('agent-sdk-backend');
 
       // Verify initialized notification was sent
@@ -162,6 +162,34 @@ describe('StreamableHttpClient', () => {
       // At least one request after initialize should have the session ID
       const hasSessionHeader = capturedHeaders.some((h) => h['Mcp-Session-Id'] === 'sess-456');
       expect(hasSessionHeader).toBe(true);
+
+      client.close();
+    });
+
+    it('sends MCP-Protocol-Version on requests after initialize (not on initialize itself)', async () => {
+      const capturedHeaders = [];
+      mockFetch((_url, init) => {
+        capturedHeaders.push({ ...init.headers });
+        const body = JSON.parse(init.body || '{}');
+
+        if (body.method === 'initialize') {
+          return mockInitResponse('sess-789');
+        }
+        if (body.method === 'notifications/initialized') {
+          return mockJsonResponse({}, 202);
+        }
+        if (body.method === 'tools/list') {
+          return mockToolsList([{ name: 't1', inputSchema: { type: 'object' } }]);
+        }
+        return mockJsonResponse({}, 500);
+      });
+
+      const client = await createStreamableHttpClient(URL);
+      expect(capturedHeaders[0]['MCP-Protocol-Version']).toBeUndefined();
+
+      await client.listTools();
+      const listCallHeaders = capturedHeaders[capturedHeaders.length - 1];
+      expect(listCallHeaders['MCP-Protocol-Version']).toBe('2025-03-26');
 
       client.close();
     });
@@ -217,6 +245,32 @@ describe('StreamableHttpClient', () => {
       const client = await createStreamableHttpClient(URL);
       const result = await client.listTools();
       expect(result).toEqual([]);
+      client.close();
+    });
+
+    it('follows nextCursor pagination across multiple pages', async () => {
+      mockFetch((_url, init) => {
+        const body = JSON.parse(init.body || '{}');
+        if (body.method === 'initialize') return mockInitResponse('s1');
+        if (body.method === 'notifications/initialized') return mockJsonResponse({}, 202);
+        if (body.method === 'tools/list') {
+          if (!body.params?.cursor) {
+            return mockJsonResponse({
+              jsonrpc: '2.0', id: body.id,
+              result: { tools: [{ name: 'page1', inputSchema: { type: 'object' } }], nextCursor: 'page2' },
+            });
+          }
+          return mockJsonResponse({
+            jsonrpc: '2.0', id: body.id,
+            result: { tools: [{ name: 'page2', inputSchema: { type: 'object' } }] },
+          });
+        }
+        return mockJsonResponse({}, 500);
+      });
+
+      const client = await createStreamableHttpClient(URL);
+      const result = await client.listTools();
+      expect(result.map((t) => t.name)).toEqual(['page1', 'page2']);
       client.close();
     });
   });
@@ -364,6 +418,28 @@ describe('StreamableHttpClient', () => {
       client.close();
     });
 
+    it('skips unrelated notifications before the matching response', async () => {
+      mockFetch((_url, init) => {
+        const body = JSON.parse(init.body || '{}');
+        if (body.method === 'initialize') return mockInitResponse('s1');
+        if (body.method === 'notifications/initialized') return mockJsonResponse({}, 202);
+        if (body.method === 'tools/call') {
+          return mockSseResponse([
+            'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}',
+            '',
+            `data: {"jsonrpc":"2.0","id":${body.id},"result":{"content":[{"type":"text","text":"done"}]}}`,
+            '',
+          ]);
+        }
+        return mockJsonResponse({}, 500);
+      });
+
+      const client = await createStreamableHttpClient(URL);
+      const result = await client.callTool('slow', {});
+      expect(result.content[0].text).toBe('done');
+      client.close();
+    });
+
     it('throws if SSE body is null', async () => {
       mockFetch((_url, init) => {
         const body = JSON.parse(init.body || '{}');
@@ -453,29 +529,31 @@ describe('StreamableHttpClient', () => {
   });
 
   describe('protocol version negotiation', () => {
-    it('warns if server returns different protocol version', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
+    it('adopts the server-negotiated version for subsequent headers', async () => {
+      const capturedHeaders = [];
       mockFetch((_url, init) => {
+        capturedHeaders.push({ ...init.headers });
         const body = JSON.parse(init.body || '{}');
         if (body.method === 'initialize') {
           return mockJsonResponse({
             jsonrpc: '2.0', id: 1,
             result: {
-              protocolVersion: '2024-11-05',
+              protocolVersion: '2025-03-26',
               capabilities: { tools: {} },
               serverInfo: { name: 'OldServer', version: '1.0' },
             },
           }, 200, { 'Mcp-Session-Id': 'old' });
         }
         if (body.method === 'notifications/initialized') return mockJsonResponse({}, 202);
+        if (body.method === 'tools/list') return mockToolsList([]);
         return mockJsonResponse({}, 200);
       });
 
       const client = await createStreamableHttpClient(URL);
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('2024-11-05'));
+      await client.listTools();
+      const lastHeaders = capturedHeaders[capturedHeaders.length - 1];
+      expect(lastHeaders['MCP-Protocol-Version']).toBe('2025-03-26');
       client.close();
-      warn.mockRestore();
     });
   });
 });

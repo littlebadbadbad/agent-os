@@ -26,7 +26,7 @@ import type {
   SystemPromptContext,
 } from '@agent-type';
 import type { ToolDef, ContentBlock } from './protocol';
-import type { McpAdapter, McpServerEntry, McpServerConfig, McpBridge } from './types';
+import type { McpAdapter, McpServerEntry, McpServerConfig, McpBridge, McpTransport } from './types';
 import { createMcpStore } from './store';
 import { MCP_SYSTEM_PROMPT } from './prompt';
 
@@ -44,11 +44,7 @@ const MCP_TOOL_NAMES: readonly string[] = [
   'disable_mcp_server',
 ];
 
-const MCP_TRANSPORT_VALUES: readonly [string, ...string[]] = [
-  'streamable-http',
-  'legacy-sse',
-  'stdio',
-];
+const MCP_TRANSPORT_VALUES = ['streamable-http', 'legacy-sse', 'stdio'] as const satisfies readonly McpTransport[];
 
 const COMPACT_LABEL: Record<string, string> = {
   list_mcp_servers: 'List MCP Servers',
@@ -62,8 +58,8 @@ const COMPACT_LABEL: Record<string, string> = {
 //  Error Helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function extractErrorMessage(err: Error): string {
-  return err.message;
+function extractErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -91,7 +87,7 @@ function mcpDescriptor(info: ToolCallInfo): CompactToolCardDescriptor {
   }
 
   let summary = label;
-  const record = (args ?? {}) as Record<string, unknown>;
+  const record = args ?? {};
 
   switch (name) {
     case 'list_mcp_servers': {
@@ -145,6 +141,8 @@ function serializeContentBlock(block: ContentBlock): string {
       if (r.text) return r.text;
       return `[Resource: ${r.uri}]`;
     }
+    case 'resource_link':
+      return `[Resource: ${block.name ?? block.uri}]`;
   }
 }
 
@@ -335,7 +333,7 @@ export function createMcpToolset(adapter: McpAdapter): McpToolsetBundle {
         const entry = await addServer({
           name,
           url,
-          transport: transport as McpServerConfig['transport'],
+          transport,
           headers,
           includeTools,
         });
@@ -347,7 +345,7 @@ export function createMcpToolset(adapter: McpAdapter): McpToolsetBundle {
           message: `MCP server "${name}" connected. ${entry.tools.length} tool(s) available.`,
         };
       } catch (err) {
-        return { ok: false, error: extractErrorMessage(err as Error) };
+        return { ok: false, error: extractErrorMessage(err) };
       }
     },
   });
@@ -392,7 +390,7 @@ export function createMcpToolset(adapter: McpAdapter): McpToolsetBundle {
           message: `MCP server "${name}" connected. ${updated?.tools.length ?? 0} tool(s) available.`,
         };
       } catch (err) {
-        return { ok: false, error: extractErrorMessage(err as Error) };
+        return { ok: false, error: extractErrorMessage(err) };
       }
     },
   });

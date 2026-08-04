@@ -26,9 +26,9 @@ vi.mock('undici', () => ({ fetch: vi.fn(), ProxyAgent: vi.fn() }));
 // ── Protocol Constants ──────────────────────────────────────────────────────
 
 describe('MCP Protocol Constants', () => {
-  it('MCP_PROTOCOL_VERSION is 2025-03-26', async () => {
+  it('MCP_PROTOCOL_VERSION is 2025-06-18', async () => {
     const { MCP_PROTOCOL_VERSION } = await import('../lib/mcp-manager/transports/utils.js');
-    expect(MCP_PROTOCOL_VERSION).toBe('2025-03-26');
+    expect(MCP_PROTOCOL_VERSION).toBe('2025-06-18');
   });
 
   it('CLIENT_INFO has correct name/version', async () => {
@@ -71,7 +71,7 @@ describe('MCP Streamable HTTP — Protocol Compliance', () => {
       expect(capturedInitBody.jsonrpc).toBe('2.0');
       expect(typeof capturedInitBody.id).toBe('number');
       expect(capturedInitBody.method).toBe('initialize');
-      expect(capturedInitBody.params.protocolVersion).toBe('2025-03-26');
+      expect(capturedInitBody.params.protocolVersion).toBe('2025-06-18');
       expect(capturedInitBody.params.capabilities).toEqual({ tools: {} });
       expect(capturedInitBody.params.clientInfo.name).toBe('agent-sdk-backend');
       client.close();

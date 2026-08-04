@@ -131,16 +131,23 @@ describe('LegacySseClient', () => {
     });
 
     it('times out waiting for endpoint event', async () => {
-      const sse = createSseStream();
-      globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, body: sse.stream });
+      vi.useFakeTimers();
+      try {
+        const sse = createSseStream();
+        globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, body: sse.stream });
 
-      // Close the stream without sending endpoint event — triggers error path
-      const clientPromise = createLegacySseClient(SSE_URL);
-      await Promise.resolve();
-      sse.close();
+        // Close the stream without sending endpoint event — triggers error path
+        const clientPromise = createLegacySseClient(SSE_URL);
+        await Promise.resolve();
+        sse.close();
 
-      await expect(clientPromise).rejects.toThrow();
-    }, 20000);
+        const rejection = expect(clientPromise).rejects.toThrow();
+        await vi.advanceTimersByTimeAsync(15_000);
+        await rejection;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('tools/list', () => {
