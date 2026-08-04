@@ -55,20 +55,21 @@ export type ExploreResult = ExploreChildren | ExploreString | ExplorePrimitive |
 
 function buildChildInfo(value: JsonValue, key: string): ChildInfo {
   const type = jsonTypeOf(value);
-  const info: ChildInfo = { key, type };
-
   if (type === 'object') {
-    info.keyCount = Object.keys(value as JsonObject).length;
+    return { key, type, keyCount: Object.keys(value as JsonObject).length };
   } else if (type === 'array') {
-    info.elementCount = (value as JsonArray).length;
+    return { key, type, elementCount: (value as JsonArray).length };
   } else if (type === 'string') {
     const s = value as string;
-    info.stringLength = s.length;
-    info.preview = s.length > STRING_PREVIEW_CHARS ? s.slice(0, STRING_PREVIEW_CHARS) + '…' : s;
+    return {
+      key,
+      type,
+      stringLength: s.length,
+      preview: s.length > STRING_PREVIEW_CHARS ? s.slice(0, STRING_PREVIEW_CHARS) + '…' : s,
+    };
   } else {
-    info.value = value as number | boolean | null;
+    return { key, type, value: value as number | boolean | null };
   }
-  return info;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

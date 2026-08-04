@@ -2,7 +2,9 @@ import {
   createAgentClient,
   createSubAgentToolset,
 } from "@agent-sdk";
+import type { ToolSet } from "@agent-type";
 import { createPluginSystem } from "./plugin";
+import { createPluginManagerToolSet } from "./plugin/core/pluginManagerToolSet";
 import type { AgentPluginContext } from "./plugin/host";
 import { asyncHandler } from "./handlers/asyncHandler";
 import { streamHandler } from "./handlers/streamHandler";
@@ -90,7 +92,9 @@ const streamSubAgentToolset = createSubAgentToolset("stream", {
   brand: INTERNAL_BRAND,
 });
 
-const sharedToolSets: [] = [];
+// Plugin management is core capability, always available — not itself a
+// toggleable plugin — so it's registered directly, like the sub-agent toolset.
+const sharedToolSets: readonly ToolSet[] = [createPluginManagerToolSet(pluginSystem)];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

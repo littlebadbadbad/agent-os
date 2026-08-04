@@ -12,69 +12,99 @@
   color: var(--text-primary, #cccccc);
 }
 
-// ── Title bar ────────────────────────────────────────────────────────────────
+// ── Toolbar ──────────────────────────────────────────────────────────────────
 
-.titleBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
-  flex-shrink: 0;
-}
-
-.title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.closeBtn {
-  padding: 2px 8px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: color-mix(in srgb, var(--text-primary) 50%, transparent);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-
-  &:hover {
-    background: color-mix(in srgb, var(--text-primary) 10%, transparent);
-    color: var(--text-primary, #cccccc);
-  }
-}
-
-// ── Header ───────────────────────────────────────────────────────────────────
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
-  flex-shrink: 0;
-}
-
-.headerLeft {
+.toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
+  flex-shrink: 0;
 }
 
-.headerActions {
+.toolbarActions {
   display: flex;
   align-items: center;
   gap: 8px;
-  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .count {
   font-size: 11px;
   color: color-mix(in srgb, var(--text-primary) 50%, transparent);
+  white-space: nowrap;
+}
+
+// ── Search bar ───────────────────────────────────────────────────────────────
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+}
+
+.searchIcon {
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #cccccc);
+  font-size: 12px;
+  outline: none;
+  padding: 2px 0;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--text-primary) 35%, transparent);
+  }
+}
+
+.searchClear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-primary) 15%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 55%, transparent);
+  font-size: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+
+  &:hover {
+    background: color-mix(in srgb, var(--text-primary) 25%, transparent);
+    color: var(--text-primary, #cccccc);
+  }
 }
 
 // ── Install button ───────────────────────────────────────────────────────────
+
+.installBtnWrapper {
+  position: relative;
+}
 
 .installBtn {
   padding: 5px 14px;
@@ -163,20 +193,6 @@
   scrollbar-color: color-mix(in srgb, var(--primary) 25%, transparent) transparent;
 }
 
-// ── Section header ───────────────────────────────────────────────────────────
-
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--text-primary) 50%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 // ── Row ──────────────────────────────────────────────────────────────────────
 
 .row {
@@ -195,15 +211,6 @@
 
 .rowActive {
   border-left: 2px solid var(--primary, #007acc);
-}
-
-.rowGhost {
-  opacity: 0.6;
-  border-left: 2px dashed color-mix(in srgb, var(--text-primary) 30%, transparent);
-
-  &:hover {
-    opacity: 0.85;
-  }
 }
 
 .rowInfo {
@@ -265,17 +272,6 @@
   letter-spacing: 0.5px;
 }
 
-.badgeGhost {
-  font-size: 9px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
-  color: color-mix(in srgb, var(--text-primary) 50%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 400;
-}
-
 // ── Toggle switch ────────────────────────────────────────────────────────────
 
 .toggle {
@@ -323,7 +319,7 @@
   transform: translateX(16px);
 }
 
-// ── Uninstall / Reinstall buttons ────────────────────────────────────────────
+// ── Uninstall button ─────────────────────────────────────────────────────────
 
 .uninstallBtn {
   padding: 3px 10px;
@@ -343,23 +339,6 @@
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-  }
-}
-
-.reinstallBtn {
-  padding: 5px 14px;
-  border: 1px solid var(--primary, #007acc);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary, #007acc);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.12s ease;
-  white-space: nowrap;
-
-  &:hover {
-    background: color-mix(in srgb, var(--primary) 22%, transparent);
   }
 }
 
@@ -421,13 +400,62 @@
   color: color-mix(in srgb, var(--text-primary) 50%, transparent);
 }
 
-.error {
-  padding: 16px;
-  color: #f87171;
-  font-size: 12px;
+// ── Marketplace placeholder ──────────────────────────────────────────────────
+
+.marketplace {
+  flex-shrink: 0;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
+  padding: 12px;
 }
 
-// ── Plugin Manager Window chrome (native, not slot-based) ─────────────────────
+.marketplaceHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.marketplaceTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text-primary) 70%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.marketplaceBadge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: color-mix(in srgb, var(--primary) 75%, white);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.marketplaceBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--text-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+}
+
+.marketplaceIcon {
+  font-size: 28px;
+  opacity: 0.4;
+}
+
+.marketplaceText {
+  margin: 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  text-align: center;
+  line-height: 1.5;
+}
 // Uses plain class names (not CSS modules) because the window component is
 // rendered outside the slot system.  These styles mirror AppWindow.module.scss.
 

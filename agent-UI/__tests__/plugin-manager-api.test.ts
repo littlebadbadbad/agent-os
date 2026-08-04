@@ -71,10 +71,4 @@ describe('plugin-manager core API', () => {
     const result = await pluginManagerApi.uninstall('p1');
     expect(result.ok).toBe(true);
   });
-
-  it('reinstallBuiltIn returns ok', async () => {
-    mockCall.mockResolvedValue({ ok: true });
-    const result = await pluginManagerApi.reinstallBuiltIn('p1');
-    expect(result.ok).toBe(true);
-  });
 });

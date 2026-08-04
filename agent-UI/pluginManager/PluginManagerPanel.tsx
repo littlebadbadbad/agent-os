@@ -1,21 +1,18 @@
 /**
  * agent-UI/pluginManager/PluginManagerPanel.tsx — Native plugin manager panel
  *
- * Displays all plugins with toggle switches for enable/disable,
- * install/uninstall buttons, and reinstall support for uninstalled
- * built-in plugins.
+ * Displays all installed plugins with toggle switches for enable/disable
+ * and install/uninstall buttons for user-installed plugins. Built-in
+ * plugins cannot be uninstalled.
  *
- * Uses `pluginSystem` for lifecycle-aware enable/disable — subscribers
- * (slot registry, tool registry) are notified so tools and panels
- * disappear when a plugin is disabled.
- *
- * Install/uninstall/reinstall delegate to `pluginManagerApi` and then
- * synchronise via `pluginSystem.refreshPluginList()`.
+ * The parent window already provides chrome (title bar, close button) —
+ * this component renders only the body content.
  */
 
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
@@ -23,6 +20,10 @@ import {
 import { pluginManagerApi } from "./pluginManagerApi";
 import type { PluginDescriptor } from "../plugin/pluginTypes";
 import { usePluginSystem } from "../plugin/PluginContext";
+import { PluginRow } from "./PluginRow";
+import { InstallDropdown } from "./InstallDropdown";
+import { SearchBar } from "./SearchBar";
+import { MarketplacePlaceholder } from "./MarketplacePlaceholder";
 import styles from "./PluginManagerPanel.module.scss";
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ export interface PluginManagerPanelProps {
 // ── PluginManagerPanel ───────────────────────────────────────────────────────
 
 export function PluginManagerPanel({
-  onClose,
+  onClose: _onClose,
 }: PluginManagerPanelProps): ReactElement {
   const pluginSystem = usePluginSystem();
 
@@ -44,6 +45,7 @@ export function PluginManagerPanel({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [showInstallMenu, setShowInstallMenu] = useState(false);
   const [operationMsg, setOperationMsg] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const pendingRef = useRef<string | null>(null);
 
@@ -60,16 +62,12 @@ export function PluginManagerPanel({
     setLoading(false);
   }, [pluginSystem]);
 
-  // Subscribe to pluginSystem changes — triggers on enable/disable/refresh.
   useEffect(() => {
     syncList();
     return pluginSystem.subscribe(syncList);
   }, [pluginSystem, syncList]);
 
   // ── Toggle handler ────────────────────────────────────────────────────────
-  // Goes through pluginSystem for proper lifecycle management:
-  //   disable  → unregisters tools + removes slots + notifies subscribers
-  //   enable   → activates agent entry + notifies subscribers
 
   const handleToggle = useCallback(async (plugin: PluginDescriptor) => {
     if (plugin.canDisable === false) return;
@@ -97,7 +95,6 @@ export function PluginManagerPanel({
     const result = await pluginManagerApi.installFromZip();
     if (result.ok) {
       await pluginSystem.refreshPluginList();
-      // Auto-activate frontend agent entry if the newly installed plugin has one.
       if (result.pluginId) {
         await pluginSystem.activatePluginById(result.pluginId);
       }
@@ -113,7 +110,6 @@ export function PluginManagerPanel({
     const result = await pluginManagerApi.installFromFolder();
     if (result.ok) {
       await pluginSystem.refreshPluginList();
-      // Auto-activate frontend agent entry if the newly installed plugin has one.
       if (result.pluginId) {
         await pluginSystem.activatePluginById(result.pluginId);
       }
@@ -124,7 +120,6 @@ export function PluginManagerPanel({
   }, [pluginSystem]);
 
   // ── Uninstall handler ─────────────────────────────────────────────────────
-  // Deactivate first if the plugin is active, then uninstall from backend.
 
   const handleUninstall = useCallback(async (pluginId: string) => {
     if (pendingRef.current) return;
@@ -136,61 +131,38 @@ export function PluginManagerPanel({
     }
 
     const result = await pluginManagerApi.uninstall(pluginId);
-    if (result.ok) {
-      await pluginSystem.refreshPluginList();
-    } else {
+    await pluginSystem.refreshPluginList();
+    if (!result.ok) {
       setError(result.error ?? "Uninstall failed");
     }
     setPending(null);
   }, [pluginSystem]);
 
-  // ── Reinstall handler ─────────────────────────────────────────────────────
+  // ── Filtered plugins ──────────────────────────────────────────────────────
 
-  const handleReinstall = useCallback(async (pluginId: string) => {
-    if (pendingRef.current) return;
-    setPending(pluginId);
-    setOperationMsg(`Reinstalling ${pluginId}...`);
-
-    if (pluginSystem.getActivePlugin(pluginId)) {
-      await pluginSystem.disablePlugin(pluginId);
-    }
-
-    const result = await pluginManagerApi.reinstallBuiltIn(pluginId);
-    if (result.ok) {
-      await pluginSystem.refreshPluginList();
-    } else {
-      setError(result.error ?? "Reinstall failed");
-    }
-    setOperationMsg(null);
-    setPending(null);
-  }, [pluginSystem]);
+  const filteredPlugins = useMemo(() => {
+    if (!searchQuery.trim()) return plugins;
+    const q = searchQuery.toLowerCase();
+    return plugins.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q)
+    );
+  }, [plugins, searchQuery]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className={styles.container}>
-        <div className={styles.titleBar}>
-          <h1 className={styles.title}>Plugin Manager</h1>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
-        </div>
         <div className={styles.loading}>Loading plugins...</div>
       </div>
     );
   }
 
-  const installedPlugins = plugins.filter((p) => p.state !== "not_installed");
-  const uninstalledBuiltIns = plugins.filter(
-    (p) => p.state === "not_installed" && p.builtIn,
-  );
-
   return (
     <div className={styles.container}>
-      <div className={styles.titleBar}>
-        <h1 className={styles.title}>Plugin Manager</h1>
-        <button className={styles.closeBtn} onClick={onClose}>✕</button>
-      </div>
-
       {error && (
         <div className={styles.errorBar}>
           <span>{error}</span>
@@ -201,36 +173,33 @@ export function PluginManagerPanel({
         <div className={styles.operationBar}>{operationMsg}</div>
       )}
 
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <span className={styles.count}>{installedPlugins.length} installed</span>
-        </div>
-        <div className={styles.headerActions}>
-          {showInstallMenu && (
-            <div className={styles.installMenu}>
-              <button className={styles.installMenuItem} onClick={handleInstallFromZip}>
-                Install from ZIP
-              </button>
-              <button className={styles.installMenuItem} onClick={handleInstallFromFolder}>
-                Install from Folder
-              </button>
-              <button className={styles.installMenuCancel} onClick={() => setShowInstallMenu(false)}>
-                Cancel
-              </button>
-            </div>
-          )}
-          <button
-            className={styles.installBtn}
-            onClick={() => setShowInstallMenu(!showInstallMenu)}
-            disabled={!!pendingId}
-          >
-            + Install
-          </button>
+      <div className={styles.toolbar}>
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        <div className={styles.toolbarActions}>
+          <span className={styles.count}>
+            {filteredPlugins.length}{filteredPlugins.length !== plugins.length ? ` / ${plugins.length}` : ""} installed
+          </span>
+          <div className={styles.installBtnWrapper}>
+            {showInstallMenu && (
+              <InstallDropdown
+                onInstallFromZip={handleInstallFromZip}
+                onInstallFromFolder={handleInstallFromFolder}
+                onClose={() => setShowInstallMenu(false)}
+              />
+            )}
+            <button
+              className={styles.installBtn}
+              disabled={!!pendingId}
+              onClick={() => setShowInstallMenu(!showInstallMenu)}
+            >
+              + Install
+            </button>
+          </div>
         </div>
       </div>
 
       <div className={styles.list}>
-        {installedPlugins.map((plugin) => (
+        {filteredPlugins.map((plugin) => (
           <PluginRow
             key={plugin.id}
             plugin={plugin}
@@ -240,125 +209,19 @@ export function PluginManagerPanel({
           />
         ))}
 
-        {uninstalledBuiltIns.length > 0 && (
-          <>
-            <div className={styles.sectionHeader}>
-              <span>Uninstalled Built-in Plugins</span>
-              <span className={styles.count}>{uninstalledBuiltIns.length}</span>
-            </div>
-            {uninstalledBuiltIns.map((plugin) => (
-              <UninstalledBuiltInRow
-                key={plugin.id}
-                plugin={plugin}
-                onReinstall={handleReinstall}
-              />
-            ))}
-          </>
+        {filteredPlugins.length === 0 && searchQuery && (
+          <div className={styles.empty}>
+            No plugins match &ldquo;{searchQuery}&rdquo;
+          </div>
         )}
 
-        {installedPlugins.length === 0 && uninstalledBuiltIns.length === 0 && (
-          <div className={styles.empty}>No plugins found.</div>
+        {filteredPlugins.length === 0 && !searchQuery && (
+          <div className={styles.empty}>No plugins installed.</div>
         )}
       </div>
+
+      <MarketplacePlaceholder />
     </div>
   );
 }
 
-// ── Plugin Row ───────────────────────────────────────────────────────────────
-
-interface PluginRowProps {
-  readonly plugin: PluginDescriptor;
-  readonly pending: boolean;
-  readonly onToggle: (plugin: PluginDescriptor) => void;
-  readonly onUninstall: (pluginId: string) => void;
-}
-
-function PluginRow({
-  plugin,
-  pending,
-  onToggle,
-  onUninstall,
-}: PluginRowProps): ReactElement {
-  const isActive = plugin.state === "active";
-  const toggleDisabled = plugin.canDisable === false;
-  const canUninstall = true;
-
-  return (
-    <div className={`${styles.row} ${isActive ? styles.rowActive : ""}`}>
-      <div className={styles.rowInfo}>
-        <div className={styles.rowName}>
-          {plugin.name}
-          {plugin.builtIn && <span className={styles.badge}>built-in</span>}
-        </div>
-        <div className={styles.rowDesc}>
-          {plugin.description || "No description"}
-        </div>
-        <div className={styles.rowMeta}>
-          <span>v{plugin.version}</span>
-          <span className={styles.sep}>·</span>
-          <span className={plugin.state === "error" ? styles.stateError : ""}>
-            {plugin.state}
-          </span>
-          {plugin.hasAgentEntry && <><span className={styles.sep}>·</span><span>agent</span></>}
-          {plugin.hasUiEntry && <><span className={styles.sep}>·</span><span>ui</span></>}
-        </div>
-      </div>
-      <div className={styles.rowActions}>
-        {canUninstall && (
-          <button
-            className={styles.uninstallBtn}
-            disabled={pending}
-            onClick={() => onUninstall(plugin.id)}
-            title="Uninstall this plugin"
-          >
-            Uninstall
-          </button>
-        )}
-        <button
-          className={`${styles.toggle} ${isActive ? styles.toggleOn : ""}`}
-          disabled={toggleDisabled || pending}
-          onClick={() => onToggle(plugin)}
-          title={toggleDisabled ? "This plugin cannot be disabled" : undefined}
-        >
-          <span className={styles.toggleKnob} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Uninstalled Built-in Row ─────────────────────────────────────────────────
-
-interface UninstalledBuiltInRowProps {
-  readonly plugin: PluginDescriptor;
-  readonly onReinstall: (pluginId: string) => void;
-}
-
-function UninstalledBuiltInRow({
-  plugin,
-  onReinstall,
-}: UninstalledBuiltInRowProps): ReactElement {
-  return (
-    <div className={`${styles.row} ${styles.rowGhost}`}>
-      <div className={styles.rowInfo}>
-        <div className={styles.rowName}>
-          {plugin.name}
-          <span className={styles.badge}>built-in</span>
-          <span className={styles.badgeGhost}>not installed</span>
-        </div>
-        <div className={styles.rowDesc}>
-          {plugin.description || `Built-in plugin "${plugin.id}"`}
-        </div>
-        <div className={styles.rowMeta}>
-          <span>Not installed</span>
-        </div>
-      </div>
-      <button
-        className={styles.reinstallBtn}
-        onClick={() => onReinstall(plugin.id)}
-      >
-        Reinstall
-      </button>
-    </div>
-  );
-}

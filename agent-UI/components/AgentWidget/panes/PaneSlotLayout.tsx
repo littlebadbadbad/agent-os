@@ -132,7 +132,6 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
           {/* Plugin panel tabs */}
           {hasPluginTabs && panelSlots
             .slice()
-            .sort((a, b) => (a.declaration.order ?? 100) - (b.declaration.order ?? 100))
             .map((entry) => {
               const v: View = `plugin:${entry.pluginId}`;
               const state = getToolSetState?.(entry.toolSetSymbol);

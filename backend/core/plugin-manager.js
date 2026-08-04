@@ -6,21 +6,21 @@
  * This replaces the inline plugin management routes previously in backend/index.js.
  *
  * Methods:
- *   list          → List all plugins (active + ghost)
+ *   list          → List all plugins
  *   getConfig     → Load plugin config
  *   saveConfig    → Save plugin config
  *   enable        → Enable a plugin
  *   disable       → Disable a plugin
  *   installZip    → Install from ZIP buffer
  *   installFolder → Install from folder path
- *   uninstall     → Uninstall a plugin
- *   reinstall     → Reinstall a built-in plugin
+ *   uninstall     → Uninstall a plugin (external only)
  */
 
 import { createCorePluginHost } from '../lib/core-plugin-host.js';
-import { isBuiltInPlugin } from '../lib/plugin-scanner.js';
+import builtInPlugins from '../../built-in-plugins.json' with { type: 'json' };
 
 const PLUGIN_ID = 'plugin-manager';
+const BUILT_IN_PLUGIN_IDS = new Set(builtInPlugins.plugins ?? []);
 
 /** @param {import('../lib/plugin-router.js').pluginRouter} router */
 export function register(router, deps) {
@@ -33,7 +33,7 @@ export function register(router, deps) {
   const configStore = deps.pluginConfigStore;
 
   host.defineApi('list', async () => {
-    const activePlugins = scanner.getActivePlugins().map((p) => {
+    const plugins = scanner.getActivePlugins().map((p) => {
       const manifest = p.manifest;
       return {
         id: manifest.id,
@@ -41,7 +41,7 @@ export function register(router, deps) {
         version: manifest.version,
         description: manifest.description,
         state: p.state,
-        builtIn: isBuiltInPlugin(manifest.id),
+        builtIn: BUILT_IN_PLUGIN_IDS.has(manifest.id),
         canDisable: true,
         hasAgentEntry: !!manifest.agentEntry,
         agentEntryUrl: manifest.agentEntry
@@ -56,19 +56,7 @@ export function register(router, deps) {
       };
     });
 
-    const ghostPlugins = scanner.getBuiltInNotInstalled().map((g) => ({
-      id: g.id,
-      name: g.name,
-      version: g.version,
-      description: g.description,
-      state: g.state,
-      builtIn: true,
-      canDisable: false,
-      hasAgentEntry: false,
-      hasUiEntry: false,
-    }));
-
-    return { plugins: [...activePlugins, ...ghostPlugins] };
+    return { plugins };
   });
 
   host.defineApi('getConfig', async (params) => {
@@ -115,12 +103,6 @@ export function register(router, deps) {
     const pluginId = params?.pluginId;
     if (!pluginId) throw new Error('pluginId is required');
     return scanner.uninstall(pluginId);
-  });
-
-  host.defineApi('reinstall', async (params) => {
-    const pluginId = params?.pluginId;
-    if (!pluginId) throw new Error('pluginId is required');
-    return scanner.reinstallBuiltIn(pluginId);
   });
 }
 

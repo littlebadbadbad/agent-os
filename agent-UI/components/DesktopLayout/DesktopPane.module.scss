@@ -1,5 +1,8 @@
 .desktop {
   position: relative;
+  // Own stacking context — contains AppWindow/Taskbar z-index (10000+) so it
+  // can never escape and outrank .sidebar-panel's higher stacking level.
+  z-index: 1;
   flex: 1;
   min-width: 0;
   display: flex;

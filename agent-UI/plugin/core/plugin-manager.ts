@@ -66,6 +66,20 @@ async function pickFolder(): Promise<string | null> {
   return prompt('Enter the absolute path to the plugin folder:');
 }
 
+/**
+ * Install a plugin from a known folder path — shared by the UI's
+ * "install from folder" picker flow and the agent-facing `install_plugin`
+ * tool (which already has the path, no picker needed).
+ */
+async function installPluginFromPath(folderPath: string): Promise<PluginInstallResponse> {
+  try {
+    const raw = await client.call<PluginInstallResponse>('installFolder', { path: folderPath });
+    return { ok: raw.ok === true, error: raw.error, pluginId: raw.pluginId };
+  } catch (err) {
+    return { ok: false, error: `Install failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export const pluginManagerApi = {
@@ -148,27 +162,20 @@ export const pluginManagerApi = {
   async installFromFolder(): Promise<PluginInstallResponse> {
     const folderPath = await pickFolder();
     if (!folderPath) return { ok: false, error: 'No folder selected' };
+    return installPluginFromPath(folderPath);
+  },
 
-    try {
-      const raw = await client.call<PluginInstallResponse>('installFolder', { path: folderPath });
-      return { ok: raw.ok === true, error: raw.error, pluginId: raw.pluginId };
-    } catch (err) {
-      return { ok: false, error: `Install failed: ${err instanceof Error ? err.message : String(err)}` };
-    }
+  /**
+   * Install a plugin from an already-known folder path — no file picker.
+   * Used by the plugin-manager agent tool, where the path is a tool argument.
+   */
+  async installFromPath(folderPath: string): Promise<PluginInstallResponse> {
+    return installPluginFromPath(folderPath);
   },
 
   async uninstall(pluginId: string): Promise<PluginActionResponse> {
     try {
       const raw = await client.call<PluginActionResponse>('uninstall', { pluginId });
-      return { ok: raw.ok === true, error: raw.error };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  },
-
-  async reinstallBuiltIn(pluginId: string): Promise<PluginActionResponse> {
-    try {
-      const raw = await client.call<PluginActionResponse>('reinstall', { pluginId });
       return { ok: raw.ok === true, error: raw.error };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };

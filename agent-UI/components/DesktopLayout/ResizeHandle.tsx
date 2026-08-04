@@ -5,7 +5,7 @@
  * Drag to resize the sidebar width.
  */
 
-import { useCallback, useRef, type ReactElement } from "react";
+import { useCallback, useRef, useState, type ReactElement } from "react";
 import styles from "./ResizeHandle.module.scss";
 
 export interface ResizeHandleProps {
@@ -15,6 +15,10 @@ export interface ResizeHandleProps {
 
 export function ResizeHandle({ onResize }: ResizeHandleProps): ReactElement {
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  // While dragging, a full-viewport overlay captures the mouse so an app
+  // window's iframe content (which the divider slides over) can never
+  // swallow the mousemove/mouseup that drive the resize.
+  const [dragging, setDragging] = useState(false);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -31,10 +35,12 @@ export function ResizeHandle({ onResize }: ResizeHandleProps): ReactElement {
 
       function onUp() {
         dragRef.current = null;
+        setDragging(false);
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", onUp);
       }
 
+      setDragging(true);
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     },
@@ -42,12 +48,15 @@ export function ResizeHandle({ onResize }: ResizeHandleProps): ReactElement {
   );
 
   return (
-    <div
-      className={styles["handle"]}
-      onMouseDown={handleMouseDown}
-      aria-label="Resize sidebar"
-      role="separator"
-      aria-orientation="vertical"
-    />
+    <>
+      <div
+        className={styles["handle"]}
+        onMouseDown={handleMouseDown}
+        aria-label="Resize sidebar"
+        role="separator"
+        aria-orientation="vertical"
+      />
+      {dragging && <div className={styles["drag-overlay"]} />}
+    </>
   );
 }

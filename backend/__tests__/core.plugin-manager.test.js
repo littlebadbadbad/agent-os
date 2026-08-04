@@ -6,13 +6,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockScanner = {
   getActivePlugins: vi.fn(),
-  getBuiltInNotInstalled: vi.fn(),
   getPluginManifest: vi.fn(),
   enable: vi.fn(),
   disable: vi.fn(),
   install: vi.fn(),
   uninstall: vi.fn(),
-  reinstallBuiltIn: vi.fn(),
 };
 
 const mockConfigStore = {
@@ -23,6 +21,8 @@ const mockConfigStore = {
 vi.mock('../lib/plugin-scanner.js', () => ({
   isBuiltInPlugin: vi.fn((id) => id === 'built-in-plugin'),
 }));
+
+vi.mock('../../built-in-plugins.json', () => ({ default: { plugins: ['built-in-plugin'] } }));
 
 describe('core/plugin-manager plugin', () => {
   let router;
@@ -46,17 +46,14 @@ describe('core/plugin-manager plugin', () => {
     expect(router.registerApi).toHaveBeenCalledWith('plugin-manager', 'installZip', expect.any(Function));
     expect(router.registerApi).toHaveBeenCalledWith('plugin-manager', 'installFolder', expect.any(Function));
     expect(router.registerApi).toHaveBeenCalledWith('plugin-manager', 'uninstall', expect.any(Function));
-    expect(router.registerApi).toHaveBeenCalledWith('plugin-manager', 'reinstall', expect.any(Function));
   });
 
-  it('list returns active + ghost plugins', async () => {
+  it('list returns active plugins', async () => {
     register(router, { pluginScanner: mockScanner, pluginConfigStore: mockConfigStore });
 
     mockScanner.getActivePlugins.mockReturnValue([
       { manifest: { id: 'p1', name: 'Plugin 1', version: '1.0' }, state: 'active' },
-    ]);
-    mockScanner.getBuiltInNotInstalled.mockReturnValue([
-      { id: 'built-in-plugin', name: 'Built-in', version: '2.0', state: 'not-installed' },
+      { manifest: { id: 'built-in-plugin', name: 'Built-in', version: '2.0' }, state: 'active' },
     ]);
 
     const h = findHandler('list');
@@ -135,16 +132,6 @@ describe('core/plugin-manager plugin', () => {
     expect(mockScanner.uninstall).toHaveBeenCalledWith('p1');
   });
 
-  it('reinstall delegates to scanner', async () => {
-    register(router, { pluginScanner: mockScanner, pluginConfigStore: mockConfigStore });
-    mockScanner.reinstallBuiltIn.mockResolvedValue({ ok: true });
-
-    const h = findHandler('reinstall');
-    const result = await h({ pluginId: 'built-in-plugin' });
-
-    expect(result).toEqual({ ok: true });
-    expect(mockScanner.reinstallBuiltIn).toHaveBeenCalledWith('built-in-plugin');
-  });
 
   function findHandler(method) {
     return router.registerApi.mock.calls.find(([, m]) => m === method)?.[2];

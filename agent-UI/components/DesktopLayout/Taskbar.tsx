@@ -9,6 +9,11 @@ import { memo, type ReactElement } from "react";
 import type { AppWindowEntry } from "./windowManager";
 import styles from "./Taskbar.module.scss";
 
+// ── Layout constants ─────────────────────────────────────────────
+
+/** Single source of truth for the taskbar height — AppWindow reserves this space when maximized. */
+export const TASKBAR_HEIGHT = 40;
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface TaskbarProps {
@@ -65,10 +70,10 @@ export function Taskbar({
   focusedSlotId,
   onToggleWindow,
 }: TaskbarProps): ReactElement {
-  if (openWindows.length === 0) return <div className={styles["taskbar"]} />;
+  if (openWindows.length === 0) return <div className={styles["taskbar"]} style={{ height: TASKBAR_HEIGHT }} />;
 
   return (
-    <div className={styles["taskbar"]}>
+    <div className={styles["taskbar"]} style={{ height: TASKBAR_HEIGHT }}>
       <div className={styles["taskbar-apps"]}>
         {openWindows.map((entry) => {
           const isMinimized = minimizedSlotIds.has(entry.slotId);

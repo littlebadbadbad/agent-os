@@ -11,7 +11,6 @@ import styles from './AIControlBar.module.scss';
 interface SlotBarEntry {
   readonly kind: 'slot';
   readonly slotId: string;
-  readonly order: number;
   readonly icon: string | undefined;
   readonly label: string;
   readonly badge: string | null;
@@ -163,7 +162,6 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
       result.push({
         kind: 'slot',
         slotId: entry.slotId,
-        order: entry.declaration.order ?? 100,
         icon: entry.declaration.icon,
         label: entry.declaration.label,
         badge: badgeText,
@@ -171,14 +169,12 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
         toolSetSymbol: entry.toolSetSymbol,
       });
     }
-    result.sort((a, b) => a.order - b.order);
     return result;
   }, [getByType, slotCtx, toolSetState]);
 
   // Merge popover pills + slot entries, sorted by order.
   const mergedPopoverEntries: BarEntry[] = useMemo(() => {
     const all: BarEntry[] = [...popoverPills, ...slotEntries];
-    all.sort((a, b) => a.order - b.order);
     return all;
   }, [popoverPills, slotEntries]);
 

@@ -12,3 +12,13 @@
     background: var(--primary);
   }
 }
+
+// Sits above both the desktop pane and the sidebar (and any maximised app
+// window's iframe within it) for the duration of the drag — see ResizeHandle.tsx.
+.drag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  cursor: ew-resize;
+  background: transparent;
+}

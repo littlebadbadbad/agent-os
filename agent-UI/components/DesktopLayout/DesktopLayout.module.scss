@@ -9,6 +9,11 @@
 }
 
 .sidebar-panel {
+  position: relative;
+  // Own stacking context, above .desktop's — keeps the sidebar (and any
+  // fixed-position popovers inside it, e.g. toolButton dropdowns) on top of
+  // ALL app windows, no matter how high their internal z-index climbs.
+  z-index: 2;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

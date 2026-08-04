@@ -127,6 +127,7 @@ describe('resolveHandlesToAttachments', () => {
     const handle = store.store({ kind: 'attachment', attachment }, { source: 'user', name: 'test.png' });
     const result = resolveHandlesToAttachments(store, [handle]);
     expect(result).toHaveLength(1);
+    // @ts-expect-error
     expect(result[0].data).toBe('xyz');
   });
 

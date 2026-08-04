@@ -92,6 +92,18 @@
   overflow: hidden;
 }
 
+// ── Interaction overlay ───────────────────────────────────────────────────────
+// Covers the viewport while dragging/resizing so the app's iframe content
+// never steals mousemove/mouseup from the gesture. Scoped to this window's
+// own stacking context (see .window), so it never outranks other windows.
+
+.interaction-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: transparent;
+}
+
 // ── Resize edges ──────────────────────────────────────────────────────────────
 
 @mixin resize-edge {

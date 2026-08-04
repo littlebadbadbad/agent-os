@@ -10,11 +10,13 @@ import {
   type ReactElement,
   type RefObject,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
 import type { AppSlotDeclaration, SlotSession } from "@agent-type";
 import { SlotRenderer } from "../../slots/SlotRenderer";
+import { TASKBAR_HEIGHT } from "./Taskbar";
 import styles from "./AppWindow.module.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -22,6 +24,25 @@ import styles from "./AppWindow.module.scss";
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 150;
 const TITLE_BAR_HEIGHT = 32;
+/** Pointer must move this far before a mousedown becomes an actual drag/resize — keeps plain clicks (and each half of a double-click) from engaging it. */
+const DRAG_THRESHOLD = 4;
+/** Dropping a dragged window within this many px of the container's top edge snaps it to maximized (Windows Aero Snap). */
+const SNAP_TOP_PX = 4;
+
+/** Cursor shown on the full-viewport overlay while resizing from a given edge. */
+const RESIZE_CURSORS: Readonly<Record<string, string>> = {
+  n: "n-resize",
+  s: "s-resize",
+  e: "e-resize",
+  w: "w-resize",
+  ne: "ne-resize",
+  nw: "nw-resize",
+  se: "se-resize",
+  sw: "sw-resize",
+};
+
+/** Active pointer gesture — drives the capture overlay and its cursor. */
+type Interaction = { readonly mode: "move" } | { readonly mode: "resize"; readonly edge: string };
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -96,6 +117,52 @@ function constrainRect(
   };
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
+/**
+ * Resize `origin` by (dx, dy) dragged from `edge`, anchoring the opposite
+ * edge in place. Anchoring must happen here (not via a generic post-hoc
+ * clamp) so that hitting the min size, or the container boundary, never
+ * moves the edge that isn't being dragged.
+ */
+function resizeRect(
+  origin: WindowRect,
+  edge: string,
+  dx: number,
+  dy: number,
+  cw: number,
+  ch: number,
+): WindowRect {
+  let { x, y, width, height } = origin;
+
+  if (edge.includes("e")) {
+    width = clamp(origin.width + dx, MIN_WIDTH, cw - origin.x);
+  }
+  if (edge.includes("w")) {
+    const right = origin.x + origin.width;
+    width = clamp(origin.width - dx, MIN_WIDTH, right);
+    x = right - width;
+  }
+  if (edge.includes("s")) {
+    height = clamp(origin.height + dy, MIN_HEIGHT, ch - origin.y);
+  }
+  if (edge.includes("n")) {
+    const bottom = origin.y + origin.height;
+    height = clamp(origin.height - dy, MIN_HEIGHT, bottom);
+    y = bottom - height;
+  }
+
+  return { x, y, width, height };
+}
+
+/** Fullscreen bounds: fills the container's current size, stopping above the taskbar. */
+function maximizedRect(containerRef: RefObject<HTMLDivElement | null>): WindowRect {
+  const { width: cw, height: ch } = getContainerSize(containerRef);
+  return { x: 0, y: 0, width: cw, height: Math.max(MIN_HEIGHT, ch - TASKBAR_HEIGHT) };
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AppWindow({
@@ -115,23 +182,33 @@ export function AppWindow({
 }: AppWindowProps): ReactElement {
   const [rect, setRect] = useState<WindowRect>(() => centreRect(declaration, containerRef));
   const [isMaximized, setIsMaximized] = useState(false);
+  // Non-null while a drag or resize gesture is in progress — renders the
+  // capture overlay that keeps mouse events from being swallowed by the
+  // app's iframe content.
+  const [interaction, setInteraction] = useState<Interaction | null>(null);
   const savedRectRef = useRef<WindowRect | null>(null);
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    origX: number;
-    origY: number;
-  } | null>(null);
-  const resizeRef = useRef<{
-    startX: number;
-    startY: number;
-    origW: number;
-    origH: number;
-    edge: string;
-  } | null>(null);
 
   const resizable = declaration.resizable ?? true;
   const minimizable = declaration.minimizable ?? true;
+
+  // Kept in sync every render so the ResizeObserver callback (set up once)
+  // always sees the latest maximized state without re-subscribing.
+  const isMaximizedRef = useRef(isMaximized);
+  isMaximizedRef.current = isMaximized;
+
+  // While maximized, keep the window filling the container as it changes size
+  // (browser resize, or the desktop/sidebar divider being dragged).
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => {
+      if (isMaximizedRef.current) {
+        setRect(maximizedRect(containerRef));
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [containerRef]);
 
   // ── Maximize / Restore ───────────────────────────────────────────────────
 
@@ -143,8 +220,7 @@ export function AppWindow({
       setIsMaximized(false);
     } else {
       savedRectRef.current = rect;
-      const { width: cw, height: ch } = getContainerSize(containerRef);
-      setRect({ x: 0, y: 0, width: cw, height: ch });
+      setRect(maximizedRect(containerRef));
       setIsMaximized(true);
     }
   }, [isMaximized, rect, containerRef]);
@@ -153,8 +229,12 @@ export function AppWindow({
     toggleMaximize();
   }, [toggleMaximize]);
 
-  // ── Drag (title bar) — clamped to container ──────────────────────────────
-  // If maximized, restores first and follows cursor immediately (Windows-style).
+  // ── Drag (title bar) ──────────────────────────────────────────────────────
+  // Only engages once the pointer clears DRAG_THRESHOLD, so a plain click
+  // (including each half of a double-click) never shows the capture overlay
+  // or moves the window — matching how Windows distinguishes click vs. drag.
+  // If maximized, engaging restores the window and follows the cursor
+  // immediately; dropping it near the container's top edge re-maximizes it.
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -162,107 +242,140 @@ export function AppWindow({
       onFocus();
 
       const { width: cw, height: ch } = getContainerSize(containerRef);
-      let startRect: WindowRect;
+      const wasMaximized = isMaximized;
+      const preDragRect = wasMaximized ? savedRectRef.current : rect;
+      const startX = e.clientX;
+      const startY = e.clientY;
 
-      if (isMaximized) {
-        const saved = savedRectRef.current;
-        if (!saved) return;
-        startRect = constrainRect(
-          {
-            ...saved,
-            x: e.clientX - Math.round(saved.width / 2),
-            y: Math.max(0, e.clientY - Math.round(TITLE_BAR_HEIGHT / 2)),
-          },
+      let engaged = false;
+      let anchorX = startX;
+      let anchorY = startY;
+      let origin: WindowRect = rect;
+
+      function computeRect(ev: MouseEvent): WindowRect {
+        return constrainRect(
+          { ...origin, x: origin.x + (ev.clientX - anchorX), y: origin.y + (ev.clientY - anchorY) },
           cw,
           ch,
         );
-        setRect(startRect);
-        setIsMaximized(false);
-      } else {
-        startRect = rect;
       }
 
-      dragRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        origX: startRect.x,
-        origY: startRect.y,
-      };
-
-      function onMove(ev: MouseEvent) {
-        const d = dragRef.current;
-        if (!d) return;
-        setRect((prev) =>
-          constrainRect(
+      function engage(ev: MouseEvent) {
+        engaged = true;
+        if (wasMaximized && preDragRect) {
+          origin = constrainRect(
             {
-              ...prev,
-              x: d.origX + (ev.clientX - d.startX),
-              y: d.origY + (ev.clientY - d.startY),
+              ...preDragRect,
+              x: ev.clientX - Math.round(preDragRect.width / 2),
+              y: Math.max(0, ev.clientY - Math.round(TITLE_BAR_HEIGHT / 2)),
             },
             cw,
             ch,
-          ),
-        );
+          );
+          setRect(origin);
+          setIsMaximized(false);
+        } else {
+          origin = rect;
+        }
+        anchorX = ev.clientX;
+        anchorY = ev.clientY;
+        setInteraction({ mode: "move" });
       }
 
-      function onUp() {
-        dragRef.current = null;
+      function onMove(ev: MouseEvent) {
+        if (!engaged) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+          engage(ev);
+        }
+        setRect(computeRect(ev));
+      }
+
+      function endGesture() {
+        setInteraction(null);
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("keydown", onKeyDown);
+      }
+
+      function onUp(ev: MouseEvent) {
+        if (engaged && !wasMaximized) {
+          const containerTop = containerRef.current?.getBoundingClientRect().top ?? 0;
+          if (ev.clientY - containerTop <= SNAP_TOP_PX) {
+            savedRectRef.current = computeRect(ev);
+            setRect(maximizedRect(containerRef));
+            setIsMaximized(true);
+          }
+        }
+        endGesture();
+      }
+
+      function onKeyDown(ev: KeyboardEvent) {
+        if (ev.key !== "Escape") return;
+        if (engaged) {
+          if (wasMaximized) {
+            setIsMaximized(true);
+            setRect(maximizedRect(containerRef));
+          } else {
+            setRect(rect);
+          }
+        }
+        endGesture();
       }
 
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
+      window.addEventListener("keydown", onKeyDown);
     },
     [onFocus, rect, containerRef, isMaximized],
   );
 
-  // ── Resize (edges) — clamped to container ────────────────────────────────
+  // ── Resize (edges) ────────────────────────────────────────────────────────
+  // Same movement threshold as drag, plus Escape reverts to the pre-resize rect.
 
   const handleResizeStart = useCallback(
     (edge: string) => (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      onFocus();
       const { width: cw, height: ch } = getContainerSize(containerRef);
-      resizeRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        origW: rect.width,
-        origH: rect.height,
-        edge,
-      };
+      const origin = rect;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let engaged = false;
 
       function onMove(ev: MouseEvent) {
-        const r = resizeRef.current;
-        if (!r) return;
-        const dx = ev.clientX - r.startX;
-        const dy = ev.clientY - r.startY;
-        setRect((prev) => {
-          let { x, y, width, height } = prev;
-          if (r.edge.includes("e")) width = r.origW + dx;
-          if (r.edge.includes("w")) {
-            width = r.origW - dx;
-            x = r.startX + r.origW - width;
-          }
-          if (r.edge.includes("s")) height = r.origH + dy;
-          if (r.edge.includes("n")) {
-            height = r.origH - dy;
-            y = r.startY + r.origH - height;
-          }
-          return constrainRect({ x, y, width, height }, cw, ch);
-        });
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        if (!engaged) {
+          if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+          engaged = true;
+          setInteraction({ mode: "resize", edge });
+        }
+        setRect(resizeRect(origin, edge, dx, dy, cw, ch));
+      }
+
+      function endGesture() {
+        setInteraction(null);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("keydown", onKeyDown);
       }
 
       function onUp() {
-        resizeRef.current = null;
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
+        endGesture();
+      }
+
+      function onKeyDown(ev: KeyboardEvent) {
+        if (ev.key !== "Escape") return;
+        if (engaged) setRect(origin);
+        endGesture();
       }
 
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
+      window.addEventListener("keydown", onKeyDown);
     },
-    [rect.width, rect.height, containerRef],
+    [onFocus, rect, containerRef],
   );
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -368,6 +481,20 @@ export function AppWindow({
             />
           )}
       </div>
+
+      {/*
+        Capture overlay — while dragging/resizing, sits above the app's
+        iframe content so mousemove/mouseup keep reaching this document
+        instead of being swallowed by the iframe's own browsing context.
+      */}
+      {interaction && (
+        <div
+          className={styles["interaction-overlay"]}
+          style={{
+            cursor: interaction.mode === "move" ? "grabbing" : RESIZE_CURSORS[interaction.edge],
+          }}
+        />
+      )}
     </div>
   );
 }
