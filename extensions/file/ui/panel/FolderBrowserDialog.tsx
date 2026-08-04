@@ -1,15 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { browseDir } from '../../api/files';
-import type { BrowseDirResult } from '../../api/files';
+/**
+ * extensions/file/ui/panel/FolderBrowserDialog.tsx — Server filesystem folder picker
+ *
+ * Ported 1:1 from the devops plugin's editor, decoupled from a hardcoded
+ * API import — the browse function is passed in so this stays reusable
+ * and independently testable.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import type { BrowseDirResult } from '../api/workspaceApi';
 import styles from './FolderBrowserDialog.module.scss';
 
 interface Props {
-  initialPath: string;
-  onConfirm: (path: string) => void;
-  onCancel: () => void;
+  readonly initialPath: string;
+  readonly onBrowse: (path: string) => Promise<BrowseDirResult>;
+  readonly onConfirm: (path: string) => void;
+  readonly onCancel: () => void;
 }
 
-export function FolderBrowserDialog({ initialPath, onConfirm, onCancel }: Props) {
+export function FolderBrowserDialog({ initialPath, onBrowse, onConfirm, onCancel }: Props) {
   const [browsePath, setBrowsePath] = useState(initialPath);
   const [result, setResult] = useState<BrowseDirResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +28,7 @@ export function FolderBrowserDialog({ initialPath, onConfirm, onCancel }: Props)
     setLoading(true);
     setError(null);
     try {
-      const data = await browseDir(path);
+      const data = await onBrowse(path);
       setResult(data);
       setBrowsePath(data.path);
       setPathInput(data.path);
@@ -29,11 +37,12 @@ export function FolderBrowserDialog({ initialPath, onConfirm, onCancel }: Props)
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onBrowse]);
 
   useEffect(() => {
     navigate(initialPath);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') navigate(pathInput);
@@ -44,13 +53,11 @@ export function FolderBrowserDialog({ initialPath, onConfirm, onCancel }: Props)
     <div className={styles.overlay} onMouseDown={onCancel}>
       <div className={styles.dialog} onMouseDown={(e) => e.stopPropagation()}>
 
-        {/* ── Header ── */}
         <div className={styles.header}>
           <span className={styles.title}>📁 选择文件夹</span>
           <button className={styles.closeBtn} onClick={onCancel} title="关闭">✕</button>
         </div>
 
-        {/* ── Path bar ── */}
         <div className={styles.pathBar}>
           <button
             className={styles.navBtn}
@@ -78,7 +85,6 @@ export function FolderBrowserDialog({ initialPath, onConfirm, onCancel }: Props)
           </button>
         </div>
 
-        {/* ── Directory list ── */}
         <div className={styles.list}>
           {loading && <div className={styles.hint}>加载中…</div>}
           {!loading && error && <div className={styles.hintError}>{error}</div>}
@@ -98,7 +104,6 @@ export function FolderBrowserDialog({ initialPath, onConfirm, onCancel }: Props)
           ))}
         </div>
 
-        {/* ── Footer ── */}
         <div className={styles.footer}>
           <span className={styles.selectedPath} title={browsePath}>
             {browsePath || '（根目录）'}

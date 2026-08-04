@@ -9,7 +9,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@agent-type": "workspace:*"
+    "@agent-type": "workspace:*",
+    "@monaco-editor/react": "^4.7.0"
   },
   "devDependencies": {
     "@types/react": "*",

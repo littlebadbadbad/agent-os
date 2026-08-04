@@ -1,5 +1,11 @@
-import React, { useState, useCallback } from 'react';
-import type { FileTreeNode } from '../../api/files';
+/**
+ * extensions/file/ui/panel/FileTree.tsx — Recursive workspace file tree
+ *
+ * Ported 1:1 from the devops plugin's editor file tree.
+ */
+
+import { useState, useCallback } from 'react';
+import type { FileTreeNode } from '../api/workspaceApi';
 import styles from './FileTree.module.scss';
 
 // ── File icon map ──────────────────────────────────────────────────────────────
@@ -23,27 +29,20 @@ function getFileIcon(name: string): string {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface TreeNodeProps {
-  node: FileTreeNode;
-  depth: number;
-  parentPath: string;
-  activeFilePath: string | null;
-  onFileClick: (relPath: string) => void;
-  onExpandDir: (relPath: string) => Promise<FileTreeNode[]>;
+  readonly node: FileTreeNode;
+  readonly depth: number;
+  readonly parentPath: string;
+  readonly activeFilePath: string | null;
+  readonly onFileClick: (relPath: string) => void;
+  readonly onExpandDir: (relPath: string) => Promise<readonly FileTreeNode[]>;
 }
 
 // ── TreeNode (recursive) ───────────────────────────────────────────────────────
 
-function TreeNode({
-  node,
-  depth,
-  parentPath,
-  activeFilePath,
-  onFileClick,
-  onExpandDir,
-}: TreeNodeProps) {
+function TreeNode({ node, depth, parentPath, activeFilePath, onFileClick, onExpandDir }: TreeNodeProps) {
   const relPath = parentPath ? `${parentPath}/${node.name}` : node.name;
   const [expanded, setExpanded] = useState(false);
-  const [children, setChildren] = useState<FileTreeNode[]>(node.children ?? []);
+  const [children, setChildren] = useState<readonly FileTreeNode[]>(node.children ?? []);
   const [loading, setLoading] = useState(false);
 
   const handleClick = useCallback(async () => {
@@ -116,42 +115,28 @@ function TreeNode({
 // ── FileTree ───────────────────────────────────────────────────────────────────
 
 interface FileTreeProps {
-  nodes: FileTreeNode[];
-  loading: boolean;
-  error: string | null;
-  activeFilePath: string | null;
-  onFileClick: (relPath: string) => void;
-  onExpandDir: (relPath: string) => Promise<FileTreeNode[]>;
-  onRefresh: () => void;
+  readonly nodes: readonly FileTreeNode[];
+  readonly loading: boolean;
+  readonly error: string | null;
+  readonly activeFilePath: string | null;
+  readonly onFileClick: (relPath: string) => void;
+  readonly onExpandDir: (relPath: string) => Promise<readonly FileTreeNode[]>;
+  readonly onRefresh: () => void;
 }
 
-export function FileTree({
-  nodes,
-  loading,
-  error,
-  activeFilePath,
-  onFileClick,
-  onExpandDir,
-  onRefresh,
-}: FileTreeProps) {
+export function FileTree({ nodes, loading, error, activeFilePath, onFileClick, onExpandDir, onRefresh }: FileTreeProps) {
   return (
     <div className={styles.tree}>
       <div className={styles.treeHeader}>
         <span className={styles.treeTitle}>资源管理器</span>
-        <button className={styles.refreshBtn} onClick={onRefresh} title="刷新">
-          ↻
-        </button>
+        <button className={styles.refreshBtn} onClick={onRefresh} title="刷新">↻</button>
       </div>
 
       <div className={styles.treeBody}>
-        {loading && (
-          <div className={styles.status}>加载中…</div>
-        )}
-        {error && (
-          <div className={styles.statusError}>{error}</div>
-        )}
+        {loading && <div className={styles.status}>加载中…</div>}
+        {error && <div className={styles.statusError}>{error}</div>}
         {!loading && !error && nodes.length === 0 && (
-          <div className={styles.status}>空文件夹或未打开项目</div>
+          <div className={styles.status}>空文件夹</div>
         )}
         {!loading && nodes.map((node) => (
           <TreeNode

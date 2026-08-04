@@ -10,7 +10,6 @@ import { BuildsPage } from '../builds/BuildsPage';
 import { GitPage } from '../git/GitPage';
 import { TestsPage } from '../tests/TestsPage';
 import { ReleasesPage } from '../releases/ReleasesPage';
-import { EditorPage } from '../editor/EditorPage';
 import { EmptyState } from '../shared/EmptyState';
 import styles from './AppLayout.module.scss';
 
@@ -45,11 +44,6 @@ export function AppLayout() {
   const project = selectProject(state);
 
   function renderMain() {
-    // Editor view is always available regardless of project selection
-    if (state.activeView === 'editor') {
-      return <EditorPage />;
-    }
-
     if (!project || !collection || !state.config) {
       return (
         <EmptyState
@@ -84,7 +78,7 @@ export function AppLayout() {
 
   return (
     <div className={styles.layout}>
-      {state.activeView !== 'editor' && <Sidebar />}
+      <Sidebar />
       <div className={styles.main}>
         <Header />
         <div className={styles.content}>{renderMain()}</div>

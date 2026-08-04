@@ -9,7 +9,7 @@ import type { UserInfo, Collection, Project } from '../api/types';
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 
-export type AppView = 'workItems' | 'sprints' | 'builds' | 'git' | 'tests' | 'releases' | 'editor';
+export type AppView = 'workItems' | 'sprints' | 'builds' | 'git' | 'tests' | 'releases';
 
 export interface DevOpsConfig {
   serverUrl: string;

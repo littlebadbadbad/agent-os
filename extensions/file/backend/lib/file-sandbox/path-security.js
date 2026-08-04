@@ -1,15 +1,16 @@
 /**
  * Sandbox path validation and typed errors.
+ *
+ * Every function takes the workspace `root` explicitly — there is no
+ * module-level singleton here. This lets callers sandbox against many
+ * independent roots concurrently (e.g. several UI workspaces open at once)
+ * without any risk of cross-talk between them.
  */
 
 import { normalize, relative, join } from 'path';
 import { existsSync } from 'fs';
 import { realpath } from 'fs/promises';
 import { MAX_BYTES } from './config.js';
-
-let _getRootFn;
-export function _setGetRoot(fn) { _getRootFn = fn; }
-function activeRoot() { return _getRootFn(); }
 
 export class SandboxNotFoundError extends Error {
   constructor(path) { super(`not found: ${path}`); this.name = 'SandboxNotFoundError'; }
@@ -22,12 +23,11 @@ export class SandboxTooLargeError extends Error {
   }
 }
 
-export function sandboxPath(unsafePath) {
+export function sandboxPath(root, unsafePath) {
   if (typeof unsafePath !== 'string' || unsafePath.trim() === '') {
     throw new Error('path must be a non-empty string');
   }
   const stripped = unsafePath.replace(/^([A-Za-z]:)?[\\/]+/, '');
-  const root = activeRoot();
   const absolute = normalize(join(root, stripped));
   const rel = relative(root, absolute);
   if (rel.startsWith('..') || rel.includes('/../')) {
@@ -36,11 +36,10 @@ export function sandboxPath(unsafePath) {
   return absolute;
 }
 
-export async function sandboxRealPath(unsafePath) {
-  const abs = sandboxPath(unsafePath);
+export async function sandboxRealPath(root, unsafePath) {
+  const abs = sandboxPath(root, unsafePath);
   if (existsSync(abs)) {
     const real = await realpath(abs);
-    const root = activeRoot();
     const rel = relative(root, real);
     if (rel.startsWith('..') || rel.includes('/../')) {
       throw new Error(`symlink escapes workspace root: ${unsafePath}`);

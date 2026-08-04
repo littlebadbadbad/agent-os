@@ -1,5 +1,8 @@
 /**
  * Core file operations inside the sandbox.
+ *
+ * Every function takes the workspace `root` as its first argument — see
+ * path-security.js for why there is no module-level singleton.
  */
 
 import { extname, dirname } from 'path';
@@ -12,8 +15,8 @@ import {
   SandboxTooLargeError,
 } from './path-security.js';
 
-export async function sandboxRead(path, startLine, endLine) {
-  const abs = await sandboxRealPath(path);
+export async function sandboxRead(root, path, startLine, endLine) {
+  const abs = await sandboxRealPath(root, path);
   const info = await stat(abs).catch(() => { throw new SandboxNotFoundError(path); });
   if (!info.isFile()) throw new SandboxNotFoundError(path);
   if (info.size > MAX_BYTES) throw new SandboxTooLargeError(path, info.size);
@@ -34,8 +37,8 @@ export async function sandboxRead(path, startLine, endLine) {
   };
 }
 
-export async function sandboxWrite(path, content) {
-  const abs = sandboxPath(path);
+export async function sandboxWrite(root, path, content) {
+  const abs = sandboxPath(root, path);
   const ext = extname(abs).toLowerCase();
   if (BLOCKED_WRITE_EXTENSIONS.has(ext)) {
     throw new Error(`writing "${ext}" files is not allowed`);
@@ -47,8 +50,8 @@ export async function sandboxWrite(path, content) {
   return { written: bytes };
 }
 
-export async function sandboxWriteBinary(path, base64Data) {
-  const abs = sandboxPath(path);
+export async function sandboxWriteBinary(root, path, base64Data) {
+  const abs = sandboxPath(root, path);
   const ext = extname(abs).toLowerCase();
   if (BLOCKED_WRITE_EXTENSIONS.has(ext)) {
     throw new Error(`writing "${ext}" files is not allowed`);
@@ -60,8 +63,8 @@ export async function sandboxWriteBinary(path, base64Data) {
   return { written: buffer.length };
 }
 
-export async function sandboxStrReplace(path, oldStr, newStr) {
-  const abs = await sandboxRealPath(path);
+export async function sandboxStrReplace(root, path, oldStr, newStr) {
+  const abs = await sandboxRealPath(root, path);
   const info = await stat(abs).catch(() => { throw new SandboxNotFoundError(path); });
   if (!info.isFile()) throw new SandboxNotFoundError(path);
   if (info.size > MAX_BYTES) throw new SandboxTooLargeError(path, info.size);
@@ -81,8 +84,8 @@ export async function sandboxStrReplace(path, oldStr, newStr) {
   return { replaced: 1 };
 }
 
-export async function sandboxStrReplaceAll(path, oldStr, newStr) {
-  const abs = await sandboxRealPath(path);
+export async function sandboxStrReplaceAll(root, path, oldStr, newStr) {
+  const abs = await sandboxRealPath(root, path);
   const info = await stat(abs).catch(() => { throw new SandboxNotFoundError(path); });
   if (!info.isFile()) throw new SandboxNotFoundError(path);
   if (info.size > MAX_BYTES) throw new SandboxTooLargeError(path, info.size);
@@ -101,17 +104,17 @@ export async function sandboxStrReplaceAll(path, oldStr, newStr) {
   return { replaced: count };
 }
 
-export async function sandboxDelete(path) {
-  const abs = await sandboxRealPath(path);
+export async function sandboxDelete(root, path) {
+  const abs = await sandboxRealPath(root, path);
   const info = await stat(abs).catch(() => { throw new SandboxNotFoundError(path); });
   if (!info.isFile()) throw new Error(`not a file: ${path}`);
   await unlink(abs);
   return { deleted: path };
 }
 
-export async function sandboxMove(srcPath, destPath) {
-  const src = await sandboxRealPath(srcPath);
-  const dest = sandboxPath(destPath);
+export async function sandboxMove(root, srcPath, destPath) {
+  const src = await sandboxRealPath(root, srcPath);
+  const dest = sandboxPath(root, destPath);
   const info = await stat(src).catch(() => { throw new SandboxNotFoundError(srcPath); });
   if (!info.isFile()) throw new Error(`source is not a file: ${srcPath}`);
   await mkdir(dirname(dest), { recursive: true });

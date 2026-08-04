@@ -54,18 +54,8 @@ export function Header() {
           {!collection && <span className={styles.crumb}>Azure DevOps</span>}
         </nav>
 
-        {/* Editor toggle button — always visible */}
-        <button
-          className={`${styles.tab} ${state.activeView === 'editor' ? styles.tabActive : ''}`}
-          onClick={() => dispatch({ type: 'SET_VIEW', payload: 'editor' })}
-          title="打开编辑器"
-        >
-          <span className={styles.tabIcon}>⌨</span>
-          编辑器
-        </button>
-
         {/* View tabs (only when a project is selected) */}
-        {project && state.activeView !== 'editor' && (
+        {project && (
           <nav className={styles.tabs} aria-label="views">
             {NAV_ITEMS.map(({ view, label, icon }) => (
               <button

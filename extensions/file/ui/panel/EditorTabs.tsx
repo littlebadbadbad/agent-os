@@ -1,12 +1,17 @@
-import React from 'react';
-import type { OpenFile } from '../../hooks/useEditorState';
+/**
+ * extensions/file/ui/panel/EditorTabs.tsx — Open file tab strip
+ *
+ * Ported 1:1 from the devops plugin's editor tab bar.
+ */
+
+import type { OpenFile } from './useWorkspaceEditor';
 import styles from './EditorTabs.module.scss';
 
 interface Props {
-  openFiles: OpenFile[];
-  activeFilePath: string | null;
-  onActivate: (path: string) => void;
-  onClose: (path: string) => void;
+  readonly openFiles: readonly OpenFile[];
+  readonly activeFilePath: string | null;
+  readonly onActivate: (path: string) => void;
+  readonly onClose: (path: string) => void;
 }
 
 /** Returns just the file name from a workspace-relative path. */

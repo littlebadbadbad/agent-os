@@ -7,12 +7,8 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { MAX_BYTES, isIgnoredDir } from './config.js';
 import { sandboxPath, SandboxNotFoundError } from './path-security.js';
 
-let _getRootFn;
-export function _setGetRoot(fn) { _getRootFn = fn; }
-function activeRoot() { return _getRootFn(); }
-
-export async function sandboxListDir(path, maxDepth = 1) {
-  const abs = sandboxPath(path === '' || path == null ? '.' : path);
+export async function sandboxListDir(root, path, maxDepth = 1) {
+  const abs = sandboxPath(root, path === '' || path == null ? '.' : path);
   const info = await stat(abs).catch(() => { throw new SandboxNotFoundError(path || '/'); });
   if (!info.isDirectory()) throw new Error(`not a directory: ${path}`);
   return _buildTree(abs, 0, maxDepth);
@@ -45,12 +41,11 @@ async function _buildTree(absDir, depth, maxDepth) {
   return items;
 }
 
-export async function sandboxSearch(pattern, contentRegex, maxResults = 50, options = {}) {
+export async function sandboxSearch(root, pattern, contentRegex, maxResults = 50, options = {}) {
   const { caseSensitive = false, contextLines = 0, outputMode = 'files' } = options;
   const effectiveMode = (outputMode === 'content' && !contentRegex) ? 'files' : outputMode;
   const regexFlags = 'g' + (caseSensitive ? '' : 'i');
   const regex = contentRegex ? new RegExp(contentRegex, regexFlags) : null;
-  const root = activeRoot();
 
   if (effectiveMode === 'count') {
     const fileList = [];

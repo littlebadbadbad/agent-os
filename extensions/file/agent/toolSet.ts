@@ -33,6 +33,16 @@ export function getFileSlotDeclarations(
   toolNames: readonly string[],
 ): readonly PluginSlotDeclaration[] {
   return [
+    {
+      type: 'app' as const,
+      icon: '\uD83D\uDCC1',
+      label: '文件',
+      shouldRender: () => true,
+      defaultWidth: 1100,
+      defaultHeight: 720,
+      resizable: true,
+      minimizable: true,
+    },
     { type: 'toolCard' as const, toolNames },
     { type: 'compactToolCard' as const, toolNames, getDescriptor: fileDescriptor },
   ] satisfies readonly PluginSlotDeclaration[];

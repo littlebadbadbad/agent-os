@@ -1,4 +1,10 @@
-import React, { useCallback, useRef } from 'react';
+/**
+ * extensions/file/ui/panel/MonacoEditor.tsx — Monaco code editor wrapper
+ *
+ * Ported 1:1 from the devops plugin's editor.
+ */
+
+import { useCallback, useRef } from 'react';
 import MonacoReact, { type OnMount, type BeforeMount, type Monaco } from '@monaco-editor/react';
 
 // ── Language detection ────────────────────────────────────────────────────────
@@ -27,10 +33,10 @@ function detectLanguage(filePath: string): string {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  filePath: string;
-  content: string;
-  onChange: (value: string) => void;
-  onSave: () => void;
+  readonly filePath: string;
+  readonly content: string;
+  readonly onChange: (value: string) => void;
+  readonly onSave: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -39,8 +45,7 @@ export function MonacoEditor({ filePath, content, onChange, onSave }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   const handleBeforeMount: BeforeMount = useCallback((monaco: Monaco) => {
-    // Define a dark theme matching our design system
-    monaco.editor.defineTheme('devops-dark', {
+    monaco.editor.defineTheme('file-plugin-dark', {
       base: 'vs-dark',
       inherit: true,
       rules: [],
@@ -59,7 +64,7 @@ export function MonacoEditor({ filePath, content, onChange, onSave }: Props) {
   const handleMount: OnMount = useCallback(
     (editor, monaco: Monaco) => {
       editorRef.current = editor;
-      monaco.editor.setTheme('devops-dark');
+      monaco.editor.setTheme('file-plugin-dark');
 
       // Ctrl+S / Cmd+S → save
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {

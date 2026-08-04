@@ -1,12 +1,11 @@
 /**
  * extensions/devops/backend/index.js — DevOps backend plugin entry
  *
- * Registers ADO proxy and workspace file API methods via BackendPluginHost.defineApi().
+ * Registers ADO proxy API methods via BackendPluginHost.defineApi().
  * The decrypt function is obtained from the host at activation time.
  */
 
 import { createAdoProxyService } from './services/ado-proxy.js';
-import { workspaceFs } from './services/workspace-fs.js';
 
 /** @import { BackendPluginHost } from '../../../../agent-type/plugin.ts' */
 
@@ -41,12 +40,4 @@ export function activate(host) {
     const { url, pat, contentType, apiVersion, rawBody } = params || {};
     return svc.uploadAdoProxy({ url, pat, contentType, apiVersion, rawBody });
   });
-
-  // ── Workspace / file operations (devops editor) ──────────────────────────
-  host.defineApi('getWorkspaceRoot', async () => workspaceFs.getWorkspaceRoot());
-  host.defineApi('setWorkspaceRoot', async (p) => workspaceFs.setWorkspaceRoot(p));
-  host.defineApi('listDir', async (p) => workspaceFs.listDir(p));
-  host.defineApi('browseDir', async (p) => workspaceFs.browseDir(p));
-  host.defineApi('readFile', async (p) => workspaceFs.readFile(p));
-  host.defineApi('writeFile', async (p) => workspaceFs.writeFile(p));
 }

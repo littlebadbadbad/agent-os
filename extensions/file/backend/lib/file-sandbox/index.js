@@ -1,14 +1,19 @@
 /**
  * File sandbox — public entry point.
  *
- * Manages the mutable workspace root and re-exports all sandbox operations.
+ * Manages the mutable "agent workspace root" (the single root that the
+ * `get_workspace_root` / `set_workspace_root` agent tools read and mutate)
+ * and re-exports the root-parameterized sandbox operations.
+ *
+ * Callers that need to operate against a DIFFERENT root — e.g. the file
+ * panel UI browsing several workspaces at once — simply pass that root
+ * explicitly to the re-exported operations instead of relying on the
+ * singleton below. See `services/files.js` for the resolution rule.
  */
 
 import { resolve, isAbsolute } from 'path';
 import { existsSync } from 'fs';
 import { mkdir, stat } from 'fs/promises';
-import { _setGetRoot as _setSecurityRoot } from './path-security.js';
-import { _setGetRoot as _setDirRoot } from './dir.js';
 
 let _activeRoot = process.env.WORKSPACE_ROOT || (
   process.env.UAP_EXE_DIR
@@ -17,9 +22,6 @@ let _activeRoot = process.env.WORKSPACE_ROOT || (
         : resolve(process.env.UAP_EXE_DIR, 'workspace'))
     : resolve(process.cwd(), 'workspace')
 );
-
-_setSecurityRoot(() => _activeRoot);
-_setDirRoot(() => _activeRoot);
 
 export function getWorkspaceRoot() {
   return { root: _activeRoot };

@@ -331,6 +331,9 @@ importers:
       '@agent-type':
         specifier: workspace:*
         version: link:../../agent-type
+      '@monaco-editor/react':
+        specifier: ^4.7.0
+        version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -554,12 +557,6 @@ importers:
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
   extensions/tool-result-compressor:
-    devDependencies:
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
-
-  extensions/tool-search:
     devDependencies:
       esbuild:
         specifier: ^0.28.0

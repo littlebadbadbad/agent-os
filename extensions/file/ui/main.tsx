@@ -2,6 +2,7 @@
  * extensions/file/ui/main.tsx — File plugin UI entry (iframe)
  *
  * Slot-driven rendering:
+ *   - app slot: renders FilePanelApp (multi-workspace file browser/editor)
  *   - toolCard slot: renders FileToolCard with tool call info from host
  *
  * Communication contract:
@@ -13,6 +14,8 @@ import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { UiPluginHost, SlotHostMessage, ToolCallInfo } from '@agent-type';
 import { FileToolCard } from './toolCard';
+import { createFileWorkspaceApi } from './api/workspaceApi';
+import { FilePanelApp } from './panel/FilePanelApp';
 
 declare global {
   interface Window {
@@ -82,6 +85,11 @@ function bootApp(host: UiPluginHost): void {
 
   function FilePluginApp() {
     const info = useSyncExternalStore(subscribe, getSnapshot);
+
+    if (slotCtx.slotType === 'app') {
+      const api = createFileWorkspaceApi(host.apiClient);
+      return <FilePanelApp api={api} />;
+    }
 
     if (!info) {
       return (
