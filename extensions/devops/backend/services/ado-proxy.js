@@ -9,24 +9,32 @@
  */
 
 import { Agent, fetch as undiciFetch } from 'undici';
-import { createLogger } from '../../../../backend/lib/logger.js';
+
+/** @import { Logger } from '../../../../agent-type/plugin.ts' */
 
 // ── Direct (no-proxy) dispatcher — ADO traffic always goes straight out ───────
 const directAgent = new Agent();
 
 const DEFAULT_API_VERSION = '6.1-preview';
 
+/** @type {Logger} */
+const NOOP_LOGGER = { info() {}, ok() {}, warn() {}, error() {}, debug() {} };
+
+function toErrorMessage(err) {
+  return err instanceof Error ? err.message : String(err);
+}
+
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 /**
  * Create an ADO proxy service bound to a PAT decrypt function.
  *
- * @param {(encrypted: string) => string} decryptFn  PAT decryption function
+ * @param {{ decryptFn: (encrypted: string) => string, logger?: Logger }} options
  * @returns {AdoProxyService}
  */
-export function createAdoProxyService(decryptFn) {
-  const log = createLogger('devops-ado-proxy');
-  const decryptPat = decryptFn;
+export function createAdoProxyService(options) {
+  const decryptPat = options.decryptFn;
+  const log = options.logger ?? NOOP_LOGGER;
 
   function makeAuthHeader(pat) {
     return 'Basic ' + Buffer.from(':' + pat).toString('base64');
@@ -35,6 +43,58 @@ export function createAdoProxyService(decryptFn) {
   function withApiVersion(url, apiVersion) {
     const sep = url.includes('?') ? '&' : '?';
     return `${url}${sep}api-version=${apiVersion ?? DEFAULT_API_VERSION}`;
+  }
+
+  function parseJsonOrThrow(response) {
+    return response.json().catch(() => {
+      throw new Error('ADO returned non-JSON response');
+    });
+  }
+
+  async function assertOkOrThrow({ response, method, url, logPrefix }) {
+    if (response.ok) {
+      return;
+    }
+    const text = await response.text().catch(() => '');
+    log.warn(`${logPrefix} ${response.status} ${method} ${url} | ${text.slice(0, 200)}`);
+    throw new Error(text || `ADO request failed with status ${response.status}`);
+  }
+
+  async function sendRequest({ url, pat, method, apiVersion, body, contentType, logPrefix }) {
+    const plainPat = decryptPat(pat);
+    if (!plainPat) {
+      throw new Error('pat is invalid after decryption');
+    }
+
+    const fullUrl = withApiVersion(url, apiVersion);
+    const headers = {
+      Authorization: makeAuthHeader(plainPat),
+      Accept: 'application/json',
+    };
+
+    if (contentType) {
+      headers['Content-Type'] = contentType;
+    }
+
+    let response;
+    try {
+      response = await undiciFetch(fullUrl, {
+        method,
+        headers,
+        body,
+        dispatcher: directAgent,
+      });
+    } catch (err) {
+      const message = toErrorMessage(err);
+      log.error(`${logPrefix} fetch error`, message);
+      throw new Error(message);
+    }
+
+    await assertOkOrThrow({ response, method, url, logPrefix });
+    if (response.status === 204) {
+      return null;
+    }
+    return parseJsonOrThrow(response);
   }
 
   /**
@@ -53,43 +113,24 @@ export function createAdoProxyService(decryptFn) {
     const urlErr = validateUrl(url);
     if (urlErr) throw new Error(urlErr);
 
-    const plainPat = decryptPat(pat);
-    const fullUrl = withApiVersion(url, apiVersion);
     log.debug(`\u2192 ${method} ${url}`);
 
-    const headers = {
-      Authorization: makeAuthHeader(plainPat),
-      Accept: 'application/json',
-    };
-
-    let fetchBody;
+    let fetchBody = undefined;
+    let resolvedContentType = contentType;
     if (body !== undefined && body !== null) {
       fetchBody = JSON.stringify(body);
-      headers['Content-Type'] = contentType ?? 'application/json';
+      resolvedContentType = contentType ?? 'application/json';
     }
 
-    let adoRes;
-    try {
-      adoRes = await undiciFetch(fullUrl, { method, headers, body: fetchBody, dispatcher: directAgent });
-    } catch (err) {
-      log.error('ADO fetch error', err.message);
-      throw new Error(err.message);
-    }
-
-    if (!adoRes.ok) {
-      const text = await adoRes.text().catch(() => '');
-      log.warn(`ADO ${adoRes.status} ${method} ${url} | ${text.slice(0, 200)}`);
-      throw new Error(text);
-    }
-    if (adoRes.status === 204) return null;
-
-    let data;
-    try {
-      data = await adoRes.json();
-    } catch {
-      throw new Error('ADO returned non-JSON response');
-    }
-    return data;
+    return sendRequest({
+      url,
+      pat,
+      method,
+      apiVersion,
+      body: fetchBody,
+      contentType: resolvedContentType,
+      logPrefix: 'ADO',
+    });
   }
 
   /**
@@ -99,9 +140,15 @@ export function createAdoProxyService(decryptFn) {
     if (!rawBody) return rawBody;
     if (Buffer.isBuffer(rawBody)) return rawBody;
     if (rawBody instanceof Uint8Array) return Buffer.from(rawBody);
-    if (typeof rawBody === 'object' && rawBody.type === 'Buffer') return Buffer.from(rawBody.data);
+    if (
+      typeof rawBody === 'object' &&
+      rawBody.type === 'Buffer' &&
+      Array.isArray(rawBody.data)
+    ) {
+      return Buffer.from(rawBody.data);
+    }
     if (typeof rawBody === 'string') return Buffer.from(rawBody, 'base64');
-    return rawBody;
+    throw new Error('rawBody must be Buffer, Uint8Array, base64 string, or { type: "Buffer", data: number[] }');
   }
 
   /**
@@ -111,48 +158,19 @@ export function createAdoProxyService(decryptFn) {
     const urlErr = validateUrl(url);
     if (urlErr) throw new Error(urlErr);
 
-    const plainPat = decryptPat(pat);
     const bodyBuffer = normaliseBinaryBody(rawBody);
-
-    const fullUrl = withApiVersion(url, apiVersion);
     log.debug(`\u2192 upload POST ${url} (${Buffer.isBuffer(bodyBuffer) ? bodyBuffer.byteLength : typeof bodyBuffer} bytes)`);
 
-    const headers = {
-      Authorization: makeAuthHeader(plainPat),
-      Accept: 'application/json',
-      'Content-Type': contentType,
-    };
-    if (Buffer.isBuffer(bodyBuffer)) {
-      headers['Content-Length'] = String(bodyBuffer.byteLength);
-    }
-
-    let adoRes;
-    try {
-      adoRes = await undiciFetch(fullUrl, {
-        method: 'POST',
-        headers,
-        body: bodyBuffer,
-        dispatcher: directAgent,
-      });
-    } catch (err) {
-      log.error('ADO upload fetch error', err.message);
-      throw new Error(err.message);
-    }
-
-    if (!adoRes.ok) {
-      const text = await adoRes.text().catch(() => '');
-      log.warn(`ADO upload ${adoRes.status} ${url} | ${text.slice(0, 200)}`);
-      throw new Error(text);
-    }
-    if (adoRes.status === 204) return null;
-
-    let data;
-    try {
-      data = await adoRes.json();
-    } catch {
-      throw new Error('ADO returned non-JSON response');
-    }
-    return data;
+    const headersContentType = contentType;
+    return sendRequest({
+      url,
+      pat,
+      method: 'POST',
+      apiVersion,
+      body: bodyBuffer,
+      contentType: headersContentType,
+      logPrefix: 'ADO upload',
+    });
   }
 
   return { callAdoProxy, uploadAdoProxy };

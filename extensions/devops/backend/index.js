@@ -21,7 +21,10 @@ export function activate(host) {
     throw new Error('[devops] Backend config "rsaDecrypt" not available — cannot decrypt PAT tokens.');
   }
 
-  const svc = createAdoProxyService(decryptPat);
+  const svc = createAdoProxyService({
+    decryptFn: decryptPat,
+    logger: host.logger,
+  });
 
   // ── ADO proxy ────────────────────────────────────────────────────────────
   host.defineApi('getPublicKey', async () => {

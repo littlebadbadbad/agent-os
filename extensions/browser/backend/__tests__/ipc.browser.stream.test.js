@@ -16,14 +16,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Silence logger ────────────────────────────────────────────────────────────
-
-vi.mock('../../../../../backend/lib/logger.js', () => ({
-  createLogger: () => ({
-    info: vi.fn(), ok: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(),
-  }),
-}));
-
 // ── Mock browser manager ──────────────────────────────────────────────────────
 
 const mockBrowser = {
