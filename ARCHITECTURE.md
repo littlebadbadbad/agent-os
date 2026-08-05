@@ -10,8 +10,8 @@ src/         → @agent-sdk    SDK core: AgentClient, AgentSession, agent loop, 
 agent-UI/    → (app)         React frontend: AgentWidget, stores, transport, handlers, plugin UI host.
 backend/     → (server)      Node.js HTTP server (raw http, no Express): AI gateway, services, transports.
 electron/    → (shell)       Electron main+preload. Env vars: UAP_EXE_DIR, UAP_IS_PACKAGED, UAP_NATIVE_ROOT.
-extensions/  → (source)      Plugin source code (manifest.json + 3 entry points).
-plugins/     → (compiled)    Compiled plugin output from extensions/ via scripts/compile-plugins.mjs.
+internal-plugins/  → (source)      Plugin source code (manifest.json + 3 entry points).
+plugins/     → (compiled)    Compiled plugin output from internal-plugins/ via scripts/compile-plugins.mjs.
 ```
 
 ## Type Contracts (`agent-type/`)
@@ -91,7 +91,7 @@ Sub-agent conversations: parallel hooks `onInitConversation` / `onResetConversat
 | `subagent/` | `runAgentLoop`, `createSubAgentToolset`, `createSubAgentRegistry`, delegation nudge |
 | `todo/` `plan/` | task list / plan management |
 | `dynamicTool/` | register tools at runtime |
-| `cron/` *(moved to `extensions/cron/`)* | scheduled tasks |
+| `cron/` *(moved to `internal-plugins/cron/`)* | scheduled tasks |
 | `experience/` `memoryGraph/` `variable/` | memory stores |
 | `userInput/` + `pendingInput/` | user input queuing |
 | `historyProcessing/` | ToolResultCompressor, context compaction |

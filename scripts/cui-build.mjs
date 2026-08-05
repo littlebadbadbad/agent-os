@@ -149,7 +149,7 @@ if (pluginsIdx !== -1 && args[pluginsIdx + 1]) {
 console.log('\n=== Step 1: Build frontend ===');
 run('vite build --config vite.demo.config.ts');
 
-// ── Step 1.5: Compile all extensions into plugins/ ───────────────────────────
+// ── Step 1.5: Compile all internal-plugins into plugins/ ───────────────────────────
 
 console.log('\n=== Step 1.5: Compile plugins ===');
 run('node scripts/compile-plugins.mjs');

@@ -2,7 +2,7 @@
 /**
  * scripts/plugin-selector.mjs  —  Interactive plugin selection for dev mode.
  *
- * Scans extensions/ for valid plugins and presents an interactive checkbox prompt.
+ * Scans internal-plugins/ for valid plugins and presents an interactive checkbox prompt.
  *
  * Features
  * ────────
@@ -40,7 +40,7 @@ import { checkbox } from '@inquirer/prompts';
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
 const ROOT       = resolve(__dirname, '..');
-const EXTENSIONS = resolve(ROOT, 'extensions');
+const EXTENSIONS = resolve(ROOT, 'internal-plugins');
 
 // ── Types (JSDoc) ─────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ const EXTENSIONS = resolve(ROOT, 'extensions');
 // ── Plugin discovery ──────────────────────────────────────────────────────────
 
 /**
- * Scan extensions/ directories and return those with valid plugin structure.
+ * Scan internal-plugins/ directories and return those with valid plugin structure.
  * @returns {PluginInfo[]}
  */
 function discoverPlugins() {
@@ -129,7 +129,7 @@ export async function selectPlugins(options = {}) {
   const plugins = discoverPlugins();
 
   if (plugins.length === 0) {
-    console.log('No plugins found — extensions/ directory is empty.');
+    console.log('No plugins found — internal-plugins/ directory is empty.');
     return [];
   }
 
@@ -139,7 +139,7 @@ export async function selectPlugins(options = {}) {
       plugins.some((p) => p.name === name),
     );
     if (valid.length === 0) {
-      console.log('⚠  None of the requested plugins were found in extensions/.');
+      console.log('⚠  None of the requested plugins were found in internal-plugins/.');
     }
     return valid;
   }

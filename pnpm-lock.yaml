@@ -203,7 +203,7 @@ importers:
 
   agent-type: {}
 
-  extensions/browser:
+  internal-plugins/browser:
     dependencies:
       anser:
         specifier: ^2.3.5
@@ -237,7 +237,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/devops:
+  internal-plugins/devops:
     dependencies:
       '@agent-type':
         specifier: workspace:*
@@ -268,7 +268,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/dynamic-tool:
+  internal-plugins/dynamic-tool:
     dependencies:
       '@agent-type':
         specifier: workspace:*
@@ -299,7 +299,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/experience:
+  internal-plugins/experience:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -326,7 +326,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/file:
+  internal-plugins/file:
     dependencies:
       '@agent-type':
         specifier: workspace:*
@@ -360,13 +360,13 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/git:
+  internal-plugins/git:
     dependencies:
       '@agent-type':
         specifier: workspace:*
         version: link:../../agent-type
 
-  extensions/mcp:
+  internal-plugins/mcp:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -393,19 +393,19 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/memory-graph:
+  internal-plugins/memory-graph:
     devDependencies:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
 
-  extensions/permissions:
+  internal-plugins/permissions:
     devDependencies:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
 
-  extensions/plan:
+  internal-plugins/plan:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -438,7 +438,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/skill:
+  internal-plugins/skill:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -465,7 +465,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/terminal:
+  internal-plugins/terminal:
     dependencies:
       '@xterm/addon-search':
         specifier: ^0.16.0
@@ -502,7 +502,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/todo:
+  internal-plugins/todo:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -529,7 +529,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/token-budget:
+  internal-plugins/token-budget:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -556,40 +556,13 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/tool-result-compressor:
+  internal-plugins/tool-result-compressor:
     devDependencies:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
 
-  extensions/tool-state:
-    devDependencies:
-      '@types/react':
-        specifier: '*'
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: '*'
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: '*'
-        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
-      react:
-        specifier: '*'
-        version: 19.2.4
-      react-dom:
-        specifier: '*'
-        version: 19.2.4(react@19.2.4)
-      sass:
-        specifier: '*'
-        version: 1.98.0
-      vite:
-        specifier: '*'
-        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
-
-  extensions/user-input:
+  internal-plugins/tool-state:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -616,7 +589,34 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  extensions/variable:
+  internal-plugins/user-input:
+    devDependencies:
+      '@types/react':
+        specifier: '*'
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: '*'
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: '*'
+        version: 6.0.1(vite@8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0))
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      react:
+        specifier: '*'
+        version: 19.2.4
+      react-dom:
+        specifier: '*'
+        version: 19.2.4(react@19.2.4)
+      sass:
+        specifier: '*'
+        version: 1.98.0
+      vite:
+        specifier: '*'
+        version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
+
+  internal-plugins/variable:
     devDependencies:
       esbuild:
         specifier: ^0.28.0

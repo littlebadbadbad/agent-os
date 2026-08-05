@@ -16,7 +16,7 @@ import type { AgentHandler } from "./handler";
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Shared constants & helpers (used by both core and extensions)
+//  Shared constants & helpers (used by both core and internal-plugins)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**

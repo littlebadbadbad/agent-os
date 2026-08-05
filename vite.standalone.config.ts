@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import path from 'node:path'
 import { defineConfig } from 'vite'
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js'
 
@@ -11,6 +12,13 @@ import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js'
  *   vite build --config vite.standalone.config.ts
  */
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@agent-sdk': path.resolve(__dirname, './src'),
+      '@agent-type': path.resolve(__dirname, './agent-type'),
+      '@agent-UI': path.resolve(__dirname, './agent-UI'),
+    },
+  },
   build: {
     lib: {
       entry: 'src/index.ts',

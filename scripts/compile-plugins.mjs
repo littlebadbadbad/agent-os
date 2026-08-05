@@ -2,7 +2,7 @@
 /**
  * scripts/compile-plugins.mjs  —  Orchestrate plugin compilation.
  *
- * For each sub-directory under extensions/ that has a package.json and a
+ * For each sub-directory under internal-plugins/ that has a package.json and a
  * manifest.json, runs the plugin's single `build` command (defined in
  * package.json).  Each plugin's build script is responsible for compiling
  * its own entries AND copying manifest.json + a cleaned package.json into
@@ -27,7 +27,7 @@ import { setTimeout as sleep } from 'timers/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT           = resolve(__dirname, '..');
-const EXTENSIONS_DIR = resolve(ROOT, 'extensions');
+const EXTENSIONS_DIR = resolve(ROOT, 'internal-plugins');
 const PLUGINS_DIR    = resolve(ROOT, 'plugins');
 
 // ── Recursive guard ────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ if (filterStr) {
     process.exit(0);
   }
 } else if (pluginNames.length === 0) {
-  console.log('No plugins found — extensions/ directory is empty.');
+  console.log('No plugins found — internal-plugins/ directory is empty.');
   process.exit(0);
 }
 

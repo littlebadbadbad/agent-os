@@ -84,7 +84,7 @@ export type {
   SessionReadyHelpers,
 } from "./toolset";
 
-// Runtime constants & helpers (shared between core and extensions)
+// Runtime constants & helpers (shared between core and internal-plugins)
 export { MAIN_CONVERSATION_ID, ctxKey as ctxKey } from "./toolset";
 
 // ── Widget types ──────────────────────────────────────────────────────────────

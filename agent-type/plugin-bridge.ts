@@ -7,7 +7,7 @@
  * 插件通过 module augmentation 扩展此接口来定义自己的 bridge 形状：
  *
  * ```ts
- * // extensions/my-plugin/agent/bridge.ts
+ * // internal-plugins/my-plugin/agent/bridge.ts
  * declare module '@agent-type' {
  *   interface PluginBridge {
  *     sync(): Promise<MyType[]>;

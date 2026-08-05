@@ -44,7 +44,7 @@ export interface PaneSlotLayoutProps {
   /** The main content (chat messages — no ChatInput; caller owns that). */
   readonly children: ReactNode;
 
-  // ── Main-agent extensions (optional, ignored by sub-agent callers) ─
+  // ── Main-agent internal-plugins (optional, ignored by sub-agent callers) ─
 
   /**
    * When set, a "Sub-Agents" tab is shown.  This content is rendered when
