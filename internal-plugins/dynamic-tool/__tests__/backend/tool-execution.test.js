@@ -6,7 +6,7 @@
  * afterAll() cleans up every artefact.
  */
 
-import { describe, it, expect, afterAll, beforeAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest';
 import { mkdtemp, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -14,6 +14,22 @@ import { createToolStore } from '../../backend/lib/store.js';
 import { createModuleStore } from '../../backend/lib/moduleStore.js';
 import { createDepStore } from '../../backend/lib/depStore.js';
 import { createToolEnv } from '../../backend/lib/toolEnv.js';
+
+// ── Fake TerminalService ─────────────────────────────────────────────────────
+// The depStore calls terminal.runCommand() to install npm packages.
+// In this integration test we mock it so no real terminal session is created.
+
+const mockRunCommand = vi.fn(async ({ command, args }) => {
+  // Simulate a successful pnpm install/remove
+  return {
+    output: `PNPM ${args?.[0] ?? ''} completed`,
+    exitCode: 0,
+    success: true,
+    timedOut: false,
+  };
+});
+
+const terminalService = { runCommand: mockRunCommand };
 
 // ── Test data dir ─────────────────────────────────────────────────────────────
 
@@ -27,7 +43,7 @@ beforeAll(async () => {
   try {
     toolStore = createToolStore(dataDir, toolEnv);
     moduleStore = createModuleStore(dataDir, toolEnv);
-    depStore = createDepStore(toolEnv);
+    depStore = createDepStore(toolEnv, terminalService);
   } catch (err) {
     // Skip if native modules unavailable
     console.warn('[tool-execution] better-sqlite3 not available, skipping:', err.message);

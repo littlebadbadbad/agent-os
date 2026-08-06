@@ -19,8 +19,9 @@ import { truncateHeadTail } from "./truncateOutput";
 // ── Minimal terminal contract ─────────────────────────────────────────────
 
 /**
- * Subset of TerminalManagerAdapter needed by upgrade tools for terminal polling.
- * Only readOutput + sendInput — the upgrade workflow never creates or removes terminals.
+ * Subset of TerminalManagerAdapter needed by upgrade tools.
+ * The upgrade workflow uses waitTerminal (server-side idle/exit detection)
+ * instead of client-side polling, and sendInput for Ctrl+C on timeout.
  */
 interface MinimalTerminalAdapter {
   readOutput(
@@ -28,6 +29,18 @@ interface MinimalTerminalAdapter {
     offset: number,
   ): Promise<{ output: string; offset: number; running: boolean; exitCode?: number }>;
   sendInput(id: string, text: string): Promise<void>;
+  waitTerminal(
+    id: string,
+    opts: { idleMs?: number; timeoutMs?: number },
+  ): Promise<{
+    output: string;
+    offset: number;
+    running: boolean;
+    exitCode?: number;
+    timedOut: boolean;
+    reason: 'idle' | 'exited' | 'timeout' | 'cancelled';
+  }>;
+  cancelWait(id: string): Promise<void>;
 }
 
 // ── waitForTerminal context ────────────────────────────────────────────────
@@ -40,10 +53,16 @@ type WaitContext = ToolSetContext & {
 
 type WaitMode = "silent" | "interactive";
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
 // ── Shared wait-for-terminal helper ────────────────────────────────────────
 
+/**
+ * Wait for a terminal to become idle or exit using the server-side
+ * waitTerminal RPC — no client-side polling.
+ *
+ * In interactive mode, a cancel button is shown. Clicking it calls
+ * cancelWait() on the backend, which resolves the in-flight waitTerminal
+ * promise with reason 'cancelled'.
+ */
 async function waitForTerminal(
   terminalId: string,
   context: WaitContext,
@@ -68,98 +87,64 @@ async function waitForTerminal(
     label = "命令",
   } = opts;
 
-  const deadline = Date.now() + timeoutMs;
-  const pollMs = Math.min(Math.floor(idleMs / 2), 250);
-  let lastActivityAt = Date.now();
-  let lastOffset = 0;
-
-  const cancel = { triggered: false };
   const cancelInputId = crypto.randomUUID();
 
-  function cleanUp(): void {
+  // Interactive mode: show cancel button that calls cancelWait on the backend
+  let userCancelled = false;
+  const userInputPromise =
+    mode === "interactive" && context.requestUserInput
+      ? context
+          .requestUserInput(
+            {
+              ephemeral: true,
+              type: "confirm",
+              message: `等待 ${label} 执行完毕（终端: ${terminalId}）。点击确定停止等待（命令继续在后台运行）`,
+            },
+            cancelInputId,
+          )
+          .then((v) => {
+            if (v !== null) {
+              userCancelled = true;
+              terminal.cancelWait(terminalId).catch(() => {});
+            }
+          })
+      : Promise.resolve(null);
+
+  // If an abort signal is provided, also cancel the wait
+  const abortListener = () => {
+    terminal.cancelWait(terminalId).catch(() => {});
+  };
+  context.signal?.addEventListener("abort", abortListener);
+
+  try {
+    const result = await terminal.waitTerminal(terminalId, {
+      idleMs,
+      timeoutMs,
+    });
+
+    return {
+      reason: userCancelled || context.signal?.aborted ? "cancelled" : result.reason,
+      exitCode: result.exitCode,
+      output: result.output,
+      running: result.running,
+      timedOut: result.timedOut,
+    };
+  } catch {
+    // If the backend wait was cancelled or errored, return current output
+    const snap = await terminal
+      .readOutput(terminalId, 0)
+      .catch(() => ({ output: "", offset: 0, running: true }));
+    return {
+      reason: userCancelled ? "cancelled" : context.signal?.aborted ? "aborted" : "idle",
+      exitCode: snap.exitCode,
+      output: snap.output,
+      running: snap.running,
+      timedOut: false,
+    };
+  } finally {
+    context.signal?.removeEventListener("abort", abortListener);
     context.cancelUserInput?.(cancelInputId);
-  }
-
-  // Interactive mode: show cancel button
-  if (mode === "interactive" && context.requestUserInput) {
-    context
-      .requestUserInput(
-        {
-          ephemeral: true,
-          type: "confirm",
-          message: `等待 ${label} 执行完毕（终端: ${terminalId}）。点击确定停止等待（命令继续在后台运行）`,
-        },
-        cancelInputId,
-      )
-      .then((v) => {
-        if (v !== null) cancel.triggered = true;
-      });
-  }
-
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    if (cancel.triggered || context.signal?.aborted) {
-      cleanUp();
-      const snap = await terminal
-        .readOutput(terminalId, 0)
-        .catch(() => ({ output: "", offset: 0, running: true }));
-      return {
-        reason: cancel.triggered ? "cancelled" : "aborted",
-        exitCode: undefined,
-        output: snap.output,
-        running: snap.running,
-        timedOut: false,
-      };
-    }
-
-    if (Date.now() >= deadline) {
-      await terminal.sendInput(terminalId, "\x03").catch(() => {});
-      await sleep(500);
-      cleanUp();
-      const snap = await terminal
-        .readOutput(terminalId, 0)
-        .catch(() => ({ output: "", offset: 0, running: false }));
-      return {
-        reason: "timeout",
-        exitCode: undefined,
-        output: snap.output,
-        running: snap.running,
-        timedOut: true,
-      };
-    }
-
-    const snap = await terminal.readOutput(terminalId, lastOffset);
-
-    if (snap.output.length > 0) {
-      lastActivityAt = Date.now();
-      lastOffset = snap.offset;
-    }
-
-    if (!snap.running) {
-      cleanUp();
-      const full = await terminal.readOutput(terminalId, 0);
-      return {
-        reason: "exited",
-        exitCode: full.exitCode,
-        output: full.output,
-        running: false,
-        timedOut: false,
-      };
-    }
-
-    if (Date.now() - lastActivityAt >= idleMs) {
-      cleanUp();
-      const full = await terminal.readOutput(terminalId, 0);
-      return {
-        reason: "idle",
-        exitCode: full.exitCode,
-        output: full.output,
-        running: true,
-        timedOut: false,
-      };
-    }
-
-    await sleep(pollMs);
+    void userInputPromise;
   }
 }
 

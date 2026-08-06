@@ -1,8 +1,9 @@
 /**
  * internal-plugins/dynamic-tool/backend/lib/depStore.js — npm dependency management
+ *
+ * All command execution goes through the terminal plugin's cross-plugin service.
  */
 
-import { execFile } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -18,14 +19,19 @@ function validatePackageNames(packages) {
   }
 }
 
-function resolvePnpm() {
-  return IS_WIN
-    ? { cmd: 'pnpm.cmd', baseArgs: [], shell: true }
-    : { cmd: 'pnpm', baseArgs: [], shell: false };
-}
+/** @import { TerminalService } from '@agent-type/services' */
 
-export function createDepStore(toolEnv) {
+/**
+ * Create the dependency store, bound to a TerminalService for command execution.
+ *
+ * @param {{ TOOL_SCRIPTS_DIR: string }} toolEnv
+ * @param {TerminalService} terminal
+ */
+export function createDepStore(toolEnv, terminal) {
   const SCRIPTS_DIR = toolEnv.TOOL_SCRIPTS_DIR;
+
+  /** Resolve the pnpm binary name for the current platform. */
+  const pnpmCmd = IS_WIN ? 'pnpm.cmd' : 'pnpm';
 
   function listDeps() {
     const pkgPath = join(SCRIPTS_DIR, 'package.json');
@@ -41,46 +47,29 @@ export function createDepStore(toolEnv) {
     }
   }
 
-  function installDeps(packages) {
-    return new Promise((resolve) => {
-      validatePackageNames(packages);
-      const { cmd, baseArgs, shell } = resolvePnpm();
-      const args = [...baseArgs, 'add', ...packages];
-      const chunks = [];
-      const child = execFile(cmd, args, {
-        cwd: SCRIPTS_DIR,
-        shell,
-        timeout: INSTALL_TIMEOUT_MS,
-        env: { ...process.env, NODE_ENV: undefined },
-      }, (err) => {
-        const output = chunks.join('');
-        if (err) {
-          return resolve({ success: false, packages: [], output });
-        }
-        resolve({ success: true, packages, output });
-      });
-      child.stdout?.on('data', (c) => chunks.push(c.toString()));
-      child.stderr?.on('data', (c) => chunks.push(c.toString()));
+  async function installDeps(packages) {
+    validatePackageNames(packages);
+    const result = await terminal.runCommand({
+      command: pnpmCmd,
+      args: ['add', ...packages],
+      cwd: SCRIPTS_DIR,
+      timeoutMs: INSTALL_TIMEOUT_MS,
     });
+    return {
+      success: result.success,
+      packages: result.success ? packages : [],
+      output: result.output,
+    };
   }
 
-  function removeDep(pkg) {
-    return new Promise((resolve) => {
-      const { cmd, baseArgs, shell } = resolvePnpm();
-      const args = [...baseArgs, 'remove', pkg];
-      const chunks = [];
-      const child = execFile(cmd, args, {
-        cwd: SCRIPTS_DIR,
-        shell,
-        timeout: INSTALL_TIMEOUT_MS,
-      }, (err) => {
-        const output = chunks.join('');
-        if (err) return resolve({ success: false, output });
-        resolve({ success: true, output });
-      });
-      child.stdout?.on('data', (c) => chunks.push(c.toString()));
-      child.stderr?.on('data', (c) => chunks.push(c.toString()));
+  async function removeDep(pkg) {
+    const result = await terminal.runCommand({
+      command: pnpmCmd,
+      args: ['remove', pkg],
+      cwd: SCRIPTS_DIR,
+      timeoutMs: INSTALL_TIMEOUT_MS,
     });
+    return { success: result.success, output: result.output };
   }
 
   return { listDeps, installDeps, removeDep };

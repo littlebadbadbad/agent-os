@@ -16,6 +16,7 @@ import {
   streamTerminalOutput,
   spawnCommand,
 } from '../lib/shell-manager/index.js';
+import { buildCommandLine } from '../lib/shell-manager/quote.js';
 
 export { killAllTerminals } from '../lib/shell-manager/index.js';
 
@@ -54,6 +55,41 @@ export function spawnCommandSession({ commandLine, label, cwd } = {}) {
   if (!commandLine) throw new Error('commandLine is required');
   const cmd = spawnCommand({ commandLine, label, cwd });
   return cmd.info();
+}
+
+/**
+ * Run a command to completion and return the result.
+ *
+ * Wraps spawnCommand + waitTerminal + readTerminalOutput + removeTerminalSession.
+ * Arguments are shell-quoted automatically — callers pass them as an array.
+ *
+ * @param {{ command: string, args?: readonly string[], cwd?: string, timeoutMs?: number }} params
+ * @returns {Promise<{ output: string, exitCode: number, success: boolean, timedOut: boolean }>}
+ */
+export async function runCommand({ command, args, cwd, timeoutMs } = {}) {
+  if (!command) throw new Error('command is required');
+
+  const commandLine = buildCommandLine(command, args);
+  const label = args && args.length > 0 ? `${command} ${args[0]}` : command;
+
+  const info = spawnCommandSession({ commandLine, label, cwd });
+
+  const wait = await waitTerminal({
+    id: info.id,
+    idleMs: 1_000,
+    timeoutMs: timeoutMs ?? 120_000,
+  });
+
+  const snap = readTerminalOutput({ id: info.id, fromOffset: 0 });
+  removeTerminalSession({ id: info.id });
+
+  const exitCode = wait.reason === 'exited' ? (wait.exitCode ?? -1) : -1;
+  return {
+    output: snap.output,
+    exitCode,
+    success: exitCode === 0,
+    timedOut: wait.timedOut,
+  };
 }
 
 export function removeTerminalSession({ id }) {

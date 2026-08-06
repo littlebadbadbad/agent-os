@@ -1,7 +1,8 @@
 /**
- * Tests for extensions/git/backend/services/git.js and lib/git.js
+ * Tests for internal-plugins/git/backend/services/git.js and lib/git.js
  *
- * All git commands are mocked via child_process.spawn — no real git execution.
+ * All git commands are mocked via a fake TerminalService — no real git
+ * execution, no child_process.
  *
  * Covered:
  *   validatePaths()   — valid, empty string, non-string, traversal, absolute
@@ -11,56 +12,37 @@
  *   getDiff()         — service delegates diff with staged/paths flags
  *   getLog()          — service parses log entries with limit
  *   stage()           — service stages paths and returns list
- *   unstage()         — service unstages paths
  *   commit()          — service commits with message
  *   discard()         — service discards with paths
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EventEmitter } from 'node:events';
 
-// ── Mock child_process ───────────────────────────────────────────────────────
+import { validatePaths, parseStatus, parseLog, setGitCwd } from '../../backend/lib/git.js';
+import { createGitService } from '../../backend/services/git.js';
 
-const spawnMock = vi.fn();
+// ── Fake TerminalService ─────────────────────────────────────────────────────
 
-vi.mock('child_process', () => ({
-  spawn: (...a) => {
-    const child = spawnMock(...a);
-    if (child && '_autoError' in child) {
-      process.nextTick(() => child.emit('error', new Error(child._autoError)));
-    } else if (child && '_autoOutput' in child) {
-      process.nextTick(() => {
-        if (child._autoOutput) child.stdout.emit('data', child._autoOutput);
-        child.emit('close', child._autoExitCode ?? 0);
-      });
-    }
-    return child;
-  },
-}));
-
-import * as svc from '../../backend/services/git.js';
-import { validatePaths, parseStatus, parseLog, runGit, setGitCwd } from '../../backend/lib/git.js';
-
-// ── Test helpers ──────────────────────────────────────────────────────────────
-
-function makeGitChild(output = '', exitCode = 0) {
-  const child = new EventEmitter();
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
-  child._autoOutput = output;
-  child._autoExitCode = exitCode;
-  return child;
+/**
+ * Create a fake TerminalService whose runCommand returns canned results.
+ *
+ * @param {{ output?: string, exitCode?: number, success?: boolean }} [defaults]
+ * @returns {{ service: import('@agent-type/services').TerminalService, runCommand: ReturnType<typeof vi.fn> }}
+ */
+function makeFakeTerminal(defaults = {}) {
+  const runCommand = vi.fn(async (_params) => ({
+    output: defaults.output ?? '',
+    exitCode: defaults.exitCode ?? 0,
+    success: defaults.success ?? (defaults.exitCode ?? 0) === 0,
+    timedOut: false,
+  }));
+  return { runCommand, service: { runCommand } };
 }
 
-function makeErrorChild(message = 'git: command not found') {
-  const child = new EventEmitter();
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
-  child._autoError = message;
-  return child;
-}
-
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  setGitCwd(process.cwd());
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // validatePaths
@@ -175,52 +157,29 @@ describe('parseLog', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// runGit
-// ═══════════════════════════════════════════════════════════════════════════════
-
-describe('runGit', () => {
-  it('resolves with success and output when git succeeds', async () => {
-    spawnMock.mockReturnValue(makeGitChild('output text', 0));
-    const result = await runGit(['status']);
-    expect(result).toEqual({ success: true, output: 'output text' });
-    expect(spawnMock).toHaveBeenCalledWith('git', ['status'], expect.any(Object));
-  });
-
-  it('resolves with failure output when git exits non-zero', async () => {
-    spawnMock.mockReturnValue(makeGitChild('error message', 1));
-    const result = await runGit(['log']);
-    expect(result.success).toBe(false);
-    expect(result.output).toContain('error message');
-  });
-
-  it('resolves with error when spawn fails', async () => {
-    spawnMock.mockReturnValue(makeErrorChild('ENOENT'));
-    const result = await runGit(['xyz']);
-    expect(result.success).toBe(false);
-    expect(result.output).toContain('ENOENT');
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // getStatus (service)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('getStatus service', () => {
   it('returns empty buckets for a clean working tree', async () => {
-    spawnMock.mockReturnValue(makeGitChild(''));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     const result = await svc.getStatus();
     expect(result).toEqual({ staged: [], unstaged: [], untracked: [] });
+    expect(runCommand).toHaveBeenCalledWith(expect.objectContaining({ command: 'git' }));
   });
 
   it('returns parsed staged files', async () => {
-    spawnMock.mockReturnValue(makeGitChild('M  src/foo.ts\nA  src/bar.ts\n'));
+    const { service } = makeFakeTerminal({ output: 'M  src/foo.ts\nA  src/bar.ts\n' });
+    const svc = createGitService(service);
     const result = await svc.getStatus();
     expect(result.staged).toHaveLength(2);
     expect(result.staged[0].path).toBe('src/foo.ts');
   });
 
   it('returns parsed untracked files', async () => {
-    spawnMock.mockReturnValue(makeGitChild('?? new-file.ts\n'));
+    const { service } = makeFakeTerminal({ output: '?? new-file.ts\n' });
+    const svc = createGitService(service);
     const result = await svc.getStatus();
     expect(result.untracked).toEqual(['new-file.ts']);
   });
@@ -232,29 +191,34 @@ describe('getStatus service', () => {
 
 describe('getDiff service', () => {
   it('returns diff output for unstaged changes', async () => {
-    spawnMock.mockReturnValue(makeGitChild('diff --git a/foo b/foo\n'));
+    const { service, runCommand } = makeFakeTerminal({ output: 'diff --git a/foo b/foo\n' });
+    const svc = createGitService(service);
     const result = await svc.getDiff();
     expect(result.output).toContain('diff --git');
-    const args = spawnMock.mock.calls[0][1];
+    const args = runCommand.mock.calls[0][0].args;
     expect(args).not.toContain('--staged');
   });
 
   it('passes --staged when staged=true', async () => {
-    spawnMock.mockReturnValue(makeGitChild(''));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     await svc.getDiff({ staged: true });
-    const args = spawnMock.mock.calls[0][1];
+    const args = runCommand.mock.calls[0][0].args;
     expect(args).toContain('--staged');
   });
 
   it('passes path args when paths provided', async () => {
-    spawnMock.mockReturnValue(makeGitChild(''));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     await svc.getDiff({ paths: ['src/foo.ts', 'src/bar.ts'] });
-    const args = spawnMock.mock.calls[0][1];
+    const args = runCommand.mock.calls[0][0].args;
     expect(args).toContain('--');
     expect(args).toContain('src/foo.ts');
   });
 
   it('throws for traversal paths', async () => {
+    const { service } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     await expect(svc.getDiff({ paths: ['../secret'] })).rejects.toThrow(/not allowed/i);
   });
 });
@@ -265,30 +229,34 @@ describe('getDiff service', () => {
 
 describe('getLog service', () => {
   it('returns parsed log entries', async () => {
-    spawnMock.mockReturnValue(makeGitChild('* abc1234 feat: add thing\n* def5678 fix: bug\n'));
+    const { service } = makeFakeTerminal({ output: '* abc1234 feat: add thing\n* def5678 fix: bug\n' });
+    const svc = createGitService(service);
     const result = await svc.getLog();
     expect(result.entries).toHaveLength(2);
     expect(result.entries[0].hash).toBe('abc1234');
   });
 
   it('defaults to limit 10', async () => {
-    spawnMock.mockReturnValue(makeGitChild(''));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     await svc.getLog();
-    const args = spawnMock.mock.calls[0][1];
+    const args = runCommand.mock.calls[0][0].args;
     expect(args).toContain('-n10');
   });
 
   it('honours a custom limit', async () => {
-    spawnMock.mockReturnValue(makeGitChild(''));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     await svc.getLog({ limit: 25 });
-    const args = spawnMock.mock.calls[0][1];
+    const args = runCommand.mock.calls[0][0].args;
     expect(args).toContain('-n25');
   });
 
   it('clamps limit to 100', async () => {
-    spawnMock.mockReturnValue(makeGitChild(''));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     await svc.getLog({ limit: 500 });
-    const args = spawnMock.mock.calls[0][1];
+    const args = runCommand.mock.calls[0][0].args;
     expect(args).toContain('-n100');
   });
 });
@@ -299,43 +267,54 @@ describe('getLog service', () => {
 
 describe('stage service', () => {
   it('stages specific paths', async () => {
-    spawnMock
-      .mockReturnValueOnce(makeGitChild('', 0))
-      .mockReturnValueOnce(makeGitChild('M  src/foo.ts\n', 0));
+    const { service, runCommand } = makeFakeTerminal();
+    runCommand
+      .mockResolvedValueOnce({ output: '', exitCode: 0, success: true, timedOut: false })
+      .mockResolvedValueOnce({ output: 'M  src/foo.ts\n', exitCode: 0, success: true, timedOut: false });
 
+    const svc = createGitService(service);
     const result = await svc.stage({ paths: ['src/foo.ts'] });
     expect(result.staged).toContain('src/foo.ts');
 
-    const firstCall = spawnMock.mock.calls[0][1];
-    expect(firstCall).toContain('src/foo.ts');
-    expect(firstCall).not.toContain('-A');
+    const firstCallArgs = runCommand.mock.calls[0][0].args;
+    expect(firstCallArgs).toContain('src/foo.ts');
+    expect(firstCallArgs).not.toContain('-A');
   });
 
   it('stages all changes when paths is empty', async () => {
-    spawnMock
-      .mockReturnValueOnce(makeGitChild('', 0))
-      .mockReturnValueOnce(makeGitChild('M  src/foo.ts\n', 0));
+    const { service, runCommand } = makeFakeTerminal();
+    runCommand
+      .mockResolvedValueOnce({ output: '', exitCode: 0, success: true, timedOut: false })
+      .mockResolvedValueOnce({ output: 'M  src/foo.ts\n', exitCode: 0, success: true, timedOut: false });
 
+    const svc = createGitService(service);
     await svc.stage({ paths: [] });
-    const firstCall = spawnMock.mock.calls[0][1];
-    expect(firstCall).toContain('-A');
+    const firstCallArgs = runCommand.mock.calls[0][0].args;
+    expect(firstCallArgs).toContain('-A');
   });
 
   it('stages all when paths omitted', async () => {
-    spawnMock
-      .mockReturnValueOnce(makeGitChild('', 0))
-      .mockReturnValueOnce(makeGitChild('', 0));
+    const { service, runCommand } = makeFakeTerminal();
+    runCommand
+      .mockResolvedValueOnce({ output: '', exitCode: 0, success: true, timedOut: false })
+      .mockResolvedValueOnce({ output: '', exitCode: 0, success: true, timedOut: false });
 
+    const svc = createGitService(service);
     await svc.stage({});
-    expect(spawnMock.mock.calls[0][1]).toContain('-A');
+    expect(runCommand.mock.calls[0][0].args).toContain('-A');
   });
 
   it('throws for traversal paths', async () => {
+    const { service } = makeFakeTerminal();
+    const svc = createGitService(service);
     await expect(svc.stage({ paths: ['../outside'] })).rejects.toThrow(/not allowed/i);
   });
 
   it('throws when git add fails', async () => {
-    spawnMock.mockReturnValue(makeGitChild('fatal: error', 128));
+    const { service, runCommand } = makeFakeTerminal();
+    runCommand.mockResolvedValueOnce({ output: 'fatal: error', exitCode: 128, success: false, timedOut: false });
+
+    const svc = createGitService(service);
     await expect(svc.stage({ paths: ['src/foo.ts'] })).rejects.toThrow('error');
   });
 });
@@ -346,19 +325,25 @@ describe('stage service', () => {
 
 describe('commit service', () => {
   it('commits with the given message', async () => {
-    spawnMock.mockReturnValue(makeGitChild('[main abc1234] feat', 0));
+    const { service, runCommand } = makeFakeTerminal({ output: '[main abc1234] feat' });
+    const svc = createGitService(service);
     const result = await svc.commit({ message: 'feat: my feature' });
     expect(result.hash).toBe('abc1234');
     expect(result.subject).toBe('feat: my feature');
-    expect(spawnMock.mock.calls[0][1]).toContain('feat: my feature');
+    expect(runCommand.mock.calls[0][0].args).toContain('feat: my feature');
   });
 
   it('throws when message is empty', async () => {
+    const { service } = makeFakeTerminal();
+    const svc = createGitService(service);
     await expect(svc.commit({ message: '' })).rejects.toThrow('message is required');
   });
 
   it('throws when git commit fails', async () => {
-    spawnMock.mockReturnValue(makeGitChild('nothing to commit', 1));
+    const { service, runCommand } = makeFakeTerminal();
+    runCommand.mockResolvedValueOnce({ output: 'nothing to commit', exitCode: 1, success: false, timedOut: false });
+
+    const svc = createGitService(service);
     await expect(svc.commit({ message: 'test' })).rejects.toThrow('nothing to commit');
   });
 });
@@ -369,26 +354,36 @@ describe('commit service', () => {
 
 describe('discard service', () => {
   it('discards paths', async () => {
-    spawnMock.mockReturnValue(makeGitChild('', 0));
+    const { service, runCommand } = makeFakeTerminal({ output: '' });
+    const svc = createGitService(service);
     const result = await svc.discard({ paths: ['a.ts', 'b.ts'] });
     expect(result.discarded).toEqual(['a.ts', 'b.ts']);
-    expect(spawnMock.mock.calls[0][1]).toEqual(['restore', 'a.ts', 'b.ts']);
+    expect(runCommand.mock.calls[0][0].args).toEqual(['restore', 'a.ts', 'b.ts']);
   });
 
   it('throws when paths is empty', async () => {
+    const { service } = makeFakeTerminal();
+    const svc = createGitService(service);
     await expect(svc.discard({ paths: [] })).rejects.toThrow('non-empty');
   });
 
   it('throws when paths is missing', async () => {
+    const { service } = makeFakeTerminal();
+    const svc = createGitService(service);
     await expect(svc.discard({})).rejects.toThrow('non-empty');
   });
 
   it('throws for traversal paths', async () => {
+    const { service } = makeFakeTerminal();
+    const svc = createGitService(service);
     await expect(svc.discard({ paths: ['../outside'] })).rejects.toThrow(/not allowed/i);
   });
 
   it('throws when git restore fails', async () => {
-    spawnMock.mockReturnValue(makeGitChild('fatal: path error', 128));
+    const { service, runCommand } = makeFakeTerminal();
+    runCommand.mockResolvedValueOnce({ output: 'fatal: path error', exitCode: 128, success: false, timedOut: false });
+
+    const svc = createGitService(service);
     await expect(svc.discard({ paths: ['missing.ts'] })).rejects.toThrow('path error');
   });
 });

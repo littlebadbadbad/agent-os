@@ -71,6 +71,72 @@ export function getVersion() {
 const IS_WIN = process.platform === 'win32';
 const EXIT_CODE_VAR = IS_WIN ? '%ERRORLEVEL%' : '$?';
 
+// ── Sentinel-based command execution ───────────────────────────────────────
+
+/**
+ * Send a command to an interactive terminal and watch for a sentinel
+ * indicating completion.
+ *
+ * The sentinel pattern works by:
+ *   1. Sending the command to the terminal
+ *   2. Sending `echo {sentinel}:{EXIT_CODE_VAR}` immediately after
+ *   3. Watching output for the sentinel regex
+ *   4. When matched, extracting the exit code
+ *
+ * @param {object} opts
+ * @param {string} opts.terminalId - Terminal session to send to
+ * @param {string} opts.command - Shell command to execute
+ * @param {(result: { exitCode: number, output: string, success: boolean }) => void} opts.onComplete
+ *        Called when the sentinel is matched (command finished).
+ * @param {(info: { exitCode: number, output: string }) => void} [opts.onExit]
+ *        Called when the terminal exits before the sentinel is matched.
+ * @returns {() => void} Unsubscribe function (aborts the subscription).
+ */
+function _runWithSentinel({ terminalId, command, onComplete, onExit }) {
+  const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
+  const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
+
+  let captured = '';
+  let settled = false;
+  const ctrl = new AbortController();
+
+  subscribeTerminalOutput({
+    id: terminalId,
+    signal: ctrl.signal,
+    onOutput: (text) => {
+      if (settled) return;
+      captured += text;
+      const m = captured.match(sentinelRe);
+      if (m) {
+        settled = true;
+        ctrl.abort();
+        const exitCode = parseInt(m[1], 10);
+        onComplete({ exitCode, output: captured, success: exitCode === 0 });
+      }
+    },
+    onDone: (ec) => {
+      if (!settled) {
+        settled = true;
+        ctrl.abort();
+        onExit?.({ exitCode: ec ?? -1, output: captured });
+      }
+    },
+  });
+
+  try {
+    sendTerminalInput({ id: terminalId, text: `${command}\n` });
+    sendTerminalInput({ id: terminalId, text: `echo ${sentinel}:${EXIT_CODE_VAR}\n` });
+  } catch (err) {
+    if (!settled) {
+      settled = true;
+      ctrl.abort();
+      onExit?.({ exitCode: -1, output: `Failed to write command: ${err.message}` });
+    }
+  }
+
+  return () => ctrl.abort();
+}
+
 // ── Terminal command execution ─────────────────────────────────────────────
 
 /**
@@ -85,61 +151,17 @@ export function runUpgradeCommand({ command, cwd, label, terminalId }) {
 function _runOneShot(command, cwd, label) {
   return new Promise((resolve) => {
     const info = createTerminalSession({ label, cwd });
-    const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
-    const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
-
-    let output = '';
-    let settled = false;
-    const ctrl = new AbortController();
-
-    subscribeTerminalOutput({
-      id: info.id,
-      signal: ctrl.signal,
-      onOutput: (text) => {
-        output += text;
-        const m = output.match(sentinelRe);
-        if (m && !settled) {
-          settled = true;
-          ctrl.abort();
-          resolve({
-            terminalId: info.id,
-            exitCode: parseInt(m[1], 10),
-            output,
-            success: m[1] === '0',
-          });
-        }
-      },
-      onDone: (ec) => {
-        if (!settled) {
-          settled = true;
-          resolve({
-            terminalId: info.id,
-            exitCode: ec ?? -1,
-            output,
-            success: ec === 0,
-          });
-        }
-      },
+    _runWithSentinel({
+      terminalId: info.id,
+      command,
+      onComplete: (result) => resolve({ terminalId: info.id, ...result }),
+      onExit: (info2) => resolve({
+        terminalId: info.id,
+        exitCode: info2.exitCode,
+        output: info2.output,
+        success: false,
+      }),
     });
-
-    try {
-      sendTerminalInput({ id: info.id, text: `${command}\n` });
-      sendTerminalInput({
-        id: info.id,
-        text: `echo ${sentinel}:${EXIT_CODE_VAR}\n`,
-      });
-    } catch (err) {
-      if (!settled) {
-        settled = true;
-        ctrl.abort();
-        resolve({
-          terminalId: info.id,
-          exitCode: -1,
-          output: `Failed to write command: ${err.message}`,
-          success: false,
-        });
-      }
-    }
   });
 }
 
@@ -151,56 +173,64 @@ function _runInExisting(terminalId, command) {
     );
   }
 
-  const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
-  const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
-
   return new Promise((resolve, reject) => {
-    let captured = '';
-    let settled = false;
-    const ctrl = new AbortController();
-
-    const unsub = subscribeTerminalOutput({
-      id: terminalId,
-      signal: ctrl.signal,
-      onOutput: (text) => {
-        captured += text;
-        const m = captured.match(sentinelRe);
-        if (m && !settled) {
-          settled = true;
-          ctrl.abort();
-          const code = parseInt(m[1], 10);
-          resolve({
-            terminalId,
-            exitCode: code,
-            output: captured,
-            success: code === 0,
-          });
-        }
-      },
-      onDone: () => {
-        if (!settled) {
-          settled = true;
-          reject(
-            new Error('Terminal exited while waiting for command to complete'),
-          );
-        }
-      },
+    _runWithSentinel({
+      terminalId,
+      command,
+      onComplete: (result) => resolve({ terminalId, ...result }),
+      onExit: () => reject(
+        new Error('Terminal exited while waiting for command to complete'),
+      ),
     });
-
-    try {
-      sendTerminalInput({ id: terminalId, text: `${command}\n` });
-      sendTerminalInput({
-        id: terminalId,
-        text: `echo ${sentinel}:${EXIT_CODE_VAR}\n`,
-      });
-    } catch (err) {
-      if (!settled) {
-        settled = true;
-        ctrl.abort();
-        reject(err);
-      }
-    }
   });
+}
+
+// ── Background command (fire-and-forget with lock release) ─────────────────
+
+/**
+ * Start a background command in a terminal (new or existing) and release
+ * a concurrency lock when it completes.
+ *
+ * @param {object} opts
+ * @param {string} opts.command - Shell command to execute
+ * @param {string} opts.label - Terminal label (for new sessions)
+ * @param {string} [opts.terminalId] - Existing terminal to reuse
+ * @param {string} [opts.cwd] - Working directory (for new sessions)
+ * @param {() => void} opts.releaseLock - Called when command finishes or terminal exits
+ * @param {string} opts.logTag - Tag for log messages (e.g. 'build', 'test')
+ * @returns {{ started: boolean, terminalId: string }}
+ */
+function _startBackgroundCommand({ command, label, terminalId, cwd, releaseLock, logTag }) {
+  let id = terminalId;
+
+  if (terminalId) {
+    let term;
+    try {
+      term = getTerminalSession({ id: terminalId });
+    } catch {
+      throw new Error(`Terminal "${terminalId}" is not available`);
+    }
+    if (!term.running)
+      throw new Error(`Terminal "${terminalId}" is not available`);
+  } else {
+    const info = createTerminalSession({ label, cwd });
+    id = info.id;
+  }
+
+  _runWithSentinel({
+    terminalId: id,
+    command,
+    onComplete: () => {
+      releaseLock();
+      log.info(`${logTag} complete`);
+    },
+    onExit: () => {
+      releaseLock();
+      log.info(`${logTag} terminal exited`);
+    },
+  });
+
+  return { started: true, terminalId: id };
 }
 
 // ── Build concurrency lock ─────────────────────────────────────────────────
@@ -218,94 +248,14 @@ export function releaseBuildLock() {
 }
 
 export function startBuild({ terminalId, cwd } = {}) {
-  const targetCwd = cwd ?? SOURCE_ROOT;
-
-  if (terminalId) {
-    let term;
-    try {
-      term = getTerminalSession({ id: terminalId });
-    } catch {
-      throw new Error(`Terminal "${terminalId}" is not available`);
-    }
-    if (!term.running)
-      throw new Error(`Terminal "${terminalId}" is not available`);
-
-    const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
-    const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
-
-    sendTerminalInput({ id: terminalId, text: 'pnpm build:exe\n' });
-    sendTerminalInput({
-      id: terminalId,
-      text: `echo ${sentinel}:${EXIT_CODE_VAR}\n`,
-    });
-
-    let captured = '';
-    let released = false;
-    const ctrl = new AbortController();
-    subscribeTerminalOutput({
-      id: terminalId,
-      signal: ctrl.signal,
-      onOutput: (text) => {
-        if (released) return;
-        captured += text;
-        if (sentinelRe.test(captured)) {
-          released = true;
-          _buildInFlight = false;
-          log.info('build complete');
-          ctrl.abort();
-        }
-      },
-      onDone: () => {
-        if (!released) {
-          released = true;
-          _buildInFlight = false;
-          log.info('build terminal exited');
-        }
-      },
-    });
-
-    return { started: true, terminalId };
-  }
-
-  const info = createTerminalSession({
+  return _startBackgroundCommand({
+    command: 'pnpm build:exe',
     label: 'Build',
-    cwd: targetCwd,
+    terminalId,
+    cwd: cwd ?? SOURCE_ROOT,
+    releaseLock: () => { _buildInFlight = false; },
+    logTag: 'build',
   });
-  const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
-  const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
-
-  sendTerminalInput({ id: info.id, text: 'pnpm build:exe\n' });
-  sendTerminalInput({
-    id: info.id,
-    text: `echo ${sentinel}:${EXIT_CODE_VAR}\n`,
-  });
-
-  let captured = '';
-  let released = false;
-  const ctrl = new AbortController();
-  subscribeTerminalOutput({
-    id: info.id,
-    signal: ctrl.signal,
-    onOutput: (text) => {
-      if (released) return;
-      captured += text;
-      if (sentinelRe.test(captured)) {
-        released = true;
-        _buildInFlight = false;
-        log.info('build complete');
-        ctrl.abort();
-      }
-    },
-    onDone: () => {
-      if (!released) {
-        released = true;
-        _buildInFlight = false;
-        log.info('build terminal exited');
-      }
-    },
-  });
-
-  return { started: true, terminalId: info.id };
 }
 
 // ── Test concurrency lock ──────────────────────────────────────────────────
@@ -335,92 +285,14 @@ export function startTest({ target, terminalId, args } = {}) {
       ? TYPECHECK_COMMAND
       : `npx vitest run --config ${VITEST_CONFIGS[target]} ${args ?? ''}`;
 
-  if (terminalId) {
-    let term;
-    try {
-      term = getTerminalSession({ id: terminalId });
-    } catch {
-      throw new Error(`Terminal "${terminalId}" is not available`);
-    }
-    if (!term.running)
-      throw new Error(`Terminal "${terminalId}" is not available`);
-
-    const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
-    const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
-
-    sendTerminalInput({ id: terminalId, text: `${command}\n` });
-    sendTerminalInput({
-      id: terminalId,
-      text: `echo ${sentinel}:${EXIT_CODE_VAR}\n`,
-    });
-
-    let captured = '';
-    let released = false;
-    const ctrl = new AbortController();
-    subscribeTerminalOutput({
-      id: terminalId,
-      signal: ctrl.signal,
-      onOutput: (text) => {
-        if (released) return;
-        captured += text;
-        if (sentinelRe.test(captured)) {
-          released = true;
-          _testInFlight = false;
-          log.info('test complete');
-          ctrl.abort();
-        }
-      },
-      onDone: () => {
-        if (!released) {
-          released = true;
-          _testInFlight = false;
-          log.info('test terminal exited');
-        }
-      },
-    });
-
-    return { started: true, terminalId };
-  }
-
-  const info = createTerminalSession({
+  return _startBackgroundCommand({
+    command,
     label: `Test (${target})`,
+    terminalId,
     cwd: SOURCE_ROOT,
+    releaseLock: () => { _testInFlight = false; },
+    logTag: 'test',
   });
-  const sentinel = `__UPGRD_${randomBytes(4).toString('hex')}__`;
-  const sentinelRe = new RegExp(`${sentinel}:(\\d+)`);
-
-  sendTerminalInput({ id: info.id, text: `${command}\n` });
-  sendTerminalInput({
-    id: info.id,
-    text: `echo ${sentinel}:${EXIT_CODE_VAR}\n`,
-  });
-
-  let captured = '';
-  let released = false;
-  const ctrl = new AbortController();
-  subscribeTerminalOutput({
-    id: info.id,
-    signal: ctrl.signal,
-    onOutput: (text) => {
-      if (released) return;
-      captured += text;
-      if (sentinelRe.test(captured)) {
-        released = true;
-        _testInFlight = false;
-        log.info('test complete');
-        ctrl.abort();
-      }
-    },
-    onDone: () => {
-      if (!released) {
-        released = true;
-        _testInFlight = false;
-        log.info('test terminal exited');
-      }
-    },
-  });
-
-  return { started: true, terminalId: info.id };
 }
 
 // ── Dev server management ──────────────────────────────────────────────────

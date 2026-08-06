@@ -40,6 +40,10 @@ export function activate(host: AgentPluginHost): void {
         terminalAdapter.readOutput(id, offset, ""),
       sendInput: (id: string, text: string) =>
         terminalAdapter.sendInput(id, text, ""),
+      waitTerminal: (id: string, opts: { idleMs?: number; timeoutMs?: number }) =>
+        terminalAdapter.waitTerminal(id, opts, ""),
+      cancelWait: (id: string) =>
+        terminalAdapter.cancelWait(id, ""),
     },
   });
   host.registerToolSet(upgradeToolSet, getUpgradeSlotDeclarations(resolveToolSetTools(upgradeToolSet).map((t) => t.name)));

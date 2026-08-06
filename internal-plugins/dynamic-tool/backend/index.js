@@ -3,6 +3,7 @@
  *
  * Registers all dynamic-tool API methods via host.defineApi().
  * Uses host.getPluginDataDir() to obtain the data directory.
+ * Command execution goes through the terminal plugin's cross-plugin service.
  */
 
 import { createToolStore } from './lib/store.js';
@@ -12,12 +13,27 @@ import { createToolEnv } from './lib/toolEnv.js';
 import { createProxyRequest } from './lib/proxyRequest.js';
 import { createToolServices } from './services/tools.js';
 
+/** @import { BackendPluginHost } from '@agent-type/plugin.ts' */
+
+/**
+ * Activate the dynamic-tool plugin backend.
+ *
+ * Resolves the terminal cross-plugin service for command execution (pnpm).
+ * Throws if the terminal plugin is not available.
+ *
+ * @param {BackendPluginHost} host
+ */
 export function activate(host) {
+  const terminal = host.services.resolve('terminal');
+  if (!terminal) {
+    throw new Error('[dynamic-tool] Cannot activate: terminal service not available. Ensure the terminal plugin is enabled.');
+  }
+
   const dataDir = host.getPluginDataDir();
   const toolEnv = createToolEnv(dataDir);
   const toolStore = createToolStore(dataDir, toolEnv);
   const moduleStore = createModuleStore(dataDir, toolEnv);
-  const depStore = createDepStore(toolEnv);
+  const depStore = createDepStore(toolEnv, terminal);
   const proxyRequest = createProxyRequest(() => host.getBackendConfig('proxy'));
   const svc = createToolServices({ toolStore, moduleStore, depStore, proxyRequest });
 

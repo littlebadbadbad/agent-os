@@ -133,6 +133,46 @@ export interface SleepResult {
   readonly aborted: boolean;
 }
 
+// ── runCommand (high-level convenience) ──────────────────────────────────────
+
+/** Parameters for {@link TerminalService.runCommand}. */
+export interface RunCommandParams {
+  /** Executable name (e.g. `'git'`, `'pnpm'`, `'npx'`). */
+  readonly command: string;
+  /** Arguments passed to the command. Each arg is shell-quoted automatically. */
+  readonly args?: readonly string[];
+  /** Working directory. */
+  readonly cwd?: string;
+  /** Hard timeout in ms (default 120 000). Sends Ctrl+C on expiry. */
+  readonly timeoutMs?: number;
+}
+
+/** Synchronous result of {@link TerminalService.runCommand}. */
+export interface RunCommandResult {
+  /** Combined stdout + stderr output. */
+  readonly output: string;
+  /** Process exit code (`-1` on error or timeout). */
+  readonly exitCode: number;
+  /** `true` when `exitCode === 0`. */
+  readonly success: boolean;
+  /** `true` when the hard timeout was exceeded. */
+  readonly timedOut: boolean;
+}
+
+// ── subscribeTerminalOutput ──────────────────────────────────────────────────
+
+/** Parameters for subscribing to real-time terminal output. */
+export interface SubscribeOutputParams {
+  /** Terminal session id. */
+  readonly id: string;
+  /** Called for every new output chunk. */
+  readonly onOutput: (text: string) => void;
+  /** Called when the process exits. */
+  readonly onDone: (exitCode: number | null) => void;
+  /** Optional abort signal — when aborted, the subscription is removed. */
+  readonly signal?: AbortSignal;
+}
+
 // ── Service interface ────────────────────────────────────────────────────────
 
 /**
@@ -161,6 +201,19 @@ export interface TerminalService {
    */
   spawnCommand(params: SpawnCommandParams): TerminalSessionInfo;
 
+  /**
+   * Run a command to completion and return the result.
+   *
+   * High-level convenience that wraps `spawnCommand` + `waitTerminal` +
+   * `readTerminalOutput` + `removeTerminalSession`.  Arguments are
+   * shell-quoted automatically — callers pass them as an array, never as
+   * a pre-joined string.
+   *
+   * The session is removed after completion so no orphaned terminals
+   * accumulate.
+   */
+  runCommand(params: RunCommandParams): Promise<RunCommandResult>;
+
   /** Kill and remove a terminal session. */
   removeTerminalSession(params: { readonly id: string }): { readonly ok: true };
 
@@ -181,4 +234,10 @@ export interface TerminalService {
 
   /** Cancel an active waitTerminal call. */
   cancelWait(params: { readonly id: string }): void;
+
+  /**
+   * Subscribe to real-time output events from a terminal session.
+   * Returns immediately — callbacks fire asynchronously as output arrives.
+   */
+  subscribeTerminalOutput(params: SubscribeOutputParams): void;
 }

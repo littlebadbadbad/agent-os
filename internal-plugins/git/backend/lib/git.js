@@ -1,16 +1,16 @@
 /**
  * internal-plugins/git/backend/lib/git.js — Shared Git utilities
  *
- * Pure business-logic helpers. No HTTP, no IPC, no transport concerns.
+ * Pure business-logic helpers — no command execution, no transport concerns.
  *
  * Exported surface:
- *   runGit(args)         => Promise<{ success, output }>
+ *   getGitCwd()         => string
+ *   setGitCwd(dir)      => void
+ *   validatePaths(paths) => void (throws on invalid)
  *   parseStatus(output)  => { staged, unstaged, untracked }
  *   parseLog(output)     => Array<{ hash, subject }>
- *   validatePaths(paths) => void (throws on invalid)
  */
 
-import { spawn } from 'child_process';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -52,23 +52,6 @@ export function validatePaths(paths) {
       throw new Error(`Path not allowed (traversal or absolute): ${p}`);
     }
   }
-}
-
-// ── Git runner ────────────────────────────────────────────────────────────────
-
-export function runGit(args) {
-  return new Promise((resolve) => {
-    const chunks = [];
-    const child = spawn('git', args, {
-      cwd: _cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: false,
-    });
-    child.stdout.on('data', (c) => chunks.push(c.toString()));
-    child.stderr.on('data', (c) => chunks.push(c.toString()));
-    child.on('close', (code) => resolve({ success: code === 0, output: chunks.join('') }));
-    child.on('error', (err) => resolve({ success: false, output: `[error] ${err.message}` }));
-  });
 }
 
 // ── Output parsers ────────────────────────────────────────────────────────────

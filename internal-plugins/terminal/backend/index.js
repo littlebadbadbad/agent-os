@@ -38,6 +38,7 @@ export function activate(host) {
     availableShells: () => ({ shells: terminals.availableShells() }),
     createTerminalSession: (params) => terminals.createTerminalSession(params),
     spawnCommand: (params) => terminals.spawnCommandSession(params),
+    runCommand: (params) => terminals.runCommand(params),
     removeTerminalSession: (params) => terminals.removeTerminalSession(params),
     sendTerminalInput: (params) => terminals.sendTerminalInput(params),
     readTerminalOutput: (params) => terminals.readTerminalOutput(params),
@@ -45,6 +46,7 @@ export function activate(host) {
     waitTerminal: (params) => terminals.waitTerminal(params),
     sleepTerminal: (params) => terminals.sleepTerminal(params),
     cancelWait: (params) => terminals.cancelWait(params),
+    subscribeTerminalOutput: (params) => terminals.subscribeTerminalOutput(params),
   };
 
   _unregisterService = host.services.register('terminal', terminalService);

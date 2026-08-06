@@ -18,6 +18,9 @@ export type {
   WaitParams as TerminalWaitParams,
   WaitResult as TerminalWaitResult,
   SleepResult,
+  RunCommandParams,
+  RunCommandResult,
+  SubscribeOutputParams,
 } from './terminal';
 
 export type {

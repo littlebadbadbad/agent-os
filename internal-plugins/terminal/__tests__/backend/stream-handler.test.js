@@ -47,6 +47,7 @@ import { activate } from '../../backend/index.js';
 function createMockHost() {
   const apiHandlers = new Map();
   const streamHandlers = new Map();
+  const registeredServices = new Map();
 
   return {
     defineApi: (method, handler) => {
@@ -58,6 +59,13 @@ function createMockHost() {
     getStreamHandler: (name) => streamHandlers.get(name),
     getApiHandler: (method) => apiHandlers.get(method),
     getConfig: vi.fn(),
+    services: {
+      register: (name, service) => {
+        registeredServices.set(name, service);
+        return () => registeredServices.delete(name);
+      },
+      resolve: (name) => registeredServices.get(name),
+    },
   };
 }
 
