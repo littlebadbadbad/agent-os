@@ -193,6 +193,31 @@ export async function createLegacySseClient(url, extraHeaders = {}, { useProxy =
       return /** @type {ToolCallResult} */ (result);
     },
 
+    async listResources() {
+      return paginateList(sendRequest, 'resources/list', 'resources');
+    },
+
+    async listResourceTemplates() {
+      const result = await sendRequest('resources/templates/list');
+      return /** @type {readonly import('./utils.js').ResourceTemplateDef[]} */ (
+        Array.isArray(result?.resourceTemplates) ? result.resourceTemplates : []
+      );
+    },
+
+    async readResource(uri) {
+      const result = await sendRequest('resources/read', { uri });
+      return /** @type {import('./utils.js').ResourceReadResult} */ (result);
+    },
+
+    async listPrompts() {
+      return paginateList(sendRequest, 'prompts/list', 'prompts');
+    },
+
+    async getPrompt(name, args) {
+      const result = await sendRequest('prompts/get', { name, arguments: args ?? {} });
+      return /** @type {import('./utils.js').PromptGetResult} */ (result);
+    },
+
     close() {
       closed = true;
       if (sseReader) {

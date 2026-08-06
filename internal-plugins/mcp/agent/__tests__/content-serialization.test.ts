@@ -86,6 +86,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'echo', description: 'Echoes text', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -111,6 +112,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'read_file', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -135,6 +137,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'screenshot', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -159,6 +162,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'tts', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -183,6 +187,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'get_data', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -207,6 +212,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'read_binary', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -235,6 +241,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'report', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);
@@ -259,6 +266,7 @@ describe('Proxy Tool — Content Serialization', () => {
       headers: {}, includeTools: [], enabled: true, useProxy: false,
       status: 'connected', errorMsg: '',
       tools: [{ name: 'noop', inputSchema: { type: 'object', properties: {} } }],
+      resources: [], resourceTemplates: [], prompts: [],
     }]);
 
     const bundle = createMcpToolset(adapter);

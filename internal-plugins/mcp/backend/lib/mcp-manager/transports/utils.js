@@ -44,6 +44,64 @@ const MCP_PROTOCOL_VERSION = '2025-06-18';
  * @property {boolean} [isError]
  */
 
+/**
+ * @typedef {object} ResourceDef
+ * @property {string} uri
+ * @property {string} name
+ * @property {string} [title]
+ * @property {string} [description]
+ * @property {string} [mimeType]
+ */
+
+/**
+ * @typedef {object} ResourceTemplateDef
+ * @property {string} uriTemplate
+ * @property {string} name
+ * @property {string} [title]
+ * @property {string} [description]
+ * @property {string} [mimeType]
+ */
+
+/**
+ * @typedef {object} ResourceContents
+ * @property {string} uri
+ * @property {string} [mimeType]
+ * @property {string} [text]
+ * @property {string} [blob]
+ */
+
+/**
+ * @typedef {object} ResourceReadResult
+ * @property {readonly ResourceContents[]} contents
+ */
+
+/**
+ * @typedef {object} PromptArgument
+ * @property {string} name
+ * @property {string} [description]
+ * @property {boolean} [required]
+ */
+
+/**
+ * @typedef {object} PromptDef
+ * @property {string} name
+ * @property {string} [title]
+ * @property {string} [description]
+ * @property {readonly PromptArgument[]} [arguments]
+ */
+
+/**
+ * @typedef {object} PromptMessage
+ * @property {'user'|'assistant'} role
+ * @property {ContentBlock} content
+ */
+
+/**
+ * @typedef {object} PromptGetResult
+ * @property {string} [description]
+ * @property {readonly PromptMessage[]} messages
+ */
+
 export { CLIENT_INFO, MCP_PROTOCOL_VERSION };
 
 /**

@@ -169,16 +169,38 @@ export async function createStreamableHttpClient(url, extraHeaders = {}, { usePr
   // ── Public API ─────────────────────────────────────────────────────────
 
   return {
-    /** List available tools from this server, following pagination to completion. */
     async listTools() {
       return paginateList(sendRequest, 'tools/list', 'tools');
     },
 
-    /** Call a tool on this server. Returns structured ToolCallResult. */
     async callTool(name, args) {
       const result = await sendRequest('tools/call', { name, arguments: args });
-      // The result is already a ToolCallResult from the MCP server
       return /** @type {ToolCallResult} */ (result);
+    },
+
+    async listResources() {
+      return paginateList(sendRequest, 'resources/list', 'resources');
+    },
+
+    async listResourceTemplates() {
+      const result = await sendRequest('resources/templates/list');
+      return /** @type {readonly import('./utils.js').ResourceTemplateDef[]} */ (
+        Array.isArray(result?.resourceTemplates) ? result.resourceTemplates : []
+      );
+    },
+
+    async readResource(uri) {
+      const result = await sendRequest('resources/read', { uri });
+      return /** @type {import('./utils.js').ResourceReadResult} */ (result);
+    },
+
+    async listPrompts() {
+      return paginateList(sendRequest, 'prompts/list', 'prompts');
+    },
+
+    async getPrompt(name, args) {
+      const result = await sendRequest('prompts/get', { name, arguments: args ?? {} });
+      return /** @type {import('./utils.js').PromptGetResult} */ (result);
     },
 
     /** Open a GET SSE stream for server→client push messages. */

@@ -51,5 +51,37 @@ export function createMcpService(manager) {
       const result = await manager.callTool(server, tool, args);
       return { result };
     },
+
+    async listMcpResources({ server }) {
+      if (!server) throw new Error('server is required');
+      const resources = await manager.listResources(server);
+      return { resources };
+    },
+
+    async listMcpResourceTemplates({ server }) {
+      if (!server) throw new Error('server is required');
+      const templates = await manager.listResourceTemplates(server);
+      return { templates };
+    },
+
+    async readMcpResource({ server, uri }) {
+      if (!server) throw new Error('server is required');
+      if (!uri) throw new Error('uri is required');
+      const result = await manager.readResource(server, uri);
+      return { result };
+    },
+
+    async listMcpPrompts({ server }) {
+      if (!server) throw new Error('server is required');
+      const prompts = await manager.listPrompts(server);
+      return { prompts };
+    },
+
+    async getMcpPrompt({ server, name, arguments: args }) {
+      if (!server) throw new Error('server is required');
+      if (!name) throw new Error('name is required');
+      const result = await manager.getPrompt(server, name, args);
+      return { result };
+    },
   };
 }

@@ -30,6 +30,9 @@ function makeEntry(overrides: Partial<McpServerEntry> = {}): McpServerEntry {
     status: 'disconnected',
     errorMsg: '',
     tools: [],
+    resources: [],
+    resourceTemplates: [],
+    prompts: [],
     ...overrides,
   };
 }

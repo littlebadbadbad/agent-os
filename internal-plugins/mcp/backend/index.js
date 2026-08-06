@@ -72,6 +72,30 @@ export function activate(host) {
     return service.executeMcpTool({ server, tool, args, sessionId });
   });
 
+  // ── Resources ─────────────────────────────────────────────────────────────
+  host.defineApi('listResources', async (params) => {
+    const { server } = params || {};
+    return service.listMcpResources({ server });
+  });
+  host.defineApi('listResourceTemplates', async (params) => {
+    const { server } = params || {};
+    return service.listMcpResourceTemplates({ server });
+  });
+  host.defineApi('readResource', async (params) => {
+    const { server, uri } = params || {};
+    return service.readMcpResource({ server, uri });
+  });
+
+  // ── Prompts ───────────────────────────────────────────────────────────────
+  host.defineApi('listPrompts', async (params) => {
+    const { server } = params || {};
+    return service.listMcpPrompts({ server });
+  });
+  host.defineApi('getPrompt', async (params) => {
+    const { server, name, arguments: args } = params || {};
+    return service.getMcpPrompt({ server, name, arguments: args });
+  });
+
   // ── Startup reconnect ─────────────────────────────────────────────────────
   // Terminal plugin may not be activated yet — poll until ready, then
   // reconnect all enabled servers.  Timeout falls through anyway

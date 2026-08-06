@@ -26,6 +26,11 @@ import { createConnectionManager } from './connection.js';
 
 /**
  * @typedef {import('./config-store.js').ServerConfig} ServerConfig
+ * @typedef {import('./connection.js').ResourceDef} ResourceDef
+ * @typedef {import('./connection.js').ResourceTemplateDef} ResourceTemplateDef
+ * @typedef {import('./connection.js').ResourceReadResult} ResourceReadResult
+ * @typedef {import('./connection.js').PromptDef} PromptDef
+ * @typedef {import('./connection.js').PromptGetResult} PromptGetResult
  * @typedef {object} ToolDef
  * @property {string} name
  * @property {string} [description]
@@ -42,6 +47,9 @@ import { createConnectionManager } from './connection.js';
  * @property {'disconnected'|'connecting'|'connected'|'error'} status
  * @property {string} errorMsg
  * @property {readonly ToolDef[]} tools
+ * @property {readonly ResourceDef[]} resources
+ * @property {readonly ResourceTemplateDef[]} resourceTemplates
+ * @property {readonly PromptDef[]} prompts
  * @typedef {object} AddServerInput
  * @property {string} name
  * @property {string} url
@@ -58,6 +66,11 @@ import { createConnectionManager } from './connection.js';
  * @property {(name:string) => Promise<ServerEntry>} reconnectServer
  * @property {(name:string) => void} disconnectServerByName
  * @property {(serverName:string, toolName:string, args:Record<string,unknown>) => Promise<unknown>} callTool
+ * @property {(serverName:string) => Promise<readonly ResourceDef[]>} listResources
+ * @property {(serverName:string) => Promise<readonly ResourceTemplateDef[]>} listResourceTemplates
+ * @property {(serverName:string, uri:string) => Promise<ResourceReadResult>} readResource
+ * @property {(serverName:string) => Promise<readonly PromptDef[]>} listPrompts
+ * @property {(serverName:string, promptName:string, args?:Record<string,string>) => Promise<PromptGetResult>} getPrompt
  * @property {() => void} shutdown
  * @property {() => Promise<void>} startupReconnect
  */
@@ -95,6 +108,15 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
   /** @type {Map<string, {status:'disconnected'|'connecting'|'connected'|'error', errorMsg:string}>} */
   const statusByServer  = new Map();
 
+  /** @type {Map<string, readonly ResourceDef[]>} */
+  const resourcesByServer = new Map();
+
+  /** @type {Map<string, readonly ResourceTemplateDef[]>} */
+  const resourceTemplatesByServer = new Map();
+
+  /** @type {Map<string, readonly PromptDef[]>} */
+  const promptsByServer = new Map();
+
   for (const cfg of configs.getAll()) {
     statusByServer.set(cfg.name, { status: 'disconnected', errorMsg: '' });
   }
@@ -104,6 +126,7 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
   /** @param {ServerConfig} cfg @returns {ServerEntry} */
   function buildEntry(cfg) {
     const st = statusByServer.get(cfg.name) ?? { status: 'disconnected', errorMsg: '' };
+    const isConnected = st.status === 'connected';
     return {
       id: cfg.id,
       name: cfg.name,
@@ -116,6 +139,9 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
       status: st.status,
       errorMsg: st.errorMsg,
       tools: connections.getTools(cfg.name),
+      resources: isConnected ? resourcesByServer.get(cfg.name) ?? [] : [],
+      resourceTemplates: isConnected ? resourceTemplatesByServer.get(cfg.name) ?? [] : [],
+      prompts: isConnected ? promptsByServer.get(cfg.name) ?? [] : [],
     };
   }
 
@@ -131,6 +157,21 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
     try {
       await connections.connect(cfg);
       statusByServer.set(name, { status: 'connected', errorMsg: '' });
+
+      // Fetch resources and prompts in the background — don't fail the
+      // connection if the server doesn't support them.
+      try {
+        const [resources, templates, prompts] = await Promise.all([
+          connections.listResources(name).catch(() => []),
+          connections.listResourceTemplates(name).catch(() => []),
+          connections.listPrompts(name).catch(() => []),
+        ]);
+        resourcesByServer.set(name, resources);
+        resourceTemplatesByServer.set(name, templates);
+        promptsByServer.set(name, prompts);
+      } catch {
+        // Server doesn't support resources/prompts — leave caches empty.
+      }
     } catch (err) {
       statusByServer.set(name, { status: 'error', errorMsg: err.message });
       throw err;
@@ -185,6 +226,9 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
     connections.disconnect(name);
     configs.remove(name);
     statusByServer.delete(name);
+    resourcesByServer.delete(name);
+    resourceTemplatesByServer.delete(name);
+    promptsByServer.delete(name);
     log.info(`"${name}" removed`);
   }
 
@@ -202,6 +246,9 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
   function disconnectServerByName(name) {
     connections.disconnect(name);
     statusByServer.set(name, { status: 'disconnected', errorMsg: '' });
+    resourcesByServer.delete(name);
+    resourceTemplatesByServer.delete(name);
+    promptsByServer.delete(name);
     const cfg = configs.get(name);
     if (cfg) {
       cfg.enabled = false;
@@ -214,9 +261,37 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
     return connections.callTool(serverName, toolName, args);
   }
 
+  /** @param {string} serverName */
+  async function listResources(serverName) {
+    return connections.listResources(serverName);
+  }
+
+  /** @param {string} serverName */
+  async function listResourceTemplates(serverName) {
+    return connections.listResourceTemplates(serverName);
+  }
+
+  /** @param {string} serverName @param {string} uri */
+  async function readResource(serverName, uri) {
+    return connections.readResource(serverName, uri);
+  }
+
+  /** @param {string} serverName */
+  async function listPrompts(serverName) {
+    return connections.listPrompts(serverName);
+  }
+
+  /** @param {string} serverName @param {string} promptName @param {Record<string,string>} [args] */
+  async function getPrompt(serverName, promptName, args) {
+    return connections.getPrompt(serverName, promptName, args);
+  }
+
   function shutdown() {
     connections.shutdown();
     statusByServer.clear();
+    resourcesByServer.clear();
+    resourceTemplatesByServer.clear();
+    promptsByServer.clear();
     log.info('MCP manager shut down');
   }
 
@@ -237,6 +312,11 @@ export function createMcpManager(agentDir, proxyCfg = null, cryptoOps = null, ge
     reconnectServer,
     disconnectServerByName,
     callTool,
+    listResources,
+    listResourceTemplates,
+    readResource,
+    listPrompts,
+    getPrompt,
     shutdown,
     startupReconnect,
   };

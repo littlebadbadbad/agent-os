@@ -20,7 +20,7 @@
 import { z } from "zod";
 import { defineTool } from "@agent-type/defineTool";
 import type { Tool, ToolSet, ToolSetContext, AgentClientLike, SystemPromptContext, PluginSlotDeclaration, CompactToolCardDescriptor, ToolCallInfo } from "@agent-type";
-import { MAIN_CONVERSATION_ID } from "@agent-type";
+import { MAIN_CONVERSATION_ID, startsWithPrefix } from "@agent-type";
 import { defineSkill } from "./skill";
 import { resolveSkillTools } from "./skill";
 import type { Skill } from "./skill";
@@ -333,7 +333,7 @@ export function createSkillToolset(
     },
     {
       type: "autocomplete",
-      prefix: "/",
+      shouldTrigger: startsWithPrefix("/"),
       getItems: () =>
         [...loadedSkills.values()].map(({ skill }) => ({
           id: skill.name,

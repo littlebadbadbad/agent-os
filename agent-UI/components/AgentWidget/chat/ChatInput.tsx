@@ -1,11 +1,13 @@
-import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import type { Attachment, DataAttachment } from '@agent-type';
-import type { AutocompleteItem } from '@agent-type';
+import type { Attachment, DataAttachment, AutocompleteItem, AutocompleteSlotDeclaration, SlotDisplayContext } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { SendIcon, StopIcon, AttachIcon } from './ChatInputIcons';
 import { useSlotRegistry } from '../../../plugin/PluginContext';
 import styles from '../AgentWidget.module.scss';
+
+/** When the autocomplete item count exceeds this, a dedicated search input appears. */
+const AC_SEARCH_THRESHOLD = 8;
 
 interface ChatInputProps {
   onSend: (text: string, attachments?: readonly Attachment[]) => void;
@@ -32,34 +34,67 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
   const [acOpen, setAcOpen] = useState(false);
   const [acItems, setAcItems] = useState<AutocompleteItem[]>([]);
   const [acIndex, setAcIndex] = useState(0);
-  const [acPrefix, setAcPrefix] = useState('');
+  /** Start offset of the text to be replaced when an item is selected. */
+  const [acReplaceStart, setAcReplaceStart] = useState(0);
+  /** Snapshot of the input value before autocomplete opened (for Escape restore). */
+  const acRestoreRef = useRef('');
   const menuRef = useRef<HTMLDivElement>(null);
+  /** Dedicated search query when the dropdown has many items. */
+  const [acSearch, setAcSearch] = useState('');
+  const [acShowSearch, setAcShowSearch] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Build prefix → items map from all autocomplete slots.
+  // Collect all autocomplete slots with their current items.
   const { getByType } = useSlotRegistry();
-  const prefixItemsMap = (() => {
-    const map = new Map<string, AutocompleteItem[]>();
-    for (const slot of getByType('autocomplete')) {
-      const prefix = slot.declaration.prefix;
-      const items = slot.declaration.getItems({
-        sessionId: '',
-        agentName: 'main',
-        conversationId: 'main',
-      });
+  const displayCtx: SlotDisplayContext = {
+    sessionId: '',
+    agentName: 'main',
+    conversationId: 'main',
+  };
+  const acSlots: ReadonlyArray<{ declaration: AutocompleteSlotDeclaration; items: readonly AutocompleteItem[] }> = (() => {
+    const slots = getByType('autocomplete');
+    const result: Array<{ declaration: AutocompleteSlotDeclaration; items: readonly AutocompleteItem[] }> = [];
+    for (const slot of slots) {
+      const items = slot.declaration.getItems(displayCtx);
       if (items.length > 0) {
-        const existing = map.get(prefix);
-        map.set(prefix, existing ? [...existing, ...items] : [...items]);
+        result.push({ declaration: slot.declaration, items });
       }
     }
-    return map;
+    return result;
   })();
 
-  const hasAcSlots = prefixItemsMap.size > 0;
+  const hasAcSlots = acSlots.length > 0;
 
-  // Keep selected index in range when items change
+  // When the dropdown has many items, a dedicated search input further filters
+  // by both label and description.  Otherwise the textarea-typed filter suffices.
+  const acDisplayedItems = useMemo(() => {
+    if (acShowSearch && acSearch) {
+      const q = acSearch.toLowerCase();
+      return acItems.filter(
+        (item) =>
+          item.label.toLowerCase().includes(q) ||
+          item.description.toLowerCase().includes(q),
+      );
+    }
+    return acItems;
+  }, [acShowSearch, acSearch, acItems]);
+
+  // Keep selected index in range when displayed items change
   useEffect(() => {
-    setAcIndex((prev) => Math.min(prev, Math.max(0, acItems.length - 1)));
-  }, [acItems.length]);
+    setAcIndex((prev) => Math.min(prev, Math.max(0, acDisplayedItems.length - 1)));
+  }, [acDisplayedItems.length]);
+
+  // Reset selection to first item when search query changes
+  useEffect(() => {
+    if (acSearch) setAcIndex(0);
+  }, [acSearch]);
+
+  // Auto-focus the search input when it appears
+  useEffect(() => {
+    if (acOpen && acShowSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [acOpen, acShowSearch]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -69,21 +104,29 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
     }
   }, [acIndex, acOpen]);
 
-  /** Insert the selected autocomplete item into the input. */
+  /** Insert the selected autocomplete item into the input (inline replacement). */
   const selectItem = useCallback((item: AutocompleteItem) => {
-    setValue(item.insertText);
+    setValue((prev) => {
+      const ta = textareaRef.current;
+      const cursor = ta ? ta.selectionStart : prev.length;
+      // Replace text from acReplaceStart to cursor with insertText.
+      const next = prev.slice(0, acReplaceStart) + item.insertText + prev.slice(cursor);
+      // Place caret right after the inserted text.
+      const newCursor = acReplaceStart + item.insertText.length;
+      requestAnimationFrame(() => {
+        if (ta) {
+          ta.focus();
+          ta.setSelectionRange(newCursor, newCursor);
+        }
+      });
+      return next;
+    });
     setAcOpen(false);
     setAcItems([]);
-    setAcPrefix('');
-    // Re-focus and place cursor at end
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current;
-      if (ta) {
-        ta.focus();
-        ta.setSelectionRange(ta.value.length, ta.value.length);
-      }
-    });
-  }, []);
+    setAcIndex(0);
+    setAcSearch('');
+    setAcShowSearch(false);
+  }, [acReplaceStart]);
 
   const submit = useCallback(() => {
     const trimmed = value.trim();
@@ -101,30 +144,43 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>): void => {
       // ── Autocomplete navigation ────────────────────────────────────────
-      if (acOpen && acItems.length > 0) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setAcIndex((i) => (i + 1) % acItems.length);
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setAcIndex((i) => (i - 1 + acItems.length) % acItems.length);
-          return;
-        }
-        if (e.key === 'Enter' || e.key === 'Tab') {
-          e.preventDefault();
-          const item = acItems[acIndex];
-          if (item) selectItem(item);
-          return;
-        }
+      if (acOpen) {
         if (e.key === 'Escape') {
           e.preventDefault();
+          // Restore the input to its pre-autocomplete state.
+          setValue(acRestoreRef.current);
           setAcOpen(false);
           setAcItems([]);
-          setAcPrefix('');
-          setValue('');
+          setAcIndex(0);
+          setAcSearch('');
+          setAcShowSearch(false);
+          requestAnimationFrame(() => {
+            const ta = textareaRef.current;
+            if (ta) {
+              ta.focus();
+              const end = acRestoreRef.current.length;
+              ta.setSelectionRange(end, end);
+            }
+          });
           return;
+        }
+        if (acDisplayedItems.length > 0) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setAcIndex((i) => (i + 1) % acDisplayedItems.length);
+            return;
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setAcIndex((i) => (i - 1 + acDisplayedItems.length) % acDisplayedItems.length);
+            return;
+          }
+          if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            const item = acDisplayedItems[acIndex];
+            if (item) selectItem(item);
+            return;
+          }
         }
       }
 
@@ -133,32 +189,109 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
         submit();
       }
     },
-    [submit, acOpen, acItems, acIndex, selectItem],
+    [submit, acOpen, acDisplayedItems, acIndex, selectItem],
+  );
+
+  /** Keyboard navigation when the dedicated search input is focused. */
+  const handleSearchKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setValue(acRestoreRef.current);
+        setAcOpen(false);
+        setAcItems([]);
+        setAcIndex(0);
+        setAcSearch('');
+        setAcShowSearch(false);
+        requestAnimationFrame(() => {
+          const ta = textareaRef.current;
+          if (ta) {
+            ta.focus();
+            const end = acRestoreRef.current.length;
+            ta.setSelectionRange(end, end);
+          }
+        });
+        return;
+      }
+      if (acDisplayedItems.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setAcIndex((i) => (i + 1) % acDisplayedItems.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setAcIndex((i) => (i - 1 + acDisplayedItems.length) % acDisplayedItems.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const item = acDisplayedItems[acIndex];
+        if (item) selectItem(item);
+        return;
+      }
+    },
+    [acDisplayedItems, acIndex, selectItem],
   );
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>): void => {
     const newValue = e.target.value;
+    const cursor = e.target.selectionStart ?? newValue.length;
     setValue(newValue);
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = `${ta.scrollHeight}px`;
 
-    // Multi-prefix autocomplete detection
+    // Autocomplete trigger detection — ask each slot whether it wants to open.
     if (hasAcSlots) {
-      const matchedPrefix = Array.from(prefixItemsMap.keys())
-        .filter((p) => newValue.startsWith(p))
-        .sort((a, b) => b.length - a.length)[0]; // longest prefix wins
+      const triggerCtx = {
+        value: newValue,
+        cursor,
+        textBefore: newValue.slice(0, cursor),
+      };
 
-      if (matchedPrefix) {
-        const filterText = newValue.slice(matchedPrefix.length);
-        const allItems = prefixItemsMap.get(matchedPrefix)!;
+      // Collect ALL matching slots — their items are stacked (concatenated),
+      // not overwritten.  Slots are registered in priority order so earlier
+      // slots appear first in the dropdown.
+      const matchedSlots: Array<{ items: readonly AutocompleteItem[]; replaceStart: number }> = [];
+      for (const slot of acSlots) {
+        const result = slot.declaration.shouldTrigger(triggerCtx);
+        if (result !== false) {
+          matchedSlots.push({ items: slot.items, replaceStart: result });
+        }
+      }
+
+      if (matchedSlots.length > 0) {
+        // All matching slots share the same trigger context, so their
+        // replaceStart values should be identical.  Use the minimum as a
+        // safety net in case a slot returns a different offset.
+        const replaceStart = matchedSlots.reduce((min, s) => Math.min(min, s.replaceStart), Infinity);
+        const allItems = matchedSlots.flatMap((s) => s.items);
+        const showSearch = allItems.length > AC_SEARCH_THRESHOLD;
+
+        if (showSearch) {
+          // Many items — skip textarea filtering; the dedicated search input
+          // inside the dropdown handles narrowing by label + description.
+          if (!acOpen) acRestoreRef.current = newValue;
+          setAcOpen(true);
+          setAcItems(allItems);
+          setAcReplaceStart(replaceStart);
+          setAcIndex(0);
+          setAcShowSearch(true);
+          return;
+        }
+
+        // Few items — filter by the text typed after the trigger prefix.
+        const filterText = newValue.slice(replaceStart, cursor);
         const filtered = allItems.filter(
           (item) => item.label.toLowerCase().includes(filterText.toLowerCase()),
         );
+        if (!acOpen) acRestoreRef.current = newValue;
         setAcOpen(true);
         setAcItems(filtered);
-        setAcPrefix(matchedPrefix);
+        setAcReplaceStart(replaceStart);
         setAcIndex(0);
+        setAcShowSearch(false);
         return;
       }
     }
@@ -166,9 +299,11 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
     if (acOpen) {
       setAcOpen(false);
       setAcItems([]);
-      setAcPrefix('');
+      setAcIndex(0);
+      setAcSearch('');
+      setAcShowSearch(false);
     }
-  }, [hasAcSlots, prefixItemsMap, acOpen]);
+  }, [hasAcSlots, acSlots, acOpen]);
 
   const handleFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const files = Array.from(e.target.files ?? []);
@@ -246,26 +381,45 @@ export function ChatInput({ onSend, isLoading = false, onCancel, enableAttachmen
         <div className={styles['attach-error']} role="alert">{attachError}</div>
       )}
 
-      {/* Autocomplete menu (multi-prefix) */}
-      {acOpen && acItems.length > 0 && (
+      {/* Autocomplete menu */}
+      {acOpen && (acDisplayedItems.length > 0 || acShowSearch) && (
         <div ref={menuRef} className={styles['slash-menu']} role="listbox" aria-label="Autocomplete">
-          <div className={styles['slash-menu-header']}>Autocomplete — type to filter</div>
-          {acItems.map((item, i) => (
-            <div
-              key={item.id}
-              data-ac-item
-              role="option"
-              aria-selected={i === acIndex}
-              className={`${styles['slash-item']}${i === acIndex ? ` ${styles['slash-item--active']}` : ''}`}
-              onMouseEnter={() => setAcIndex(i)}
-              onClick={() => selectItem(item)}
-            >
-              <span className={styles['slash-item-prefix']}>{item.label}</span>
-              <div className={styles['slash-item-content']}>
-                <span className={styles['slash-item-desc']}>{item.description}</span>
-              </div>
+          {acShowSearch ? (
+            <div className={styles['slash-search']}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                className={styles['slash-search-input']}
+                placeholder="Search…"
+                value={acSearch}
+                onChange={(e) => setAcSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                aria-label="Search autocomplete items"
+              />
             </div>
-          ))}
+          ) : (
+            <div className={styles['slash-menu-header']}>Autocomplete — type to filter</div>
+          )}
+          {acDisplayedItems.length > 0 ? (
+            acDisplayedItems.map((item, i) => (
+              <div
+                key={item.id}
+                data-ac-item
+                role="option"
+                aria-selected={i === acIndex}
+                className={`${styles['slash-item']}${i === acIndex ? ` ${styles['slash-item--active']}` : ''}`}
+                onMouseEnter={() => setAcIndex(i)}
+                onClick={() => selectItem(item)}
+              >
+                <span className={styles['slash-item-prefix']}>{item.label}</span>
+                <div className={styles['slash-item-content']}>
+                  <span className={styles['slash-item-desc']}>{item.description}</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className={styles['slash-empty']}>No matching items</div>
+          )}
         </div>
       )}
 

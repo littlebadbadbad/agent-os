@@ -126,10 +126,16 @@ export type {
 } from "./plugin";
 
 // ── UI Slot types (plugin injection points) ───────────────────────────────────
+export {
+  startsWithPrefix,
+  inlinePrefix,
+} from "./ui-slot/types";
 export type {
   ToolButtonSlotDeclaration,
   AutocompleteSlotDeclaration,
   AutocompleteItem,
+  AutocompleteTriggerContext,
+  AutocompleteTriggerResult,
   SlotType,
   InlineSlotType,
   IframeSlotType,

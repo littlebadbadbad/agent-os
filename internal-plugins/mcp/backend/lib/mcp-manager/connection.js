@@ -14,6 +14,14 @@ import { createStdioClient } from './transports/stdio.js';
  */
 
 /**
+ * @typedef {import('./transports/utils.js').ResourceDef} ResourceDef
+ * @typedef {import('./transports/utils.js').ResourceTemplateDef} ResourceTemplateDef
+ * @typedef {import('./transports/utils.js').ResourceReadResult} ResourceReadResult
+ * @typedef {import('./transports/utils.js').PromptDef} PromptDef
+ * @typedef {import('./transports/utils.js').PromptGetResult} PromptGetResult
+ */
+
+/**
  * @typedef {object} ToolDef
  * @property {string} name
  * @property {string} [description]
@@ -30,6 +38,11 @@ import { createStdioClient } from './transports/stdio.js';
  * @typedef {object} McpClient
  * @property {() => Promise<readonly ToolDef[]>} listTools
  * @property {(name:string, args:Record<string,unknown>) => Promise<ToolCallResult>} callTool
+ * @property {() => Promise<readonly ResourceDef[]>} listResources
+ * @property {() => Promise<readonly ResourceTemplateDef[]>} listResourceTemplates
+ * @property {(uri:string) => Promise<ResourceReadResult>} readResource
+ * @property {() => Promise<readonly PromptDef[]>} listPrompts
+ * @property {(name:string, args?:Record<string,string>) => Promise<PromptGetResult>} getPrompt
  * @property {() => void} close
  */
 
@@ -46,6 +59,14 @@ import { createStdioClient } from './transports/stdio.js';
  * @typedef {object} ConnectionManager
  * @property {(cfg:ServerConfig) => Promise<readonly ToolDef[]>} connect
  * @property {(name:string) => void} disconnect
+ * @property {(name:string) => readonly ToolDef[]} getTools
+ * @property {(name:string) => boolean} isConnected
+ * @property {(serverName:string, toolName:string, args:Record<string,unknown>) => Promise<ToolCallResult>} callTool
+ * @property {(name:string) => Promise<readonly ResourceDef[]>} listResources
+ * @property {(name:string) => Promise<readonly ResourceTemplateDef[]>} listResourceTemplates
+ * @property {(name:string, uri:string) => Promise<ResourceReadResult>} readResource
+ * @property {(name:string) => Promise<readonly PromptDef[]>} listPrompts
+ * @property {(name:string, promptName:string, args?:Record<string,string>) => Promise<PromptGetResult>} getPrompt
  * @property {() => void} shutdown
  */
 
@@ -186,6 +207,64 @@ export function createConnectionManager(proxyConfig = null, getTerminalService =
   }
 
   /**
+   * List all resources from a connected server.
+   * @param {string} serverName
+   * @returns {Promise<readonly ResourceDef[]>}
+   */
+  async function listResources(serverName) {
+    const client = clients.get(serverName);
+    if (!client) throw new Error(`MCP server "${serverName}" is not connected.`);
+    return client.listResources();
+  }
+
+  /**
+   * List all resource templates from a connected server.
+   * @param {string} serverName
+   * @returns {Promise<readonly ResourceTemplateDef[]>}
+   */
+  async function listResourceTemplates(serverName) {
+    const client = clients.get(serverName);
+    if (!client) throw new Error(`MCP server "${serverName}" is not connected.`);
+    return client.listResourceTemplates();
+  }
+
+  /**
+   * Read a resource by URI from a connected server.
+   * @param {string} serverName
+   * @param {string} uri
+   * @returns {Promise<ResourceReadResult>}
+   */
+  async function readResource(serverName, uri) {
+    const client = clients.get(serverName);
+    if (!client) throw new Error(`MCP server "${serverName}" is not connected.`);
+    return client.readResource(uri);
+  }
+
+  /**
+   * List all prompts from a connected server.
+   * @param {string} serverName
+   * @returns {Promise<readonly PromptDef[]>}
+   */
+  async function listPrompts(serverName) {
+    const client = clients.get(serverName);
+    if (!client) throw new Error(`MCP server "${serverName}" is not connected.`);
+    return client.listPrompts();
+  }
+
+  /**
+   * Get a prompt by name with optional arguments from a connected server.
+   * @param {string} serverName
+   * @param {string} promptName
+   * @param {Record<string,string>} [args]
+   * @returns {Promise<PromptGetResult>}
+   */
+  async function getPrompt(serverName, promptName, args) {
+    const client = clients.get(serverName);
+    if (!client) throw new Error(`MCP server "${serverName}" is not connected.`);
+    return client.getPrompt(promptName, args);
+  }
+
+  /**
    * Shut down all connections.
    */
   function shutdown() {
@@ -201,6 +280,11 @@ export function createConnectionManager(proxyConfig = null, getTerminalService =
     getTools,
     isConnected,
     callTool,
+    listResources,
+    listResourceTemplates,
+    readResource,
+    listPrompts,
+    getPrompt,
     shutdown,
   };
 }

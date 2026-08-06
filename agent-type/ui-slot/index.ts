@@ -34,6 +34,8 @@ export type {
   AppSlotDeclaration,
   AutocompleteSlotDeclaration,
   AutocompleteItem,
+  AutocompleteTriggerContext,
+  AutocompleteTriggerResult,
   CompactToolCardDescriptor,
   // ── Category-level unions ──
   InlineSlotDeclaration,
@@ -41,6 +43,12 @@ export type {
   PluginSlotDeclaration,
   // ── Iframe context ──
   SlotContext,
+} from "./types";
+
+// ── Trigger helpers (runtime values, not types) ───────────────────────────────
+export {
+  startsWithPrefix,
+  inlinePrefix,
 } from "./types";
 
 export type {

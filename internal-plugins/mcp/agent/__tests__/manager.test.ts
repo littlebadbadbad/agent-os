@@ -50,6 +50,9 @@ function makeServerEntry(overrides: Partial<McpServerEntry> = {}): McpServerEntr
     status: 'disconnected',
     errorMsg: '',
     tools: [],
+    resources: [],
+    resourceTemplates: [],
+    prompts: [],
     ...overrides,
   };
 }
@@ -127,6 +130,11 @@ describe('createMcpToolset', () => {
       reconnectServer: vi.fn().mockResolvedValue(undefined),
       disconnectServer: vi.fn().mockResolvedValue(undefined),
       executeTool: vi.fn(),
+      listResources: vi.fn().mockResolvedValue([]),
+      listResourceTemplates: vi.fn().mockResolvedValue([]),
+      readResource: vi.fn().mockResolvedValue({ contents: [] }),
+      listPrompts: vi.fn().mockResolvedValue([]),
+      getPrompt: vi.fn().mockResolvedValue({ messages: [] }),
     };
 
     bundle = createMcpToolset(adapter);
@@ -146,24 +154,29 @@ describe('createMcpToolset', () => {
       expect(bundle.toolSet.name).toBe('mcp-manager');
     });
 
-    it('toolSet has 5 meta-tools', () => {
-      expect(bundle.toolSet.tools).toHaveLength(5);
+    it('toolSet has 9 meta-tools', () => {
+      expect(bundle.toolSet.tools).toHaveLength(9);
       const names = bundle.toolSet.tools.map((t) => t.name);
       expect(names).toContain('list_mcp_servers');
       expect(names).toContain('add_mcp_server');
       expect(names).toContain('remove_mcp_server');
       expect(names).toContain('connect_mcp_server');
       expect(names).toContain('disable_mcp_server');
+      expect(names).toContain('list_mcp_resources');
+      expect(names).toContain('read_mcp_resource');
+      expect(names).toContain('list_mcp_prompts');
+      expect(names).toContain('get_mcp_prompt');
     });
 
     it('coreTools includes list_mcp_servers', () => {
       expect(bundle.toolSet.coreTools).toEqual(['list_mcp_servers']);
     });
 
-    it('has 3 slot declarations', () => {
-      expect(bundle.slotDeclarations).toHaveLength(3);
+    it('has 4 slot declarations including autocomplete', () => {
+      expect(bundle.slotDeclarations).toHaveLength(4);
       const types = bundle.slotDeclarations.map((s) => s.type);
       expect(types).toContain('toolButton');
+      expect(types).toContain('autocomplete');
       expect(types).toContain('toolCard');
       expect(types).toContain('compactToolCard');
     });

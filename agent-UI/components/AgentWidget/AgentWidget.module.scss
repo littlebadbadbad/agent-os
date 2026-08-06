@@ -2208,6 +2208,40 @@
   color: var(--text-secondary, var(--text-secondary));
 }
 
+.slash-search {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border, var(--border));
+}
+
+.slash-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, var(--text-primary));
+  background: var(--bg-primary, var(--bg-primary));
+  border: 1px solid var(--border, var(--border));
+  border-radius: 6px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary, var(--primary));
+  }
+
+  &::placeholder {
+    color: var(--text-secondary, var(--text-secondary));
+  }
+}
+
+.slash-empty {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-secondary, var(--text-secondary));
+  text-align: center;
+}
+
 .slash-item {
   display: flex;
   align-items: center;

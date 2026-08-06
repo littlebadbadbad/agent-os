@@ -264,6 +264,43 @@ export interface AutocompleteItem {
 }
 
 /**
+ * Context passed to {@link AutocompleteSlotDeclaration.shouldTrigger} so a
+ * slot can decide whether to open the autocomplete dropdown.
+ *
+ * The host builds this on every keystroke and asks each registered
+ * autocomplete slot "should I open the menu for you right now?".
+ *
+ * Fields:
+ * - `value`     — the full textarea value at this moment.
+ * - `cursor`    — the caret position (0-based index into `value`).
+ * - `textBefore`— `value.slice(0, cursor)` — the text the user has typed
+ *                  up to (and not including) the caret.  This is the most
+ *                  useful field for trigger detection: a slot that wants
+ *                  "slash at the start of a line" checks
+ *                  `textBefore` starts with `/`; a slot that wants
+ *                  "slash anywhere" checks `textBefore` ends with `/`.
+ */
+export interface AutocompleteTriggerContext {
+  /** Full textarea value. */
+  readonly value: string;
+  /** Caret position (0-based index into `value`). */
+  readonly cursor: number;
+  /** `value.slice(0, cursor)` — text before the caret. */
+  readonly textBefore: string;
+}
+
+/**
+ * Result returned by {@link AutocompleteSlotDeclaration.shouldTrigger}.
+ *
+ * - `false`  — do not open the menu.
+ * - `number` — open the menu; the number is the **start offset** (0-based
+ *   index into `value`) of the text that should be replaced when the user
+ *   selects an item.  For a leading-slash slot this is `0`; for an
+ *   inline `@`-mention slot it is the index of the `@`.
+ */
+export type AutocompleteTriggerResult = false | number;
+
+/**
  * An autocomplete slot provides items for the ChatInput autocomplete menu.
  *
  * This slot has NO iframe — it is a pure data slot.  The host renders
@@ -272,20 +309,82 @@ export interface AutocompleteItem {
  *
  * NOTE: This declaration does NOT extend {@link IframeConfig} because
  * autocomplete has no iframe — no `shouldRender`, no `containingWidth`, no
- * `containingHeight`.  The trigger condition is expressed via `prefix`.
+ * `containingHeight`.  The trigger condition is expressed via
+ * `shouldTrigger`.
  */
 export interface AutocompleteSlotDeclaration {
   readonly type: "autocomplete";
   /**
-   * Trigger prefix, e.g. `"/"` for command name completion.
-   * When the user types this prefix, the autocomplete dropdown opens.
+   * Decide whether the autocomplete dropdown should open for the current
+   * input state.
+   *
+   * Called on every keystroke.  Return `false` to stay closed, or a
+   * number (the start offset of the replaceable text) to open the menu.
+   *
+   * For the common "prefix at start of input" pattern, use the
+   * {@link startsWithPrefix} helper:
+   * ```ts
+   * shouldTrigger: startsWithPrefix("/")
+   * ```
    */
-  readonly prefix: string;
+  readonly shouldTrigger: (ctx: AutocompleteTriggerContext) => AutocompleteTriggerResult;
   /**
    * Return autocomplete items for the current routing context.
    * Called on every state change so items stay in sync.
    */
   readonly getItems: (ctx: SlotDisplayContext) => readonly AutocompleteItem[];
+}
+
+// ── Trigger helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Create a `shouldTrigger` function that opens the menu when `textBefore`
+ * starts with the given prefix (i.e. the prefix is at the very beginning
+ * of the input).
+ *
+ * This is the standard "slash-command" pattern: the menu opens only when
+ * the user types `/` as the first character.
+ *
+ * @param prefix  e.g. `"/"` or `"/mcp:"`
+ * @returns a `shouldTrigger` function suitable for
+ *          {@link AutocompleteSlotDeclaration.shouldTrigger}.
+ */
+export function startsWithPrefix(prefix: string): (ctx: AutocompleteTriggerContext) => AutocompleteTriggerResult {
+  return (ctx) => {
+    if (ctx.textBefore.startsWith(prefix)) return 0;
+    return false;
+  };
+}
+
+/**
+ * Create a `shouldTrigger` function that opens the menu when the prefix
+ * appears immediately before the caret, regardless of where it is in the
+ * input (inline-mention pattern).
+ *
+ * The returned start offset is the index of the prefix occurrence closest
+ * to the caret.
+ *
+ * @param prefix  e.g. `"@"` or `"#"`
+ * @returns a `shouldTrigger` function suitable for
+ *          {@link AutocompleteSlotDeclaration.shouldTrigger}.
+ */
+export function inlinePrefix(prefix: string): (ctx: AutocompleteTriggerContext) => AutocompleteTriggerResult {
+  const idx = (ctx: AutocompleteTriggerContext): number => {
+    const { textBefore } = ctx;
+    const i = textBefore.lastIndexOf(prefix);
+    if (i < 0) return -1;
+    // Ensure the character before the prefix is whitespace or start-of-input
+    // (avoids matching `@` inside an email address).
+    if (i > 0) {
+      const prev = textBefore[i - 1];
+      if (prev !== ' ' && prev !== '\n' && prev !== '\t') return -1;
+    }
+    return i;
+  };
+  return (ctx) => {
+    const i = idx(ctx);
+    return i < 0 ? false : i;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

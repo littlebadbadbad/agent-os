@@ -7,7 +7,14 @@
  */
 
 import type { McpAdapter, McpServerEntry, McpServerConfig } from './types';
-import type { ToolCallResult } from './protocol';
+import type {
+  ToolCallResult,
+  ResourceDef,
+  ResourceTemplateDef,
+  ResourceReadResult,
+  PromptDef,
+  PromptGetResult,
+} from './protocol';
 import type { PluginApiClient } from '@agent-type';
 
 interface ListServersResponse {
@@ -16,6 +23,26 @@ interface ListServersResponse {
 
 interface ExecuteToolResponse {
   readonly result: ToolCallResult;
+}
+
+interface ListResourcesResponse {
+  readonly resources: readonly ResourceDef[];
+}
+
+interface ListResourceTemplatesResponse {
+  readonly templates: readonly ResourceTemplateDef[];
+}
+
+interface ReadResourceResponse {
+  readonly result: ResourceReadResult;
+}
+
+interface ListPromptsResponse {
+  readonly prompts: readonly PromptDef[];
+}
+
+interface GetPromptResponse {
+  readonly result: PromptGetResult;
 }
 
 /**
@@ -57,6 +84,35 @@ export function createMcpPluginAdapter(apiClient: PluginApiClient): McpAdapter {
         tool: toolName,
         args,
         sessionId,
+      });
+      return res.result;
+    },
+
+    async listResources(serverName: string) {
+      const res = await apiClient.call<ListResourcesResponse>('listResources', { server: serverName });
+      return res.resources;
+    },
+
+    async listResourceTemplates(serverName: string) {
+      const res = await apiClient.call<ListResourceTemplatesResponse>('listResourceTemplates', { server: serverName });
+      return res.templates;
+    },
+
+    async readResource(serverName: string, uri: string) {
+      const res = await apiClient.call<ReadResourceResponse>('readResource', { server: serverName, uri });
+      return res.result;
+    },
+
+    async listPrompts(serverName: string) {
+      const res = await apiClient.call<ListPromptsResponse>('listPrompts', { server: serverName });
+      return res.prompts;
+    },
+
+    async getPrompt(serverName: string, promptName: string, args?: Record<string, string>) {
+      const res = await apiClient.call<GetPromptResponse>('getPrompt', {
+        server: serverName,
+        name: promptName,
+        arguments: args,
       });
       return res.result;
     },

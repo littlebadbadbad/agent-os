@@ -41,4 +41,36 @@ Three transport types — choose based on what the server supports:
 - Names must be unique. Remove a server first if you need to re-add with the same name.
 - \`includeTools\` is useful when a server exposes many tools but you only need a few — keeps the agent's tool list focused.
 - stdio servers are local processes — they start when connected and terminate when disabled or removed.
-- Connection errors are non-fatal: the server is saved in \`disconnected\` state for later retry.`;
+- Connection errors are non-fatal: the server is saved in \`disconnected\` state for later retry.
+
+## MCP Resources
+
+MCP servers can expose **resources** — addressable data identified by URI (files, configs, database rows, etc.).
+
+### Listing Resources (\`list_mcp_resources\`)
+- Pass the server name to get all static resources and resource templates.
+- **Static resources** have a concrete \`uri\` (e.g. \`file:///config.json\`).
+- **Resource templates** have a \`uriTemplate\` with variables (e.g. \`file:///logs/{date}.log\`) — substitute the variables to form a valid URI, then read.
+
+### Reading Resources (\`read_mcp_resource\`)
+- Pass the server name and the resource URI.
+- Returns text content or base64-encoded blob data (for binary resources).
+- Use this to fetch context data that tools don't directly provide.
+
+## MCP Prompts
+
+MCP servers can expose **prompts** — reusable message templates with optional arguments.
+
+### Listing Prompts (\`list_mcp_prompts\`)
+- Pass the server name to get all available prompts.
+- Each prompt has a \`name\`, \`description\`, and optional \`arguments\` (with \`name\`, \`description\`, \`required\`).
+
+### Getting a Prompt (\`get_mcp_prompt\`)
+- Pass the server name, prompt name, and optional arguments.
+- Returns resolved messages with \`role\` (\`user\` or \`assistant\`) and \`content\`.
+- Incorporate the returned messages as context for the current conversation.
+
+### Slash-Mention Autocomplete
+- When the user types \`/\` in the chat input, MCP prompts appear as autocomplete suggestions.
+- The format is \`/mcp:<server>:<prompt>\` — selecting one inserts it into the message.
+- When you see a \`/mcp:<server>:<prompt>\` mention in the user's message, use \`get_mcp_prompt\` to retrieve the prompt's messages and follow them as context.`;

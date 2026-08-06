@@ -47,6 +47,11 @@ function makeMockClient(tools = [], callResult = { content: [{ type: 'text', tex
   return {
     listTools: vi.fn().mockResolvedValue(tools),
     callTool: vi.fn().mockResolvedValue(callResult),
+    listResources: vi.fn().mockResolvedValue([]),
+    listResourceTemplates: vi.fn().mockResolvedValue([]),
+    readResource: vi.fn().mockResolvedValue({ contents: [] }),
+    listPrompts: vi.fn().mockResolvedValue([]),
+    getPrompt: vi.fn().mockResolvedValue({ messages: [] }),
     close: vi.fn(),
   };
 }

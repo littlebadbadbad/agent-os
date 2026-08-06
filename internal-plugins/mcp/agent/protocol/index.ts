@@ -233,6 +233,104 @@ export interface ToolCallResult {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  Resources — §Server / Resources
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** A static resource descriptor returned by `resources/list`. */
+export interface ResourceDef {
+  readonly uri: string;
+  readonly name: string;
+  readonly title?: string;
+  readonly description?: string;
+  readonly mimeType?: string;
+}
+
+/** A parameterized resource template returned by `resources/templates/list`. */
+export interface ResourceTemplateDef {
+  readonly uriTemplate: string;
+  readonly name: string;
+  readonly title?: string;
+  readonly description?: string;
+  readonly mimeType?: string;
+}
+
+/** `resources/list` response result. */
+export interface ResourceListResult {
+  readonly resources: readonly ResourceDef[];
+  readonly nextCursor?: string;
+}
+
+/** `resources/templates/list` response result. */
+export interface ResourceTemplateListResult {
+  readonly resourceTemplates: readonly ResourceTemplateDef[];
+  readonly nextCursor?: string;
+}
+
+/** `resources/read` request params. */
+export interface ResourceReadRequest {
+  readonly uri: string;
+}
+
+/** A single resource contents entry in a `resources/read` response. */
+export interface ResourceContents {
+  readonly uri: string;
+  readonly mimeType?: string;
+  readonly text?: string;
+  readonly blob?: string;
+}
+
+/** `resources/read` response result. */
+export interface ResourceReadResult {
+  readonly contents: readonly ResourceContents[];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Prompts — §Server / Prompts
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** A single prompt argument definition. */
+export interface PromptArgument {
+  readonly name: string;
+  readonly description?: string;
+  readonly required?: boolean;
+}
+
+/** A prompt definition returned by `prompts/list`. */
+export interface PromptDef {
+  readonly name: string;
+  readonly title?: string;
+  readonly description?: string;
+  readonly arguments?: readonly PromptArgument[];
+}
+
+/** `prompts/list` response result. */
+export interface PromptListResult {
+  readonly prompts: readonly PromptDef[];
+  readonly nextCursor?: string;
+}
+
+/** `prompts/get` request params. */
+export interface PromptGetRequest {
+  readonly name: string;
+  readonly arguments?: Record<string, string>;
+}
+
+/** A message role in a `prompts/get` response. */
+export type PromptMessageRole = 'user' | 'assistant';
+
+/** A single message in a `prompts/get` response. */
+export interface PromptMessage {
+  readonly role: PromptMessageRole;
+  readonly content: ContentBlock;
+}
+
+/** `prompts/get` response result. */
+export interface PromptGetResult {
+  readonly description?: string;
+  readonly messages: readonly PromptMessage[];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  Utility Method Names
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -249,6 +347,7 @@ export const MCP_METHODS = {
   LOGGING_MESSAGE: 'notifications/message',
   RESOURCES_LIST: 'resources/list',
   RESOURCES_READ: 'resources/read',
+  RESOURCES_TEMPLATES_LIST: 'resources/templates/list',
   RESOURCES_LIST_CHANGED: 'notifications/resources/list_changed',
   PROMPTS_LIST: 'prompts/list',
   PROMPTS_GET: 'prompts/get',

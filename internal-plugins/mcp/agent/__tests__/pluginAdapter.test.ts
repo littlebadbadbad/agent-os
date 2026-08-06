@@ -54,6 +54,9 @@ function makeServerEntry(name: string): McpServerEntry {
     status: 'connected',
     errorMsg: '',
     tools: [{ name: 'tool-a', description: 'desc', inputSchema: { type: 'object', properties: {} } }],
+    resources: [],
+    resourceTemplates: [],
+    prompts: [],
   };
 }
 

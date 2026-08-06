@@ -34,6 +34,11 @@ const mockConnectionMgr = vi.hoisted(() => ({
   getTools: vi.fn(),
   isConnected: vi.fn(),
   callTool: vi.fn(),
+  listResources: vi.fn().mockResolvedValue([]),
+  listResourceTemplates: vi.fn().mockResolvedValue([]),
+  readResource: vi.fn(),
+  listPrompts: vi.fn().mockResolvedValue([]),
+  getPrompt: vi.fn(),
   shutdown: vi.fn(),
 }));
 

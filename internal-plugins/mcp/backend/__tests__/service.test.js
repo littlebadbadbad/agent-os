@@ -48,6 +48,9 @@ function makeServerEntry(name) {
     status: 'connected',
     errorMsg: '',
     tools: [{ name: 'echo', description: 'Echo', inputSchema: { type: 'object' } }],
+    resources: [],
+    resourceTemplates: [],
+    prompts: [],
   };
 }
 
