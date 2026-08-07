@@ -7,14 +7,17 @@
  * appearance is unchanged.
  */
 
+import { useMemo } from 'react';
+import type { ReactElement } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { HighlightText } from './HighlightText';
 import styles from '../AgentWidget.module.scss';
 
 // ── Component map — every HTML element → scoped CSS class ─────────────────────
 
-const components: Components = {
+const BASE_COMPONENTS: Components = {
   p:          ({ children }) => <p         className={styles['md-p']}>{children}</p>,
   h1:         ({ children }) => <h1        className={styles['md-h1']}>{children}</h1>,
   h2:         ({ children }) => <h2        className={styles['md-h2']}>{children}</h2>,
@@ -66,9 +69,38 @@ interface MarkdownTextProps {
   text: string;
   /** When true, a blinking cursor is appended (streaming in progress). */
   isStreaming?: boolean;
+  /** Non-empty query enables search highlighting inside the rendered text. */
+  query?: string;
+  /** Prefix used to build data-match-key attributes (usually the message id). */
+  matchPrefix?: string;
+  /** Key of the match to emphasise: `${matchPrefix}:${matchIndex}`. */
+  currentMatchKey?: string | null;
 }
 
-export function MarkdownText({ text, isStreaming }: MarkdownTextProps) {
+export function MarkdownText({
+  text,
+  isStreaming,
+  query = '',
+  matchPrefix,
+  currentMatchKey,
+}: MarkdownTextProps): ReactElement {
+  // The text renderer is rebuilt per render so highlight state stays in sync
+  // with the current query; the base element map stays module-level.
+  const components = useMemo<Components>(
+    () => ({
+      ...BASE_COMPONENTS,
+      text: ({ children }) => (
+        <HighlightText
+          text={Array.isArray(children) ? children.join('') : String(children)}
+          query={query}
+          matchPrefix={matchPrefix}
+          currentMatchKey={currentMatchKey}
+        />
+      ),
+    }),
+    [query, matchPrefix, currentMatchKey],
+  );
+
   return (
     <span className={styles['md-root']}>
       <ReactMarkdown components={components} remarkPlugins={REMARK_PLUGINS}>

@@ -1,15 +1,15 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { ReactElement, ChangeEvent, KeyboardEvent } from 'react';
+import type { ReactElement } from 'react';
 import type { Message } from '../types';
-import type { DataAttachment, Attachment } from '@agent-type';
+import type { Attachment, DataAttachment } from '@agent-type';
 import type { SlotSession } from '@agent-type';
-import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { ToolCallCard } from './ToolCallCard';
-import { AttachmentList } from './AttachmentList';
-import { ThinkingBlock } from './ThinkingBlock';
-import { MarkdownText } from './MarkdownText';
-import { AttachIcon } from './ChatInputIcons';
+import { UserNote } from './UserNote';
+import { AgentSection } from './AgentSection';
+import { InlineEditor } from './InlineEditor';
+import { DocumentSearch } from './DocumentSearch';
+import { collectMatches } from './search';
 import styles from '../AgentWidget.module.scss';
 
 const NEAR_BOTTOM_THRESHOLD = 120;
@@ -40,63 +40,13 @@ export function ChatMessages({ messages, onEditMessage, session }: ChatMessagesP
   // ── Edit state ───────────────────────────────────────────────────────────
   // messageId of the message currently being edited, or null when idle.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
-  const [editAttachments, setEditAttachments] = useState<DataAttachment[]>([]);
-  const [editAttachError, setEditAttachError] = useState<string | null>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
 
-  const startEditing = useCallback((message: Message) => {
-    setEditingId(message.id);
-    setEditText(message.content);
-    // Pre-populate with any data attachments the user originally sent.
-    const dataAtts = (message.attachments ?? []).filter(
-      (a): a is DataAttachment => a.source === 'data',
-    );
-    setEditAttachments(dataAtts);
-    setEditAttachError(null);
-  }, []);
-
-  const cancelEditing = useCallback(() => {
-    setEditingId(null);
-    setEditText('');
-    setEditAttachments([]);
-    setEditAttachError(null);
-  }, []);
-
-  const handleEditFileChange = useCallback(async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = '';
-    if (files.length === 0) return;
-    setEditAttachError(null);
-    const oversized = files.find((f) => f.size > MAX_FILE_BYTES);
-    if (oversized) {
-      setEditAttachError(`"${oversized.name}" exceeds the 20 MB limit.`);
-      return;
-    }
-    try {
-      const converted = await Promise.all(files.map(fileToDataAttachment));
-      setEditAttachments((prev) => [...prev, ...converted]);
-    } catch {
-      setEditAttachError('Failed to read one or more files.');
-    }
-  }, []);
-
-  const removeEditAttachment = useCallback((index: number): void => {
-    setEditAttachments((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleEditKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      // Submit via the save button's onClick — handled below.
-      const form = (e.target as HTMLElement).closest('[data-edit-form]');
-      (form?.querySelector('[data-edit-save]') as HTMLButtonElement)?.click();
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelEditing();
-    }
-  }, [cancelEditing]);
+  // ── Search state ─────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [matchIndex, setMatchIndex] = useState(0);
+  /** Bumped on explicit next/prev so only user navigation triggers scrolling. */
+  const [navTick, setNavTick] = useState(0);
 
   // ── Virtual list ─────────────────────────────────────────────────────────
 
@@ -183,184 +133,161 @@ export function ChatMessages({ messages, onEditMessage, session }: ChatMessagesP
 
   const virtualItems = virtualizer.getVirtualItems();
 
+  // ── Search matches & navigation ───────────────────────────────────────────
+  const matches = useMemo(() => collectMatches(visibleMessages, query), [visibleMessages, query]);
+  const matchCount = matches.length;
+  const currentMatch = matchCount > 0 ? matches[matchIndex % matchCount] : null;
+  const currentMatchKey = currentMatch
+    ? `${currentMatch.messageId}:${currentMatch.matchIndex}`
+    : null;
+
+  const jumpToMatch = useCallback(
+    (forward: boolean): void => {
+      if (matchCount === 0) return;
+      setMatchIndex((prev) => (prev + (forward ? 1 : -1) + matchCount) % matchCount);
+      setNavTick((tick) => tick + 1);
+      shouldFollowRef.current = false;
+    },
+    [matchCount],
+  );
+
+  const closeSearch = useCallback((): void => {
+    setSearchOpen(false);
+    setQuery('');
+    setMatchIndex(0);
+    setNavTick(0);
+    shouldFollowRef.current = true;
+  }, []);
+
+  // Scroll the current match into view only after explicit user navigation.
+  useEffect(() => {
+    if (navTick === 0 || !currentMatch) return;
+    const targetIndex = visibleMessages.findIndex((m) => m.id === currentMatch.messageId);
+    if (targetIndex < 0) return;
+    virtualizer.scrollToIndex(targetIndex, { align: 'center', behavior: 'auto' });
+
+    const key = `${currentMatch.messageId}:${currentMatch.matchIndex}`;
+    const timers: number[] = [];
+    const reveal = (): void => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-match-key="${key}"]`);
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+      if (timers.length < 15) timers.push(window.setTimeout(reveal, 60));
+    };
+    timers.push(window.setTimeout(reveal, 30));
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [navTick, currentMatch, visibleMessages, virtualizer]);
+
+  // Ctrl/Cmd+F opens the search bar when the panel itself has focus.
+  useEffect(() => {
+    const onKeyDown = (e: globalThis.KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        const active = document.activeElement;
+        if (active && containerRef.current?.contains(active)) {
+          e.preventDefault();
+          setSearchOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const handleEditSave = useCallback(
+    (messageId: string, text: string, attachments?: readonly DataAttachment[]): void => {
+      onEditMessage?.(messageId, text, attachments);
+      setEditingId(null);
+    },
+    [onEditMessage],
+  );
+
   return (
     <div className={styles['messages-wrap']}>
-      <div className={styles['messages']} ref={containerRef}>
-      {/* Hidden file input for edit-form attachments — lives outside the
-          virtualizer so the ref is stable across re-renders. */}
-      <input
-        ref={editFileInputRef}
-        type="file"
-        accept={ACCEPTED_MIME_TYPES}
-        multiple
-        className={styles['hidden']}
-        onChange={handleEditFileChange}
-        aria-hidden="true"
-        tabIndex={-1}
-      />
-      {visibleMessages.length === 0 ? (
-        <p className={styles['empty']}>Ask me anything to get started.</p>
-      ) : (
-        <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            width: '100%',
-            position: 'relative',
+      {visibleMessages.length > 0 && (
+        <DocumentSearch
+          open={searchOpen}
+          query={query}
+          onQueryChange={(q) => {
+            setQuery(q);
+            setMatchIndex(0);
           }}
-        >
-          {virtualItems.map((vItem) => {
-            const message = visibleMessages[vItem.index];
-            const isEditing = editingId === message.id;
-
-            return (
-              <div
-                key={vItem.key}
-                data-index={vItem.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${vItem.start}px)`,
-                  boxSizing: 'border-box',
-                }}
-              >
-                {/* ── Tool call bubble ── */}
-                {message.role === 'tool' && message.toolCall ? (
-                  <ToolCallCard info={message.toolCall} session={session} />
-                ) : (
-                  /* ── Regular message bubble ── */
-                  <div
-                    className={`${styles['message']} ${styles[message.role]} ${isEditing ? styles['message--editing'] : ''}`}
-                  >
-                    {message.thinking && (
-                      <ThinkingBlock text={message.thinking} isStreaming={!!message.isStreaming} />
-                    )}
-                    {/* Attachments rendered above the bubble for user messages */}
-                    {message.role === 'user' && message.attachments && message.attachments.length > 0 && (
-                      <AttachmentList attachments={message.attachments} />
-                    )}
-                    <div className={styles['bubble']}>
-                      {/* ── Editing state: inline textarea ── */}
-                      {isEditing ? (
-                        <div className={styles['edit-form']} data-edit-form>
-                          {/* Attachment preview strip */}
-                          {editAttachments.length > 0 && (
-                            <div className={styles['attach-strip']}>
-                              {editAttachments.map((att, i) => (
-                                <div key={i} className={styles['attach-chip']}>
-                                  {att.kind === 'image' ? (
-                                    <img
-                                      src={`data:${att.mimeType};base64,${att.data}`}
-                                      alt={att.name ?? 'attachment'}
-                                      className={styles['attach-thumb']}
-                                    />
-                                  ) : (
-                                    <span className={styles['attach-doc-icon']} aria-hidden="true">📄</span>
-                                  )}
-                                  <span className={styles['attach-name']}>{att.name ?? att.mimeType}</span>
-                                  <button
-                                    type="button"
-                                    className={styles['attach-remove']}
-                                    onClick={() => removeEditAttachment(i)}
-                                    aria-label={`Remove ${att.name ?? 'attachment'}`}
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {editAttachError && (
-                            <div className={styles['attach-error']} role="alert">{editAttachError}</div>
-                          )}
-                          <textarea
-                            className={styles['edit-textarea']}
-                            value={editText}
-                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditText(e.target.value)}
-                            onKeyDown={handleEditKeyDown}
-                            autoFocus
-                            rows={Math.max(2, editText.split('\n').length)}
-                          />
-                          <div className={styles['edit-actions']}>
-                            <button
-                              type="button"
-                              className={styles['edit-cancel-btn']}
-                              onClick={cancelEditing}
-                              data-edit-cancel
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              className={styles['attach-btn']}
-                              onClick={() => editFileInputRef.current?.click()}
-                              aria-label="Attach file"
-                              title="Attach image or document"
-                            >
-                              <AttachIcon />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles['edit-save-btn']}
-                              onClick={() => {
-                                const trimmed = editText.trim();
-                                if (!trimmed && editAttachments.length === 0) return;
-                                onEditMessage?.(
-                                  message.id,
-                                  trimmed,
-                                  editAttachments.length > 0 ? editAttachments : undefined,
-                                );
-                                setEditingId(null);
-                                setEditText('');
-                                setEditAttachments([]);
-                                setEditAttachError(null);
-                              }}
-                              data-edit-save
-                            >
-                              Save & Resend
-                            </button>
-                          </div>
-                        </div>
-                      ) : message.isStreaming && message.content === '' && !message.thinking ? (
-                        <span className={styles['thinking']} role="status" aria-label="Thinking">
-                          <span />
-                          <span />
-                          <span />
-                        </span>
-                      ) : message.isStreaming && message.content === '' ? null : (
-                        <MarkdownText text={message.content} isStreaming={message.isStreaming} />
-                      )}
-
-                      {/* Assistant-generated output attachments (e.g. generated images) */}
-                      {message.role === 'assistant' && message.attachments && message.attachments.length > 0 && (
-                        <AttachmentList attachments={message.attachments} />
-                      )}
-                    </div>
-
-                    {/* ── Edit button: visible on hover for user messages ── */}
-                    {message.role === 'user' && !isEditing && !message.isStreaming && (
-                      <button
-                        type="button"
-                        className={styles['edit-btn']}
-                        onClick={() => startEditing(message)}
-                        title="Edit this message"
-                        aria-label="Edit this message"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+          matchIndex={matchCount > 0 ? matchIndex % matchCount : -1}
+          matchCount={matchCount}
+          onPrev={() => jumpToMatch(false)}
+          onNext={() => jumpToMatch(true)}
+          onClose={closeSearch}
+          onOpen={() => setSearchOpen(true)}
+        />
       )}
-    </div>
+      <div className={styles['messages']} ref={containerRef}>
+        {visibleMessages.length === 0 ? (
+          <p className={styles['empty']}>Ask me anything to get started.</p>
+        ) : (
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualItems.map((vItem) => {
+              const message = visibleMessages[vItem.index];
+              const isEditing = editingId === message.id;
+
+              return (
+                <div
+                  key={vItem.key}
+                  data-index={vItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${vItem.start}px)`,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {message.role === 'tool' && message.toolCall ? (
+                    <ToolCallCard info={message.toolCall} session={session} />
+                  ) : message.role === 'user' ? (
+                    isEditing ? (
+                      <InlineEditor
+                        key={message.id}
+                        initialText={message.content}
+                        initialAttachments={(message.attachments ?? []).filter(
+                          (a): a is DataAttachment => a.source === 'data',
+                        )}
+                        onSave={(text, attachments) =>
+                          handleEditSave(message.id, text, attachments)
+                        }
+                        onCancel={() => setEditingId(null)}
+                      />
+                    ) : (
+                      <UserNote
+                        message={message}
+                        query={query}
+                        currentMatchKey={currentMatchKey}
+                        onEdit={() => setEditingId(message.id)}
+                      />
+                    )
+                  ) : (
+                    <AgentSection
+                      message={message}
+                      query={query}
+                      currentMatchKey={currentMatchKey}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       {showScrollBtn && (
         <button
           type="button"

@@ -3,8 +3,10 @@ import type { ReactElement } from 'react';
 import styles from '../AgentWidget.module.scss';
 
 export function ThinkingBlock({ text, isStreaming }: { text: string; isStreaming: boolean }): ReactElement {
-  // Default to expanded so users see the thinking process immediately.
-  const [expanded, setExpanded] = useState(true);
+  // Auto behaviour: expand while streaming, collapse once the reply is done.
+  // A manual toggle overrides the auto state until the next streaming change.
+  const [manual, setManual] = useState<boolean | null>(null);
+  const expanded = manual ?? isStreaming;
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll the thinking body to the latest content while streaming.
@@ -14,11 +16,15 @@ export function ThinkingBlock({ text, isStreaming }: { text: string; isStreaming
     }
   }, [text, isStreaming, expanded]);
 
+  const toggle = (): void => {
+    setManual((value) => (value === null ? !expanded : !value));
+  };
+
   return (
     <div className={styles['thinking-block']}>
       <button
         className={styles['thinking-toggle']}
-        onClick={() => setExpanded((v) => !v)}
+        onClick={toggle}
         aria-expanded={expanded}
       >
         <span className={`${styles['thinking-arrow']} ${expanded ? styles['thinking-arrow--open'] : ''}`}>▶</span>

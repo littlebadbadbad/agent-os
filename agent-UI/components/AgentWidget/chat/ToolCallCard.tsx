@@ -16,27 +16,13 @@ import {
 import {
   isSubAgentMetaTool,
 } from "./toolCards/identifiers";
-import { CompactToolCard } from "./CompactToolCard";
+import { SlotToolCard } from "./SlotToolCard";
+import { ToolCallInlineCard } from "./ToolCallInlineCard";
 import { ToolCardModal } from "./ToolCardModal";
 import styles from "../AgentWidget.module.scss";
 import { useSlotRegistry } from "../../../plugin/PluginContext";
 
 export { formatResult };
-
-// ── Dev-mode helpers ──────────────────────────────────────────────────────────
-
-const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
-
-function devCopy(info: ToolCallInfo): void {
-  if (!IS_DEV) return;
-  const data = JSON.stringify({
-    name: info.name,
-    arguments: info.arguments,
-    result: info.result,
-    error: info.error,
-  }, null, 2);
-  void navigator.clipboard.writeText(data).catch(() => { /* ignore */ });
-}
 
 // ── Generic fallback card (used in detail modal only) ─────────────────────────
 
@@ -79,17 +65,6 @@ function GenericCard({ info }: { info: ToolCallInfo }): ReactElement {
         ) : (
           <PlainResult result={result} />
         ))}
-      {IS_DEV && (
-        <button
-          type="button"
-          className={styles["dev-copy-btn-compact"]}
-          style={{ position: "absolute", top: 4, right: 4 }}
-          title="Copy tool call data (dev mode)"
-          onClick={() => devCopy(info)}
-        >
-          {"\u{1F4CB}"}
-        </button>
-      )}
     </CardShell>
   );
 }
@@ -130,14 +105,27 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
 
 export function ToolCallCard({ info, session }: { info: ToolCallInfo; session: SlotSession }): ReactElement {
   const [isOpen, setIsOpen] = useState(false);
+  const { getByType } = useSlotRegistry();
+
+  // Plugins may declare a compactToolCard slot to claim specific tools;
+  // those render via SlotToolCard, everything else uses the default inline
+  // execution note.
+  const slotCard = getByType('compactToolCard')
+    .find((entry) => entry.declaration.toolNames.includes(info.name));
 
   const meta = getToolMeta(info.name);
   const summary = getCompactSummary(info);
   const modalTitle = `${meta.icon} ${meta.label}${summary ? `  ${summary}` : ""}`;
 
+  const openModal = (): void => setIsOpen(true);
+
   return (
     <>
-      <CompactToolCard info={info} onOpen={() => setIsOpen(true)} session={session} />
+      {slotCard ? (
+        <SlotToolCard slot={slotCard} info={info} onOpen={openModal} />
+      ) : (
+        <ToolCallInlineCard info={info} onOpen={openModal} />
+      )}
       {isOpen && (
         <ToolCardModal title={modalTitle} onClose={() => setIsOpen(false)}>
           <DetailCard info={info} session={session} />
