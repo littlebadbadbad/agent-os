@@ -41,7 +41,7 @@ import { createCrudTools } from "./subAgentCrudTools";
 import { createConvTools } from "./subAgentConvTools";
 import { createDelegateTaskTool } from "./delegateTool";
 import { parentFromContext } from "./subAgentHelpers";
-import { SUBAGENT_DECISION_FRAMEWORK } from "./prompt";
+import { buildSubAgentDecisionFramework } from "./prompt";
 import type { Tool, ToolSet, ToolSetContext, AgentQueryFns, AgentHandler } from '@agent-type';
 import type { SubAgentRegistry, SubAgentSerializedEntry } from "./registryTypes";
 import type { SessionEntryData } from "../../client/sessionManager.types";
@@ -225,7 +225,7 @@ export function createSubAgentToolset(
     },
 
     onGetSystemPrompt(): string {
-      return SUBAGENT_DECISION_FRAMEWORK;
+      return buildSubAgentDecisionFramework(suffix);
     },
   } satisfies ToolSet;
 

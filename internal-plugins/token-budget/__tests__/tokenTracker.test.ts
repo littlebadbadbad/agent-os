@@ -206,6 +206,11 @@ describe('createTokenTracker', () => {
     expect(tracker.canSummarize()).toBe(true);
   });
 
+  it('canSummarize() returns false when maxTokens is 0', () => {
+    const tracker = createTokenTracker({ maxTokens: 0 });
+    expect(tracker.canSummarize()).toBe(false);
+  });
+
   it('canSummarize() returns false when below threshold', () => {
     const tracker = createTokenTracker({ maxTokens: 10_000, summarizationThreshold: 0.8 });
     tracker.record(usage(7_500)); // 75% — below

@@ -1,7 +1,0 @@
-{
-  "id": "tool-result-compressor",
-  "name": "Tool Result Compressor",
-  "version": "0.1.0",
-  "description": "Proactively compresses old tool-result messages in conversation history to manage context window. Keeps recent results per tool, clears older ones.",
-  "agentEntry": "activate.js"
-}

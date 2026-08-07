@@ -80,6 +80,12 @@ export type TokenBudgetToolSetOptions = {
    */
   minSavedTokens?: number;
   /**
+   * When `true` (default), compaction starts with the lightest strategy —
+   * clearing old tool results with a placeholder (zero LLM round-trips) —
+   * before attempting LLM summarization.  Set to `false` to always summarize.
+   */
+  enableToolResultClearing?: boolean;
+  /**
    * Optional factory that wraps or replaces the main conversation handler with
    * a cheaper/faster handler specifically for summarization calls.
    *

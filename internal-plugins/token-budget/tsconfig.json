@@ -4,6 +4,6 @@
     "noEmit": true,
     "rootDir": "../.."
   },
-  "include": ["agent", "ui", "__tests__"],
+  "include": ["agent", "ui", "__tests__", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,13 +1,13 @@
-import type { AgentMessage, AgentStreamChunk, HandlerContext } from '@agent-type';
-import type { AgentHandler } from '@agent-type';
+import type { AgentMessage, AgentHandler, AgentStreamChunk, HandlerContext } from '@agent-type';
 import {
-  DEFAULT_SUMMARY_PROMPT,
-  DEFAULT_INCREMENTAL_SUMMARY_PROMPT,
-  SUMMARY_ANCHOR_PREFIX,
+  DEFAULT_MAX_CHUNK_TOKENS,
   SUMMARY_ANCHOR_ACK,
+  SUMMARY_ANCHOR_PREFIX,
 } from './constants';
+import { extractSummaryText, buildSummarizationPrompt } from './structured';
+import { splitIntoChunks } from './chunks';
+import { splitHistory, extractSummaryAnchor } from './splitter';
 import { yieldToFrame, estimateTokens, messagesToText } from './text';
-import { safeSplitIndex, extractSummaryAnchor } from './splitter';
 
 export { estimateTokens } from './text';
 export { SUMMARY_ANCHOR_PREFIX, SUMMARY_ANCHOR_ACK } from './constants';
@@ -47,6 +47,11 @@ export type SummarizeConfig = {
    * the function returns `savedTokens: 0` without replacing history.
    */
   compressionCheck?: boolean;
+  /**
+   * Chunk size (estimated tokens) above which the transcript is summarized
+   * map-reduce style.  Defaults to `DEFAULT_MAX_CHUNK_TOKENS` (16 000).
+   */
+  maxChunkTokens?: number;
 };
 
 /**
@@ -68,7 +73,7 @@ async function callSummarizationHandler(
   const result = await handler(request, context);
 
   if ('getReader' in result) {
-    const reader = (result as ReadableStream<AgentStreamChunk>).getReader();
+    const reader = result.getReader();
     const chunks: string[] = [];
     const thinkingChunks: string[] = [];
     const onAbort = (): void => { reader.cancel().catch(() => {}); };
@@ -91,12 +96,50 @@ async function callSummarizationHandler(
     };
   }
 
-  if ('text' in result) {
-    const r = result as { text: string; thinking?: string };
-    return { text: r.text, thinking: r.thinking };
+  return { text: result.text, thinking: result.thinking };
+}
+
+/**
+ * Summarize a transcript, chunking it map-reduce style when it exceeds
+ * `maxChunkTokens`.  Each chunk is summarized independently; subsequent
+ * chunks fold into the running summary incrementally.
+ */
+async function summarizeTranscript(
+  anchor: { readonly previousSummary: string } | null,
+  messages: readonly AgentMessage[],
+  config: SummarizeConfig,
+): Promise<{ text: string; thinking: string | undefined }> {
+  const chunks = splitIntoChunks(messages, config.maxChunkTokens ?? DEFAULT_MAX_CHUNK_TOKENS);
+
+  if (chunks.length === 1) {
+    const prompt = buildSummarizationPrompt(
+      anchor,
+      messagesToText(chunks[0]),
+      config.summaryPrompt,
+      config.incrementalSummaryPrompt,
+    );
+    return callSummarizationHandler(config.handler, [{ role: 'user', content: prompt }], config.signal);
   }
 
-  return { text: String(result), thinking: undefined };
+  let running: string = anchor?.previousSummary ?? '';
+  let thinking: string | undefined;
+  for (const chunk of chunks) {
+    const prompt = buildSummarizationPrompt(
+      running ? { previousSummary: running } : null,
+      messagesToText(chunk),
+      config.summaryPrompt,
+      config.incrementalSummaryPrompt,
+    );
+    const response = await callSummarizationHandler(
+      config.handler,
+      [{ role: 'user', content: prompt }],
+      config.signal,
+    );
+    if (!response.text) throw new Error('Empty summary returned');
+    running = response.text;
+    thinking = response.thinking;
+  }
+  return { text: running, thinking };
 }
 
 /**
@@ -105,6 +148,10 @@ async function callSummarizationHandler(
  * Detects and merges any existing summary anchor (incremental mode), finds a
  * structurally safe split point, invokes the handler with tools disabled, and
  * replaces the old messages with a `[Context summary]` / `Understood.` pair.
+ *
+ * User messages are preserved verbatim (they are never summarized away — only
+ * assistant/tool messages feed the summary) and are re-inserted directly after
+ * the anchor, so no user content can be lost during compaction.
  *
  * @returns `{ messages, savedTokens }` — compacted history and estimated tokens freed.
  */
@@ -123,45 +170,27 @@ export async function summarizeHistory(
   const anchor = extractSummaryAnchor(history);
   const effectiveHistory = anchor ? anchor.tail : history;
 
-  if (effectiveHistory.length <= keepRecent + 1) return noOp;
+  const split = splitHistory(effectiveHistory, keepRecent);
+  if (!split) return noOp;
 
-  const desiredSplit = effectiveHistory.length - keepRecent;
-  const splitIdx = safeSplitIndex(effectiveHistory, desiredSplit);
-
-  if (splitIdx <= 0 || splitIdx >= effectiveHistory.length) return noOp;
-
-  const oldMessages = effectiveHistory.slice(0, splitIdx);
-  const recentMessages = effectiveHistory.slice(splitIdx);
+  // User messages pass through verbatim; only assistant/tool messages are
+  // eligible for summarization.
+  const userMessages = split.old.filter((m) => m.role === 'user');
+  const summarizable = split.old.filter((m) => m.role !== 'user');
+  if (summarizable.length === 0) return noOp;
 
   await yieldToFrame();
-  const oldTranscript = messagesToText(oldMessages);
-  const oldTokens = estimateTokens(oldTranscript);
+  const oldTokens = estimateTokens(messagesToText(summarizable));
 
   // Pre-flight estimate: bail if the expected saving is too small to justify a
   // full LLM call, regardless of anchor overhead.
   if (minSaved > 0 && oldTokens < minSaved) return noOp;
 
-  let requestContent: string;
-  if (anchor) {
-    const incrementalPrompt =
-      config.incrementalSummaryPrompt ?? DEFAULT_INCREMENTAL_SUMMARY_PROMPT;
-    requestContent =
-      `${incrementalPrompt}\n\n` +
-      `---\n[Existing summary]\n${anchor.previousSummary}\n\n` +
-      `[New conversation turns]\n${oldTranscript}`;
-  } else {
-    const summaryPrompt = config.summaryPrompt ?? DEFAULT_SUMMARY_PROMPT;
-    requestContent = `${summaryPrompt}\n\n---\n${oldTranscript}`;
-  }
-
   let summaryText: string;
   let summaryThinking: string | undefined;
   try {
-    const summarizationRequest: AgentMessage[] = [
-      { role: 'user', content: requestContent },
-    ];
-    const response = await callSummarizationHandler(config.handler, summarizationRequest, config.signal);
-    summaryText = response.text.trim();
+    const response = await summarizeTranscript(anchor, summarizable, config);
+    summaryText = extractSummaryText(response.text);
     summaryThinking = response.thinking;
     if (!summaryText) throw new Error('Empty summary returned');
   } catch {
@@ -176,20 +205,16 @@ export async function summarizeHistory(
   }
 
   await yieldToFrame();
-  const anchorPrefix = anchor
-    ? `${SUMMARY_ANCHOR_PREFIX}${anchor.previousSummary}\n${SUMMARY_ANCHOR_ACK}\n`
-    : '';
-  const anchorUserContent = `${SUMMARY_ANCHOR_PREFIX}${summaryText}`;
   const anchorTokens =
-    estimateTokens(anchorUserContent) + estimateTokens(SUMMARY_ANCHOR_ACK);
-  const priorAnchorTokens = estimateTokens(anchorPrefix);
+    estimateTokens(summaryText) + estimateTokens(SUMMARY_ANCHOR_ACK);
+  const priorAnchorTokens = estimateTokens(anchor?.previousSummary ?? '');
   const savedTokens = Math.max(0, oldTokens + priorAnchorTokens - anchorTokens);
 
   // Final savings gate: ensure the net saving meets the minimum threshold.
   if (savedTokens < minSaved) return noOp;
 
   const compacted: AgentMessage[] = [
-    { role: 'user', content: anchorUserContent },
+    { role: 'user', content: `${SUMMARY_ANCHOR_PREFIX}${summaryText}` },
     // Attach the thinking produced during summarization so that thinking-mode
     // models (DeepSeek, Doubao, etc.) receive the required reasoning_content
     // echo for this synthetic assistant turn on subsequent API calls.
@@ -198,7 +223,8 @@ export async function summarizeHistory(
       content: SUMMARY_ANCHOR_ACK,
       ...(summaryThinking != null ? { thinking: summaryThinking } : {}),
     },
-    ...recentMessages,
+    ...userMessages,
+    ...split.recent,
   ];
 
   return { messages: compacted, savedTokens };

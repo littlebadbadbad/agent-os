@@ -32,6 +32,23 @@ export function safeSplitIndex(
 }
 
 /**
+ * Split history into an "old" prefix (to compact) and a "recent" suffix
+ * (kept verbatim) at a structurally safe boundary.
+ *
+ * Returns `null` when the history is too short to compact or the safe split
+ * point lands outside the valid range.
+ */
+export function splitHistory(
+  history: readonly AgentMessage[],
+  keepRecent: number,
+): { old: readonly AgentMessage[]; recent: readonly AgentMessage[] } | null {
+  if (history.length <= keepRecent + 1) return null;
+  const idx = safeSplitIndex(history, history.length - keepRecent);
+  if (idx <= 0 || idx >= history.length) return null;
+  return { old: history.slice(0, idx), recent: history.slice(idx) };
+}
+
+/**
  * Detect a previously produced summary anchor pair at the start of history.
  * Returns the prior summary text and the remainder of history, or `null`.
  */

@@ -10,13 +10,14 @@
  */
 
 import type { AgentPluginHost } from '@agent-type';
-import { createTokenBudgetToolSet } from './tokenBudgetToolSet';
+import { createTokenBudgetToolSet, getTokenBudgetSlotDeclarations } from './tokenBudgetToolSet';
 
 /**
  * Activate the token-budget plugin.
  *
  * Builds the token-budget ToolSet with a config factory that derives
- * `maxTokens` from the currently selected model's context window.
+ * `maxTokens` from the currently selected model's context window, and
+ * registers its `headerBar` UI slot.
  *
  * @param host  The AgentPluginHost for this plugin.
  */
@@ -27,5 +28,5 @@ export function activate(host: AgentPluginHost): void {
       ? { maxTokens: contextWindow, warningThreshold: 0.7, summarizationThreshold: 0.85 }
       : undefined;
   });
-  host.registerToolSet(toolSet);
+  host.registerToolSet(toolSet, getTokenBudgetSlotDeclarations());
 }

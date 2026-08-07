@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { safeSplitIndex, extractSummaryAnchor } from '../agent/summarize/splitter';
+import { safeSplitIndex, extractSummaryAnchor, splitHistory } from '../agent/summarize/splitter';
 import { estimateTokens, messagesToText, yieldToFrame } from '../agent/summarize/text';
 import { summarizeHistory } from '../agent/summarize';
 import {
@@ -7,7 +7,7 @@ import {
   SUMMARY_ANCHOR_ACK,
   MAX_TOOL_RESULT_CHARS,
 } from '../agent/summarize/constants';
-import type { AgentMessage } from '@agent-type';
+import type { AgentHandler, AgentMessage, AgentStreamChunk, AgentTurnResponse } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +23,42 @@ function assistantMsg(content: string, toolCalls?: { id: string; name: string; a
 
 function toolMsg(name: string, content: string): AgentMessage {
   return { role: 'tool', toolCallId: `tc-${name}`, name, content };
+}
+
+/** A typed async-handler mock that returns a structured response. */
+function mockHandler(impl: AgentHandler): ReturnType<typeof vi.fn<AgentHandler>> {
+  return vi.fn<AgentHandler>(impl);
+}
+
+/** Encode chunks as a ReadableStream for a streaming handler. */
+function chunksToStream(chunks: readonly AgentStreamChunk[]): ReadableStream<AgentStreamChunk> {
+  let idx = 0;
+  return new ReadableStream<AgentStreamChunk>({
+    pull(controller) {
+      if (idx < chunks.length) {
+        controller.enqueue(chunks[idx]);
+        idx += 1;
+      } else {
+        controller.close();
+      }
+    },
+  });
+}
+
+/** Read the user-turn content of the first handler call. */
+function firstRequestContent(handler: ReturnType<typeof vi.fn<AgentHandler>>): string {
+  const request = handler.mock.calls[0][0][0];
+  return request.role === 'user' ? request.content : '';
+}
+
+/** Build n user/assistant pairs. */
+function buildLongHistory(n: number): AgentMessage[] {
+  const msgs: AgentMessage[] = [];
+  for (let i = 0; i < n; i++) {
+    msgs.push(userMsg(`Question ${i}`));
+    msgs.push(assistantMsg(`Answer ${i}`));
+  }
+  return msgs;
 }
 
 // ── yieldToFrame ──────────────────────────────────────────────────────────────
@@ -234,24 +270,51 @@ describe('extractSummaryAnchor', () => {
   });
 });
 
+// ── splitHistory ────────────────────────────────────────────────────────────────
+
+describe('splitHistory', () => {
+  it('returns null when history is too short', () => {
+    const history = [userMsg('Q'), assistantMsg('A')];
+    expect(splitHistory(history, 4)).toBeNull();
+  });
+
+  it('splits history into old and recent at a safe boundary', () => {
+    const history = buildLongHistory(5); // 10 messages
+    const result = splitHistory(history, 2);
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.old.length + result.recent.length).toBe(history.length);
+      expect(result.recent).toEqual(history.slice(history.length - 2));
+    }
+  });
+
+  it('never places a tool result at the start of the recent suffix', () => {
+    const history: AgentMessage[] = [
+      userMsg('Q'),
+      assistantMsg('A', [{ id: 'tc1', name: 't', arguments: {} }]),
+      toolMsg('t', 'result'),
+      userMsg('Q2'),
+      assistantMsg('A2'),
+      userMsg('Q3'),
+      assistantMsg('A3'),
+    ];
+    const result = splitHistory(history, 2);
+    expect(result).not.toBeNull();
+    if (result) {
+      expect(result.recent[0].role).not.toBe('tool');
+    }
+  });
+});
+
 // ── summarizeHistory ──────────────────────────────────────────────────────────
 
 describe('summarizeHistory', () => {
   const signal = new AbortController().signal;
 
-  function buildLongHistory(n: number): AgentMessage[] {
-    const msgs: AgentMessage[] = [];
-    for (let i = 0; i < n; i++) {
-      msgs.push(userMsg(`Question ${i}`));
-      msgs.push(assistantMsg(`Answer ${i}`));
-    }
-    return msgs;
-  }
-
   it('returns original history unchanged when it is too short', async () => {
     const history = buildLongHistory(2); // 4 messages, keepRecentMessages default is 4
-    const handler = vi.fn(async () => ({ text: 'summary' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal });
+    const handler = mockHandler(async () => ({ text: 'summary' }));
+    const result = await summarizeHistory(history, { handler, signal });
     expect(result.messages).toEqual(history);
     expect(result.savedTokens).toBe(0);
     expect(handler).not.toHaveBeenCalled();
@@ -259,8 +322,8 @@ describe('summarizeHistory', () => {
 
   it('summarizes history and returns compacted messages', async () => {
     const history = buildLongHistory(5); // 10 messages
-    const handler = vi.fn(async () => ({ text: 'A concise summary of the conversation.' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
+    const handler = mockHandler(async () => ({ text: 'A concise summary of the conversation.' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
     expect(handler).toHaveBeenCalled();
     expect(result.messages.length).toBeLessThan(history.length);
     // First two messages should be the anchor pair
@@ -268,31 +331,46 @@ describe('summarizeHistory', () => {
     expect(result.messages[1].content).toBe(SUMMARY_ANCHOR_ACK);
   });
 
+  it('preserves user messages verbatim after the summary anchor', async () => {
+    const history = buildLongHistory(5);
+    const handler = mockHandler(async () => ({ text: 'Summary.' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    // Every user message after the anchor pair must survive, in order, verbatim.
+    const userBodies = result.messages
+      .slice(2) // skip the [Context summary] anchor pair
+      .filter((m) => m.role === 'user')
+      .map((m) => (m.role === 'user' ? m.content : ''));
+    expect(userBodies).toEqual([
+      'Question 0', 'Question 1', 'Question 2', 'Question 3', 'Question 4',
+    ]);
+  });
+
   it('reports savedTokens > 0 after summarization', async () => {
     const history = buildLongHistory(5);
-    const handler = vi.fn(async () => ({ text: 'Short summary.' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
+    const handler = mockHandler(async () => ({ text: 'Short summary.' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
     expect(result.savedTokens).toBeGreaterThan(0);
   });
 
   it('uses custom keepRecentMessages value', async () => {
     const history = buildLongHistory(5); // 10 messages
-    const handler = vi.fn(async () => ({ text: 'Summary.' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, keepRecentMessages: 2 });
+    const handler = mockHandler(async () => ({ text: 'Summary.' }));
+    const result = await summarizeHistory(history, { handler, signal, keepRecentMessages: 2 });
+    expect(result.messages).toBeDefined();
   });
 
   it('returns original history when handler throws', async () => {
     const history = buildLongHistory(6);
-    const handler = vi.fn(async () => { throw new Error('API error'); });
-    const result = await summarizeHistory(history, { handler: handler as any, signal });
+    const handler = mockHandler(async () => { throw new Error('API error'); });
+    const result = await summarizeHistory(history, { handler, signal });
     expect(result.messages).toEqual(history);
     expect(result.savedTokens).toBe(0);
   });
 
   it('returns original history when handler returns empty summary', async () => {
     const history = buildLongHistory(6);
-    const handler = vi.fn(async () => ({ text: '   ' })); // whitespace-only
-    const result = await summarizeHistory(history, { handler: handler as any, signal });
+    const handler = mockHandler(async () => ({ text: '   ' })); // whitespace-only
+    const result = await summarizeHistory(history, { handler, signal });
     expect(result.messages).toEqual(history);
     expect(result.savedTokens).toBe(0);
   });
@@ -304,48 +382,42 @@ describe('summarizeHistory', () => {
       assistantMsg(SUMMARY_ANCHOR_ACK),
       ...buildLongHistory(5), // 10 more messages
     ];
-    const handler = vi.fn(async () => ({ text: 'Updated incremental summary.' }));
-    const result = await summarizeHistory(anchoredHistory, { handler: handler as any, signal, minSavedTokens: 0 });
+    const handler = mockHandler(async () => ({ text: 'Updated incremental summary.' }));
+    const result = await summarizeHistory(anchoredHistory, { handler, signal, minSavedTokens: 0 });
     expect(handler).toHaveBeenCalled();
     // New anchor should contain updated summary
     expect(result.messages[0].content).toContain('Updated incremental summary.');
   });
 
+  it('extracts summary text from within <summary> tags', async () => {
+    const history = buildLongHistory(5);
+    const handler = mockHandler(async () => ({ text: '<summary>Tagged summary.</summary>' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    expect(result.messages[0].content).toContain('Tagged summary.');
+    expect(result.messages[0].content).not.toContain('<summary>');
+  });
+
   it('handles streaming handler response', async () => {
     const history = buildLongHistory(5);
-
-    // Create a ReadableStream that yields text chunks
-    const chunks = [
+    const chunks: AgentStreamChunk[] = [
       { type: 'text', delta: 'Stream ' },
       { type: 'text', delta: 'summary.' },
     ];
-    let chunkIdx = 0;
-    const stream = new ReadableStream({
-      pull(controller) {
-        if (chunkIdx < chunks.length) {
-          controller.enqueue(chunks[chunkIdx++]);
-        } else {
-          controller.close();
-        }
-      },
-    });
-
-    const handler = vi.fn(async () => stream);
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
+    const handler = mockHandler(async () => chunksToStream(chunks));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
     expect(result.messages[0].content).toContain('Stream summary.');
   });
 
   it('uses custom summaryPrompt', async () => {
     const history = buildLongHistory(5);
-    const handler = vi.fn(async (_msgs: any) => ({ text: 'Custom summary.' }));
+    const handler = mockHandler(async () => ({ text: 'Custom summary.' }));
     await summarizeHistory(history, {
-      handler: handler as any,
+      handler,
       signal,
       summaryPrompt: 'My custom prompt.',
       minSavedTokens: 0,
     });
-    const requestContent = handler.mock.calls[0][0][0].content as string;
-    expect(requestContent).toContain('My custom prompt.');
+    expect(firstRequestContent(handler)).toContain('My custom prompt.');
   });
 
   it('uses custom incrementalSummaryPrompt for incremental mode', async () => {
@@ -354,16 +426,14 @@ describe('summarizeHistory', () => {
       assistantMsg(SUMMARY_ANCHOR_ACK),
       ...buildLongHistory(5),
     ];
-    const handler = vi.fn(async () => ({ text: 'Updated.' }));
+    const handler = mockHandler(async () => ({ text: 'Updated.' }));
     await summarizeHistory(anchoredHistory, {
-      handler: handler as any,
+      handler,
       signal,
       incrementalSummaryPrompt: 'Custom incremental prompt.',
       minSavedTokens: 0,
     });
-    // @ts-expect-error access mock call args
-    const requestContent = handler.mock.calls[0][0][0].content as string;
-    expect(requestContent).toContain('Custom incremental prompt.');
+    expect(firstRequestContent(handler)).toContain('Custom incremental prompt.');
   });
 
   it('returns original when safeSplitIndex produces 0', async () => {
@@ -375,8 +445,8 @@ describe('summarizeHistory', () => {
       toolMsg('t', 'result4'),
       toolMsg('t', 'result5'),
     ];
-    const handler = vi.fn(async () => ({ text: 'Summary.' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, keepRecentMessages: 2 });
+    const handler = mockHandler(async () => ({ text: 'Summary.' }));
+    const result = await summarizeHistory(history, { handler, signal, keepRecentMessages: 2 });
     // If safeSplitIndex keeps advancing to skip tool messages, it might end up at history.length
     // and return original; otherwise it proceeds normally
     // At minimum it should not throw
@@ -386,27 +456,20 @@ describe('summarizeHistory', () => {
   it('streaming handler accumulates only text chunks (non-text types are routed separately)', async () => {
     // thinking chunks go to summaryThinking, not summaryText; other types are ignored
     const history = buildLongHistory(5);
-    const rawChunks = [
+    const rawChunks: AgentStreamChunk[] = [
       { type: 'thinking', delta: 'thinking content' },
       { type: 'text', delta: 'Real ' },
       { type: 'usage', usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } },
       { type: 'text', delta: 'summary.' },
     ];
-    let idx = 0;
-    const stream = new ReadableStream({
-      pull(controller) {
-        if (idx < rawChunks.length) {
-          controller.enqueue(rawChunks[idx++] as any);
-        } else {
-          controller.close();
-        }
-      },
-    });
-    const handler = vi.fn(async () => stream);
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
+    const handler = mockHandler(async () => chunksToStream(rawChunks));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
     expect(result.messages[0].content).toContain('Real summary.');
-    const anchorMsg = result.messages[1] as { thinking?: string };
-    expect(anchorMsg.thinking).toBe('thinking content');
+    const anchorMsg = result.messages[1];
+    expect(anchorMsg.role).toBe('assistant');
+    if (anchorMsg.role === 'assistant') {
+      expect(anchorMsg.thinking).toBe('thinking content');
+    }
   });
 
   // ── Thinking model (reasoning_content) preservation ───────────────────────
@@ -416,60 +479,177 @@ describe('summarizeHistory', () => {
 
   it('preserves thinking from an async handler response in the anchor message', async () => {
     const history = buildLongHistory(5);
-    const handler = vi.fn(async () => ({ text: 'Summary.', thinking: 'inner reasoning' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
-    const anchorMsg = result.messages[1] as { role: string; content: string; thinking?: string };
+    const handler = mockHandler(async () => ({ text: 'Summary.', thinking: 'inner reasoning' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    const anchorMsg = result.messages[1];
     expect(anchorMsg.role).toBe('assistant');
-    expect(anchorMsg.content).toBe(SUMMARY_ANCHOR_ACK);
-    expect(anchorMsg.thinking).toBe('inner reasoning');
+    if (anchorMsg.role === 'assistant') {
+      expect(anchorMsg.content).toBe(SUMMARY_ANCHOR_ACK);
+      expect(anchorMsg.thinking).toBe('inner reasoning');
+    }
   });
 
   it('preserves empty-string thinking from an async handler so it is echoed back', async () => {
     // Empty-string thinking must not be silently dropped — it is still a signal that
     // the model was in thinking mode and the field must be echoed on subsequent turns.
     const history = buildLongHistory(5);
-    const handler = vi.fn(async () => ({ text: 'Summary.', thinking: '' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
-    const anchorMsg = result.messages[1] as { role: string; content: string; thinking?: string };
+    const handler = mockHandler(async () => ({ text: 'Summary.', thinking: '' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    const anchorMsg = result.messages[1];
     expect(anchorMsg).toHaveProperty('thinking', '');
   });
 
   it('does NOT add thinking to the anchor when the async handler returns no thinking', async () => {
     const history = buildLongHistory(5);
-    const handler = vi.fn(async () => ({ text: 'Summary.' }));
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
-    const anchorMsg = result.messages[1] as any;
-    expect(anchorMsg).not.toHaveProperty('thinking');
+    const handler = mockHandler(async () => ({ text: 'Summary.' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    expect(result.messages[1]).not.toHaveProperty('thinking');
   });
 
   it('preserves thinking from a streaming handler response in the anchor message', async () => {
     const history = buildLongHistory(5);
-    const rawChunks = [
+    const rawChunks: AgentStreamChunk[] = [
       { type: 'thinking', delta: 'step 1 ' },
       { type: 'thinking', delta: 'step 2' },
       { type: 'text', delta: 'Stream summary.' },
     ];
+    const handler = mockHandler(async () => chunksToStream(rawChunks));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    const anchorMsg = result.messages[1];
+    expect(anchorMsg.role).toBe('assistant');
+    if (anchorMsg.role === 'assistant') {
+      expect(anchorMsg.thinking).toBe('step 1 step 2');
+    }
+    expect(result.messages[0].content).toContain('Stream summary.');
+  });
+
+  // ── Chunked (map-reduce) summarization ───────────────────────────────────
+
+  it('cancels the in-flight stream when the signal aborts mid-stream', async () => {
+    const controller = new AbortController();
+    const history = buildLongHistory(5);
+    const chunks: AgentStreamChunk[] = [{ type: 'text', delta: 'partial' }];
     let idx = 0;
-    const stream = new ReadableStream({
-      pull(controller) {
-        if (idx < rawChunks.length) controller.enqueue(rawChunks[idx++]);
-        else controller.close();
+    let cancelCalled = false;
+    const stream = new ReadableStream<AgentStreamChunk>({
+      pull(c) {
+        if (idx < chunks.length) {
+          c.enqueue(chunks[idx]);
+          idx += 1;
+        } else {
+          controller.abort();
+          c.close();
+        }
+      },
+      // A throwing cancel callback makes reader.cancel() reject, exercising the
+      // swallowed rejection path in the abort listener.
+      cancel() {
+        cancelCalled = true;
+        throw new Error('cancel failed');
       },
     });
-    const handler = vi.fn(async () => stream);
-    const result = await summarizeHistory(history, { handler: handler as any, signal, minSavedTokens: 0 });
-    const anchorMsg = result.messages[1] as any;
-    expect(anchorMsg.thinking).toBe('step 1 step 2');
-    expect(result.messages[0].content).toContain('Stream summary.');
+    const handler = mockHandler(async () => stream);
+    const result = await summarizeHistory(history, { handler, signal: controller.signal, minSavedTokens: 0 });
+    expect(result.savedTokens).toBe(0);
+    // The abort listener must have cancelled the reader.
+    expect(cancelCalled).toBe(true);
+  });
+
+  it('returns original when the signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const history = buildLongHistory(5);
+    const handler = mockHandler(async () => ({ text: 'S.' }));
+    const result = await summarizeHistory(history, { handler, signal: controller.signal });
+    expect(result.savedTokens).toBe(0);
+    expect(result.messages).toEqual(history);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('returns original when the single-chunk summary is empty', async () => {
+    const history = buildLongHistory(5);
+    const handler = mockHandler(async () => ({ text: '   ' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    expect(result.savedTokens).toBe(0);
+    expect(result.messages).toEqual(history);
+  });
+
+  it('returns original when net savings fall below minSavedTokens', async () => {
+    // Summarizable transcript ≈ 530 tokens; a summary of 500 tokens passes the
+    // compression check but nets far below the minSavedTokens gate of 500.
+    const history: AgentMessage[] = [];
+    for (let i = 0; i < 6; i++) {
+      history.push(userMsg(`Question ${i}`));
+      history.push(assistantMsg(`Answer ${i} ` + 'v'.repeat(400)));
+    }
+    const handler = mockHandler(async () => ({ text: 'w'.repeat(2000) }));
+    const result = await summarizeHistory(history, { handler, signal, keepRecentMessages: 2, minSavedTokens: 500 });
+    expect(result.savedTokens).toBe(0);
+    expect(result.messages).toEqual(history);
+  });
+
+  it('forbids tool calls inside the summarization context', async () => {
+    const history = buildLongHistory(5);
+    let callToolThrew = false;
+    const handler = mockHandler(async (_msgs, ctx) => {
+      try {
+        await ctx.callTool({ id: 'x', name: 'noop', arguments: {} });
+      } catch {
+        callToolThrew = true;
+      }
+      return { text: 'S.' };
+    });
+    await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    expect(callToolThrew).toBe(true);
+  });
+
+  it('chunks long transcripts and folds summaries incrementally', async () => {
+    const history = buildLongHistory(12); // 24 messages
+    const handler = mockHandler(async () => ({ text: 'Chunk summary.' }));
+    const result = await summarizeHistory(history, {
+      handler,
+      signal,
+      minSavedTokens: 0,
+      maxChunkTokens: 20,
+    });
+    expect(handler.mock.calls.length).toBeGreaterThan(1);
+    expect(result.messages[0].content).toContain('Chunk summary.');
+  });
+
+  it('returns original history when a chunk returns an empty summary', async () => {
+    const history = buildLongHistory(12);
+    const handler = mockHandler(async () => ({ text: '' }));
+    const result = await summarizeHistory(history, {
+      handler,
+      signal,
+      minSavedTokens: 0,
+      maxChunkTokens: 20,
+    });
+    expect(result.savedTokens).toBe(0);
+    expect(result.messages).toEqual(history);
+  });
+
+  it('returns original when the old portion contains no assistant/tool messages', async () => {
+    // All user messages in the old portion: nothing to summarize, even though
+    // the history is long enough for splitting to succeed — must be a no-op.
+    const history: AgentMessage[] = [];
+    for (let i = 0; i < 8; i++) {
+      history.push(userMsg(`Only user message ${i}`));
+    }
+    history.push(userMsg('recent user'), assistantMsg('recent answer'));
+    const handler = mockHandler(async () => ({ text: 'Summary.' }));
+    const result = await summarizeHistory(history, { handler, signal, minSavedTokens: 0 });
+    expect(handler).not.toHaveBeenCalled();
+    expect(result.savedTokens).toBe(0);
   });
 
   // ── minSavedTokens guard ──────────────────────────────────────────────────
 
   it('returns noOp without calling handler when oldTokens < minSavedTokens', async () => {
     const history = buildLongHistory(5); // tiny messages, ~30 tokens total
-    const handler = vi.fn(async () => ({ text: 'Summary.' }));
+    const handler = mockHandler(async () => ({ text: 'Summary.' }));
     const result = await summarizeHistory(history, {
-      handler: handler as any,
+      handler,
       signal,
       minSavedTokens: 10_000, // unreachably high
     });
@@ -480,9 +660,9 @@ describe('summarizeHistory', () => {
 
   it('proceeds normally when minSavedTokens is 0', async () => {
     const history = buildLongHistory(5);
-    const handler = vi.fn(async () => ({ text: 'S.' }));
+    const handler = mockHandler(async () => ({ text: 'S.' }));
     const result = await summarizeHistory(history, {
-      handler: handler as any,
+      handler,
       signal,
       minSavedTokens: 0,
     });
@@ -495,9 +675,9 @@ describe('summarizeHistory', () => {
     const history = buildLongHistory(5);
     // Return a very long summary — longer than the tiny test messages it replaces.
     const longSummary = 'x'.repeat(2000);
-    const handler = vi.fn(async () => ({ text: longSummary }));
+    const handler = mockHandler(async () => ({ text: longSummary }));
     const result = await summarizeHistory(history, {
-      handler: handler as any,
+      handler,
       signal,
       minSavedTokens: 0,
     });
@@ -509,9 +689,9 @@ describe('summarizeHistory', () => {
   it('accepts a longer summary when compressionCheck=false', async () => {
     const history = buildLongHistory(5);
     const longSummary = 'x'.repeat(2000);
-    const handler = vi.fn(async () => ({ text: longSummary }));
+    const handler = mockHandler(async () => ({ text: longSummary }));
     const result = await summarizeHistory(history, {
-      handler: handler as any,
+      handler,
       signal,
       minSavedTokens: 0,
       compressionCheck: false,

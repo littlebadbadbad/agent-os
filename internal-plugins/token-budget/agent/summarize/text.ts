@@ -19,6 +19,17 @@ export function estimateTokens(text: string): number {
   return Math.ceil(rest / 4 + cjk / 2);
 }
 
+/**
+ * Serialize a tool-result payload to text for token estimation.
+ * Strings pass through unchanged; `null`/`undefined` become empty; anything
+ * else is JSON-serialized.
+ */
+export function serializeContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (content === undefined || content === null) return '';
+  return JSON.stringify(content);
+}
+
 /** Serialize a message array to a plain text transcript for summarization. */
 export function messagesToText(messages: readonly AgentMessage[]): string {
   return messages
