@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import { defineTool } from '@agent-type/defineTool';
-import type { Tool, ToolExecutionContext } from '@agent-type';
+import type { Tool, ToolExecutionContext, AgentQueryFns } from '@agent-type';
 import { ctxKey } from '@agent-type';
 import type { ToolSearchDetail, ToolSearchSummary, ToolSearchResults } from './types';
 import { scoreTool, resolveDescription } from './scoring';
-
 /** Tools stay visible to the model. Beyond this threshold they're deferred behind `tool_search`. */
 export const TOOL_SEARCH_THRESHOLD = 30;
 
@@ -42,6 +41,42 @@ function noMatches(query: string): ToolSearchResults {
 }
 
 /**
+ * Names of tools that stay visible to the model — `tool_search` itself plus
+ * every `coreTools` entry declared across the agent's registered ToolSets.
+ *
+ * Core names are **per-agent**: agents register different ToolSets
+ * (e.g. `subagent-stream` vs `subagent-async`), so the set must be derived
+ * from the agent the current call belongs to, never a shared closure.
+ */
+export function buildCoreNames(agent: AgentQueryFns | null): Set<string> {
+  const names = new Set<string>(['tool_search']);
+  if (agent) {
+    for (const ts of agent.getRegisteredToolSets()) {
+      const coreTools = ts.coreTools;
+      if (coreTools) {
+        for (const name of coreTools) names.add(name);
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * The search space for a single `tool_search` invocation.
+ *
+ * - **pool** — the tools that may be surfaced.  For the main agent this is
+ *   the full registered pool; for a sub-agent it is its own allow-list
+ *   (`tool_names`) — never the parent's pool, which would leak tools the
+ *   sub-agent cannot execute.
+ * - **core** — names excluded from results because they are always visible
+ *   to the model (no search needed).
+ */
+export type ToolSearchScope = {
+  readonly pool: readonly Tool[];
+  readonly core: ReadonlySet<string>;
+};
+
+/**
  * Create the `tool_search` tool.
  *
  * Accepts one or more space-separated keywords, scores deferred (non-core,
@@ -50,10 +85,14 @@ function noMatches(query: string): ToolSearchResults {
  * - **top** — the best match with full description and complete JSON Schema
  *   parameters so the AI can invoke the tool immediately.
  * - **others** — remaining matches (≤14) with name and description only.
+ *
+ * `resolveScope` is invoked with the **current execution context** so a shared
+ * ToolSet instance (registered on several agents at once) always searches the
+ * pool of the scope that actually called `tool_search` — for sub-agents that
+ * scope is their granted allow-list, keeping results executable.
  */
 export function createToolSearchTool(
-  allTools: () => readonly Tool[],
-  coreNames: () => ReadonlySet<string>,
+  resolveScope: (ctx: ToolExecutionContext) => ToolSearchScope,
   disabledNamesByScope: (scopeKey: string) => ReadonlySet<string>,
 ) {
   return defineTool({
@@ -70,8 +109,7 @@ export function createToolSearchTool(
       ),
     }),
     execute: async ({ query }, context: ToolExecutionContext) => {
-      const tools = allTools();
-      const core = coreNames();
+      const { pool, core } = resolveScope(context);
       const scopeKey = ctxKey(context);
       const disabled = disabledNamesByScope(scopeKey);
 
@@ -84,7 +122,7 @@ export function createToolSearchTool(
         return noMatches(query);
       }
 
-      const deferred = tools.filter(
+      const deferred = pool.filter(
         (t) => !core.has(t.name) && !disabled.has(t.name),
       );
 

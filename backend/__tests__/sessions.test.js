@@ -17,7 +17,7 @@ const { AGENT_ID_RE, loadSessions, saveSessions } = await import('../lib/session
 
 describe('AGENT_ID_RE', () => {
   it('matches valid agent IDs', () => {
-    expect(AGENT_ID_RE.test('async-agent')).toBe(true);
+    expect(AGENT_ID_RE.test('stream-agent')).toBe(true);
     expect(AGENT_ID_RE.test('agent_123')).toBe(true);
     expect(AGENT_ID_RE.test('AGENT-42')).toBe(true);
   });

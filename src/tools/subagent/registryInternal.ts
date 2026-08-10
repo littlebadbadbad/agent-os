@@ -46,7 +46,7 @@ export type CreateSubAgentRegistryOptions = {
    */
   toolPool: () => ReadonlyMap<string, Tool>;
   /**
-   * Human-readable label for this registry (e.g. "async-agent", "stream-agent").
+   * Human-readable label for this registry (e.g. "stream-agent").
    * UI layers use this to differentiate registries when multiple are present.
    */
   label?: string;

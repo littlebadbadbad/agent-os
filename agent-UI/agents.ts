@@ -6,7 +6,6 @@ import type { ToolSet } from "@agent-type";
 import { createPluginSystem } from "./plugin";
 import { createPluginManagerToolSet } from "./plugin/core/pluginManagerToolSet";
 import type { AgentPluginContext } from "./plugin/host";
-import { asyncHandler } from "./handlers/asyncHandler";
 import { streamHandler } from "./handlers/streamHandler";
 import { providerConfigStore } from "./store/providerConfigStore";
 import {
@@ -29,43 +28,20 @@ const INTERNAL_BRAND = Symbol('agent.internal');
 export const pluginSystem = createPluginSystem();
 
 /**
- * Combined AgentPluginContext that registers tools on BOTH agents.
- * This lets pluginSystem.init() be called once while wiring tools
- * into both the stream and async agents simultaneously.
+ * AgentPluginContext bound to the single production agent (`streamAgent`).
+ *
+ * The async agent exists only as a reference example (see handlers/asyncHandler)
+ * and is deliberately NOT wired here — mounting two agents would fan one shared
+ * ToolSet instance out to both, letting the second `onAttach` clobber the
+ * first (the tool_search-wrong-pool bug).  One agent, one registration.
  */
-function createCombinedPluginContext(): AgentPluginContext {
+function createPluginContext(): AgentPluginContext {
   // Use getters so these work regardless of module evaluation order.
   const ctx: AgentPluginContext = {
-    addToolSet: (ts) => {
-      const unsub1 = streamAgent.registerToolSet(ts);
-      const unsub2 = asyncAgent.registerToolSet(ts);
-      return () => { unsub1(); unsub2(); };
-    },
-    getRegisteredToolSets: () => {
-      // Union — both agents share most tools, but deduplicate by name.
-      const names = new Set<string>();
-      return [
-        ...streamAgent.getRegisteredToolSets(),
-        ...asyncAgent.getRegisteredToolSets(),
-      ].filter((ts) => {
-        if (names.has(ts.name)) return false;
-        names.add(ts.name);
-        return true;
-      });
-    },
-    getTools: () => {
-      // Union — merge both agents' tools, deduplicate by name.
-      const names = new Set<string>();
-      return [
-        ...streamAgent.getTools(),
-        ...asyncAgent.getTools(),
-      ].filter((t) => {
-        if (names.has(t.name)) return false;
-        names.add(t.name);
-        return true;
-      });
-    },
-    agentName: 'stream+async',
+    addToolSet: (ts) => streamAgent.registerToolSet(ts),
+    getRegisteredToolSets: () => streamAgent.getRegisteredToolSets(),
+    getTools: () => streamAgent.getTools(),
+    agentName: 'stream-agent',
     /** Internal brand — injected into all built-in plugin ToolSets. */
     internalBrand: INTERNAL_BRAND,
   };
@@ -81,12 +57,8 @@ const SYSTEM_PROMPT = "";
 // Core ToolSets (variable, memory-graph, tool-search, tool-result-compressor,
 // permissions, delegation-nudge) are registered as plugins via the plugin system.
 
-// Sub-agent meta-tools — each handler variant gets its own set.
-// The tool pool is derived lazily from each agent's live registered tools.
-const asyncSubAgentToolset = createSubAgentToolset("async", {
-  withVariables: true,
-  brand: INTERNAL_BRAND,
-});
+// Sub-agent meta-tools — the tool pool is derived lazily from the agent's
+// live registered tools.
 const streamSubAgentToolset = createSubAgentToolset("stream", {
   withVariables: true,
   brand: INTERNAL_BRAND,
@@ -166,27 +138,7 @@ function openPersistenceGate(): void {
   for (const flush of pending) flush();
 }
 
-// ── Agents (created without initial sessions) ───────────────────────────────────
-
-export const asyncAgent = createAgentClient({
-  id: "async-agent",
-  handler: asyncHandler,
-  systemPrompt: SYSTEM_PROMPT,
-  toolSets: [...sharedToolSets, asyncSubAgentToolset],
-  tools: [],
-  internalBrand: INTERNAL_BRAND,
-  onSessionsChange: makeDebouncedSave('async-agent'),
-  renderUI: createDefaultUIRenderer({
-    icon: "⚡",
-    theme: {
-      primaryColor: "#0078d4",
-      primaryDarkColor: "#005fa3",
-      primaryDeepColor: "#003a6e",
-      primaryLightColor: "#50e6ff",
-    },
-    initialWidth: 520,
-  }),
-});
+// ── Agent (production) ────────────────────────────────────────────────────────
 
 export const streamAgent = createAgentClient({
   id: "stream-agent",
@@ -211,20 +163,16 @@ export const streamAgent = createAgentClient({
 export async function initSessions(): Promise<void> {
   // Initialise plugin system FIRST so plugins register their ToolSets
   // BEFORE session restore (plugged tools appear in restored sessions).
-  await pluginSystem.init(createCombinedPluginContext());
+  await pluginSystem.init(createPluginContext());
   // Load provider config before anything else
   await providerConfigStore.load();
 
-  const hadUncleanShutdown = hasRecentFlushMarker('async-agent') || hasRecentFlushMarker('stream-agent');
+  const hadUncleanShutdown = hasRecentFlushMarker('stream-agent');
   if (hadUncleanShutdown) {
     console.warn('[initSessions] Unclean shutdown detected — session data may be incomplete.');
   }
 
-  const [asyncSessions, streamSessions] = await Promise.all([
-    sessionStore.loadSessions("async-agent"),
-    sessionStore.loadSessions("stream-agent"),
-  ]);
-  if (asyncSessions.length > 0) asyncAgent.restoreSessions(asyncSessions);
+  const streamSessions = await sessionStore.loadSessions("stream-agent");
   if (streamSessions.length > 0) streamAgent.restoreSessions(streamSessions);
 
   // 🛡 Open the persistence gate — any saves buffered during init (carrying
@@ -239,18 +187,15 @@ export async function initSessions(): Promise<void> {
   // ELECTRON: The renderer's beforeunload is unreliable for async IPC —
   // the renderer process may be torn down before ipcRenderer.invoke completes.
   // Instead, the main process sends an 'app:requestFlush' IPC message on
-  // window close.  We listen for it, flush ALL agents, then reply
+  // window close.  We listen for it, flush the agent, then reply
   // 'app:flushComplete' so the main process can safely close the window.
   if (typeof window !== 'undefined') {
     if (IS_ELECTRON_IPC) {
-      // ── Electron: main-process-coordinated flush (once for all agents) ───
+      // ── Electron: main-process-coordinated flush ────────────────────────
       const electronAPI = window.electronAPI;
       if (electronAPI?.on) {
         electronAPI.on('app:requestFlush', () => {
-          Promise.all([
-            asyncAgent.flushPersistence(),
-            streamAgent.flushPersistence(),
-          ]).then(
+          streamAgent.flushPersistence().then(
             () => electronAPI.invoke('app:flushComplete'),
             () => electronAPI.invoke('app:flushComplete'),
           );
@@ -260,7 +205,7 @@ export async function initSessions(): Promise<void> {
 
     // Per-agent browser guards (beforeunload etc.) — in Electron these are
     // backup only; the main-process IPC flow is the primary mechanism.
-    function registerAgentFlushGuard(agent: typeof asyncAgent, agentId: string) {
+    function registerAgentFlushGuard(agent: typeof streamAgent) {
       const doFlush = () => {
         agent.flushPersistence().catch(() => {});
         // Last-resort sync backup: write a marker so initSessions knows to
@@ -269,8 +214,8 @@ export async function initSessions(): Promise<void> {
         // we attempted a flush.
         try {
           sessionStorage.setItem(
-            `__uap_flush_${agentId}`,
-            JSON.stringify({ agentId, ts: Date.now() }),
+            `__uap_flush_${agent.id}`,
+            JSON.stringify({ agentId: agent.id, ts: Date.now() }),
           );
         } catch { /* sessionStorage may be unavailable */ }
       };
@@ -284,7 +229,6 @@ export async function initSessions(): Promise<void> {
       }
     }
 
-    registerAgentFlushGuard(asyncAgent, 'async-agent');
-    registerAgentFlushGuard(streamAgent, 'stream-agent');
+    registerAgentFlushGuard(streamAgent);
   }
 }

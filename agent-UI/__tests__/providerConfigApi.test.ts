@@ -168,20 +168,20 @@ describe('backend', () => {
     it('calls sessions.load with agentId', async () => {
       const sessions = [{ id: 's1', title: 'Session 1', subtitle: '', messages: [], createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z' }];
       mockCall.mockResolvedValue({ sessions });
-      const result = await loadSessions('async-agent');
+      const result = await loadSessions('stream-agent');
       expect(result).toEqual(sessions);
-      expect(mockCall).toHaveBeenCalledWith('load', { agentId: 'async-agent' });
+      expect(mockCall).toHaveBeenCalledWith('load', { agentId: 'stream-agent' });
     });
 
     it('returns empty array on API error', async () => {
       mockCall.mockRejectedValue(new Error('Network error'));
-      const result = await loadSessions('async-agent');
+      const result = await loadSessions('stream-agent');
       expect(result).toEqual([]);
     });
 
     it('returns empty array when sessions field is not an array', async () => {
       mockCall.mockResolvedValue({ sessions: 'not-array' });
-      const result = await loadSessions('async-agent');
+      const result = await loadSessions('stream-agent');
       expect(result).toEqual([]);
     });
   });
@@ -190,13 +190,13 @@ describe('backend', () => {
     it('calls sessions.save with agentId and sessions', async () => {
       const sessions = [{ id: 's1', title: 'Session 1', subtitle: '', messages: [], createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z' }];
       mockCall.mockResolvedValue(undefined);
-      await saveSessions('async-agent', sessions);
-      expect(mockCall).toHaveBeenCalledWith('save', { agentId: 'async-agent', sessions });
+      await saveSessions('stream-agent', sessions);
+      expect(mockCall).toHaveBeenCalledWith('save', { agentId: 'stream-agent', sessions });
     });
 
     it('handles API error silently', async () => {
       mockCall.mockRejectedValue(new Error('Network error'));
-      await saveSessions('async-agent', []);
+      await saveSessions('stream-agent', []);
       // Should not throw
     });
   });

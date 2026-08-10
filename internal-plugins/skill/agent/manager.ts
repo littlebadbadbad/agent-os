@@ -34,8 +34,8 @@ type AgentEntry = AgentClientLike;
 type LoadedSkillEntry = {
   skill: Skill;
   resolvedTools: readonly Tool[];
-  /** Cleanup fns returned by `agent.registerTool`. */
-  toolCleanupsByAgent: Array<() => void>;
+  /** Per-agent tool cleanups, keyed by the agent the tools were registered on. */
+  cleanupsByAgent: Map<AgentEntry, Array<() => void>>;
 };
 
 // -- Symbol -------------------------------------------------------------------
@@ -166,8 +166,13 @@ export function createSkillToolset(
   readonly slotDeclarations: readonly PluginSlotDeclaration[];
   readonly bridgeMethods: import("./types").SkillBridge;
 } {
-  /** The single attached agent (global createCombinedPluginContext fans out internally). */
-  let attachedAgent: AgentEntry | null = null;
+  /**
+   * Every agent this ToolSet is attached to.  The UI's combined plugin
+   * context registers one shared instance on both the stream and async
+   * agents, so `onAttach` fires once per agent — skill tools must be
+   * registered on all of them, never just the last.
+   */
+  const attachedAgents = new Set<AgentEntry>();
 
   /** Live skill state, keyed by skill name. */
   const loadedSkills = new Map<string, LoadedSkillEntry>();
@@ -175,16 +180,19 @@ export function createSkillToolset(
   function loadIntoAgents(skill: Skill): void {
     unloadFromAgents(skill.name);
     const resolvedTools = resolveSkillTools(skill);
-    const cleanups: (() => void)[] = attachedAgent
-      ? resolvedTools.map((t) => attachedAgent!.registerTool(t))
-      : [];
-    loadedSkills.set(skill.name, { skill, resolvedTools, toolCleanupsByAgent: cleanups });
+    const cleanupsByAgent = new Map<AgentEntry, Array<() => void>>();
+    for (const agent of attachedAgents) {
+      cleanupsByAgent.set(agent, resolvedTools.map((t) => agent.registerTool(t)));
+    }
+    loadedSkills.set(skill.name, { skill, resolvedTools, cleanupsByAgent });
   }
 
   function unloadFromAgents(name: string): void {
     const entry = loadedSkills.get(name);
     if (!entry) return;
-    for (const fn of entry.toolCleanupsByAgent) fn();
+    for (const cleanups of entry.cleanupsByAgent.values()) {
+      for (const fn of cleanups) fn();
+    }
     loadedSkills.delete(name);
   }
 
@@ -365,16 +373,19 @@ export function createSkillToolset(
     ],
 
     onAttach(agent: AgentClientLike): () => void {
-      attachedAgent = agent;
+      attachedAgents.add(agent);
       // Load all currently-installed skills into the newly attached agent.
       for (const entry of loadedSkills.values()) {
-        entry.toolCleanupsByAgent = entry.resolvedTools.map((t) => agent.registerTool(t));
+        entry.cleanupsByAgent.set(agent, entry.resolvedTools.map((t) => agent.registerTool(t)));
       }
       return () => {
-        attachedAgent = null;
+        attachedAgents.delete(agent);
         for (const entry of loadedSkills.values()) {
-          for (const fn of entry.toolCleanupsByAgent) fn();
-          entry.toolCleanupsByAgent = [];
+          const cleanups = entry.cleanupsByAgent.get(agent);
+          if (cleanups) {
+            for (const fn of cleanups) fn();
+            entry.cleanupsByAgent.delete(agent);
+          }
         }
       };
     },

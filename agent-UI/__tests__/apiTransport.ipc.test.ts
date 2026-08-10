@@ -1,5 +1,5 @@
 /**
- * Tests for super built-in plugin API clients ¡ª IPC (Electron) path
+ * Tests for super built-in plugin API clients ï¿½ï¿½ IPC (Electron) path
  *
  * The old apiTransport.ts has been replaced by PluginApiClient-based
  * core API wrappers (agent-UI/plugin/core/). These tests verify that
@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ©¤©¤ Module-level mocks ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ Module-level mocks ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 vi.mock('../env', () => ({ IS_ELECTRON_IPC: true }));
 vi.mock('../config', () => ({ BACKEND_URL: '' }));
@@ -29,11 +29,11 @@ vi.hoisted(() => {
 
 import { createPluginApiClient } from '../plugin/apiClient';
 
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-// PluginApiClient ¡ª unified dual-transport client for core plugins
-// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+// ï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½T
+// PluginApiClient ï¿½ï¿½ unified dual-transport client for core plugins
+// ï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½Tï¿½T
 
-describe('PluginApiClient (IPC mode) ¡ª system plugin', () => {
+describe('PluginApiClient (IPC mode) ï¿½ï¿½ system plugin', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('calls plugin:system:publicKey for publicKey method', async () => {
@@ -45,7 +45,7 @@ describe('PluginApiClient (IPC mode) ¡ª system plugin', () => {
   });
 });
 
-describe('PluginApiClient (IPC mode) ¡ª proxy plugin', () => {
+describe('PluginApiClient (IPC mode) ï¿½ï¿½ proxy plugin', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('calls plugin:proxy:getConfig', async () => {
@@ -64,7 +64,7 @@ describe('PluginApiClient (IPC mode) ¡ª proxy plugin', () => {
   });
 });
 
-describe('PluginApiClient (IPC mode) ¡ª models plugin', () => {
+describe('PluginApiClient (IPC mode) ï¿½ï¿½ models plugin', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('calls plugin:models:list with provider param', async () => {
@@ -76,7 +76,7 @@ describe('PluginApiClient (IPC mode) ¡ª models plugin', () => {
   });
 });
 
-describe('PluginApiClient (IPC mode) ¡ª api-keys plugin', () => {
+describe('PluginApiClient (IPC mode) ï¿½ï¿½ api-keys plugin', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('calls plugin:api-keys:list', async () => {
@@ -103,23 +103,23 @@ describe('PluginApiClient (IPC mode) ¡ª api-keys plugin', () => {
   });
 });
 
-describe('PluginApiClient (IPC mode) ¡ª sessions plugin', () => {
+describe('PluginApiClient (IPC mode) ï¿½ï¿½ sessions plugin', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('calls plugin:sessions:load with agentId', async () => {
     const sessions = [{ id: 's1', title: 'Session 1' }];
     mockInvoke.mockResolvedValue({ sessions });
     const client = createPluginApiClient('sessions');
-    const result = await client.call('load', { agentId: 'async-agent' });
+    const result = await client.call('load', { agentId: 'stream-agent' });
     expect(result).toEqual({ sessions });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:sessions:load', { agentId: 'async-agent' });
+    expect(mockInvoke).toHaveBeenCalledWith('plugin:sessions:load', { agentId: 'stream-agent' });
   });
 
   it('calls plugin:sessions:save with agentId and sessions', async () => {
     const sessions = [{ id: 's1', title: 'Session 1' }];
     mockInvoke.mockResolvedValue(undefined);
     const client = createPluginApiClient('sessions');
-    await client.call('save', { agentId: 'async-agent', sessions });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:sessions:save', { agentId: 'async-agent', sessions });
+    await client.call('save', { agentId: 'stream-agent', sessions });
+    expect(mockInvoke).toHaveBeenCalledWith('plugin:sessions:save', { agentId: 'stream-agent', sessions });
   });
 });

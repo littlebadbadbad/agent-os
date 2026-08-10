@@ -1,6 +1,10 @@
 /**
  * Tests for agent-UI/agents.ts — Main application wiring module.
  *
+ * The production app mounts a SINGLE agent (streamAgent).  The async
+ * handler exists only as a reference example and is deliberately not
+ * wired here — see handlers/asyncHandler.ts.
+ *
  * Since agents.ts has side-effectful module-level exports, each test file
  * must use vi.mock BEFORE importing the module under test.
  * We use dynamic import() inside each describe block to get fresh mocks.
@@ -13,12 +17,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockCreateAgentClient = vi.fn();
 const mockCreateSubAgentToolset = vi.fn();
 const mockCreatePluginSystem = vi.fn();
-const mockAsyncHandler = vi.fn();
 const mockStreamHandler = vi.fn();
 const mockProviderConfigStore: { load: ReturnType<typeof vi.fn> } = { load: vi.fn() };
 const mockSessionStore: { loadSessions: ReturnType<typeof vi.fn>; saveSessions: ReturnType<typeof vi.fn> } = { loadSessions: vi.fn(), saveSessions: vi.fn() };
 const mockCreateDefaultUIRenderer = vi.fn();
-const mockIsElectronIpc = vi.fn();
+// IS_ELECTRON_IPC is a boolean constant — a truthy mock (e.g. a vi.fn()) would
+// route createPluginApiClient into the IPC branch and crash on `window` in node.
+const mockIsElectronIpc = false;
 
 vi.mock('@agent-sdk', () => ({
   createAgentClient: (...a: unknown[]) => mockCreateAgentClient(...a),
@@ -27,10 +32,6 @@ vi.mock('@agent-sdk', () => ({
 
 vi.mock('../plugin', () => ({
   createPluginSystem: (...a: unknown[]) => mockCreatePluginSystem(...a),
-}));
-
-vi.mock('../handlers/asyncHandler', () => ({
-  asyncHandler: mockAsyncHandler,
 }));
 
 vi.mock('../handlers/streamHandler', () => ({
@@ -59,7 +60,7 @@ describe('agents.ts module exports', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCreateAgentClient.mockReturnValue({
-      id: 'mock-agent',
+      id: 'stream-agent',
       registerToolSet: vi.fn().mockReturnValue(() => {}),
       getRegisteredToolSets: vi.fn().mockReturnValue([]),
       getTools: vi.fn().mockReturnValue([]),
@@ -79,28 +80,27 @@ describe('agents.ts module exports', () => {
     mod = await import('../agents');
   });
 
-  it('exports pluginSystem, asyncAgent, streamAgent, initSessions', () => {
+  it('exports pluginSystem, streamAgent, initSessions', () => {
     expect(mod).toHaveProperty('pluginSystem');
-    expect(mod).toHaveProperty('asyncAgent');
     expect(mod).toHaveProperty('streamAgent');
     expect(mod).toHaveProperty('initSessions');
+    // The async agent is a reference example only — never mounted.
+    expect(mod).not.toHaveProperty('asyncAgent');
   });
 
-  it('creates two agents with correct IDs', () => {
+  it('creates a single agent with the stream id', () => {
     const calls = mockCreateAgentClient.mock.calls;
-    expect(calls.length).toBe(2);
-    expect(calls[0][0].id).toBe('async-agent');
-    expect(calls[1][0].id).toBe('stream-agent');
+    expect(calls.length).toBe(1);
+    expect(calls[0][0].id).toBe('stream-agent');
   });
 
-  it('creates agents with different handlers', () => {
+  it('creates the agent with the stream handler', () => {
     const calls = mockCreateAgentClient.mock.calls;
-    expect(calls[0][0].handler).toBe(mockAsyncHandler);
-    expect(calls[1][0].handler).toBe(mockStreamHandler);
+    expect(calls[0][0].handler).toBe(mockStreamHandler);
   });
 
   describe('initSessions', () => {
-    it('calls pluginSystem.init with combined context', async () => {
+    it('calls pluginSystem.init with a context bound to streamAgent', async () => {
       const mockInit = vi.fn().mockResolvedValue(undefined);
       mockCreatePluginSystem.mockReturnValue({ init: mockInit });
       vi.resetModules();
@@ -110,7 +110,7 @@ describe('agents.ts module exports', () => {
       expect(mockInit.mock.calls[0][0]).toHaveProperty('addToolSet');
       expect(mockInit.mock.calls[0][0]).toHaveProperty('getRegisteredToolSets');
       expect(mockInit.mock.calls[0][0]).toHaveProperty('getTools');
-      expect(mockInit.mock.calls[0][0].agentName).toBe('stream+async');
+      expect(mockInit.mock.calls[0][0].agentName).toBe('stream-agent');
     });
 
     it('loads provider config', async () => {
@@ -123,25 +123,12 @@ describe('agents.ts module exports', () => {
     });
 
     it('restores sessions from sessionStore', async () => {
-      const asyncSessions = [{ sessionId: 's1', messages: [{ role: 'user', text: 'hi' }] }];
-      const streamSessions: Array<{ sessionId: string }> = [];
-      mockSessionStore.loadSessions = vi.fn() as ReturnType<typeof vi.fn>;
-      mockSessionStore.loadSessions
-        .mockResolvedValueOnce(asyncSessions)
-        .mockResolvedValueOnce(streamSessions);
-      const restoreAsync = vi.fn();
+      const streamSessions = [{ sessionId: 's1', messages: [{ role: 'user', text: 'hi' }] }];
+      mockSessionStore.loadSessions = vi.fn().mockResolvedValue(streamSessions);
       const restoreStream = vi.fn();
       mockCreateAgentClient
         .mockReset()
-        .mockReturnValueOnce({
-          id: 'async-agent',
-          registerToolSet: vi.fn().mockReturnValue(() => {}),
-          getRegisteredToolSets: vi.fn().mockReturnValue([]),
-          getTools: vi.fn().mockReturnValue([]),
-          restoreSessions: restoreAsync,
-          flushPersistence: vi.fn().mockResolvedValue(undefined),
-        })
-        .mockReturnValueOnce({
+        .mockReturnValue({
           id: 'stream-agent',
           registerToolSet: vi.fn().mockReturnValue(() => {}),
           getRegisteredToolSets: vi.fn().mockReturnValue([]),
@@ -152,8 +139,8 @@ describe('agents.ts module exports', () => {
       vi.resetModules();
       mod = await import('../agents');
       await mod.initSessions();
-      expect(restoreAsync).toHaveBeenCalledWith(asyncSessions);
-      expect(restoreStream).not.toHaveBeenCalled(); // stream has empty sessions
+      expect(mockSessionStore.loadSessions).toHaveBeenCalledWith('stream-agent');
+      expect(restoreStream).toHaveBeenCalledWith(streamSessions);
     });
 
     it('flushes persistence on browser beforeunload', { todo: true }, async () => {

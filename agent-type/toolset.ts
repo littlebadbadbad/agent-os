@@ -50,6 +50,15 @@ export function ctxKey(ctx: ToolSetContext): string {
  * sub-agent delegation — no mutating registration methods.
  */
 export type AgentQueryFns = {
+  /**
+   * Stable agent identifier (e.g. `'stream-agent'`), matching the
+   * `agentName` of the agent's main-session `ToolSetContext`.
+   *
+   * Optional so headless test mocks stay lightweight — the real agent
+   * client always provides it.  ToolSets attached to more than one agent
+   * (shared plugin instances) use this to resolve per-agent state.
+   */
+  readonly id?: string;
   /** All master tools (unfiltered). */
   getTools(): readonly Tool[];
   /** Tools after applying all `onFilterTools` hooks for the active session. */

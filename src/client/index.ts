@@ -117,7 +117,7 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
   // Build an early AgentClientLike proxy and fire onAttach for config-time
   // ToolSets now — before any session is created — so tools injected by
   // onAttach (e.g. proxy tools) are present when onInitSession runs.
-  agentRef = { ...toolsLifeCycle, handler };
+  agentRef = { id: agentId, ...toolsLifeCycle, handler };
   for (const ts of toolSets) {
     ts.onAttach?.(agentRef);
   }
@@ -197,6 +197,9 @@ export function createAgentClient(agentClientConfig: AgentClientConfig) {
   // ── Public API ────────────────────────────────────────────────────────────
 
   const client = {
+    /** Stable agent id — matches the main-session `ToolSetContext.agentName`. */
+    id: agentId,
+
     render(container?: HTMLElement): void {
       if (destroy !== null) return;
       destroy = renderUI(sessionMgr, container ?? createDefaultContainer());

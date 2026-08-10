@@ -12,11 +12,11 @@
  *  5. Suppress system-prompt fragments of fully-disabled ToolSets.
  */
 
-import type { Tool, ToolResult, ToolExecutionContext, SystemPromptContext } from '@agent-type';
-import type { ToolSet, ToolSetContext, SessionEntryData, AgentQueryFns } from '@agent-type';
+import type { Tool, ToolResult, ToolExecutionContext, SystemPromptContext, AgentQueryFns } from '@agent-type';
+import type { ToolSet, ToolSetContext, SessionEntryData } from '@agent-type';
 import { ctxKey, resolveToolSetTools } from '@agent-type';
 import type { ToolStateEntry, ToolStateSymbolState } from './types';
-import { createToolSearchTool, TOOL_SEARCH_THRESHOLD } from './tools';
+import { createToolSearchTool, buildCoreNames, TOOL_SEARCH_THRESHOLD, type ToolSearchScope } from './tools';
 import { TOOL_SEARCH_GUIDANCE } from './prompt';
 
 // ── Public symbol ─────────────────────────────────────────────────────────────
@@ -46,20 +46,49 @@ export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
   const disabledMap = new Map<string, Set<string>>();
   const toolCache = new Map<string, readonly Tool[]>();
   const subsMap = new Map<string, Set<() => void>>();
-  let agent: AgentQueryFns | null = null;
 
-  // ── Core-names resolution ──────────────────────────────────────────────────
+  // ── Multi-agent attachment ────────────────────────────────────────────────
+  // A single ToolSet instance may be registered on several agents at once
+  // (the UI's combined plugin context fans one instance out to both the
+  // stream and async agents).  `onAttach` fires once per agent, so per-agent
+  // state is keyed by the agent's stable id — never a single shared ref.
 
-  function buildCoreNames(): Set<string> {
-    const names = new Set<string>(['tool_search']);
-    if (agent) {
-      for (const ts of agent.getRegisteredToolSets()) {
-        if (ts.coreTools) {
-          for (const name of ts.coreTools) names.add(name);
-        }
-      }
-    }
-    return names;
+  /** Agents attached so far, keyed by their `id` (matches `agentName`). */
+  const attachedAgents = new Map<string, AgentQueryFns>();
+  /**
+   * Root session → owning agent.  Sub-agent calls share the root sessionId,
+   * so a sub-agent's `tool_search` still resolves its parent's pool.
+   */
+  const sessionOwners = new Map<string, AgentQueryFns>();
+  /** Last attached agent — fallback for test mocks / legacy single-agent use. */
+  let fallbackAgent: AgentQueryFns | null = null;
+
+  /**
+   * Per-scope pre-filter tool pool — the tools `onFilterTools` received for
+   * a given scope key, BEFORE disabled-tool removal / core deferral.
+   *
+   * For the main agent this is the full registered pool; for a sub-agent it
+   * is its granted allow-list (`tool_names`).  `tool_search` searches THIS
+   * pool — never the parent agent's complete pool — so a restricted
+   * sub-agent can only ever discover tools it was actually granted.
+   */
+  const scopePools = new Map<string, readonly Tool[]>();
+
+  /** Resolve the agent that owns the given execution context. */
+  function resolveAgent(ctx: { agentName: string; sessionId: string }): AgentQueryFns | null {
+    return attachedAgents.get(ctx.agentName) ?? sessionOwners.get(ctx.sessionId) ?? fallbackAgent;
+  }
+
+  /** Resolve the search scope for the given execution context. */
+  function resolveScope(ctx: { agentName: string; sessionId: string; conversationId: string }): ToolSearchScope {
+    const agent = resolveAgent(ctx);
+    const scopePool = scopePools.get(ctxKey(ctx));
+    return {
+      // Prefer the scope's own pool (sub-agent allow-list); fall back to the
+      // agent's pool only when no filter run has recorded one (tests, early calls).
+      pool: scopePool ?? agent?.getTools() ?? [],
+      core: buildCoreNames(agent),
+    };
   }
 
   // ── Disabled-name lookup (per key, used by tool_search) ────────────────────
@@ -68,18 +97,18 @@ export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
     return disabledMap.get(key) ?? new Set<string>();
   }
 
-  // ── tool_search (lazy: resolves tools+core+disabled fresh on each call) ────
+  // ── tool_search (lazy: resolves scope + disabled names fresh on each call) ─
 
   const toolSearchTool = createToolSearchTool(
-    () => agent?.getTools() ?? [],
-    () => buildCoreNames(),
+    resolveScope,
     (key: string) => getDisabledForScope(key),
   );
 
   // ── Lifecycle hooks ────────────────────────────────────────────────────────
 
   function onAttach(a: AgentQueryFns): void {
-    agent = a;
+    fallbackAgent = a;
+    if (a.id) attachedAgents.set(a.id, a);
   }
 
   function onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
@@ -99,6 +128,8 @@ export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
     disabledMap.delete(key);
     toolCache.delete(key);
     subsMap.delete(key);
+    scopePools.delete(key);
+    sessionOwners.delete(ctx.sessionId);
   }
 
   function onGetSymbolState(ctx: ToolSetContext, stateCtx?: { readonly tools: readonly Tool[] }): ToolStateSymbolState {
@@ -145,6 +176,14 @@ export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
   function onFilterTools(ctx: ToolSetContext, tools: readonly Tool[]): readonly Tool[] {
     const key = ctxKey(ctx);
     toolCache.set(key, tools);
+    // Record the pre-filter pool for this scope — `tool_search` searches it,
+    // so sub-agents only ever discover their own granted tools.
+    scopePools.set(key, tools);
+
+    // Record the owning agent for this session (main-session filter runs carry
+    // the agent id as `agentName`) so sub-agent calls can resolve it later.
+    const agent = resolveAgent(ctx);
+    if (agent) sessionOwners.set(ctx.sessionId, agent);
 
     // Phase 1: remove disabled tools
     const disabled = disabledMap.get(key);
@@ -154,7 +193,7 @@ export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
 
     // Phase 2: if above threshold, keep only core tools (rest discoverable via tool_search)
     if (enabled.length > TOOL_SEARCH_THRESHOLD) {
-      const coreNames = buildCoreNames();
+      const coreNames = buildCoreNames(agent);
       return enabled.filter((t) => coreNames.has(t.name));
     }
 
@@ -204,8 +243,10 @@ export function createToolStateToolSet(): ToolSet<ToolStateSymbolState> & {
     }
 
     // Inject deferred-tool guidance when above threshold
-    const allTools = agent?.getTools() ?? [];
-    const coreNames = buildCoreNames();
+    const agent = resolveAgent(ctx);
+    const scopePool = scopePools.get(ctxKey(ctx));
+    const allTools = scopePool ?? agent?.getTools() ?? [];
+    const coreNames = buildCoreNames(agent);
     const deferred = allTools.filter(
       (t) => !coreNames.has(t.name) && !(disabled?.has(t.name) ?? false),
     );
