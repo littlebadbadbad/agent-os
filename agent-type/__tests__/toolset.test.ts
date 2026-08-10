@@ -48,4 +48,54 @@ describe('ctxKey', () => {
 
     expect(ctxKey(ctx)).toBe('sess-1::conv-2');
   });
+
+  it('returns sessionId only when conversationId is exactly "main"', () => {
+    const ctx = {
+      sessionId: 'sess-abc',
+      conversationId: 'main',
+      agentName: 'agent-x',
+    } as ToolSetContext;
+
+    expect(ctxKey(ctx)).toBe('sess-abc');
+  });
+
+  it('does NOT match "main" as a substring (e.g. "main-2" is treated as sub-agent)', () => {
+    const ctx = {
+      sessionId: 'sess-1',
+      conversationId: 'main-2',
+      agentName: 'agent',
+    } as ToolSetContext;
+
+    expect(ctxKey(ctx)).toBe('sess-1:agent:main-2');
+  });
+
+  it('handles empty sessionId', () => {
+    const ctx = {
+      sessionId: '',
+      conversationId: 'conv-1',
+      agentName: 'agent',
+    } as ToolSetContext;
+
+    expect(ctxKey(ctx)).toBe(':agent:conv-1');
+  });
+
+  it('handles conversationId === MAIN_CONVERSATION_ID with empty sessionId', () => {
+    const ctx = {
+      sessionId: '',
+      conversationId: MAIN_CONVERSATION_ID,
+      agentName: 'agent',
+    } as ToolSetContext;
+
+    expect(ctxKey(ctx)).toBe('');
+  });
+
+  it('handles colons in sessionId (no ambiguity because separators are single colons)', () => {
+    const ctx = {
+      sessionId: 'sess:a:b',
+      conversationId: 'conv-c',
+      agentName: 'agent-d',
+    } as ToolSetContext;
+
+    expect(ctxKey(ctx)).toBe('sess:a:b:agent-d:conv-c');
+  });
 });

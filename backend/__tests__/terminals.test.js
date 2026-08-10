@@ -25,7 +25,7 @@ import {
   resizeTerminal,
   streamTerminalOutput,
   listAvailableShells,
-} from '../../extensions/terminal/backend/lib/shell-manager/index.js';
+} from '../../internal-plugins/terminal/backend/lib/shell-manager/index.js';
 
 const IS_WIN = process.platform === 'win32';
 
