@@ -16,8 +16,9 @@ import { useRef, useCallback, useEffect, type ReactElement } from "react";
 import type { ToolCardHostMessage, SlotSession, UiPluginHostInternal } from "@agent-type";
 import type { ToolCallInfo } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
+import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import { usePluginSystem } from "../../plugin/PluginContext";
+import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
 
 export interface ToolCardSlotRendererProps {
   readonly pluginId: string;
@@ -39,6 +40,7 @@ export function ToolCardSlotRenderer(
   const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
+  const { getSlot } = useSlotRegistry();
   const { host } = useSlotHostBridge({
     session,
     pluginId,
@@ -89,6 +91,7 @@ export function ToolCardSlotRenderer(
       uiEntryUrl={uiPlugin.uiEntryUrl}
       host={host}
       onReady={handleReady}
+      permissions={getSlotPermissions(getSlot(pluginId, slotId)?.declaration)}
     />
   );
 }

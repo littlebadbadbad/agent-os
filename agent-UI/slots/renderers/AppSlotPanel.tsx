@@ -10,8 +10,9 @@
 
 import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
+import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession, AppSlotDeclaration } from "@agent-type";
+import type { SlotSession } from "@agent-type";
 import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
 
 export interface AppSlotPanelProps {
@@ -34,7 +35,8 @@ export function AppSlotPanel(
 
   const { getSlot } = useSlotRegistry();
   const slotEntry = getSlot(pluginId, slotId);
-  const decl = slotEntry?.declaration as AppSlotDeclaration | undefined;
+  // Discriminant narrowing — no cast needed.
+  const appDecl = slotEntry?.declaration.type === "app" ? slotEntry.declaration : undefined;
 
   const { host, handleReady } = useSlotHostBridge({
     session,
@@ -52,8 +54,9 @@ export function AppSlotPanel(
       host={host}
       onReady={handleReady}
       sizing="fill"
-      containingWidth={decl?.containingWidth}
-      containingHeight={decl?.containingHeight}
+      containingWidth={appDecl?.containingWidth}
+      containingHeight={appDecl?.containingHeight}
+      permissions={appDecl?.permissions}
     />
   );
 }

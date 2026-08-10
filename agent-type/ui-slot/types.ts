@@ -76,6 +76,7 @@ export type SlotType = InlineSlotType | IframeSlotType;
  * Every iframe slot carries:
  *   - `shouldRender` (optional) — render-gating callback, checked per slot type
  *   - `containingWidth` / `containingHeight` (optional) — iframe sizing hints
+ *   - `permissions` (optional) — Permissions Policy features granted to the iframe
  */
 export interface IframeConfig {
   /**
@@ -95,6 +96,23 @@ export interface IframeConfig {
    * Defaults vary by slot type (see each declaration's doc).
    */
   readonly containingHeight?: string;
+  /**
+   * Permissions Policy features granted to this slot's iframe
+   * (e.g. `["pointer-lock", "fullscreen"]`).
+   *
+   * Each feature is translated into the matching iframe configuration:
+   *   - the `allow` attribute (Permissions Policy),
+   *   - the sandbox token when one exists (`pointer-lock` → `allow-pointer-lock`),
+   *   - the dedicated attribute when one exists (`fullscreen` → `allowfullscreen`).
+   *
+   * A content site loaded in the slot (e.g. a 3D game) needs `pointer-lock`
+   * to capture the mouse and `fullscreen` to fill the screen — without them
+   * the browser denies `requestPointerLock()` / `requestFullscreen()`.
+   *
+   * Defaults to `["pointer-lock", "fullscreen"]` (see IframeSandbox).
+   * Set `[]` to opt out of all optional permissions.
+   */
+  readonly permissions?: readonly string[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

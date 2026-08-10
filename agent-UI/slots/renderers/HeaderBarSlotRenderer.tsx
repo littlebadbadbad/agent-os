@@ -12,7 +12,7 @@
  */
 
 import { type ReactElement } from "react";
-import type { HeaderBarSlotDeclaration, SlotSession } from "@agent-type";
+import type { SlotSession } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import { useSlotRegistry, usePluginSystem } from "../../plugin/PluginContext";
@@ -37,9 +37,10 @@ export function HeaderBarSlotRenderer(
   // Read dimensions from slot declaration, fall back to sensible defaults.
   const { getSlot } = useSlotRegistry();
   const slotEntry = getSlot(pluginId, slotId);
-  const decl = slotEntry?.declaration as HeaderBarSlotDeclaration | undefined;
-  const containingWidth = decl?.containingWidth ?? "100%";
-  const containingHeight = decl?.containingHeight ?? "auto";
+  // Discriminant narrowing — no cast needed.
+  const headerDecl = slotEntry?.declaration.type === "headerBar" ? slotEntry.declaration : undefined;
+  const containingWidth = headerDecl?.containingWidth ?? "100%";
+  const containingHeight = headerDecl?.containingHeight ?? "auto";
 
   const { host, handleReady } = useSlotHostBridge({
     session,
@@ -59,6 +60,7 @@ export function HeaderBarSlotRenderer(
       sizing="fit"
       containingWidth={containingWidth}
       containingHeight={containingHeight}
+      permissions={headerDecl?.permissions}
     />
   );
 }

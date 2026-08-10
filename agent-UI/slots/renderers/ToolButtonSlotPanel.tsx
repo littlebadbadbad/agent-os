@@ -12,7 +12,7 @@
 import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession, ToolButtonSlotDeclaration } from "@agent-type";
+import type { SlotSession } from "@agent-type";
 import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
 import styles from "./ToolButtonSlotPanel.module.scss";
 
@@ -36,7 +36,8 @@ export function ToolButtonSlotPanel(
 
   const { getSlot } = useSlotRegistry();
   const slotEntry = getSlot(pluginId, slotId);
-  const decl = slotEntry?.declaration as ToolButtonSlotDeclaration | undefined;
+  // Discriminant narrowing — no cast needed.
+  const btnDecl = slotEntry?.declaration.type === "toolButton" ? slotEntry.declaration : undefined;
 
   const { host, handleReady } = useSlotHostBridge({
     session,
@@ -54,8 +55,9 @@ export function ToolButtonSlotPanel(
       host={host}
       onReady={handleReady}
       sizing="fill"
-      containingWidth={decl?.containingWidth}
-      containingHeight={decl?.containingHeight}
+      containingWidth={btnDecl?.containingWidth}
+      containingHeight={btnDecl?.containingHeight}
+      permissions={btnDecl?.permissions}
     />
   );
 }

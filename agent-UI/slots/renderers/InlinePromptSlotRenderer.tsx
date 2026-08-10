@@ -10,8 +10,9 @@
 
 import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
+import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession, InlinePromptSlotDeclaration, PluginSlotDeclaration } from "@agent-type";
+import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
 import { useSlotRegistry, usePluginSystem } from "../../plugin/PluginContext";
 
 export interface InlinePromptSlotRendererProps {
@@ -36,9 +37,11 @@ export function InlinePromptSlotRenderer(
 
   // Read dimensions from explicit declaration (sub-agent path) or fall back
   // to the slotRegistry (main-agent path).
-  const decl = (declaration ?? getSlot(pluginId, slotId)?.declaration) as InlinePromptSlotDeclaration | undefined;
-  const containingWidth = decl?.containingWidth ?? "100%";
-  const containingHeight = decl?.containingHeight ?? "auto";
+  const rawDecl = declaration ?? getSlot(pluginId, slotId)?.declaration;
+  // Discriminant narrowing — no cast needed.
+  const inlineDecl = rawDecl?.type === "inlinePrompt" ? rawDecl : undefined;
+  const containingWidth = inlineDecl?.containingWidth ?? "100%";
+  const containingHeight = inlineDecl?.containingHeight ?? "auto";
 
   const { host, handleReady } = useSlotHostBridge({
     session,
@@ -58,6 +61,7 @@ export function InlinePromptSlotRenderer(
       sizing="fit"
       containingWidth={containingWidth}
       containingHeight={containingHeight}
+      permissions={inlineDecl?.permissions}
     />
   );
 }

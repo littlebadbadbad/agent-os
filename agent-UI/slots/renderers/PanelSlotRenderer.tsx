@@ -8,9 +8,10 @@
 
 import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
+import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import type { SlotSession } from "@agent-type";
-import { usePluginSystem } from "../../plugin/PluginContext";
+import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
 
 export interface PanelSlotRendererProps {
   readonly pluginId: string;
@@ -29,6 +30,7 @@ export function PanelSlotRenderer(
   const uiPlugin = getPlugin(pluginId);
   if (!uiPlugin?.uiEntryUrl) return null;
 
+  const { getSlot } = useSlotRegistry();
   const { host, handleReady } = useSlotHostBridge({
     session,
     pluginId,
@@ -44,6 +46,7 @@ export function PanelSlotRenderer(
       uiEntryUrl={uiPlugin.uiEntryUrl}
       host={host}
       onReady={handleReady}
+      permissions={getSlotPermissions(getSlot(pluginId, slotId)?.declaration)}
     />
   );
 }

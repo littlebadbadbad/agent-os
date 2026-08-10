@@ -5,14 +5,15 @@
  * reference via `contentWindow.__UAP_PLUGIN_HOST__`, and calls
  * `onReady` when the iframe has loaded.
  *
- * Extracted from `agent-UI/plugin/uiLoader.ts` and generalized:
- *   - No longer tied to a specific message protocol.
- *   - React component instead of imperative DOM manipulation.
- *   - Error isolation (R1): renders fallback on failure.
- *
  * Security:
- *   - R5: `sandbox="allow-scripts allow-same-origin"`
+ *   - R5: `sandbox="allow-scripts allow-same-origin allow-forms"`
  *   - Host reference injected via direct same-realm reference (D6)
+ *
+ * Permissions:
+ *   Slot-declared `permissions` (see {@link buildIframePermissions}) are
+ *   translated into the sandbox tokens, `allow` attribute and boolean
+ *   attributes (e.g. `allow-pointer-lock`, `allowfullscreen`) so content
+ *   loaded in the iframe behaves like a real browser tab.
  *
  * Communication:
  *   The host is injected as a direct same-realm object reference.
@@ -25,6 +26,10 @@ import type {
   UiPluginHostInternal,
 } from "@agent-type";
 import { injectIframeCssVars } from "@agent-UI/styles/cssVariables";
+import {
+  DEFAULT_IFRAME_PERMISSIONS,
+  buildIframePermissions,
+} from "./iframePermissions";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -43,6 +48,16 @@ export interface IframeSandboxProps {
   readonly onError?: (error: Error) => void;
   /** Additional sandbox flags. */
   readonly sandboxFlags?: readonly string[];
+  /**
+   * Permissions Policy features granted to this iframe
+   * (e.g. `["pointer-lock", "fullscreen"]`).
+   *
+   * Translated into sandbox tokens, the `allow` attribute and dedicated
+   * boolean attributes (e.g. `allowfullscreen`) via
+   * {@link buildIframePermissions}.  Defaults to
+   * `DEFAULT_IFRAME_PERMISSIONS`; pass `[]` to opt out.
+   */
+  readonly permissions?: readonly string[];
   /**
    * Sizing mode:
    *   - `"fill"` (default): wrapper + iframe stretch to 100% × 100%.
@@ -79,6 +94,7 @@ export function IframeSandbox(
     onReady,
     onError,
     sandboxFlags,
+    permissions = DEFAULT_IFRAME_PERMISSIONS,
     sizing = "fill",
     containingWidth,
     containingHeight,
@@ -104,10 +120,25 @@ export function IframeSandbox(
     try {
       const iframe = document.createElement("iframe");
 
-      // R5: sandbox.
+      // R5: sandbox — base flags plus any tokens required by the granted
+      // permissions (e.g. `allow-pointer-lock`).
       const flags = sandboxFlags ?? ["allow-scripts", "allow-same-origin", "allow-forms"];
       for (const flag of flags) {
         iframe.sandbox.add(flag);
+      }
+
+      // Slot-declared permissions → `allow` attribute + boolean attributes.
+      // Without these the embedded document is denied pointer lock and
+      // fullscreen (the Permissions Policy default allowlist is `self`).
+      const permissionParts = buildIframePermissions(permissions);
+      for (const token of permissionParts.sandboxTokens) {
+        iframe.sandbox.add(token);
+      }
+      if (permissionParts.allowPolicy) {
+        iframe.allow = permissionParts.allowPolicy;
+      }
+      for (const attribute of permissionParts.attributes) {
+        iframe.setAttribute(attribute, "");
       }
 
       iframe.style.width = sizing === "fit" ? cw : "100%";
@@ -153,7 +184,7 @@ export function IframeSandbox(
       console.warn("[IframeSandbox] Failed to create iframe:", err);
       onError?.(err instanceof Error ? err : new Error(String(err)));
     }
-  }, [uiEntryUrl, host, onReady, onError, sandboxFlags, cw, ch, sizing]);
+  }, [uiEntryUrl, host, onReady, onError, sandboxFlags, permissions, cw, ch, sizing]);
 
   useEffect(() => {
     destroyedRef.current = false;
@@ -166,7 +197,7 @@ export function IframeSandbox(
         iframeRef.current = null;
       }
     };
-  }, [uiEntryUrl]);
+  }, [uiEntryUrl, permissions]);
 
   return (
     <div
