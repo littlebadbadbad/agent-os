@@ -142,7 +142,12 @@ describe('CommandSession', () => {
     it('exitCode is 0 for successful commands', async () => {
       const cs = makeSession('ex-5', { commandLine: `${ECHO_CMD} ok` });
       await readUntilContains(cs, 'ok');
-      await sleep(300);
+      // Poll until the process exits (exitCode becomes available)
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        if (cs.read(0).exitCode !== undefined) break;
+        await sleep(50);
+      }
       expect(cs.read(0).exitCode).toBe(0);
     });
   });
@@ -153,7 +158,12 @@ describe('CommandSession', () => {
     it('throws after the command has exited', async () => {
       const cs = makeSession('wr-1', { commandLine: `${ECHO_CMD} done` });
       await readUntilContains(cs, 'done');
-      await sleep(300);
+      // Poll until process exits before asserting write throws
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        if (cs.read(0).exitCode !== undefined) break;
+        await sleep(50);
+      }
       expect(() => cs.write('more input')).toThrow();
     });
   });

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildSubAgentDecisionFramework, DELEGATE_TASK_DESCRIPTION } from '../../src/tools/subagent/prompt';
+import { buildSubAgentDecisionFramework, DELEGATE_TASK_DESCRIPTION } from '../../../tools/subagent/prompt';
 
 describe('buildSubAgentDecisionFramework', () => {
   it('returns a non-empty string', () => {
