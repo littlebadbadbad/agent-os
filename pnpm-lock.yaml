@@ -393,12 +393,6 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/memory-graph:
-    devDependencies:
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
-
   internal-plugins/permissions:
     devDependencies:
       esbuild:
@@ -555,12 +549,6 @@ importers:
       vite:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
-
-  internal-plugins/tool-result-compressor:
-    devDependencies:
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
 
   internal-plugins/tool-state:
     devDependencies:
