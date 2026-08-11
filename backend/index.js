@@ -13,15 +13,15 @@ import { createReadStream, existsSync, statSync } from 'fs';
 import { join, extname } from 'path';
 import { setCORS, send, readBody } from './lib/http.js';
 import { createLogger } from './lib/logger.js';
-import { STATIC_DIR, PLUGINS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
+import { STATIC_DIR, APPS_DIR, DATA_ROOT, AGENT_DIR } from './lib/paths.js';
 import { WebSocketServer } from 'ws';
-import { pluginRouter } from './lib/plugin-router.js';
-import { createPluginScanner } from './lib/plugin-scanner.js';
+import { appRouter } from './lib/app-router.js';
+import { createAppScanner } from './lib/app-scanner.js';
 import { getProxyConfig } from './lib/proxy.js';
 import { decryptPat, getPublicKeyPem } from './lib/rsa.js';
 import { encrypt, decrypt } from './lib/key-encryption.js';
-import { createPluginConfigStore } from './lib/plugin-config-store.js';
-import { registerCorePlugins } from './core/index.js';
+import { createAppConfigStore } from './lib/app-config-store.js';
+import { registerCoreApps } from './core/index.js';
 /**
  * Lazy IPC handler registration — only loaded when called from Electron main process.
  * Static re-export forces Node.js to resolve 'electron' imports on plain `node backend/index.js`,
@@ -33,7 +33,7 @@ import { registerCorePlugins } from './core/index.js';
  */
 export async function registerIpcHandlers() {
   const { registerIpcHandlers: fn } = await import('./transports/ipc/index.js');
-  fn(pluginRouter);
+  fn(appRouter);
 }
 
 const log = createLogger('server');
@@ -86,20 +86,20 @@ function serveStatic(req, res, urlPath) {
   return true;
 }
 
-// ── Plugin static files ────────────────────────────────────────────────────────
-// Serve compiled plugin files (agent entries, UI entries) from the plugins/
+// ── App static files ────────────────────────────────────────────────────────
+// Serve compiled app files (agent entries, UI entries) from the apps/
 // directory so the browser can dynamically import them.
 
-function servePluginFile(req, res, urlPath) {
+function serveAppFile(req, res, urlPath) {
   if (req.method !== 'GET') return false;
 
-  // Only serve /plugins/ paths.
-  if (!urlPath.startsWith('/plugins/')) return false;
+  // Only serve /agent-apps/ paths.
+  if (!urlPath.startsWith('/agent-apps/')) return false;
 
-  // Strip the leading /plugins/ prefix — PLUGINS_DIR already includes 'plugins'.
-  // /plugins/browser/activate.js → browser/activate.js
-  let relPath = decodeURIComponent(urlPath).replace(/^\/plugins\//, '');
-  let filePath = join(PLUGINS_DIR, relPath);
+  // Strip the leading /agent-apps/ prefix — APPS_DIR already includes 'agent-apps'.
+  // /agent-apps/browser/activate.js → browser/activate.js
+  let relPath = decodeURIComponent(urlPath).replace(/^\/agent-apps\//, '');
+  let filePath = join(APPS_DIR, relPath);
 
   if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
     return false;
@@ -135,21 +135,21 @@ async function handleRequest(req, res) {
   const { pathname: path } = new URL(req.url, `http://localhost:${PORT}`);
 
   try {
-    // ── Plugin API routes (core + external) ────────────────────────────────
-    // All API methods are registered via defineApi() by super built-in plugins
-    // (system, proxy, models, sessions, plugin-manager, etc.) and regular plugins.
-    // The plugin router matches POST /api/plugin/<pluginId>/<method>.
-    const pluginMatch = pluginRouter.matchHttpRoute(path);
-    if (pluginMatch !== false) {
+    // ── App API routes (core + external) ────────────────────────────────
+    // All API methods are registered via defineApi() by super built-in apps
+    // (system, proxy, models, sessions, app-manager, etc.) and regular apps.
+    // The app router matches POST /api/app/<appId>/<method>.
+    const appMatch = appRouter.matchHttpRoute(path);
+    if (appMatch !== false) {
       if (req.method !== 'POST') {
-        return send(res, 405, { error: 'Plugin API endpoints require POST' });
+        return send(res, 405, { error: 'App API endpoints require POST' });
       }
       const body = await readBody(req);
-      const result = await pluginMatch.handler(body);
+      const result = await appMatch.handler(body);
       return send(res, 200, result);
     }
 
-    if (servePluginFile(req, res, path)) return;
+    if (serveAppFile(req, res, path)) return;
 
     if (serveStatic(req, res, path)) return;
 
@@ -165,23 +165,23 @@ async function handleRequest(req, res) {
 // Exported so the Electron main process can await server readiness before
 // showing the BrowserWindow. Auto-starts when run directly as a Node.js script.
 
-export const pluginScanner = createPluginScanner(pluginRouter, PLUGINS_DIR, DATA_ROOT, {
+export const appScanner = createAppScanner(appRouter, APPS_DIR, DATA_ROOT, {
   proxy: getProxyConfig,
   rsaDecrypt: () => decryptPat,
   rsaPublicKey: getPublicKeyPem,
   keyEncryption: () => ({ encrypt, decrypt }),
 }, AGENT_DIR);
 
-export const pluginConfigStore = createPluginConfigStore(DATA_ROOT);
+export const appConfigStore = createAppConfigStore(DATA_ROOT);
 
 export async function startServer() {
-  // Register super built-in plugins (system, proxy, models, sessions,
-  // plugin-manager, etc.) BEFORE scanning external plugins so their
+  // Register super built-in apps (system, proxy, models, sessions,
+  // app-manager, etc.) BEFORE scanning external apps so their
   // APIs are available to both HTTP and IPC transports immediately.
-  registerCorePlugins(pluginRouter, { pluginScanner, pluginConfigStore });
+  registerCoreApps(appRouter, { appScanner, appConfigStore });
 
-  // Bootstrap external plugins before starting the HTTP server (R7).
-  await pluginScanner.bootstrap();
+  // Bootstrap external apps before starting the HTTP server (R7).
+  await appScanner.bootstrap();
 
   // ── WebSocket server (noServer — piggybacks on the HTTP server) ────────────
   const wss = new WebSocketServer({ noServer: true });
@@ -194,10 +194,10 @@ export async function startServer() {
   });
 
   server.on('upgrade', (req, socket, head) => {
-    // ── Plugin stream upgrade ──────────────────────────────────────────────
+    // ── App stream upgrade ──────────────────────────────────────────────
     const url = new URL(req.url, `http://localhost:${PORT}`);
-    const pluginMatch = pluginRouter.matchWsPath(url.pathname);
-    if (pluginMatch !== false) {
+    const appMatch = appRouter.matchWsPath(url.pathname);
+    if (appMatch !== false) {
       // Extract connect-time params from URL query string.
       const params = Object.fromEntries(url.searchParams.entries());
 
@@ -219,9 +219,9 @@ export async function startServer() {
           },
         };
 
-        const connection = pluginMatch.handler(params, io);
+        const connection = appMatch.handler(params, io);
 
-        // Bridge: WebSocket message → plugin onClientMessage
+        // Bridge: WebSocket message → app onClientMessage
         ws.on('message', (data) => {
           if (!connection.onClientMessage) return;
           let msg;

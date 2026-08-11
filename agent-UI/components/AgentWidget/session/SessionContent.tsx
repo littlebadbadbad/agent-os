@@ -3,17 +3,17 @@ import type { ReactElement } from "react";
 import type { Attachment } from "@agent-type";
 import type { AgentSession } from "@agent-sdk";
 import type { SlotEntry } from "../../../slots/registry";
-import type { PanelSlotDeclaration, PluginStateExtension } from "@agent-type";
+import type { PanelSlotDeclaration, AppStateExtension } from "@agent-type";
 import { ChatMessages } from "../chat/ChatMessages";
 import { SubAgentsPanel } from "../panels/SubAgentsPanel";
 import { PaneSlotLayout } from "../panes/PaneSlotLayout";
 import { buildSlotDisplayContextFromState } from "../../../slots/context";
 import styles from "../AgentWidget.module.scss";
-import { useSlotRegistry } from "../../../plugin/PluginContext";
+import { useSlotRegistry } from "../../../app/AppContext";
 
 // ── Session panel content — nested inside ConversationNavigator's panel view.
 //
-// Owns the tab bar (Chat / Sub-Agents / Plugin) and renders ChatMessages.
+// Owns the tab bar (Chat / Sub-Agents / App) and renders ChatMessages.
 // The ChatInput and list↔panel navigation live in ConversationNavigator.
 // Keyed by session ID so React resets local view state when switching sessions.
 
@@ -71,8 +71,8 @@ export function SessionContent({
 
   // Build a symbol-state lookup for slot callbacks.
   const getToolSetState = useCallback(
-    (symbol: symbol): PluginStateExtension | undefined => {
-      return state[symbol] as PluginStateExtension | undefined;
+    (symbol: symbol): AppStateExtension | undefined => {
+      return state[symbol] as AppStateExtension | undefined;
     },
     [state],
   );
@@ -80,7 +80,7 @@ export function SessionContent({
   const panelSlots = useMemo<readonly SlotEntry<PanelSlotDeclaration>[]>(
     () =>
       getByType("panel").filter((s) => {
-        const toolSetState = state[s.toolSetSymbol] as PluginStateExtension | undefined;
+        const toolSetState = state[s.toolSetSymbol] as AppStateExtension | undefined;
         return s.declaration.showTab(slotCtx, toolSetState);
       }) as readonly SlotEntry<PanelSlotDeclaration>[],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,7 +91,7 @@ export function SessionContent({
     () =>
       getByType("inlinePrompt").filter(
         (s) => {
-          const toolSetState = state[s.toolSetSymbol] as PluginStateExtension | undefined;
+          const toolSetState = state[s.toolSetSymbol] as AppStateExtension | undefined;
           return s.declaration.shouldRender?.(slotCtx, toolSetState) !== false;
         },
       ),

@@ -73,8 +73,8 @@ export function createExecutionFunctions(
       throw new Error(`Conversation "${conversationId}" not found on sub-agent "${subAgentName}".`);
     }
 
-    // ToolSet intercept check — plugins can queue the message while the agent
-    // is busy (e.g. pending-input plugin). Runs BEFORE the isLoading guard so
+    // ToolSet intercept check — apps can queue the message while the agent
+    // is busy (e.g. pending-input app). Runs BEFORE the isLoading guard so
     // programmatic sends from tools also hit the interceptor.
     const interceptCtx = deps.subCtx(subAgentName, conversationId);
     if (deps.scope.interceptMessage(interceptCtx, message, opts.attachments, conv._state.isLoading)) {

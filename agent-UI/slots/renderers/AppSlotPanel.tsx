@@ -13,10 +13,10 @@ import { IframeSandbox } from "../IframeSandbox";
 import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import type { SlotSession } from "@agent-type";
-import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
+import { useAppSystem, useSlotRegistry } from "../../app/AppContext";
 
 export interface AppSlotPanelProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   /** Session may be null — app windows are session-independent. */
   readonly session?: SlotSession | null;
@@ -27,30 +27,30 @@ export interface AppSlotPanelProps {
 export function AppSlotPanel(
   props: AppSlotPanelProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, toolSetSymbol, className } = props;
+  const { appId, slotId, session, toolSetSymbol, className } = props;
 
-  const { getPlugin } = usePluginSystem();
-  const uiPlugin = getPlugin(pluginId);
-  if (!uiPlugin?.uiEntryUrl) return null;
+  const { getApp } = useAppSystem();
+  const uiApp = getApp(appId);
+  if (!uiApp?.uiEntryUrl) return null;
 
   const { getSlot } = useSlotRegistry();
-  const slotEntry = getSlot(pluginId, slotId);
+  const slotEntry = getSlot(appId, slotId);
   // Discriminant narrowing — no cast needed.
   const appDecl = slotEntry?.declaration.type === "app" ? slotEntry.declaration : undefined;
 
   const { host, handleReady } = useSlotHostBridge({
     session,
-    pluginId,
+    appId,
     slotId,
     slotType: "app",
     toolSetSymbol,
-    uiPlugin,
+    uiApp,
   });
 
   return (
     <IframeSandbox
       className={className}
-      uiEntryUrl={uiPlugin.uiEntryUrl}
+      uiEntryUrl={uiApp.uiEntryUrl}
       host={host}
       onReady={handleReady}
       sizing="fill"

@@ -1,7 +1,7 @@
 /**
  * agent-type/services/index.ts — Barrel export for all service type contracts
  *
- * Plugin developers import service types from here:
+ * App developers import service types from here:
  *   import type { TerminalService } from '@agent-type/services';
  */
 

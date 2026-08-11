@@ -3,7 +3,7 @@
  *
  * The iframe panel inside a DropdownPanel.
  * Default width 380px, default height 480px.
- * Plugins can override via `containingWidth`/`containingHeight` in
+ * Apps can override via `containingWidth`/`containingHeight` in
  * their slot declaration — those values are passed to IframeSandbox
  * which applies them as inline styles, overriding these defaults.
  *

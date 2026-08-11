@@ -1,5 +1,5 @@
 /**
- * backend/core/models.js — Super built-in "models" plugin
+ * backend/core/models.js — Super built-in "models" app
  *
  * Registers model listing API method via defineApi().
  *
@@ -7,14 +7,14 @@
  *   list → listModels(provider)
  */
 
-import { createCorePluginHost } from '../lib/core-plugin-host.js';
+import { createCoreAppHost } from '../lib/core-app-host.js';
 import { listModels } from '../services/models.js';
 
-const PLUGIN_ID = 'models';
+const APP_ID = 'models';
 
-/** @param {import('../lib/plugin-router.js').pluginRouter} router */
+/** @param {import('../lib/app-router.js').appRouter} router */
 export function register(router) {
-  const host = createCorePluginHost(PLUGIN_ID, router);
+  const host = createCoreAppHost(APP_ID, router);
 
   host.defineApi('list', async (params) => {
     const provider = params?.provider;

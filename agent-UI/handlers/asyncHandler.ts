@@ -9,7 +9,7 @@
  * its own unit tests — but it is deliberately NOT wired into the app wiring.
  * Do not register it without also mounting a second agent client, and be aware
  * that sharing one ToolSet instance across two agents requires per-agent state
- * (see internal-plugins/tool-state for the multi-agent pattern).
+ * (see internal-apps/tool-state for the multi-agent pattern).
  *
  * PURE BUSINESS LOGIC — ZERO communication code.
  * Delegates all HTTP/IPC details to the chat transport layer.

@@ -12,32 +12,32 @@ import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession, PluginSlotDeclaration } from "@agent-type";
-import { useSlotRegistry, usePluginSystem } from "../../plugin/PluginContext";
+import type { SlotSession, AppSlotDeclaration, SlotDeclaration } from "@agent-type";
+import { useSlotRegistry, useAppSystem } from "../../app/AppContext";
 
 export interface InlinePromptSlotRendererProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   readonly session: SlotSession;
   readonly toolSetSymbol: symbol;
   /** Direct declaration for sub-agent slots (bypasses global slotRegistry). */
-  readonly declaration?: PluginSlotDeclaration;
+  readonly declaration?: AppSlotDeclaration;
   readonly className?: string;
 }
 
 export function InlinePromptSlotRenderer(
   props: InlinePromptSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, toolSetSymbol, declaration, className } = props;
+  const { appId, slotId, session, toolSetSymbol, declaration, className } = props;
 
-  const { getPlugin } = usePluginSystem();
+  const { getApp } = useAppSystem();
   const { getSlot } = useSlotRegistry();
-  const uiPlugin = getPlugin(pluginId);
-  if (!uiPlugin?.uiEntryUrl) return null;
+  const uiApp = getApp(appId);
+  if (!uiApp?.uiEntryUrl) return null;
 
   // Read dimensions from explicit declaration (sub-agent path) or fall back
   // to the slotRegistry (main-agent path).
-  const rawDecl = declaration ?? getSlot(pluginId, slotId)?.declaration;
+  const rawDecl = declaration ?? getSlot(appId, slotId)?.declaration;
   // Discriminant narrowing — no cast needed.
   const inlineDecl = rawDecl?.type === "inlinePrompt" ? rawDecl : undefined;
   const containingWidth = inlineDecl?.containingWidth ?? "100%";
@@ -45,17 +45,17 @@ export function InlinePromptSlotRenderer(
 
   const { host, handleReady } = useSlotHostBridge({
     session,
-    pluginId,
+    appId,
     slotId,
     slotType: "inlinePrompt",
     toolSetSymbol,
-    uiPlugin,
+    uiApp,
   });
 
   return (
     <IframeSandbox
       className={className}
-      uiEntryUrl={uiPlugin.uiEntryUrl}
+      uiEntryUrl={uiApp.uiEntryUrl}
       host={host}
       onReady={handleReady}
       sizing="fit"

@@ -203,7 +203,7 @@ importers:
 
   agent-type: {}
 
-  internal-plugins/browser:
+  internal-apps/browser:
     dependencies:
       anser:
         specifier: ^2.3.5
@@ -237,7 +237,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/devops:
+  internal-apps/devops:
     dependencies:
       '@agent-type':
         specifier: workspace:*
@@ -268,7 +268,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/dynamic-tool:
+  internal-apps/dynamic-tool:
     dependencies:
       '@agent-type':
         specifier: workspace:*
@@ -299,7 +299,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/experience:
+  internal-apps/experience:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -326,7 +326,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/file:
+  internal-apps/file:
     dependencies:
       '@agent-type':
         specifier: workspace:*
@@ -360,13 +360,13 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/git:
+  internal-apps/git:
     dependencies:
       '@agent-type':
         specifier: workspace:*
         version: link:../../agent-type
 
-  internal-plugins/mcp:
+  internal-apps/mcp:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -393,13 +393,13 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/permissions:
+  internal-apps/permissions:
     devDependencies:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
 
-  internal-plugins/plan:
+  internal-apps/plan:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -432,7 +432,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/skill:
+  internal-apps/skill:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -459,7 +459,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/terminal:
+  internal-apps/terminal:
     dependencies:
       '@xterm/addon-search':
         specifier: ^0.16.0
@@ -496,7 +496,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/todo:
+  internal-apps/todo:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -523,7 +523,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/token-budget:
+  internal-apps/token-budget:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -550,7 +550,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/tool-state:
+  internal-apps/tool-state:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -577,7 +577,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/user-input:
+  internal-apps/user-input:
     devDependencies:
       '@types/react':
         specifier: '*'
@@ -604,7 +604,7 @@ importers:
         specifier: '*'
         version: 8.0.10(@types/node@25.5.0)(esbuild@0.28.0)(sass@1.98.0)
 
-  internal-plugins/variable:
+  internal-apps/variable:
     devDependencies:
       esbuild:
         specifier: ^0.28.0

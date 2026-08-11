@@ -1,0 +1,21 @@
+{
+  "name": "@uap/app-tool-state",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@vitejs/plugin-react": "*",
+    "esbuild": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sass": "*",
+    "vite": "*"
+  }
+}

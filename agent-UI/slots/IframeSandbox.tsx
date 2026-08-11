@@ -1,8 +1,8 @@
 /**
  * agent-UI/slots/IframeSandbox.tsx — Generic sandboxed iframe container
  *
- * Renders a sandboxed `<iframe>`, injects the `UiPluginHostInternal`
- * reference via `contentWindow.__UAP_PLUGIN_HOST__`, and calls
+ * Renders a sandboxed `<iframe>`, injects the `UiAppHostInternal`
+ * reference via `contentWindow.__UAP_APP_HOST__`, and calls
  * `onReady` when the iframe has loaded.
  *
  * Security:
@@ -23,7 +23,7 @@
 
 import { useEffect, useRef, useCallback, type ReactElement } from "react";
 import type {
-  UiPluginHostInternal,
+  UiAppHostInternal,
 } from "@agent-type";
 import { injectIframeCssVars } from "@agent-UI/styles/cssVariables";
 import {
@@ -38,10 +38,10 @@ export interface IframeSandboxProps {
   readonly id?: string;
   /** CSS class for the wrapper div. */
   readonly className?: string;
-  /** The plugin's UI entry URL. */
+  /** The app's UI entry URL. */
   readonly uiEntryUrl: string;
-  /** The UiPluginHostInternal to inject into the iframe. */
-  readonly host: UiPluginHostInternal;
+  /** The UiAppHostInternal to inject into the iframe. */
+  readonly host: UiAppHostInternal;
   /** Called when the iframe is loaded and the host is injected. */
   readonly onReady: (iframe: HTMLIFrameElement) => void;
   /** Called when the iframe fails to load or create. */
@@ -107,7 +107,7 @@ export function IframeSandbox(
   const cw = containingWidth ?? "auto";
   const ch = containingHeight ?? "auto";
 
-  // Fill mode: if the plugin declares containing dimensions, use them.
+  // Fill mode: if the app declares containing dimensions, use them.
   // Otherwise default to 100% × 100% (parent sets size via className).
   const fillWidth = containingWidth ?? "100%";
   const fillHeight = containingHeight ?? "100%";
@@ -153,20 +153,20 @@ export function IframeSandbox(
           iframe.style.maxHeight = ch;
         }
       }
-      iframe.setAttribute("aria-label", `Plugin slot iframe`);
+      iframe.setAttribute("aria-label", `App slot iframe`);
 
       // D6: inject host when iframe loads.
       iframe.addEventListener("load", () => {
         if (destroyedRef.current) return;
         try {
-          const win = iframe.contentWindow as (Window & { __UAP_PLUGIN_HOST__?: UiPluginHostInternal }) | null;
+          const win = iframe.contentWindow as (Window & { __UAP_APP_HOST__?: UiAppHostInternal }) | null;
           if (win) {
-            win.__UAP_PLUGIN_HOST__ = host;
+            win.__UAP_APP_HOST__ = host;
           }
 
           // Inject the canonical CSS custom properties into the iframe's
           // document root.  CSS custom properties do NOT cross iframe
-          // boundaries — without this every `var(--sp-3)` inside the plugin
+          // boundaries — without this every `var(--sp-3)` inside the app
           // would resolve to `undefined`.
           injectIframeCssVars(iframe);
 

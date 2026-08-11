@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { collectAllToolSetStates, collectSnapshotData, mergeAllToolSetStates } from '../../tools/sharedStateCollector';
-import type { ToolSet, ToolSetContext, ToolSetStateContext, PluginStateExtension } from '@agent-type';
+import type { ToolSet, ToolSetContext, ToolSetStateContext, AppStateExtension } from '@agent-type';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ function makeStateCtx(tools?: any[]): ToolSetStateContext {
 }
 
 // Accept loose overrides so callback-lambda signatures don't fight
-// ToolSet's strict `(ctx, stateCtx?) => PluginStateExtension` type.
+// ToolSet's strict `(ctx, stateCtx?) => AppStateExtension` type.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeToolSet(name: string, overrides?: Record<string, any>): ToolSet {
   return { name, tools: [], ...overrides } as ToolSet;
@@ -72,10 +72,10 @@ describe('collectAllToolSetStates', () => {
     const sym = Symbol('test');
     const ts = makeToolSet('a', {
       symbol: sym,
-      onGetSymbolState: () => ({ data: 'plugin-data' }),
+      onGetSymbolState: () => ({ data: 'app-data' }),
     });
     const result = collectAllToolSetStates([ts], EMPTY_CTX, makeStateCtx());
-    expect(result.symbol[sym]).toEqual({ data: 'plugin-data' });
+    expect(result.symbol[sym]).toEqual({ data: 'app-data' });
   });
 
   it('merges symbol state from multiple ToolSets', () => {
@@ -128,7 +128,7 @@ describe('collectAllToolSetStates', () => {
   });
 
   it('returns plain and symbol concurrently', () => {
-    const sym = Symbol('plugin');
+    const sym = Symbol('app');
     const ts = makeToolSet('a', {
       onGetState: () => ({ visible: true }),
       symbol: sym,
@@ -145,32 +145,32 @@ describe('collectAllToolSetStates', () => {
 //
 // This function exists because `sessionFactory.ts`'s `getExternalState` must
 // return a single `Partial<AgentSessionState>` with BOTH plain fields and
-// symbol-keyed plugin state on the same object — slot renderers and plugin
+// symbol-keyed app state on the same object — slot renderers and app
 // discovery code read state via `state[symbol]`.
 //
 // The original refactor split them into `{ plain, symbol }`, causing all
-// plugin UI (tabs, toolbars, slots) to silently disappear.  These tests
+// app UI (tabs, toolbars, slots) to silently disappear.  These tests
 // prevent that regression.
 
 describe('mergeAllToolSetStates', () => {
   it('merges plain and symbol fields into one record', () => {
-    const sym = Symbol('test-plugin');
+    const sym = Symbol('test-app');
     const ts = makeToolSet('a', {
       onGetState: () => ({ visible: true, count: 42 }),
       symbol: sym,
-      onGetSymbolState: () => ({ data: 'plugin-data' }),
+      onGetSymbolState: () => ({ data: 'app-data' }),
     });
     const result = mergeAllToolSetStates([ts], EMPTY_CTX, makeStateCtx());
     // Plain fields accessible
     expect(result.visible).toBe(true);
     expect(result.count).toBe(42);
-    // Symbol-keyed plugin state accessible
-    expect(result[sym]).toEqual({ data: 'plugin-data' });
+    // Symbol-keyed app state accessible
+    expect(result[sym]).toEqual({ data: 'app-data' });
   });
 
   it('preserves symbol state from multiple ToolSets', () => {
-    const symA = Symbol('plugin-a');
-    const symB = Symbol('plugin-b');
+    const symA = Symbol('app-a');
+    const symB = Symbol('app-b');
     const tsA = makeToolSet('a', {
       onGetState: () => ({ fieldA: 'a' }),
       symbol: symA,
@@ -237,9 +237,9 @@ describe('mergeAllToolSetStates', () => {
 
   it('matches the exact shape returned by sessionFactory.getExternalState', () => {
     // This mirrors the production contract: the merged object is spread into
-    // AgentSessionState via getExternalState().  Plugins read symbol state
+    // AgentSessionState via getExternalState().  Apps read symbol state
     // through AgentSessionExtension's `[key: ToolSetSymbol]` index signature.
-    const sym = Symbol('mock-plugin');
+    const sym = Symbol('mock-app');
     const ts = makeToolSet('mock', {
       onGetState: () => ({ subAgentRegistry: null, toolStates: [] }),
       symbol: sym,
@@ -249,9 +249,9 @@ describe('mergeAllToolSetStates', () => {
     // Simulate what sessionFactory does:
     const state: Record<string | symbol, unknown> = { id: 'sess-1', messages: [], isLoading: false, ...merged };
     // Symbol state must be accessible — this is what slot renderers do
-    const pluginState = state[sym];
-    expect(pluginState).toBeDefined();
-    expect(pluginState).toEqual({ slots: [] });
+    const appState = state[sym];
+    expect(appState).toBeDefined();
+    expect(appState).toEqual({ slots: [] });
   });
 });
 

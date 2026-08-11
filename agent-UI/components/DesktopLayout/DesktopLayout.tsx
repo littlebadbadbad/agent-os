@@ -15,7 +15,7 @@ import {
   useCallback,
   useState,
 } from "react";
-import type { AppSlotDeclaration, SlotSession } from "@agent-type";
+import type { AppSlotDeclaration, SlotDeclaration, SlotSession } from "@agent-type";
 import type { SlotEntry } from "../../slots/registry";
 import type { WidgetIcon, WidgetTheme } from "@agent-type";
 import { SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH } from "../../constants";

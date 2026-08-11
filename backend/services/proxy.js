@@ -7,7 +7,7 @@
 
 import { getUpstreamConfig, setProxyConfig, testProxy, validateProxyUpdate, validateTestTarget } from '../lib/proxy.js';
 
-/** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
+/** @import { ProxyConfig } from '../../agent-type/app.ts' */
 
 /**
  * Get the upstream proxy configuration (with masked password).

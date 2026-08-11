@@ -1,8 +1,8 @@
 /**
  * agent-type/model.ts — Model metadata type
  *
- * Shared between the UI layer (providerStore) and the plugin layer
- * (AgentPluginHost) so that plugins can access the current model's
+ * Shared between the UI layer (providerStore) and the app layer
+ * (AgentAppHost) so that apps can access the current model's
  * context window without depending on agent-UI internals.
  */
 

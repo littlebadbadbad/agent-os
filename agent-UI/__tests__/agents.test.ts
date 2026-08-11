@@ -16,13 +16,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockCreateAgentClient = vi.fn();
 const mockCreateSubAgentToolset = vi.fn();
-const mockCreatePluginSystem = vi.fn();
+const mockCreateAppSystem = vi.fn();
 const mockStreamHandler = vi.fn();
 const mockProviderConfigStore: { load: ReturnType<typeof vi.fn> } = { load: vi.fn() };
 const mockSessionStore: { loadSessions: ReturnType<typeof vi.fn>; saveSessions: ReturnType<typeof vi.fn> } = { loadSessions: vi.fn(), saveSessions: vi.fn() };
 const mockCreateDefaultUIRenderer = vi.fn();
 // IS_ELECTRON_IPC is a boolean constant — a truthy mock (e.g. a vi.fn()) would
-// route createPluginApiClient into the IPC branch and crash on `window` in node.
+// route createAppApiClient into the IPC branch and crash on `window` in node.
 const mockIsElectronIpc = false;
 
 vi.mock('@agent-sdk', () => ({
@@ -30,8 +30,8 @@ vi.mock('@agent-sdk', () => ({
   createSubAgentToolset: (...a: unknown[]) => mockCreateSubAgentToolset(...a),
 }));
 
-vi.mock('../plugin', () => ({
-  createPluginSystem: (...a: unknown[]) => mockCreatePluginSystem(...a),
+vi.mock('../app', () => ({
+  createAppSystem: (...a: unknown[]) => mockCreateAppSystem(...a),
 }));
 
 vi.mock('../handlers/streamHandler', () => ({
@@ -68,7 +68,7 @@ describe('agents.ts module exports', () => {
       flushPersistence: vi.fn().mockResolvedValue(undefined),
     });
     mockCreateSubAgentToolset.mockReturnValue({ name: 'subagent-toolset' });
-    mockCreatePluginSystem.mockReturnValue({
+    mockCreateAppSystem.mockReturnValue({
       init: vi.fn().mockResolvedValue(undefined),
     });
     mockCreateDefaultUIRenderer.mockReturnValue(() => () => {});
@@ -80,8 +80,8 @@ describe('agents.ts module exports', () => {
     mod = await import('../agents');
   });
 
-  it('exports pluginSystem, streamAgent, initSessions', () => {
-    expect(mod).toHaveProperty('pluginSystem');
+  it('exports appSystem, streamAgent, initSessions', () => {
+    expect(mod).toHaveProperty('appSystem');
     expect(mod).toHaveProperty('streamAgent');
     expect(mod).toHaveProperty('initSessions');
     // The async agent is a reference example only — never mounted.
@@ -100,9 +100,9 @@ describe('agents.ts module exports', () => {
   });
 
   describe('initSessions', () => {
-    it('calls pluginSystem.init with a context bound to streamAgent', async () => {
+    it('calls appSystem.init with a context bound to streamAgent', async () => {
       const mockInit = vi.fn().mockResolvedValue(undefined);
-      mockCreatePluginSystem.mockReturnValue({ init: mockInit });
+      mockCreateAppSystem.mockReturnValue({ init: mockInit });
       vi.resetModules();
       mod = await import('../agents');
       await mod.initSessions();

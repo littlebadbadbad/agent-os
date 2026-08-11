@@ -1,5 +1,5 @@
 /**
- * Tests for internal-plugins/terminal/backend/lib/shell-manager/command-session.js — CommandSession
+ * Tests for internal-apps/terminal/backend/lib/shell-manager/command-session.js — CommandSession
  *
  * Covers:
  *   constructor — id, label auto-derivation, cwd, auto-spawn
@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { CommandSession } from '../../internal-plugins/terminal/backend/lib/shell-manager/command-session.js';
+import { CommandSession } from '../../internal-apps/terminal/backend/lib/shell-manager/command-session.js';
 
 const IS_WIN = process.platform === 'win32';
 const ECHO_CMD = IS_WIN ? 'cmd /c echo' : 'echo';

@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createAgentClient, MAIN_CONVERSATION_ID } from '@agent-sdk';
 import type { AgentHandler } from '@agent-type';
-import { createVariableToolSet } from '../../../internal-plugins/variable/agent/toolSet';
+import { createVariableToolSet } from '../../../internal-apps/variable/agent/toolSet';
 
 // ── Mock handler ──────────────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@ interface ChatMessagesProps {
   messages: Message[];
   /** Called when the user edits a message and clicks "Save & Resend". */
   onEditMessage?: (messageId: string, newText: string, attachments?: readonly Attachment[]) => void;
-  /** Session for plugin slot shouldRender evaluation. */
+  /** Session for app slot shouldRender evaluation. */
   readonly session: SlotSession;
 }
 

@@ -41,8 +41,8 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           ws: true, // proxy WebSocket upgrades (for /api/browser/:id/stream)
         },
-        // Plugin compiled files (activate.js, etc.) are served by the backend.
-        '/plugins': {
+        // App compiled files (activate.js, etc.) are served by the backend.
+        '/agent-apps': {
           target: `http://localhost:${backendPort}`,
           changeOrigin: true,
         },

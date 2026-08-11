@@ -2,28 +2,28 @@
  * agent-UI/slots/hooks/useSlotHostBridge.ts
  *
  * Shared Hook for slot renderers that push state to sandboxed iframes
- * via {@link UiPluginHostInternal._pushToIframe}.
+ * via {@link UiAppHostInternal._pushToIframe}.
  *
  * Encapsulates the common pattern used by HeaderBarSlotRenderer,
  * PanelSlotRenderer, and InlinePromptSlotRenderer:
- *   1. Create a UiPluginHost eagerly (with message buffering)
+ *   1. Create a UiAppHost eagerly (with message buffering)
  *   2. Track it via a ref so handleReady / useEffect can access it
  *   3. Provide a handleReady callback that pushes the initial state
  *   4. Subscribe to session changes and push updates on every tick
  *
  * The caller still owns:
- *   - Plugin lookup & guard (hooks must not be called after early return)
+ *   - App lookup & guard (hooks must not be called after early return)
  *   - IframeSandbox rendering (sizing, className, dimensions vary per slot)
  */
 
 import { useEffect, useRef, useMemo, useCallback, type RefObject } from 'react';
-import type { SlotHostMessage, UiPluginHostInternal, SlotSession, IframeSlotType, PluginBridge } from '@agent-type';
-import type { PluginManifest } from '@agent-type';
-import { createUiPluginHost } from '../../plugin/uiHost';
-import { createPluginApiClient } from '../../plugin/apiClient';
-import { createPluginConfigClient } from '../../plugin/configClient';
-import type { PluginDescriptor } from '../../plugin/pluginSystem';
-import { usePluginSystem } from '../../plugin/PluginContext';
+import type { SlotHostMessage, UiAppHostInternal, SlotSession, IframeSlotType, AppBridge } from '@agent-type';
+import type { AppManifest } from '@agent-type';
+import { createUiAppHost } from '../../app/uiHost';
+import { createAppApiClient } from '../../app/apiClient';
+import { createAppConfigClient } from '../../app/configClient';
+import type { AppDescriptor } from '../../app/appSystem';
+import { useAppSystem } from '../../app/AppContext';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,27 +31,27 @@ export interface UseSlotHostBridgeOptions {
   /**
    * Session whose state changes are pushed to the iframe.
    * `null` only for session-independent slots (e.g. toolButton without a
-   * running session). The host still works — `getPluginState()` returns
+   * running session). The host still works — `getAppState()` returns
    * `undefined`, and no state-push subscriptions are set up.
    */
   readonly session?: SlotSession | null;
-  /** Plugin id (used for API-scoped calls and slot-lookup). */
-  readonly pluginId: string;
+  /** App id (used for API-scoped calls and slot-lookup). */
+  readonly appId: string;
   /** Slot identifier (matches the declaration's `id`). */
   readonly slotId: string;
   /** Slot type — used for the slotContext and the message `type` field. */
   readonly slotType: IframeSlotType;
   /** The ToolSet symbol whose state to expose. */
   readonly toolSetSymbol: symbol;
-  /** Plugin descriptor (must have `uiEntryUrl` — caller guards this). */
-  readonly uiPlugin: PluginDescriptor;
+  /** App descriptor (must have `uiEntryUrl` — caller guards this). */
+  readonly uiApp: AppDescriptor;
 }
 
 export interface UseSlotHostBridgeResult {
   /** The host instance — pass to IframeSandbox. */
-  readonly host: UiPluginHostInternal;
+  readonly host: UiAppHostInternal;
   /** Ref holding the host; IframeSandbox reads it for injection. */
-  readonly hostRef: RefObject<UiPluginHostInternal | null>;
+  readonly hostRef: RefObject<UiAppHostInternal | null>;
   /** Callback for IframeSandbox.onReady — pushes the initial state. */
   readonly handleReady: (iframe: HTMLIFrameElement) => void;
 }
@@ -62,23 +62,23 @@ export interface UseSlotHostBridgeResult {
  * Shared slot host bridge for {{@link HeaderBarSlotRenderer}},
  * {@link PanelSlotRenderer}, and {@link InlinePromptSlotRenderer}.
  *
- * Callers MUST resolve the plugin and guard on `uiEntryUrl` **before**
+ * Callers MUST resolve the app and guard on `uiEntryUrl` **before**
  * invoking this hook (hooks cannot be called after an early return).
  *
  * @example
- *   const uiPlugin = pluginSystem.getPlugin(pluginId);
- *   if (!uiPlugin?.uiEntryUrl) return null;
+ *   const uiApp = appSystem.getApp(appId);
+ *   if (!uiApp?.uiEntryUrl) return null;
  *   const { host, hostRef, handleReady } = useSlotHostBridge({
- *     session, pluginId, slotId, slotType: 'panel', uiPlugin,
+ *     session, appId, slotId, slotType: 'panel', uiApp,
  *   });
- *   return <IframeSandbox uiEntryUrl={uiPlugin.uiEntryUrl} host={host} onReady={handleReady} />;
+ *   return <IframeSandbox uiEntryUrl={uiApp.uiEntryUrl} host={host} onReady={handleReady} />;
  */
 export function useSlotHostBridge(
   opts: UseSlotHostBridgeOptions,
 ): UseSlotHostBridgeResult {
-  const { session, pluginId, slotId, slotType, toolSetSymbol, uiPlugin } = opts;
+  const { session, appId, slotId, slotType, toolSetSymbol, uiApp } = opts;
 
-  const hostRef = useRef<UiPluginHostInternal | null>(null);
+  const hostRef = useRef<UiAppHostInternal | null>(null);
 
   // Build slot context — null-safe for session-independent slots.
   const slotContext = useMemo(() => {
@@ -89,29 +89,29 @@ export function useSlotHostBridge(
     return { slotId, slotType, sessionId: state.id, agentName: state.agentName, conversationId: state.conversationId };
   }, [session, slotId, slotType]);
 
-  // Resolve the shared bridge object from the activated plugin.
-  // The bridge is created by pluginSystem, populated by the agent-side
+  // Resolve the shared bridge object from the activated app.
+  // The bridge is created by appSystem, populated by the agent-side
   // activate() function, and passed through to the UI iframe.
-  const activePlugin = usePluginSystem().getActivePlugin(pluginId);
+  const activeApp = useAppSystem().getActiveApp(appId);
   const bridge = useMemo(
-    () => activePlugin?.bridge ?? ({} as PluginBridge),
-    [activePlugin],
+    () => activeApp?.bridge ?? ({} as AppBridge),
+    [activeApp],
   );
 
   // Create host eagerly so IframeSandbox can inject it on iframe load.
-  // Memoised per (pluginId, session, slotId, slotType, uiPlugin).
-  const host: UiPluginHostInternal = useMemo(() => {
-    const apiClient = createPluginApiClient(pluginId);
-    const manifest: PluginManifest = {
-      id: uiPlugin.id,
-      name: uiPlugin.name,
-      version: uiPlugin.version,
-      description: uiPlugin.description,
+  // Memoised per (appId, session, slotId, slotType, uiApp).
+  const host: UiAppHostInternal = useMemo(() => {
+    const apiClient = createAppApiClient(appId);
+    const manifest: AppManifest = {
+      id: uiApp.id,
+      name: uiApp.name,
+      version: uiApp.version,
+      description: uiApp.description,
     };
-    const configClient = createPluginConfigClient(manifest, apiClient);
+    const configClient = createAppConfigClient(manifest, apiClient);
 
-    return createUiPluginHost({
-      plugin: uiPlugin,
+    return createUiAppHost({
+      app: uiApp,
       apiClient,
       configClient,
       session: session ?? undefined,
@@ -119,13 +119,13 @@ export function useSlotHostBridge(
       slotContext,
       bridge,
     });
-  }, [pluginId, session, slotId, slotType, toolSetSymbol, uiPlugin, slotContext, bridge]);
+  }, [appId, session, slotId, slotType, toolSetSymbol, uiApp, slotContext, bridge]);
 
   hostRef.current = host;
 
   // Push initial state when the iframe loads.
   // When there's no session, there's nothing to push — the host still works
-  // (getPluginState returns undefined), and the iframe can render without state.
+  // (getAppState returns undefined), and the iframe can render without state.
   const handleReady = useCallback(
     (_iframe: HTMLIFrameElement) => {
       const h = hostRef.current;

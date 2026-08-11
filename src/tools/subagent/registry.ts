@@ -313,7 +313,7 @@ export function createSubAgentRegistry(options: CreateSubAgentRegistryOptions): 
       const key = `${agentName}:${conversationId}`;
       // Do NOT pre-emptively abort the current run.
       // execution.sendMessage() runs onInterceptMessage first — if a
-      // pending-input plugin is active the message will be queued and the
+      // pending-input app is active the message will be queued and the
       // current run allowed to finish naturally so onAfterRun can resume().
       // Without an interceptor, sendMessage throws "already running" which
       // is the correct guard against concurrent sends on the same conversation.

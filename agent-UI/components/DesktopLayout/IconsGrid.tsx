@@ -6,7 +6,7 @@
  */
 
 import { memo, type ReactElement } from "react";
-import type { AppSlotDeclaration } from "@agent-type";
+import type { AppSlotDeclaration, SlotDeclaration } from "@agent-type";
 import type { SlotEntry } from "../../slots/registry";
 import type { AppWindowEntry } from "./windowManager";
 import styles from "./IconsGrid.module.scss";
@@ -59,7 +59,7 @@ export function IconsGrid({
         <div className={styles["empty-icon"]}>🖥️</div>
         <div className={styles["empty-text"]}>Desktop</div>
         <div className={styles["empty-hint"]}>
-          Install a plugin with app slots to see icons here.
+          Install a app with app slots to see icons here.
         </div>
       </div>
     );
@@ -76,7 +76,7 @@ export function IconsGrid({
             isOpen={isOpen}
             onOpen={() =>
               onOpenApp({
-                pluginId: slot.pluginId,
+                appId: slot.appId,
                 slotId: slot.slotId,
                 declaration: slot.declaration,
                 toolSetSymbol: slot.toolSetSymbol,

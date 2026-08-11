@@ -1,10 +1,10 @@
 /**
- * Tests for super built-in plugin API clients �� IPC (Electron) path
+ * Tests for super built-in app API clients �� IPC (Electron) path
  *
- * The old apiTransport.ts has been replaced by PluginApiClient-based
- * core API wrappers (agent-UI/plugin/core/). These tests verify that
- * the core plugin API clients correctly route calls through the
- * dual-transport PluginApiClient mechanism.
+ * The old apiTransport.ts has been replaced by AppApiClient-based
+ * core API wrappers (agent-UI/app/core/). These tests verify that
+ * the core app API clients correctly route calls through the
+ * dual-transport AppApiClient mechanism.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -27,99 +27,99 @@ vi.hoisted(() => {
   };
 });
 
-import { createPluginApiClient } from '../plugin/apiClient';
+import { createAppApiClient } from '../app/apiClient';
 
 // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T
-// PluginApiClient �� unified dual-transport client for core plugins
+// AppApiClient �� unified dual-transport client for core apps
 // �T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T�T
 
-describe('PluginApiClient (IPC mode) �� system plugin', () => {
+describe('AppApiClient (IPC mode) �� system app', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('calls plugin:system:publicKey for publicKey method', async () => {
+  it('calls app:system:publicKey for publicKey method', async () => {
     mockInvoke.mockResolvedValue({ publicKey: 'pem-data' });
-    const client = createPluginApiClient('system');
+    const client = createAppApiClient('system');
     const result = await client.call('publicKey');
     expect(result).toEqual({ publicKey: 'pem-data' });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:system:publicKey', {});
+    expect(mockInvoke).toHaveBeenCalledWith('app:system:publicKey', {});
   });
 });
 
-describe('PluginApiClient (IPC mode) �� proxy plugin', () => {
+describe('AppApiClient (IPC mode) �� proxy app', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('calls plugin:proxy:getConfig', async () => {
+  it('calls app:proxy:getConfig', async () => {
     mockInvoke.mockResolvedValue({ config: { host: 'localhost', port: 7890 } });
-    const client = createPluginApiClient('proxy');
+    const client = createAppApiClient('proxy');
     const result = await client.call('getConfig');
     expect(result).toEqual({ config: { host: 'localhost', port: 7890 } });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:proxy:getConfig', {});
+    expect(mockInvoke).toHaveBeenCalledWith('app:proxy:getConfig', {});
   });
 
-  it('calls plugin:proxy:updateConfig with body params', async () => {
+  it('calls app:proxy:updateConfig with body params', async () => {
     mockInvoke.mockResolvedValue(undefined);
-    const client = createPluginApiClient('proxy');
+    const client = createAppApiClient('proxy');
     await client.call('updateConfig', { host: 'localhost', port: 7890 });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:proxy:updateConfig', { host: 'localhost', port: 7890 });
+    expect(mockInvoke).toHaveBeenCalledWith('app:proxy:updateConfig', { host: 'localhost', port: 7890 });
   });
 });
 
-describe('PluginApiClient (IPC mode) �� models plugin', () => {
+describe('AppApiClient (IPC mode) �� models app', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('calls plugin:models:list with provider param', async () => {
+  it('calls app:models:list with provider param', async () => {
     mockInvoke.mockResolvedValue([{ id: 'deepseek-v4', name: 'DeepSeek V4' }]);
-    const client = createPluginApiClient('models');
+    const client = createAppApiClient('models');
     const result = await client.call('list', { provider: 'doubao' });
     expect(result).toEqual([{ id: 'deepseek-v4', name: 'DeepSeek V4' }]);
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:models:list', { provider: 'doubao' });
+    expect(mockInvoke).toHaveBeenCalledWith('app:models:list', { provider: 'doubao' });
   });
 });
 
-describe('PluginApiClient (IPC mode) �� api-keys plugin', () => {
+describe('AppApiClient (IPC mode) �� api-keys app', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('calls plugin:api-keys:list', async () => {
+  it('calls app:api-keys:list', async () => {
     mockInvoke.mockResolvedValue({ keys: { DeepSeek: '????abcd' } });
-    const client = createPluginApiClient('api-keys');
+    const client = createAppApiClient('api-keys');
     const result = await client.call('list');
     expect(result).toEqual({ keys: { DeepSeek: '????abcd' } });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:api-keys:list', {});
+    expect(mockInvoke).toHaveBeenCalledWith('app:api-keys:list', {});
   });
 
-  it('calls plugin:api-keys:save with providerId and encryptedKey', async () => {
+  it('calls app:api-keys:save with providerId and encryptedKey', async () => {
     mockInvoke.mockResolvedValue({ masked: '????xyz' });
-    const client = createPluginApiClient('api-keys');
+    const client = createAppApiClient('api-keys');
     const result = await client.call('save', { providerId: 'DeepSeek', encryptedKey: 'encrypted-base64' });
     expect(result).toEqual({ masked: '????xyz' });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:api-keys:save', { providerId: 'DeepSeek', encryptedKey: 'encrypted-base64' });
+    expect(mockInvoke).toHaveBeenCalledWith('app:api-keys:save', { providerId: 'DeepSeek', encryptedKey: 'encrypted-base64' });
   });
 
-  it('calls plugin:api-keys:delete with providerId', async () => {
+  it('calls app:api-keys:delete with providerId', async () => {
     mockInvoke.mockResolvedValue(undefined);
-    const client = createPluginApiClient('api-keys');
+    const client = createAppApiClient('api-keys');
     await client.call('delete', { providerId: 'DeepSeek' });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:api-keys:delete', { providerId: 'DeepSeek' });
+    expect(mockInvoke).toHaveBeenCalledWith('app:api-keys:delete', { providerId: 'DeepSeek' });
   });
 });
 
-describe('PluginApiClient (IPC mode) �� sessions plugin', () => {
+describe('AppApiClient (IPC mode) �� sessions app', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('calls plugin:sessions:load with agentId', async () => {
+  it('calls app:sessions:load with agentId', async () => {
     const sessions = [{ id: 's1', title: 'Session 1' }];
     mockInvoke.mockResolvedValue({ sessions });
-    const client = createPluginApiClient('sessions');
+    const client = createAppApiClient('sessions');
     const result = await client.call('load', { agentId: 'stream-agent' });
     expect(result).toEqual({ sessions });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:sessions:load', { agentId: 'stream-agent' });
+    expect(mockInvoke).toHaveBeenCalledWith('app:sessions:load', { agentId: 'stream-agent' });
   });
 
-  it('calls plugin:sessions:save with agentId and sessions', async () => {
+  it('calls app:sessions:save with agentId and sessions', async () => {
     const sessions = [{ id: 's1', title: 'Session 1' }];
     mockInvoke.mockResolvedValue(undefined);
-    const client = createPluginApiClient('sessions');
+    const client = createAppApiClient('sessions');
     await client.call('save', { agentId: 'stream-agent', sessions });
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:sessions:save', { agentId: 'stream-agent', sessions });
+    expect(mockInvoke).toHaveBeenCalledWith('app:sessions:save', { agentId: 'stream-agent', sessions });
   });
 });

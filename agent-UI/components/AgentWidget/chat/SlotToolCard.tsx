@@ -5,17 +5,17 @@ import type { SlotEntry } from '../../../slots/registry';
 import { ToolCallInlineCard } from './ToolCallInlineCard';
 
 interface SlotToolCardProps {
-  /** The plugin slot that claims this tool call. */
+  /** The app slot that claims this tool call. */
   readonly slot: SlotEntry<CompactToolCardSlotDeclaration>;
   readonly info: ToolCallInfo;
   readonly onOpen: () => void;
 }
 
 /**
- * Renders a tool call claimed by a plugin's `compactToolCard` slot.
+ * Renders a tool call claimed by a app's `compactToolCard` slot.
  *
- * - Imperative `render` mode: the plugin draws its own DOM (embedded mode).
- * - Descriptor mode: the plugin's icon/label/summary/status are rendered with
+ * - Imperative `render` mode: the app draws its own DOM (embedded mode).
+ * - Descriptor mode: the app's icon/label/summary/status are rendered with
  *   the same inline execution-note styling as the default ToolCallInlineCard.
  */
 export function SlotToolCard({ slot, info, onOpen }: SlotToolCardProps): ReactElement {

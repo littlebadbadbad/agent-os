@@ -123,7 +123,7 @@ export type ToolResult = {
  * exactly the same pattern as `SessionEntryExtension`:
  *
  * ```ts
- * // my-plugin/types.ts
+ * // my-app/types.ts
  * declare module '@agent-type' {
  *   interface ToolExecutionContextExtension {
  *     readonly myField: string;
@@ -234,10 +234,10 @@ export type UserInputRequest = {
  * and will be merged into session state by the agent client automatically.
  */
 export interface AgentSessionExtension extends Record<string, unknown> {
-  [key: ToolSetSymbol]: PluginStateExtension;
+  [key: ToolSetSymbol]: AppStateExtension;
 }
-/** Minimum discriminant every plugin symbol state must provide. */
-export interface PluginStateExtension {}
+/** Minimum discriminant every app symbol state must provide. */
+export interface AppStateExtension {}
 export type ToolSetSymbol = symbol;
 /**
  * Open extension point for ToolSet-specific persisted fields.
@@ -299,21 +299,21 @@ export type SessionEntryData<Snapshot = SessionEntryExtension> =
 //  业务字段通过 AgentSessionExtension 的 declare module 重载
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export type PluginId = string;
+export type AppId = string;
 
 /**
  * Minimal session state shape consumed by slot renderers.
  *
  * Both {@link AgentSessionState} and {@link SubAgentConversationState}
  * are assignable to this interface — it captures only the fields that
- * slot renderers and {@link UiPluginHost.getPluginState} actually read.
+ * slot renderers and {@link UiAppHost.getAppState} actually read.
  *
  * Unlike `AgentSessionState`, this type does **not** extend
  * `Record<string, unknown>`, so `state.id` / `state.agentName` /
  * `state.conversationId` are typed as `string` without casts.
  *
- * Plugins access their own state slices via the symbol-keyed index
- * signature (`state[symbol]`), which returns `PluginStateExtension` —
+ * Apps access their own state slices via the symbol-keyed index
+ * signature (`state[symbol]`), which returns `AppStateExtension` —
  * the same type as `AgentSessionExtension` provides.
  */
 export interface SessionStateLike {
@@ -326,16 +326,16 @@ export interface SessionStateLike {
   /** ID of the conversation within the session. */
   readonly conversationId: string;
   /**
-   * Symbol-keyed plugin state slices.
+   * Symbol-keyed app state slices.
    * Each registered ToolSet contributes state under its own symbol.
    */
-  readonly [key: symbol]: PluginStateExtension;
+  readonly [key: symbol]: AppStateExtension;
 }
 
 /**
- * Core session state shape exposed to plugins.
+ * Core session state shape exposed to apps.
  *
- * Plugins see the standard fields (id, messages, isLoading, title, etc.).
+ * Apps see the standard fields (id, messages, isLoading, title, etc.).
  * Business-specific fields are contributed by the host application via
  * `AgentSessionExtension` module augmentation.
  *
@@ -352,7 +352,7 @@ export type AgentSessionState = {
    * Main agent: the configured `id` or `"main"`.
    * Sub-agent: the registered sub-agent tool name (e.g. `"researcher_agent"`).
    *
-   * Plugins use this to distinguish whether a slot is opened by the main
+   * Apps use this to distinguish whether a slot is opened by the main
    * agent or a sub-agent's conversation.
    */
   readonly agentName: string;
@@ -362,7 +362,7 @@ export type AgentSessionState = {
    * Main agent: `"main"` (MAIN_CONVERSATION_ID).
    * Sub-agent: the conversation's unique ID.
    *
-   * Together with `agentName`, this lets plugins identify the exact
+   * Together with `agentName`, this lets apps identify the exact
    * conversation context a slot is rendering for.
    */
   readonly conversationId: string;
@@ -457,7 +457,7 @@ export type ToolExecutionContext<Ctx = ToolExecutionContextExtension> = Ctx & {
    * Request a value from the user, suspending tool execution until a response
    * arrives. Returns `null` when the user cancels or the `AbortSignal` fires.
    *
-   * `undefined` when the user-input plugin is not installed — callers must
+   * `undefined` when the user-input app is not installed — callers must
    * guard with `?.`.
    *
    * @param id  Optional stable identifier for this request.  Supply a
@@ -470,7 +470,7 @@ export type ToolExecutionContext<Ctx = ToolExecutionContextExtension> = Ctx & {
   ) => Promise<string | null>;
   /**
    * Cancel a pending user-input prompt by its ID.
-   * `undefined` when the user-input plugin is not installed.
+   * `undefined` when the user-input app is not installed.
    */
   readonly cancelUserInput?: (id: string) => void;
   /**

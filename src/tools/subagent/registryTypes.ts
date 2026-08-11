@@ -18,7 +18,7 @@ declare module '@agent-type' {
 
 import type { AgentMessage } from '@agent-type';
 import type { Attachment } from '@agent-type';
-import type { PluginStateExtension } from '@agent-type';
+import type { AppStateExtension } from '@agent-type';
 import type { SubAgentResult } from './types';
 import type { Message } from '@agent-sdk/tools/messageList';
 
@@ -85,8 +85,8 @@ export type ConversationMessageEntry = AgentMessage & { readonly index: number }
  * Consumed by UI components to render streaming conversation panels,
  * token usage progress bars, and message history.
  *
- * Symbol-keyed plugin state is accessible via the `[key: symbol]` index
- * signature — UI layers look up state by the plugin's declared symbol,
+ * Symbol-keyed app state is accessible via the `[key: symbol]` index
+ * signature — UI layers look up state by the app's declared symbol,
  * fully generic with no hardcoded fields.
  */
 export type SubAgentConversationState = {
@@ -126,14 +126,14 @@ export type SubAgentConversationState = {
    */
   readonly messages: Message[];
   /**
-   * Symbol-keyed plugin state slices.
+   * Symbol-keyed app state slices.
    *
    * Each registered ToolSet that declares a `symbol` and implements
    * `onGetSymbolState` contributes its state here. UI layers look up
-   * state by the plugin's symbol — no plugin-specific fields are
+   * state by the app's symbol — no app-specific fields are
    * hardcoded on this type.
    */
-  readonly [key: symbol]: PluginStateExtension;
+  readonly [key: symbol]: AppStateExtension;
 };
 
 /**
@@ -157,8 +157,8 @@ export type SubAgentConversation = {
  * Read-only snapshot of one sub-agent entry in the registry.
  * Used for rendering the sub-agent management UI.
  *
- * Symbol-keyed plugin state is accessible via the `[key: symbol]` index
- * signature — UI layers look up state by the plugin's declared symbol,
+ * Symbol-keyed app state is accessible via the `[key: symbol]` index
+ * signature — UI layers look up state by the app's declared symbol,
  * fully generic with no hardcoded fields.
  */
 export type SubAgentEntrySnapshot = {
@@ -185,14 +185,14 @@ export type SubAgentEntrySnapshot = {
   /** All conversations for this sub-agent, ordered oldest-first. */
   readonly conversations: readonly SubAgentConversationState[];
   /**
-   * Symbol-keyed plugin state slices (agent-level).
+   * Symbol-keyed app state slices (agent-level).
    *
    * Each registered ToolSet that declares a `symbol` and implements
    * `onGetSymbolState` contributes its state here. UI layers look up
-   * state by the plugin's symbol — no plugin-specific fields are
+   * state by the app's symbol — no app-specific fields are
    * hardcoded on this type.
    */
-  readonly [key: symbol]: PluginStateExtension;
+  readonly [key: symbol]: AppStateExtension;
 };
 
 /** Observable state of the entire sub-agent registry. */

@@ -13,15 +13,15 @@
  */
 
 import { useRef, useCallback, useEffect, type ReactElement } from "react";
-import type { ToolCardHostMessage, SlotSession, UiPluginHostInternal } from "@agent-type";
+import type { ToolCardHostMessage, SlotSession, UiAppHostInternal } from "@agent-type";
 import type { ToolCallInfo } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
+import { useAppSystem, useSlotRegistry } from "../../app/AppContext";
 
 export interface ToolCardSlotRendererProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   readonly session: SlotSession;
   readonly toolCallInfo: ToolCallInfo;
@@ -32,22 +32,22 @@ export interface ToolCardSlotRendererProps {
 export function ToolCardSlotRenderer(
   props: ToolCardSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, toolCallInfo, toolSetSymbol, className } = props;
+  const { appId, slotId, session, toolCallInfo, toolSetSymbol, className } = props;
 
-  const hostRef = useRef<UiPluginHostInternal | null>(null);
+  const hostRef = useRef<UiAppHostInternal | null>(null);
 
-  const { getPlugin } = usePluginSystem();
-  const uiPlugin = getPlugin(pluginId);
-  if (!uiPlugin?.uiEntryUrl) return null;
+  const { getApp } = useAppSystem();
+  const uiApp = getApp(appId);
+  if (!uiApp?.uiEntryUrl) return null;
 
   const { getSlot } = useSlotRegistry();
   const { host } = useSlotHostBridge({
     session,
-    pluginId,
+    appId,
     slotId,
     slotType: "toolCard",
     toolSetSymbol,
-    uiPlugin,
+    uiApp,
   });
 
   hostRef.current = host;
@@ -88,10 +88,10 @@ export function ToolCardSlotRenderer(
   return (
     <IframeSandbox
       className={className}
-      uiEntryUrl={uiPlugin.uiEntryUrl}
+      uiEntryUrl={uiApp.uiEntryUrl}
       host={host}
       onReady={handleReady}
-      permissions={getSlotPermissions(getSlot(pluginId, slotId)?.declaration)}
+      permissions={getSlotPermissions(getSlot(appId, slotId)?.declaration)}
     />
   );
 }

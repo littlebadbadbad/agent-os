@@ -88,7 +88,7 @@ export function wrapOnBeforeInvoke(
  * `SystemPromptContext` with the accumulated prompt parts so far, enabling
  * conditional injection and cross-ToolSet awareness.
  *
- * Internally-branded ToolSets (built-in plugins) may call
+ * Internally-branded ToolSets (built-in apps) may call
  * `suppressToolSetPrompt` to exclude another ToolSet's fragment from the
  * final prompt.  The suppressed ToolSet's `onGetSystemPrompt` still executes
  * so it can perform internal bookkeeping.

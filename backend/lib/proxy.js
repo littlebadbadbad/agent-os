@@ -6,13 +6,13 @@
  *   - Does NOT call setGlobalDispatcher
  *   - Does NOT apply any side-effect on import
  *
- * Consumers (model chat pipeline, browser plugin, MCP, skill) obtain a
+ * Consumers (model chat pipeline, browser app, MCP, skill) obtain a
  * proxy-aware fetch via {@link createProxyFetch} when they need it.
  *
  * @typedef {ProxyConfig} ProxyConfig
  */
 
-/** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
+/** @import { ProxyConfig } from '../../agent-type/app.ts' */
 
 import { ProxyAgent, Agent, fetch as undiciFetch } from 'undici';
 import { createLogger } from './logger.js';
@@ -62,14 +62,14 @@ if (envUrl) {
   }
 }
 
-// ── Local proxy server (hides upstream credentials from plugins) ──────────────
+// ── Local proxy server (hides upstream credentials from apps) ──────────────
 
 /** @type {LocalProxyServer} */
 const _localProxy = new LocalProxyServer();
 
 // Start on port 0 (OS-assigned free port — guaranteed no conflicts).
 // The promise is captured but not awaited: port-0 bind completes in <1 ms,
-// and no plugin code runs before server startup finishes.
+// and no app code runs before server startup finishes.
 _localProxy.start(_cfg).then((addr) => {
   log.info(`Local proxy server running on 127.0.0.1:${addr.port}`);
 }).catch((err) => {
@@ -183,7 +183,7 @@ export function createProxyFetch(overrides) {
 
 /**
  * Return the local proxy address (no credentials exposed).
- * Plugins receive this via getBackendConfig('proxy') — they see only
+ * Apps receive this via getBackendConfig('proxy') — they see only
  * the local forwarding address, never the upstream proxy credentials.
  * @returns {ProxyConfig}
  */
@@ -202,7 +202,7 @@ export function getProxyConfig() {
 
 /**
  * Return the upstream config with the password masked.
- * Used by the UI (proxy core plugin) to display current settings.
+ * Used by the UI (proxy core app) to display current settings.
  * @returns {ProxyConfig & { password: string }}
  */
 export function getUpstreamConfig() {

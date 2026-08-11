@@ -1,5 +1,5 @@
 /**
- * backend/core/model-config.js — Super built-in "model-config" plugin
+ * backend/core/model-config.js — Super built-in "model-config" app
  *
  * Registers model configuration CRUD API methods via defineApi().
  *
@@ -13,14 +13,14 @@
  *   updateCustom → modelConfigService.updateCustomProvider(name, entry)
  */
 
-import { createCorePluginHost } from '../lib/core-plugin-host.js';
+import { createCoreAppHost } from '../lib/core-app-host.js';
 import * as modelConfigService from '../services/model-config.js';
 
-const PLUGIN_ID = 'model-config';
+const APP_ID = 'model-config';
 
-/** @param {import('../lib/plugin-router.js').pluginRouter} router */
+/** @param {import('../lib/app-router.js').appRouter} router */
 export function register(router) {
-  const host = createCorePluginHost(PLUGIN_ID, router);
+  const host = createCoreAppHost(APP_ID, router);
 
   host.defineApi('get', async () => modelConfigService.getMergedConfig());
 

@@ -10,14 +10,14 @@
  */
 
 import type { ReactElement } from "react";
-import type { AppSlotDeclaration } from "@agent-type";
-import { PluginManagerPanel } from "../../pluginManager/PluginManagerPanel";
+import type { AppSlotDeclaration, SlotDeclaration } from "@agent-type";
+import { AppManagerPanel } from "../../appManager/AppManagerPanel";
 import type { AppWindowEntry } from "./windowManager";
 
-// ── Virtual plugin id for all native apps ───────────────────────────────────
-// Distinguishes native entries from slot-based plugin apps in AppWindow.
+// ── Virtual app id for all native apps ───────────────────────────────────
+// Distinguishes native entries from slot-based app apps in AppWindow.
 
-export const NATIVE_PLUGIN_ID = "__native__" as const;
+export const NATIVE_APP_ID = "__native__" as const;
 
 // ── Native app definition ───────────────────────────────────────────────────
 
@@ -38,18 +38,18 @@ export interface NativeAppDefinition {
  */
 export const NATIVE_APPS: readonly NativeAppDefinition[] = [
   {
-    slotId: "native:plugin-manager",
+    slotId: "native:app-manager",
     declaration: {
       type: "app",
       icon: "🧩",
-      label: "Plugin Manager",
+      label: "App Manager",
       defaultWidth: 720,
       defaultHeight: 540,
       resizable: true,
       minimizable: true,
     },
     renderContent(onClose) {
-      return <PluginManagerPanel onClose={onClose} />;
+      return <AppManagerPanel onClose={onClose} />;
     },
   },
 ];
@@ -59,7 +59,7 @@ export const NATIVE_APPS: readonly NativeAppDefinition[] = [
 /** Build an AppWindowEntry from a native app definition. */
 export function nativeAppToEntry(def: NativeAppDefinition): AppWindowEntry {
   return {
-    pluginId: NATIVE_PLUGIN_ID,
+    appId: NATIVE_APP_ID,
     slotId: def.slotId,
     declaration: def.declaration,
     toolSetSymbol: Symbol.for(def.slotId),

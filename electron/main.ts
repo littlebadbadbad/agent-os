@@ -82,7 +82,7 @@ function createWindow(): void {
   });
 
   // Load the frontend via the backend's HTTP server for same-origin
-  // dynamic imports (plugin agent entries, etc.) and fetch calls.
+  // dynamic imports (app agent entries, etc.) and fetch calls.
   // The backend starts before createWindow(), so the server is ready.
   // Dev mode connects to the Vite dev server for HMR.
   const frontendUrl = app.isPackaged
@@ -112,7 +112,7 @@ function createWindow(): void {
   });
 
   // ── Native dialog: open directory picker ─────────────────────────────
-  // Used by the plugin manager's install-from-folder flow (pluginManagerApi).
+  // Used by the app manager's install-from-folder flow (appManagerApi).
   // Falls back to prompt() if this handler is absent (e.g. in non-Electron
   // environments).
   ipcMain.handle('dialog:openDirectory', async () => {

@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/models.js — super built-in "models" plugin
+ * Tests for backend/core/models.js — super built-in "models" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -10,7 +10,7 @@ vi.mock('../services/models.js', () => ({
 
 import { listModels } from '../services/models.js';
 
-describe('core/models plugin', () => {
+describe('core/models app', () => {
   let router;
   let register;
 

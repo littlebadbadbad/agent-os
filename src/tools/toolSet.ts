@@ -27,7 +27,7 @@ export { MAIN_CONVERSATION_ID, ctxKey } from '@agent-type';
  * Check whether a ToolSet carries a specific internal brand.
  *
  * The brand is an opaque symbol created by the UI layer and injected into all
- * built-in plugin ToolSets during plugin activation.  `buildSystemPrompt` uses
+ * built-in app ToolSets during app activation.  `buildSystemPrompt` uses
  * this check to gate access to `suppressToolSetPrompt` – only branded ToolSets
  * (internal/built-in) may suppress other ToolSets' prompt fragments.
  *

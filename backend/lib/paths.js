@@ -9,7 +9,7 @@
  * │   PROJECT_ROOT   →  <project>/
  * │   DATA_ROOT      →  <project>/data/
  * │   AGENT_DIR      →  <project>/.agent/
- * │   PLUGINS_DIR    →  <project>/plugins/
+ * │   APPS_DIR    →  <project>/agent-apps/
  * │   WORKSPACE_ROOT →  <project>/workspace/     (or $WORKSPACE_ROOT)
  * │   WORKSPACE_TMP  →  <project>/workspace/tmp/
  * │   STATIC_DIR     →  <project>/dist-demo/     (absent — Vite serves instead)
@@ -19,7 +19,7 @@
  * │   PROJECT_ROOT   →  release/                 (version-agnostic mutable root)
  * │   DATA_ROOT      →  release/data/
  * │   AGENT_DIR      →  release/.agent/
- * │   PLUGINS_DIR    →  release/plugins/
+ * │   APPS_DIR    →  release/agent-apps/
  * │   WORKSPACE_ROOT →  release/workspace/       (or $WORKSPACE_ROOT)
  * │   WORKSPACE_TMP  →  release/workspace/tmp/
  * │   STATIC_DIR     →  release/<version>/dist-demo/
@@ -29,7 +29,7 @@
  * │   PROJECT_ROOT   →  release/
  * │   DATA_ROOT      →  release/data/
  * │   AGENT_DIR      →  release/.agent/
- * │   PLUGINS_DIR    →  release/plugins/
+ * │   APPS_DIR    →  release/agent-apps/
  * │   WORKSPACE_ROOT →  release/workspace/       (or $WORKSPACE_ROOT)
  * │   WORKSPACE_TMP  →  release/workspace/tmp/
  * │   STATIC_DIR     →  release/<version>/dist-demo/  (served via HTTP, same as pkg)
@@ -85,21 +85,21 @@ export const DATA_ROOT = join(PROJECT_ROOT, 'data');
 /** Agent-managed state directory (configs, etc.). */
 export const AGENT_DIR = join(PROJECT_ROOT, '.agent');
 
-/** Compiled plugins output directory. */
-export const PLUGINS_DIR = join(PROJECT_ROOT, 'plugins');
+/** Compiled apps output directory. */
+export const APPS_DIR = join(PROJECT_ROOT, 'agent-apps');
 
 /**
- * Pre-compiled built-in plugin packages — used for reinstalling built-in
- * plugins after they've been uninstalled via plugin-manager.
+ * Pre-compiled built-in app packages — used for reinstalling built-in
+ * apps after they've been uninstalled via app-manager.
  *
- * In development mode (unpackaged), this points to `<project>/release/plugins/`.
- * In packaged mode (pkg/Electron), the only copy of built-in plugins is
- * PLUGINS_DIR itself, so this is undefined — reinstall is not supported there.
+ * In development mode (unpackaged), this points to `<project>/release/agent-apps/`.
+ * In packaged mode (pkg/Electron), the only copy of built-in apps is
+ * APPS_DIR itself, so this is undefined — reinstall is not supported there.
  * @type {string | undefined}
  */
-export const RELEASE_PLUGINS_DIR = (IS_PKG || process.env.UAP_IS_PACKAGED === '1')
+export const RELEASE_APPS_DIR = (IS_PKG || process.env.UAP_IS_PACKAGED === '1')
   ? undefined
-  : join(PROJECT_ROOT, 'release', 'plugins');
+  : join(PROJECT_ROOT, 'release', 'agent-apps');
 
 /**
  * Default workspace root for file tools.
@@ -141,6 +141,6 @@ export const SQLITE_BINDING = IS_PKG
 // Eagerly create every mutable directory so downstream modules can assume
 // they exist without adding their own mkdirSync guards for these paths.
 
-for (const dir of [DATA_ROOT, AGENT_DIR, PLUGINS_DIR, WORKSPACE_ROOT, WORKSPACE_TMP]) {
+for (const dir of [DATA_ROOT, AGENT_DIR, APPS_DIR, WORKSPACE_ROOT, WORKSPACE_TMP]) {
   mkdirSync(dir, { recursive: true });
 }

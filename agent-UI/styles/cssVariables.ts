@@ -2,13 +2,13 @@
  * agent-UI/styles/cssVariables.ts — Central CSS variable definitions
  *
  * Single source of truth for ALL CSS custom properties used by the UI layer
- * and plugins.  Two tiers are provided:
+ * and apps.  Two tiers are provided:
  *
  *   **Unprefixed** (internal)  – consumed by SCSS modules inside the UI
- *     layer and by first-party plugins (e.g. `var(--bg-primary)`).
+ *     layer and by first-party apps (e.g. `var(--bg-primary)`).
  *
  *   **Prefixed**   (external)  – emitted at runtime on `:root` so that
- *     third-party plugin iframes can consume the same design tokens via a
+ *     third-party app iframes can consume the same design tokens via a
  *     namespaced name (e.g. `var(--agent-sdk-bg-primary)`).
  *
  * The prefix is controlled by `VITE_CSS_PREFIX` (default `agent-sdk-`).
@@ -174,11 +174,11 @@ export function injectHostCssVars(): void {
 // ── Iframe injection ──────────────────────────────────────────────────────────
 
 /**
- * Build a CSS declaration block suitable for injection into a plugin iframe.
+ * Build a CSS declaration block suitable for injection into a app iframe.
  *
  * Returns both unprefixed **and** prefixed declarations so that:
- * - First-party (internal) plugins can use `var(--bg-primary)`
- * - Third-party (external) plugins can use `var(--agent-sdk-bg-primary)`
+ * - First-party (internal) apps can use `var(--bg-primary)`
+ * - Third-party (external) apps can use `var(--agent-sdk-bg-primary)`
  *
  * When the prefix is empty, only unprefixed names are emitted (they ARE the
  * external API in that case).
@@ -187,12 +187,12 @@ export function buildIframeCssVars(): string {
   const prefix = getCssPrefix();
   const declarations: string[] = [];
 
-  // Unprefixed (for internal plugins)
+  // Unprefixed (for internal apps)
   for (const [name, value] of Object.entries(CSS_VARS)) {
     declarations.push(`--${name}:${value}`);
   }
 
-  // Prefixed (for external / third-party plugins)
+  // Prefixed (for external / third-party apps)
   if (prefix) {
     for (const [name, value] of Object.entries(CSS_VARS)) {
       declarations.push(`--${prefix}${name}:${value}`);
@@ -207,7 +207,7 @@ export function buildIframeCssVars(): string {
  * document root so that all `var(--*)` references inside the iframe resolve.
  *
  * CSS custom properties do **not** cross iframe boundaries, even with
- * `allow-same-origin`.  Every plugin iframe must have these injected before
+ * `allow-same-origin`.  Every app iframe must have these injected before
  * its styles are applied.
  */
 export function injectIframeCssVars(iframe: HTMLIFrameElement): void {

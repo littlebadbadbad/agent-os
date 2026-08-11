@@ -47,7 +47,7 @@ export interface ConversationNavigatorProps {
   readonly listTitle: string;
   readonly emptyState: ReactNode;
 
-  /** Renders the panel content (messages + plugin slots). */
+  /** Renders the panel content (messages + app slots). */
   readonly renderPanel: (id: string) => ReactNode;
 
   /** Called when user selects an item from the list. */

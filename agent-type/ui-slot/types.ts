@@ -3,7 +3,7 @@
  *
  * Three-layer architecture:
  *   1. ToolSet registers slots via `host.registerToolSet(toolSet, slots)` — "what capabilities"
- *   2. Plugin UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
+ *   2. App UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
  *   3. Host renders slots via `SlotRenderer` + `SlotRegistry` — "where it goes"
  *
  * This file contains all slot declaration interfaces, the routing context
@@ -15,8 +15,8 @@
  * second parameter (may be `undefined` when no session is active).
  */
 
-import { PluginStateExtension } from "@agent-type";
-import type { ToolCallInfo } from "../plugin";
+import { AppStateExtension } from "@agent-type";
+import type { ToolCallInfo } from "../app";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot display context — passed to visibility / badge / render decision fns
@@ -25,10 +25,10 @@ import type { ToolCallInfo } from "../plugin";
 /**
  * Routing context passed to slot display-control functions.
  *
- * Plugins use this to decide whether to show a tab, render a header bar,
+ * Apps use this to decide whether to show a tab, render a header bar,
  * or display a badge for a specific agent (main vs sub-agent).
  *
- * Example — browser plugin: the global browser session is only useful on
+ * Example — browser app: the global browser session is only useful on
  * the main agent's tab, so `showTab: (ctx) => ctx.agentName === 'main'`.
  */
 export interface SlotDisplayContext {
@@ -61,7 +61,7 @@ export type IframeSlotType =
   | "app";
 
 /**
- * Discriminant for all plugin UI injection points.
+ * Discriminant for all app UI injection points.
  * Add new values here when introducing new slot types.
  */
 export type SlotType = InlineSlotType | IframeSlotType;
@@ -83,9 +83,9 @@ export interface IframeConfig {
    * Whether this slot should render.
    * Called on every session state change. Return `false` to hide the iframe.
    * When undefined, the slot always renders.
-   * Receives routing context so plugins can filter by agent.
+   * Receives routing context so apps can filter by agent.
    */
-  readonly shouldRender?: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
+  readonly shouldRender?: (ctx: SlotDisplayContext, state?: AppStateExtension) => boolean;
   /**
    * Preferred containing width for this slot.
    * Defaults vary by slot type (see each declaration's doc).
@@ -130,8 +130,8 @@ export interface PanelSlotDeclaration extends IframeConfig {
   /** Tab label shown in the sidebar tab bar. */
   readonly label: string;
   /** Whether to show a tab for this panel. Called on every state update.
-   *  Receives routing context so plugins can differentiate main vs sub-agent. */
-  readonly showTab: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
+   *  Receives routing context so apps can differentiate main vs sub-agent. */
+  readonly showTab: (ctx: SlotDisplayContext, state?: AppStateExtension) => boolean;
   /** Optional emoji/icon for the tab. */
   readonly icon?: string;
   /**
@@ -139,7 +139,7 @@ export interface PanelSlotDeclaration extends IframeConfig {
    * Return `null` to hide the badge. Called on every state update.
    * Receives routing context and optional toolset state.
    */
-  readonly badge?: (ctx: SlotDisplayContext, state?: PluginStateExtension) => string | null;
+  readonly badge?: (ctx: SlotDisplayContext, state?: AppStateExtension) => string | null;
 }
 
 /**
@@ -183,7 +183,7 @@ export interface CompactToolCardSlotDeclaration {
   readonly toolNames: readonly string[];
   /**
    * Build the descriptor used by the host to render the inline pill.
-   * Receives the full ToolCallInfo so the plugin can derive icon, label
+   * Receives the full ToolCallInfo so the app can derive icon, label
    * and summary from the tool name, arguments, result, and status.
    */
   readonly getDescriptor: (info: ToolCallInfo) => CompactToolCardDescriptor;
@@ -216,7 +216,7 @@ export interface HeaderBarSlotDeclaration extends IframeConfig {
 /**
  * A toolButton slot renders a button in the AIControlBar header bar.
  *
- * Clicking the button opens a DropdownPanel containing the plugin's iframe
+ * Clicking the button opens a DropdownPanel containing the app's iframe
  * management panel.  The iframe receives state updates via
  * {@link ToolButtonHostMessage}.
  */
@@ -227,12 +227,12 @@ export interface ToolButtonSlotDeclaration extends IframeConfig {
   /** Optional emoji/icon for the button. */
   readonly icon?: string;
   /** Whether to show this button. Called on every state update. */
-  readonly showBtn: (ctx: SlotDisplayContext, state?: PluginStateExtension) => boolean;
+  readonly showBtn: (ctx: SlotDisplayContext, state?: AppStateExtension) => boolean;
   /**
    * Optional badge text shown next to the button label.
    * Return `null` to hide the badge. Called on every state update.
    */
-  readonly badge?: (ctx: SlotDisplayContext, state?: PluginStateExtension) => string | null;
+  readonly badge?: (ctx: SlotDisplayContext, state?: AppStateExtension) => string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -243,7 +243,7 @@ export interface ToolButtonSlotDeclaration extends IframeConfig {
  * An app slot renders an icon on the app launcher taskbar.
  *
  * Clicking the icon opens a floating, draggable, resizable window
- * containing the plugin's sandboxed iframe.  Multiple app windows
+ * containing the app's sandboxed iframe.  Multiple app windows
  * can be open simultaneously, independent of any chat session.
  *
  * The iframe receives state updates via {@link AppHostMessage}.
@@ -431,26 +431,26 @@ export type IframeSlotDeclaration =
 /**
  * Discriminated union of all slot declarations.
  *
- * A plugin's ToolSet returns this array as the second argument to
+ * A app's ToolSet returns this array as the second argument to
  * `host.registerToolSet(toolSet, slots)`.
  */
-export type PluginSlotDeclaration = InlineSlotDeclaration | IframeSlotDeclaration;
+export type SlotDeclaration = InlineSlotDeclaration | IframeSlotDeclaration;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Slot context (iframe reads this to know which slot it's rendering)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Context injected into the iframe so the plugin UI knows:
+ * Context injected into the iframe so the app UI knows:
  *   - which slot it's rendering (`slotId`)
  *   - what kind of UI to show (`slotType`)
  *
- * Plugins use this for conditional rendering:
+ * Apps use this for conditional rendering:
  *   slotType === "panel" && slotId === "browser.main" → <BrowserPanel />
  *   slotType === "toolCard" → <BrowserToolCard />
  */
 export interface SlotContext {
-  /** The slot's unique id, auto-generated by the host from plugin + toolset + index. */
+  /** The slot's unique id, auto-generated by the host from app + toolset + index. */
   readonly slotId: string;
   /**
    * The type of slot being rendered.

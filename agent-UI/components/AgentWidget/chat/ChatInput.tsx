@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import type { Attachment, DataAttachment, AutocompleteItem, AutocompleteSlotDeclaration, SlotDisplayContext } from '@agent-type';
 import { MAX_FILE_BYTES, ACCEPTED_MIME_TYPES, fileToDataAttachment } from './fileAttachment';
 import { SendIcon, StopIcon, AttachIcon } from './ChatInputIcons';
-import { useSlotRegistry } from '../../../plugin/PluginContext';
+import { useSlotRegistry } from '../../../app/AppContext';
 import styles from '../AgentWidget.module.scss';
 
 /** When the autocomplete item count exceeds this, a dedicated search input appears. */

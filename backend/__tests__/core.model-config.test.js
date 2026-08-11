@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/model-config.js — super built-in "model-config" plugin
+ * Tests for backend/core/model-config.js — super built-in "model-config" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -16,7 +16,7 @@ vi.mock('../services/model-config.js', () => ({
 
 import * as mcs from '../services/model-config.js';
 
-describe('core/model-config plugin', () => {
+describe('core/model-config app', () => {
   let router;
   let register;
 

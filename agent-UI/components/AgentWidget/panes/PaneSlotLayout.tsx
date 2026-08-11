@@ -1,7 +1,7 @@
 /**
  * agent-UI/components/AgentWidget/panes/PaneSlotLayout.tsx
  *
- * Shared layout for rendering plugin slots around a chat pane.
+ * Shared layout for rendering app slots around a chat pane.
  * Used by both `SessionContent` (main agent) and `ConversationPane`
  * (sub-agent) to render headerBar / panel-tab / inlinePrompt slots
  * with a consistent layout structure.
@@ -12,7 +12,7 @@
  */
 
 import { type ReactElement, type ReactNode, useState, useMemo, useCallback } from 'react';
-import type { SlotSession, SlotDisplayContext, PanelSlotDeclaration, PluginStateExtension } from '@agent-type';
+import type { SlotSession, SlotDisplayContext, PanelSlotDeclaration, AppStateExtension } from '@agent-type';
 import { SlotRenderer } from '../../../slots/SlotRenderer';
 import type { SlotEntry } from '../../../slots/registry';
 import styles from '../AgentWidget.module.scss';
@@ -39,12 +39,12 @@ export interface PaneSlotLayoutProps {
    * Resolve a ToolSet's symbol state for slot callbacks.
    * Returns `undefined` when no session is active or the symbol is not found.
    */
-  readonly getToolSetState?: (symbol: symbol) => PluginStateExtension | undefined;
+  readonly getToolSetState?: (symbol: symbol) => AppStateExtension | undefined;
 
   /** The main content (chat messages — no ChatInput; caller owns that). */
   readonly children: ReactNode;
 
-  // ── Main-agent internal-plugins (optional, ignored by sub-agent callers) ─
+  // ── Main-agent internal-apps (optional, ignored by sub-agent callers) ─
 
   /**
    * When set, a "Sub-Agents" tab is shown.  This content is rendered when
@@ -62,16 +62,16 @@ export interface PaneSlotLayoutProps {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-type View = 'chat' | 'subagents' | `plugin:${string}`;
+type View = 'chat' | 'subagents' | `app:${string}`;
 
 /**
  * Shared slot layout: headerBar → tab bar → content area.
  *
  * Tab bar shows:
- *   Chat  [plugin tabs]  [Sub-Agents]  [Clear…]
+ *   Chat  [app tabs]  [Sub-Agents]  [Clear…]
  *
  * Content area renders:
- *   - `children` (chat) or the selected plugin panel or sub-agent panel.
+ *   - `children` (chat) or the selected app panel or sub-agent panel.
  *
  * Chat messages are always mounted (CSS `display:none` when hidden) so
  * scroll position is preserved across tab switches.
@@ -94,14 +94,14 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
   // Clamp to a valid view when the selected panel disappears.
   const effectiveView = useMemo<View>(() => {
     if (paneView === 'chat' || paneView === 'subagents') return paneView;
-    const pluginId = paneView.slice('plugin:'.length);
-    if (panelSlots.some((p) => p.pluginId === pluginId)) return paneView;
+    const appId = paneView.slice('app:'.length);
+    if (panelSlots.some((p) => p.appId === appId)) return paneView;
     return 'chat';
   }, [paneView, panelSlots]);
 
-  const hasPluginTabs = panelSlots.length > 0;
+  const hasAppTabs = panelSlots.length > 0;
   const hasSubAgentTab = subAgentPanel !== undefined;
-  const showTabBar = hasPluginTabs || hasSubAgentTab;
+  const showTabBar = hasAppTabs || hasSubAgentTab;
   const isChatActive = effectiveView === 'chat';
 
   return (
@@ -109,8 +109,8 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
       {/* HeaderBar slots — thin full-width bars above the tab bar. */}
       {slotSession && headerBarSlots.map((entry) => (
         <SlotRenderer
-          key={`${entry.pluginId}:${entry.slotId}`}
-          pluginId={entry.pluginId}
+          key={`${entry.appId}:${entry.slotId}`}
+          appId={entry.appId}
           slotType="headerBar"
           slotId={entry.slotId}
           toolSetSymbol={entry.toolSetSymbol}
@@ -129,16 +129,16 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
             Chat
           </button>
 
-          {/* Plugin panel tabs */}
-          {hasPluginTabs && panelSlots
+          {/* App panel tabs */}
+          {hasAppTabs && panelSlots
             .slice()
             .map((entry) => {
-              const v: View = `plugin:${entry.pluginId}`;
+              const v: View = `app:${entry.appId}`;
               const state = getToolSetState?.(entry.toolSetSymbol);
               const badge = entry.declaration.badge?.(slotCtx, state) ?? null;
               return (
                 <button
-                  key={entry.pluginId}
+                  key={entry.appId}
                   type="button"
                   className={`${styles['tab']}${effectiveView === v ? ` ${styles['tab--active']}` : ''}`}
                   onClick={() => setPaneView(v)}
@@ -171,14 +171,14 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
         {children}
       </div>
 
-      {/* Plugin panel slot */}
+      {/* App panel slot */}
       {!isChatActive && effectiveView !== 'subagents' && slotSession &&
         panelSlots
-          .filter((p) => `plugin:${p.pluginId}` === effectiveView)
+          .filter((p) => `app:${p.appId}` === effectiveView)
           .map((entry) => (
             <SlotRenderer
-              key={entry.pluginId}
-              pluginId={entry.pluginId}
+              key={entry.appId}
+              appId={entry.appId}
               slotType="panel"
               slotId={entry.slotId}
               toolSetSymbol={entry.toolSetSymbol}
@@ -196,8 +196,8 @@ export function PaneSlotLayout(props: PaneSlotLayoutProps): ReactElement {
       {/* InlinePrompt slots — overlay iframes. */}
       {slotSession && inlinePromptSlots.map((entry) => (
         <SlotRenderer
-          key={`${entry.pluginId}:${entry.slotId}`}
-          pluginId={entry.pluginId}
+          key={`${entry.appId}:${entry.slotId}`}
+          appId={entry.appId}
           slotType="inlinePrompt"
           slotId={entry.slotId}
           toolSetSymbol={entry.toolSetSymbol}

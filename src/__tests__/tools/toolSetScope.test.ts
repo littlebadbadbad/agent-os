@@ -507,9 +507,9 @@ describe('createToolSetScope — Scope Lifecycle', () => {
     });
 
     it('includes symbol-keyed state from onGetSymbolState', () => {
-      const sym = Symbol('plugin');
+      const sym = Symbol('app');
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-      const ts: any = { name: 'a', tools: [], symbol: sym, onGetSymbolState: () => ({ data: 'plugin-state' }) };
+      const ts: any = { name: 'a', tools: [], symbol: sym, onGetSymbolState: () => ({ data: 'app-state' }) };
       const scope = createToolSetScope(() => [ts], NOOP_HANDLER);
 
       const result = scope.collectState(makeCtx(), { tools: [] });

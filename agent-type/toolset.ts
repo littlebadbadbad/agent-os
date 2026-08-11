@@ -8,7 +8,7 @@ import type {
   AgentSessionState,
   SessionEntryData,
   SessionEntryExtension,
-  PluginStateExtension,
+  AppStateExtension,
   ToolExecutionContextExtension,
 } from "./core";
 import type { AgentMessage } from "./message";
@@ -16,7 +16,7 @@ import type { AgentHandler } from "./handler";
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Shared constants & helpers (used by both core and internal-plugins)
+//  Shared constants & helpers (used by both core and internal-apps)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -56,7 +56,7 @@ export type AgentQueryFns = {
    *
    * Optional so headless test mocks stay lightweight — the real agent
    * client always provides it.  ToolSets attached to more than one agent
-   * (shared plugin instances) use this to resolve per-agent state.
+   * (shared app instances) use this to resolve per-agent state.
    */
   readonly id?: string;
   /** All master tools (unfiltered). */
@@ -184,15 +184,15 @@ export type SystemPromptContext = {
    * internal bookkeeping), but the returned fragment will be **discarded**
    * and not included in the final system prompt sent to the model.
    *
-   * **Access control**: only internally-branded ToolSets (built-in plugins
+   * **Access control**: only internally-branded ToolSets (built-in apps
    * that carry the agent client's internal brand symbol) receive a functional
    * callback.  All other ToolSets get a no-op — preventing arbitrary ToolSets
    * from suppressing each other's prompts.
    *
-   * This is the mechanism used by the ToolState plugin to suppress the prompt
+   * This is the mechanism used by the ToolState app to suppress the prompt
    * of a ToolSet whose tools are all disabled — the base layer itself has no
    * knowledge of tool-enable/disable state.  The internal brand is injected
-   * by the plugin system at registration time for all built-in plugins.
+   * by the app system at registration time for all built-in apps.
    *
    * @param toolSetName The `name` of the ToolSet whose prompt should be
    *                   suppressed.  No-op if the name does not match any
@@ -311,7 +311,7 @@ export type SessionReadyHelpers = {
 };
 
 export type ToolSet<
-  State = PluginStateExtension,
+  State = AppStateExtension,
   Ctx = ToolExecutionContextExtension,
   Snapshot = SessionEntryExtension,
 > = {

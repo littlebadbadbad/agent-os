@@ -11,10 +11,10 @@ import { IframeSandbox } from "../IframeSandbox";
 import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import type { SlotSession } from "@agent-type";
-import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
+import { useAppSystem, useSlotRegistry } from "../../app/AppContext";
 
 export interface PanelSlotRendererProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   readonly session: SlotSession;
   readonly toolSetSymbol: symbol;
@@ -24,29 +24,29 @@ export interface PanelSlotRendererProps {
 export function PanelSlotRenderer(
   props: PanelSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, toolSetSymbol, className } = props;
+  const { appId, slotId, session, toolSetSymbol, className } = props;
 
-  const { getPlugin } = usePluginSystem();
-  const uiPlugin = getPlugin(pluginId);
-  if (!uiPlugin?.uiEntryUrl) return null;
+  const { getApp } = useAppSystem();
+  const uiApp = getApp(appId);
+  if (!uiApp?.uiEntryUrl) return null;
 
   const { getSlot } = useSlotRegistry();
   const { host, handleReady } = useSlotHostBridge({
     session,
-    pluginId,
+    appId,
     slotId,
     slotType: "panel",
     toolSetSymbol,
-    uiPlugin,
+    uiApp,
   });
 
   return (
     <IframeSandbox
       className={className}
-      uiEntryUrl={uiPlugin.uiEntryUrl}
+      uiEntryUrl={uiApp.uiEntryUrl}
       host={host}
       onReady={handleReady}
-      permissions={getSlotPermissions(getSlot(pluginId, slotId)?.declaration)}
+      permissions={getSlotPermissions(getSlot(appId, slotId)?.declaration)}
     />
   );
 }

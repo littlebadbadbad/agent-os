@@ -75,9 +75,9 @@ export type IpcChannel =
   | 'browser:networkRequests'
   | 'browser:clearNetworkRequests'
   // ═══════════════════════════════════════════════════════════════════════════════
-  // Plugin IPC channels (git, file, tools) are now handled via the plugin router
-  // as plugin:<pluginId>:<method> — see plugin-router.js.
-  // The typed IpcChannel union above covers only built-in non-plugin channels.
+  // App IPC channels (git, file, tools) are now handled via the app router
+  // as app:<appId>:<method> — see app-router.js.
+  // The typed IpcChannel union above covers only built-in non-app channels.
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Type-safe invoke helper

@@ -1,8 +1,8 @@
 /**
  * Tests for agent-UI/transport/chatTransport.ts — HTTP (standalone) path
  *
- * chatTransport now delegates to the super built-in "chat" plugin
- * (agent-UI/plugin/core/chat.ts). This test verifies the delegation
+ * chatTransport now delegates to the super built-in "chat" app
+ * (agent-UI/app/core/chat.ts). This test verifies the delegation
  * layer works correctly.
  */
 
@@ -11,13 +11,13 @@ import type { AgentStreamChunk, AgentTurnResponse } from '@agent-type';
 
 // ── Module-level mocks ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-vi.mock('../plugin/core/chat', () => ({
+vi.mock('../app/core/chat', () => ({
   sendAsync: vi.fn(),
   sendStream: vi.fn(),
 }));
 
 import { chatTransport } from '../transport/chatTransport';
-import { sendAsync as mockSendAsync, sendStream as mockSendStream } from '../plugin/core/chat';
+import { sendAsync as mockSendAsync, sendStream as mockSendStream } from '../app/core/chat';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 

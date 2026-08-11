@@ -2,18 +2,18 @@
  * components/DesktopLayout/DesktopPane.tsx — Left desktop panel
  *
  * Renders the desktop surface with:
- *   - App shortcut icons in a grid (plugin slots + native apps)
+ *   - App shortcut icons in a grid (app slots + native apps)
  *   - Floating app windows (slot-based and native)
  *   - Taskbar at the bottom
  *
- * ALL windows — both plugin slots and native built-in apps — share the same
+ * ALL windows — both app slots and native built-in apps — share the same
  * `windowReducer` state.  Native apps are defined in `nativeApps.tsx` and
  * auto-discoverable by IconsGrid, Taskbar, and the window manager.
  * Adding a new native app: just push another entry to NATIVE_APPS.
  */
 
 import { useCallback, useReducer, useRef, type ReactElement } from "react";
-import type { AppSlotDeclaration, SlotSession } from "@agent-type";
+import type { AppSlotDeclaration, SlotDeclaration, SlotSession } from "@agent-type";
 import type { SlotEntry } from "../../slots/registry";
 import {
   windowReducer,
@@ -22,7 +22,7 @@ import {
 } from "./windowManager";
 import {
   NATIVE_APPS,
-  NATIVE_PLUGIN_ID,
+  NATIVE_APP_ID,
   type NativeAppDefinition,
 } from "./nativeApps";
 import { IconsGrid } from "./IconsGrid";
@@ -34,7 +34,7 @@ import styles from "./DesktopPane.module.scss";
 
 function nativeAppToSlotEntry(def: NativeAppDefinition): SlotEntry<AppSlotDeclaration> {
   return {
-    pluginId: NATIVE_PLUGIN_ID,
+    appId: NATIVE_APP_ID,
     slotId: def.slotId,
     declaration: def.declaration,
     toolSetSymbol: Symbol.for(def.slotId),
@@ -68,7 +68,7 @@ export function DesktopPane({
 
   const desktopRef = useRef<HTMLDivElement>(null);
 
-  // Merge plugin-slot entries and native entries for toggle dispatch.
+  // Merge app-slot entries and native entries for toggle dispatch.
   // Native entries are built once and cached — they never change at runtime.
   const handleOpenApp = useCallback((entry: AppWindowEntry) => {
     dispatch({ type: "toggle", entry });
@@ -83,7 +83,7 @@ export function DesktopPane({
         return (
           <AppWindow
             key={entry.slotId}
-            pluginId={entry.pluginId}
+            appId={entry.appId}
             slotId={entry.slotId}
             declaration={entry.declaration}
             session={session}
@@ -106,7 +106,7 @@ export function DesktopPane({
         );
       })}
 
-      {/* Desktop shortcuts — plugin slots + native apps */}
+      {/* Desktop shortcuts — app slots + native apps */}
       <IconsGrid
         appSlots={[...NATIVE_SLOT_ENTRIES, ...appSlots]}
         openWindows={state.windows}

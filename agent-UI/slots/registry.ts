@@ -1,10 +1,10 @@
 /**
  * agent-UI/slots/registry.ts — SlotRegistry
  *
- * Central registry of all plugin UI injection points.
+ * Central registry of all app UI injection points.
  *
  * Populated at render time from standalone slot declarations registered
- * via `host.registerToolSet(toolSet, slots)` at plugin activation time.
+ * via `host.registerToolSet(toolSet, slots)` at app activation time.
  * Slots are stored independently from session state so they can be
  * discovered even without an active session.
  *
@@ -12,7 +12,8 @@
  */
 
 import type {
-  PluginSlotDeclaration,
+  AppSlotDeclaration,
+  SlotDeclaration,
   SlotType,
   PanelSlotDeclaration,
   ToolCardSlotDeclaration,
@@ -21,18 +22,17 @@ import type {
   HeaderBarSlotDeclaration,
   ToolButtonSlotDeclaration,
   AutocompleteSlotDeclaration,
-  AppSlotDeclaration,
 } from "@agent-type";
 
 // ── Slot entry ────────────────────────────────────────────────────────────────
 
-/** A registered slot with its owning plugin id, toolset symbol, and auto-generated slot id. */
-export interface SlotEntry<T extends PluginSlotDeclaration = PluginSlotDeclaration> {
-  /** Plugin that owns this slot. */
-  readonly pluginId: string;
+/** A registered slot with its owning app id, toolset symbol, and auto-generated slot id. */
+export interface SlotEntry<T extends SlotDeclaration = SlotDeclaration> {
+  /** App that owns this slot. */
+  readonly appId: string;
   /** The ToolSet's symbol that declared this slot. */
   readonly toolSetSymbol: symbol;
-  /** Auto-generated unique slot identifier: `"${pluginId}::${symbolDesc}::${slotIndex}"`. */
+  /** Auto-generated unique slot identifier: `"${appId}::${symbolDesc}::${slotIndex}"`. */
   readonly slotId: string;
   /** The slot declaration (no `id` — the host assigns `slotId`). */
   readonly declaration: T;
@@ -42,7 +42,7 @@ export interface SlotEntry<T extends PluginSlotDeclaration = PluginSlotDeclarati
 
 export interface SlotRegistry {
   /**
-   * Get all slots of a specific type across all plugins.
+   * Get all slots of a specific type across all apps.
    *
    * Overloads ensure callers get precisely narrowed return types:
    * `SlotEntry<PanelSlotDeclaration>` when passing `"panel"`,
@@ -54,21 +54,21 @@ export interface SlotRegistry {
   getByType(type: "inlinePrompt"): ReadonlyArray<SlotEntry<InlinePromptSlotDeclaration>>;
   getByType(type: "headerBar"): ReadonlyArray<SlotEntry<HeaderBarSlotDeclaration>>;
   getByType(type: "toolButton"): ReadonlyArray<SlotEntry<ToolButtonSlotDeclaration>>;
-  getByType(type: "app"): ReadonlyArray<SlotEntry<AppSlotDeclaration>>;
+  getByType(type: "app"): ReadonlyArray<SlotEntry<SlotDeclaration>>;
   getByType(type: "autocomplete"): ReadonlyArray<SlotEntry<AutocompleteSlotDeclaration>>;
-  getByType(type: SlotType): ReadonlyArray<SlotEntry<PluginSlotDeclaration>>;
+  getByType(type: SlotType): ReadonlyArray<SlotEntry<SlotDeclaration>>;
 
   /**
-   * Get all slots registered by a specific plugin.
+   * Get all slots registered by a specific app.
    */
-  getForPlugin(pluginId: string): readonly PluginSlotDeclaration[];
+  getForApp(appId: string): readonly SlotDeclaration[];
 
   /**
-   * Get a specific slot by pluginId + slotId.
+   * Get a specific slot by appId + slotId.
    * Returns the full SlotEntry with toolSetSymbol, or undefined.
    */
   getSlot(
-    pluginId: string,
+    appId: string,
     slotId: string,
   ): SlotEntry | undefined;
 
@@ -81,23 +81,23 @@ export interface SlotRegistry {
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 export function createSlotRegistry(slotEntries?: readonly SlotEntry[]): SlotRegistry {
-  // Map key: `${pluginId}::${slotId}`
+  // Map key: `${appId}::${slotId}`
   const entries = new Map<string, SlotEntry>();
 
-  function key(pluginId: string, slotId: string): string {
-    return `${pluginId}::${slotId}`;
+  function key(appId: string, slotId: string): string {
+    return `${appId}::${slotId}`;
   }
 
   // Pre-populate from initial entries (if provided).
   if (slotEntries) {
     for (const entry of slotEntries) {
-      entries.set(key(entry.pluginId, entry.slotId), entry);
+      entries.set(key(entry.appId, entry.slotId), entry);
     }
   }
 
   return {
     getByType(type: SlotType) {
-      const result: SlotEntry<PluginSlotDeclaration>[] = [];
+      const result: SlotEntry<SlotDeclaration>[] = [];
       for (const entry of entries.values()) {
         if (entry.declaration.type === type) {
           result.push(entry);
@@ -106,18 +106,18 @@ export function createSlotRegistry(slotEntries?: readonly SlotEntry[]): SlotRegi
       return result;
     },
 
-    getForPlugin(pluginId: string): readonly PluginSlotDeclaration[] {
-      const result: PluginSlotDeclaration[] = [];
+    getForApp(appId: string): readonly SlotDeclaration[] {
+      const result: AppSlotDeclaration[] = [];
       for (const entry of entries.values()) {
-        if (entry.pluginId === pluginId) {
+        if (entry.appId === appId) {
           result.push(entry.declaration);
         }
       }
       return result;
     },
 
-    getSlot(pluginId: string, slotId: string): SlotEntry | undefined {
-      return entries.get(key(pluginId, slotId));
+    getSlot(appId: string, slotId: string): SlotEntry | undefined {
+      return entries.get(key(appId, slotId));
     },
 
     get isEmpty(): boolean {

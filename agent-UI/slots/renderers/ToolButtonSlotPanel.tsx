@@ -13,11 +13,11 @@ import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
 import type { SlotSession } from "@agent-type";
-import { usePluginSystem, useSlotRegistry } from "../../plugin/PluginContext";
+import { useAppSystem, useSlotRegistry } from "../../app/AppContext";
 import styles from "./ToolButtonSlotPanel.module.scss";
 
 export interface ToolButtonSlotPanelProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   /** Session — may be null for session-independent toolButton slots. */
   readonly session?: SlotSession | null;
@@ -28,30 +28,30 @@ export interface ToolButtonSlotPanelProps {
 export function ToolButtonSlotPanel(
   props: ToolButtonSlotPanelProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, toolSetSymbol, className } = props;
+  const { appId, slotId, session, toolSetSymbol, className } = props;
 
-  const { getPlugin } = usePluginSystem();
-  const uiPlugin = getPlugin(pluginId);
-  if (!uiPlugin?.uiEntryUrl) return null;
+  const { getApp } = useAppSystem();
+  const uiApp = getApp(appId);
+  if (!uiApp?.uiEntryUrl) return null;
 
   const { getSlot } = useSlotRegistry();
-  const slotEntry = getSlot(pluginId, slotId);
+  const slotEntry = getSlot(appId, slotId);
   // Discriminant narrowing — no cast needed.
   const btnDecl = slotEntry?.declaration.type === "toolButton" ? slotEntry.declaration : undefined;
 
   const { host, handleReady } = useSlotHostBridge({
     session,
-    pluginId,
+    appId,
     slotId,
     slotType: "toolButton",
     toolSetSymbol,
-    uiPlugin,
+    uiApp,
   });
 
   return (
     <IframeSandbox
       className={`${styles['panel']}${className ? ` ${className}` : ''}`}
-      uiEntryUrl={uiPlugin.uiEntryUrl}
+      uiEntryUrl={uiApp.uiEntryUrl}
       host={host}
       onReady={handleReady}
       sizing="fill"

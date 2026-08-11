@@ -1,8 +1,8 @@
 /**
  * agent-UI/createAdapters.ts — Environment-aware adapter factories
  *
- * File, Git, and Dynamic-Tool adapters are now provided via the plugin system.
- * Each plugin creates its own adapter from the pre-bound PluginApiClient,
+ * File, Git, and Dynamic-Tool adapters are now provided via the app system.
+ * Each app creates its own adapter from the pre-bound AppApiClient,
  * so direct adapter factories are no longer needed here.
  */
 

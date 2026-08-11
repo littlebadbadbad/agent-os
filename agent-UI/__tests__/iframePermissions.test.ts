@@ -8,7 +8,7 @@ import {
   buildIframePermissions,
   getSlotPermissions,
 } from "../slots/iframePermissions";
-import type { PluginSlotDeclaration } from "@agent-type";
+import type { AppSlotDeclaration, SlotDeclaration } from "@agent-type";
 
 describe("buildIframePermissions", () => {
   it("grants the default permissions (pointer lock + fullscreen)", () => {
@@ -42,17 +42,17 @@ describe("buildIframePermissions", () => {
 
 describe("getSlotPermissions", () => {
   it("returns the permissions declared by an iframe slot", () => {
-    const decl: PluginSlotDeclaration = { type: "panel", permissions: ["pointer-lock"] };
+    const decl: AppSlotDeclaration = { type: "panel", permissions: ["pointer-lock"] };
     expect(getSlotPermissions(decl)).toEqual(["pointer-lock"]);
   });
 
   it("returns undefined for an iframe slot with no declared permissions", () => {
-    const decl: PluginSlotDeclaration = { type: "app", icon: "🌐", label: "Browser" };
+    const decl: AppSlotDeclaration = { type: "app", icon: "🌐", label: "Browser" };
     expect(getSlotPermissions(decl)).toBeUndefined();
   });
 
   it("returns undefined for non-iframe slots", () => {
-    const decl: PluginSlotDeclaration = {
+    const decl: AppSlotDeclaration = {
       type: "autocomplete",
       shouldTrigger: () => false,
       getItems: () => [],

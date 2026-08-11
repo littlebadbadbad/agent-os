@@ -6,7 +6,7 @@
  * (`registrySnapshot.ts`).  Both callers now delegate here.
  */
 
-import type { ToolSet, ToolSetContext, ToolSetStateContext, PluginStateExtension } from '@agent-type';
+import type { ToolSet, ToolSetContext, ToolSetStateContext, AppStateExtension } from '@agent-type';
 
 // ── Results ───────────────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ export type CollectedStates = {
   /** Merged `onGetState` results from every ToolSet. */
   readonly plain: Record<string, unknown>;
   /** Merged `onGetSymbolState` results, keyed by each ToolSet's `symbol`. */
-  readonly symbol: Record<symbol, PluginStateExtension>;
+  readonly symbol: Record<symbol, AppStateExtension>;
 };
 
 // ── Collector ─────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ export function collectAllToolSetStates(
   existing?: Record<string, unknown>,
 ): CollectedStates {
   const plain: Record<string, unknown> = existing ? { ...existing } : {};
-  const symbol: Record<symbol, PluginStateExtension> = {};
+  const symbol: Record<symbol, AppStateExtension> = {};
 
   for (const ts of toolSets) {
     // ── onGetState ────────────────────────────────────────────────────────
@@ -80,11 +80,11 @@ export function collectAllToolSetStates(
 /**
  * Same as `collectAllToolSetStates` but returns the result as a single merged
  * record suitable for `Partial<AgentSessionState>` — both plain string-keyed
- * fields AND symbol-keyed plugin state slices are mixed into one object.
+ * fields AND symbol-keyed app state slices are mixed into one object.
  *
  * This is the shape the original inline code in `sessionFactory.ts` produced:
  * the symbol state must be on the same object because `AgentSessionExtension`
- * has a `[key: ToolSetSymbol]` index signature that slot-renderer / plugin
+ * has a `[key: ToolSetSymbol]` index signature that slot-renderer / app
  * discovery code reads from.
  */
 export function mergeAllToolSetStates(

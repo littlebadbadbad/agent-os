@@ -1,5 +1,5 @@
 /**
- * backend/core/chat.js — Super built-in "chat" plugin
+ * backend/core/chat.js — Super built-in "chat" app
  *
  * Registers chat API methods via defineApi() and defineStream().
  *
@@ -9,7 +9,7 @@
  *
  * Streams:
  *   chatStream  — Streaming chat via defineStream + StreamConnection.
- *                 Runs on the shared pluginRouter so both HTTP (WebSocket)
+ *                 Runs on the shared appRouter so both HTTP (WebSocket)
  *                 and IPC transports handle it transparently — no more
  *                 inline SSE handler or ipcMain.handle().
  *
@@ -18,11 +18,11 @@
  * to the connected client.  Cleanup happens when the transport disconnects.
  */
 
-import { createCorePluginHost } from '../lib/core-plugin-host.js';
+import { createCoreAppHost } from '../lib/core-app-host.js';
 import * as chatService from '../services/chat.js';
 import { createLogger } from '../lib/logger.js';
 
-const PLUGIN_ID = 'chat';
+const APP_ID = 'chat';
 const log = createLogger('core-chat');
 
 /**
@@ -37,9 +37,9 @@ function generateSessionId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** @param {import('../lib/plugin-router.js').pluginRouter} router */
+/** @param {import('../lib/app-router.js').appRouter} router */
 export function register(router) {
-  const host = createCorePluginHost(PLUGIN_ID, router);
+  const host = createCoreAppHost(APP_ID, router);
 
   // ── Async (non-streaming) ─────────────────────────────────────────────────
   host.defineApi('async', async (params) => {

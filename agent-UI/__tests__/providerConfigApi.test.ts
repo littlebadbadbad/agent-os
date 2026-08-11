@@ -2,18 +2,18 @@
  * Tests for agent-UI/api/ — API adapter functions
  *
  * Tests both providerConfigApi.ts and backend.ts.
- * All API calls now go through PluginApiClient (dual HTTP/IPC transport).
- * Mock createPluginApiClient to intercept all core plugin calls.
+ * All API calls now go through AppApiClient (dual HTTP/IPC transport).
+ * Mock createAppApiClient to intercept all core app calls.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Mock PluginApiClient ──────────────────────────────────────────────────────
+// ── Mock AppApiClient ──────────────────────────────────────────────────────
 
 const mockCall = vi.hoisted(() => vi.fn());
 
-vi.mock('../plugin/apiClient', () => ({
-  createPluginApiClient: () => ({ call: mockCall, connectStream: vi.fn() }),
+vi.mock('../app/apiClient', () => ({
+  createAppApiClient: () => ({ call: mockCall, connectStream: vi.fn() }),
 }));
 
 import { fetchMergedModelConfig, fetchBuiltInModelConfig, fetchCustomModelConfig, saveCustomModelConfig, addCustomModelProvider, removeCustomModelProvider, updateCustomModelProvider } from '../api/providerConfigApi';

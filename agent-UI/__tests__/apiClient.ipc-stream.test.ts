@@ -1,5 +1,5 @@
 /**
- * Tests for agent-UI/plugin/apiClient.ts — IPC connectStream lifecycle
+ * Tests for agent-UI/app/apiClient.ts — IPC connectStream lifecycle
  *
  * These tests specifically target the IPC stream lifecycle fix:
  *   - doInvoke(':connect') is now called INSIDE subscribe() so that IPC
@@ -14,7 +14,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Enable IPC mode so createIpcPluginApiClient is used
+// Enable IPC mode so createIpcAppApiClient is used
 vi.mock('../env', () => ({ IS_ELECTRON_IPC: true }));
 
 describe('IPC connectStream — lifecycle', () => {
@@ -40,8 +40,8 @@ describe('IPC connectStream — lifecycle', () => {
       return new Promise((r) => { resolveConnect = r; });
     });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -51,10 +51,10 @@ describe('IPC connectStream — lifecycle', () => {
 
     // The subscribe() should register listeners BEFORE calling connect
     expect(callOrder).toEqual([
-      'on:plugin:test:myStream:data',
-      'on:plugin:test:myStream:frame',
-      'on:plugin:test:myStream:end',
-      'invoke:plugin:test:myStream:connect',
+      'on:app:test:myStream:data',
+      'on:app:test:myStream:frame',
+      'on:app:test:myStream:end',
+      'invoke:app:test:myStream:connect',
     ]);
 
     resolveConnect!({ connectionId: 'c1' });
@@ -69,8 +69,8 @@ describe('IPC connectStream — lifecycle', () => {
     });
     mockInvoke.mockResolvedValue({ connectionId: 'c1' });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -94,8 +94,8 @@ describe('IPC connectStream — lifecycle', () => {
     });
     mockInvoke.mockResolvedValue({ connectionId: 'c1' });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -132,8 +132,8 @@ describe('IPC connectStream — lifecycle', () => {
       return Promise.resolve({});
     });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -147,7 +147,7 @@ describe('IPC connectStream — lifecycle', () => {
     // Now resolve connect
     resolveConnect!({ connectionId: 'c1' });
     await vi.waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('plugin:test:s:connect', {});
+      expect(mockInvoke).toHaveBeenCalledWith('app:test:s:connect', {});
     });
 
     // Unsubscribe
@@ -158,15 +158,15 @@ describe('IPC connectStream — lifecycle', () => {
     expect(unsubEnd).toHaveBeenCalledOnce();
 
     // Then disconnect should be sent
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:test:s:disconnect', { connectionId: 'c1' });
+    expect(mockInvoke).toHaveBeenCalledWith('app:test:s:disconnect', { connectionId: 'c1' });
   });
 
   it('rejects duplicate subscribe calls with a no-op unsubscribe', async () => {
     mockOn.mockReturnValue(vi.fn());
     mockInvoke.mockResolvedValue({ connectionId: 'c1' });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -180,7 +180,7 @@ describe('IPC connectStream — lifecycle', () => {
 
     // Only one connect call should have been made
     expect(mockInvoke).toHaveBeenCalledTimes(1);
-    expect(mockInvoke).toHaveBeenCalledWith('plugin:test:s:connect', {});
+    expect(mockInvoke).toHaveBeenCalledWith('app:test:s:connect', {});
 
     // The second subscription's unsubscribe should be safe to call
     expect(() => sub2.unsubscribe()).not.toThrow();
@@ -196,8 +196,8 @@ describe('IPC connectStream — lifecycle', () => {
       return Promise.resolve({ ok: true });
     });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -229,8 +229,8 @@ describe('IPC connectStream — lifecycle', () => {
       return Promise.resolve({});
     });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -258,8 +258,8 @@ describe('IPC connectStream — lifecycle', () => {
       return Promise.resolve({});
     });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -283,8 +283,8 @@ describe('IPC connectStream — lifecycle', () => {
     mockOn.mockReturnValue(vi.fn());
     mockInvoke.mockImplementation(() => new Promise(() => {}));
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -304,8 +304,8 @@ describe('IPC connectStream — lifecycle', () => {
     mockOn.mockReturnValue(vi.fn());
     mockInvoke.mockResolvedValue({ connectionId: 'c1' });
 
-    const { createPluginApiClient } = await import('../plugin/apiClient');
-    const client = createPluginApiClient('test', {
+    const { createAppApiClient } = await import('../app/apiClient');
+    const client = createAppApiClient('test', {
       invoke: mockInvoke,
       on: mockOn,
     });
@@ -314,7 +314,7 @@ describe('IPC connectStream — lifecycle', () => {
     stream.subscribe();
 
     await vi.waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('plugin:test:s:connect', { foo: 'bar', num: 42 });
+      expect(mockInvoke).toHaveBeenCalledWith('app:test:s:connect', { foo: 'bar', num: 42 });
     });
   });
 });

@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { AppSlotDeclaration, SlotSession } from "@agent-type";
+import type { AppSlotDeclaration, SlotDeclaration, SlotSession } from "@agent-type";
 import { SlotRenderer } from "../../slots/SlotRenderer";
 import { TASKBAR_HEIGHT } from "./Taskbar";
 import styles from "./AppWindow.module.scss";
@@ -47,7 +47,7 @@ type Interaction = { readonly mode: "move" } | { readonly mode: "resize"; readon
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface AppWindowProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   readonly declaration: AppSlotDeclaration;
   readonly session: SlotSession | null;
@@ -62,8 +62,8 @@ export interface AppWindowProps {
   /**
    * Optional native content renderer.
    * When provided, renders this instead of SlotRenderer — used by
-   * built-in desktop apps (Plugin Manager, etc.) that don't go through
-   * the plugin slot / iframe system.
+   * built-in desktop apps (App Manager, etc.) that don't go through
+   * the app slot / iframe system.
    */
   readonly renderContent?: () => ReactElement;
 }
@@ -166,7 +166,7 @@ function maximizedRect(containerRef: RefObject<HTMLDivElement | null>): WindowRe
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AppWindow({
-  pluginId,
+  appId,
   slotId,
   declaration,
   session,
@@ -467,14 +467,14 @@ export function AppWindow({
         </div>
       </div>
 
-      {/* Content — slot plugin or native component */}
+      {/* Content — slot app or native component */}
       <div className={styles["content"]}>
         {renderContent
           ? renderContent()
           : (
             <SlotRenderer
               slotType="app"
-              pluginId={pluginId}
+              appId={appId}
               slotId={slotId}
               session={session}
               toolSetSymbol={toolSetSymbol}

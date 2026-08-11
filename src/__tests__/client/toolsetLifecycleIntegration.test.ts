@@ -18,7 +18,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createAgentClient, createSubAgentToolset, MAIN_CONVERSATION_ID } from '@agent-sdk';
-import { createVariableToolSet } from '../../../internal-plugins/variable/agent/toolSet';
+import { createVariableToolSet } from '../../../internal-apps/variable/agent/toolSet';
 import type {
   ToolSet,
   ToolSetContext,
@@ -28,7 +28,7 @@ import type {
   AgentHandler,
   SessionReadyHelpers,
   SessionEntryExtension,
-  PluginStateExtension,
+  AppStateExtension,
 } from '@agent-type';
 
 // ── LifecycleSpyToolSet ───────────────────────────────────────────────────────
@@ -126,9 +126,9 @@ function makeSpyToolSet(name: string, sym?: symbol): ToolSet & { calls: HookCall
       record('onGetState', ctx);
       return { [`spy_${name}_field`]: `value-from-${name}` };
     },
-    onGetSymbolState(ctx: ToolSetContext, _stateCtx?: ToolSetStateContext): PluginStateExtension | void {
+    onGetSymbolState(ctx: ToolSetContext, _stateCtx?: ToolSetStateContext): AppStateExtension | void {
       record('onGetSymbolState', ctx);
-      if (sym) return {} as PluginStateExtension;
+      if (sym) return {} as AppStateExtension;
       return undefined;
     },
     onSubscribe(ctx: ToolSetContext, _fn: () => void): (() => void) | void {
@@ -584,8 +584,8 @@ describe('ToolSet lifecycle — main agent vs sub-agent parity', () => {
 
   describe('Symbol keyed state', () => {
     it('onGetSymbolState fires for both main and sub-agent contexts', () => {
-      const sym = Symbol('test-plugin');
-      const { spy, sub, agent } = createTestAgent('plugin', sym);
+      const sym = Symbol('test-app');
+      const { spy, sub, agent } = createTestAgent('app', sym);
       const session = agent.getSessionManager().getActiveSession()!;
       const sessionId = session.getState().id;
       const state = session.getState() as any;

@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/system.js — super built-in "system" plugin
+ * Tests for backend/core/system.js — super built-in "system" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,7 +11,7 @@ vi.mock('../services/system.js', () => ({
 
 import * as systemService from '../services/system.js';
 
-describe('core/system plugin', () => {
+describe('core/system app', () => {
   let router;
   let register;
 
@@ -22,7 +22,7 @@ describe('core/system plugin', () => {
     register = mod.register;
   });
 
-  it('registers system plugin with correct pluginId', () => {
+  it('registers system app with correct appId', () => {
     register(router);
 
     expect(router.registerApi).toHaveBeenCalledTimes(2);

@@ -2,11 +2,11 @@
  * backend/lib/local-proxy-server.js — Zero-conf local proxy server.
  *
  * Starts an HTTP proxy on 127.0.0.1:0 (OS-assigned free port) and forwards
- * all traffic to the upstream proxy (with credentials). Plugins connect to
+ * all traffic to the upstream proxy (with credentials). Apps connect to
  * the local address and never see upstream credentials.
  *
  * Architecture:
- *   Plugin → LocalProxy(:0) → UpstreamProxy(with auth) → Internet
+ *   App → LocalProxy(:0) → UpstreamProxy(with auth) → Internet
  *
  * Supports both plain HTTP forwarding and HTTPS CONNECT tunneling through
  * the upstream proxy chain. No external dependencies — uses Node.js built-in
@@ -20,7 +20,7 @@
  *   proxy.stop();                        // close on shutdown
  */
 
-/** @import { ProxyConfig } from '../../agent-type/plugin.ts' */
+/** @import { ProxyConfig } from '../../agent-type/app.ts' */
 
 import http from 'http';
 import net from 'net';

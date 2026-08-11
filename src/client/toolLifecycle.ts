@@ -7,7 +7,7 @@ import type { SessionManager } from './sessionManager.types';
 /**
  * Ensure every ToolSet carries a `symbol` — required for `onGetSymbolState` to
  * be collected.  ToolSets without an explicit symbol get a default one derived
- * from their name so plugin-UIs can still address their state via the symbol
+ * from their name so app-UIs can still address their state via the symbol
  * index signature (`state[symbol]`).
  */
 export function ensureToolSetSymbol(ts: ToolSet): void {

@@ -1,5 +1,5 @@
 /**
- * Tests for agent-UI/plugin/apiClient.ts — HTTP (standalone) mode
+ * Tests for agent-UI/app/apiClient.ts — HTTP (standalone) mode
  */
 
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
@@ -53,10 +53,10 @@ class MockWebSocket {
 }
 vi.stubGlobal('WebSocket', MockWebSocket as any);
 
-import { createPluginApiClient } from '../plugin/apiClient';
-import type { PluginApiError } from '../plugin/apiClient';
+import { createAppApiClient } from '../app/apiClient';
+import type { AppApiError } from '../app/apiClient';
 
-describe('PluginApiClient — HTTP mode', () => {
+describe('AppApiClient — HTTP mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetch.mockReset();
@@ -67,15 +67,15 @@ describe('PluginApiClient — HTTP mode', () => {
   });
 
   describe('call', () => {
-    it('sends POST to /api/plugin/<id>/<method> with JSON body', async () => {
+    it('sends POST to /api/app/<id>/<method> with JSON body', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ result: 'ok' }) });
-      const client = createPluginApiClient('test-plugin');
+      const client = createAppApiClient('test-app');
 
       const result = await client.call('doStuff', { key: 'val' });
 
       expect(result).toEqual({ result: 'ok' });
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/plugin/test-plugin/doStuff',
+        '/api/app/test-app/doStuff',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -86,12 +86,12 @@ describe('PluginApiClient — HTTP mode', () => {
 
     it('sends POST without body when params omitted', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve('ok') });
-      const client = createPluginApiClient('system');
+      const client = createAppApiClient('system');
 
       await client.call('health');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/plugin/system/health',
+        '/api/app/system/health',
         expect.objectContaining({
           method: 'POST',
           body: undefined,
@@ -99,7 +99,7 @@ describe('PluginApiClient — HTTP mode', () => {
       );
     });
 
-    it('handles HTTP errors with PluginApiError', async () => {
+    it('handles HTTP errors with AppApiError', async () => {
       const responseBody = 'Server error';
       mockFetch.mockResolvedValue({
         ok: false,
@@ -107,15 +107,15 @@ describe('PluginApiClient — HTTP mode', () => {
         statusText: 'Internal Server Error',
         text: () => Promise.resolve(responseBody),
       });
-      const client = createPluginApiClient('test', { invoke: undefined });
+      const client = createAppApiClient('test', { invoke: undefined });
 
       try {
         await client.call('fail');
         expect.unreachable();
       } catch (err) {
-        const apiErr = err as PluginApiError;
+        const apiErr = err as AppApiError;
         expect(apiErr.status).toBe('network');
-        expect(apiErr.pluginId).toBe('test');
+        expect(apiErr.appId).toBe('test');
         expect(apiErr.method).toBe('fail');
         expect(apiErr.message).toContain('500');
       }
@@ -123,13 +123,13 @@ describe('PluginApiClient — HTTP mode', () => {
 
     it('handles fetch rejection (network error)', async () => {
       mockFetch.mockRejectedValue(new Error('Network failure'));
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
 
       try {
         await client.call('fail');
         expect.unreachable();
       } catch (err) {
-        const apiErr = err as PluginApiError;
+        const apiErr = err as AppApiError;
         expect(apiErr.status).toBe('network');
         expect(apiErr.message).toContain('Network failure');
       }
@@ -137,7 +137,7 @@ describe('PluginApiClient — HTTP mode', () => {
 
     it('encodes method name in URL', async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
-      const client = createPluginApiClient('my-plugin');
+      const client = createAppApiClient('my-app');
 
       await client.call('special/method');
 
@@ -155,32 +155,32 @@ describe('PluginApiClient — HTTP mode', () => {
     });
 
     it('creates WebSocket with correct ws:// URL (http page)', () => {
-      const client = createPluginApiClient('chat');
+      const client = createAppApiClient('chat');
       const streamClient = client.connectStream('chatStream', { sessionId: 'sess-1' });
 
       streamClient.subscribe();
 
       expect(wsInstances).toHaveLength(1);
       expect(wsInstances[0].url).toBe(
-        'ws://localhost:5173/api/plugin/chat/chatStream?sessionId=sess-1',
+        'ws://localhost:5173/api/app/chat/chatStream?sessionId=sess-1',
       );
     });
 
     it('creates WebSocket with wss:// URL for https pages', () => {
       vi.stubGlobal('location', { protocol: 'https:', host: 'example.com' });
 
-      const client = createPluginApiClient('browser');
+      const client = createAppApiClient('browser');
       const streamClient = client.connectStream('frames', { id: 'b1' });
 
       streamClient.subscribe();
 
       expect(wsInstances[0].url).toBe(
-        'wss://example.com/api/plugin/browser/frames?id=b1',
+        'wss://example.com/api/app/browser/frames?id=b1',
       );
     });
 
     it('rejects duplicate subscribe calls with a no-op unsubscribe', () => {
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
       const streamClient = client.connectStream('s');
 
       const sub1 = streamClient.subscribe();
@@ -195,7 +195,7 @@ describe('PluginApiClient — HTTP mode', () => {
     });
 
     it('delivers JSON messages from the server to onData', () => {
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
       const streamClient = client.connectStream('s');
 
       const onDataSpy = vi.fn();
@@ -209,7 +209,7 @@ describe('PluginApiClient — HTTP mode', () => {
     });
 
     it('delivers end signal via onclose to onEnd', () => {
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
       const streamClient = client.connectStream('s');
 
       const onEndSpy = vi.fn();
@@ -223,7 +223,7 @@ describe('PluginApiClient — HTTP mode', () => {
     });
 
     it('unsubscribe prevents onEnd from firing when close triggers onclose', () => {
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
       const streamClient = client.connectStream('s');
 
       const onEndSpy = vi.fn();
@@ -239,7 +239,7 @@ describe('PluginApiClient — HTTP mode', () => {
     });
 
     it('calls onError via onerror', () => {
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
       const streamClient = client.connectStream('s');
 
       const onErrorSpy = vi.fn();
@@ -254,7 +254,7 @@ describe('PluginApiClient — HTTP mode', () => {
     });
 
     it('drops messages received after unsubscribe', () => {
-      const client = createPluginApiClient('test');
+      const client = createAppApiClient('test');
       const streamClient = client.connectStream('s');
 
       const onDataSpy = vi.fn();

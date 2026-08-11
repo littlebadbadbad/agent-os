@@ -20,7 +20,7 @@ export default function AgentWidget(props: AgentWidgetProps): ReactElement {
   const { icon, theme } = props;
 
   // Inject prefixed CSS vars (--agent-sdk-*) on :root so that sandboxed
-  // plugin iframes and external consumers can consume the same design tokens.
+  // app iframes and external consumers can consume the same design tokens.
   useEffect(() => { injectHostCssVars(); }, []);
 
   return (

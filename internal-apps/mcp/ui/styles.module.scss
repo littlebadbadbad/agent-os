@@ -1,0 +1,389 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MCP App — Panel & Tool Card Styles
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+//  Layout structure (toolButton panel):
+//    .panel                          — flex column, fills iframe 100%×100%
+//      .panelHeader                  — fixed-height header
+//      .scrollArea                   — flex:1, overflow-y:auto, single scroll
+//        .serverList                 — all server rows (no own scroll)
+//        .addBtn / .addForm          — at bottom of scroll area
+//
+//  Single scroll container ensures add form is always reachable:
+//  user scrolls the entire content as one unit.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Panel root ────────────────────────────────────────────────────────────────
+
+.panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+// ── Scrollable content area ───────────────────────────────────────────────────
+
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.panelTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panelHeaderActions { display: flex; gap: var(--sp-1); }
+
+.syncBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-md);
+  transition: background 0.1s, color 0.1s;
+  &:hover { background: var(--bg-hover); color: var(--text-primary); }
+}
+
+// ── Server list (no own scroll — parent scrollArea handles it) ────────────────
+
+.serverList {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: var(--sp-4);
+  text-align: center;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.serverRow {
+  border-bottom: 1px solid var(--border-subtle);
+  &:last-child { border-bottom: none; }
+}
+
+.serverRowExpanded { background: var(--bg-hover); }
+
+.serverMain {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--bg-hover); }
+}
+
+.serverInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.serverName {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.serverMeta {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.serverChevron {
+  font-size: 8px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.serverError {
+  padding: 2px var(--sp-3) 4px;
+  font-size: var(--font-xs, 11px);
+  color: var(--red-light);
+}
+
+.serverDetail {
+  padding: 0 var(--sp-3) var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.serverUrl {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  word-break: break-all;
+  font-family: monospace;
+  background: var(--bg-secondary);
+  padding: 3px 6px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+// ── Tool chips ────────────────────────────────────────────────────────────────
+
+.toolList { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.toolChip {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: monospace;
+  cursor: default;
+}
+
+// ── Row action buttons ────────────────────────────────────────────────────────
+
+.serverActions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+
+.actionBtn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs, 11px);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  &:not(:disabled):hover { background: var(--bg-hover); color: var(--text-primary); }
+}
+
+.actionBtnPrimary {
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--blue-light);
+  &:not(:disabled):hover { background: var(--blue-subtle); }
+}
+
+.actionBtnDanger {
+  &:not(:disabled):hover { background: var(--red-subtle); color: var(--red-light); border-color: rgba(248, 81, 73, 0.3); }
+}
+
+.actionBtnDangerConfirm { background: var(--red-subtle); color: var(--red-light); border-color: rgba(248, 81, 73, 0.5); }
+
+// ── Status dots ───────────────────────────────────────────────────────────────
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotConnected   { background: var(--green-light); }
+.dotDisconnected { background: var(--text-muted); }
+.dotError       { background: var(--red-light); }
+.dotConnecting  {
+  background: var(--yellow-light);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+// ── Add server button ─────────────────────────────────────────────────────────
+
+.addBtn {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--blue-light);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  flex-shrink: 0;
+  &:hover { background: var(--bg-hover); }
+}
+
+// ── Add server form ───────────────────────────────────────────────────────────
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.addTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.addLabel {
+  font-size: var(--font-xs, 11px);
+  color: var(--text-muted);
+  margin-bottom: -6px;
+}
+
+.addInput {
+  width: 100%;
+  padding: 5px var(--sp-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+  &:focus { outline: none; border-color: var(--blue-light); }
+  &:disabled { opacity: 0.5; }
+  &::placeholder { color: var(--text-muted); }
+}
+
+.proxyToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 0;
+  input[type="checkbox"] { accent-color: var(--blue-light); cursor: pointer; }
+}
+
+.transportRow { display: flex; gap: var(--sp-2); }
+
+.transportBtn {
+  flex: 1;
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs, 11px);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  &:disabled { opacity: 0.45; }
+}
+
+.transportBtnActive {
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
+.addError {
+  font-size: var(--font-xs, 11px);
+  color: var(--red-light);
+  background: var(--red-subtle);
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+}
+
+.addActions {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.cancelBtn {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--bg-hover); }
+  &:disabled { opacity: 0.45; }
+}
+
+.submitBtn {
+  padding: 4px 14px;
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+  flex-shrink: 0;
+  &:hover { background: var(--blue-hover); }
+  &:disabled { opacity: 0.5; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Tool Card (embedded in chat stream)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+.tcCard {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  padding: 0;
+  overflow: hidden;
+}
+
+.tcHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.tcBody {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--font-xs, 11px);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+}

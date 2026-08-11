@@ -23,14 +23,14 @@ import type { SlotEntry } from '../../../slots/registry';
 import { ChatMessages } from '../chat/ChatMessages';
 import { ConversationNavigator } from '../navigator';
 import type { ConversationItem, SessionHandle } from '../navigator';
-import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../plugin/subAgentSlotSession';
+import { createSubAgentSlotSession, discoverSubAgentSlots } from '../../../app/subAgentSlotSession';
 import { PaneSlotLayout } from '../panes/PaneSlotLayout';
 import { buildSlotDisplayContextFromState } from '../../../slots/context';
-import { usePluginSystem } from '../../../plugin/PluginContext';
+import { useAppSystem } from '../../../app/AppContext';
 import styles from '../AgentWidget.module.scss';
 
 // ── ConversationChat ─────────────────────────────────────────────────────────
-// Renders the messages and plugin slots for a single sub-agent conversation
+// Renders the messages and app slots for a single sub-agent conversation
 // (without ChatInput — that lives in ConversationNavigator).
 
 interface ConversationChatProps {
@@ -41,7 +41,7 @@ interface ConversationChatProps {
 }
 
 function ConversationChat({ registry, agentName, convId, sessionId }: ConversationChatProps): ReactElement | null {
-  const { activePlugins } = usePluginSystem();
+  const { activeApps } = useAppSystem();
   const rawConv = registry.getConversation(agentName, convId);
   if (!rawConv) return null;
 
@@ -57,18 +57,18 @@ function ConversationChat({ registry, agentName, convId, sessionId }: Conversati
   const slotSession: SlotSession = useMemo(() => createSubAgentSlotSession(rawConv), [rawConv]);
 
   const headerBarSlots = useMemo<readonly SlotEntry[]>(
-    () => discoverSubAgentSlots(conv, activePlugins).filter((e) => e.declaration.type === 'headerBar'),
-    [conv, activePlugins],
+    () => discoverSubAgentSlots(conv, activeApps).filter((e) => e.declaration.type === 'headerBar'),
+    [conv, activeApps],
   );
   const panelSlots = useMemo<readonly SlotEntry<PanelSlotDeclaration>[]>(
-    () => discoverSubAgentSlots(conv, activePlugins)
+    () => discoverSubAgentSlots(conv, activeApps)
       .filter((e): e is SlotEntry<PanelSlotDeclaration> => e.declaration.type === 'panel' && e.declaration.showTab(slotCtx)),
-    [conv, activePlugins, slotCtx],
+    [conv, activeApps, slotCtx],
   );
   const inlinePromptSlots = useMemo<readonly SlotEntry[]>(
-    () => discoverSubAgentSlots(conv, activePlugins)
+    () => discoverSubAgentSlots(conv, activeApps)
       .filter((e) => e.declaration.type === 'inlinePrompt' && e.declaration.shouldRender?.(slotCtx) !== false),
-    [conv, activePlugins, slotCtx],
+    [conv, activeApps, slotCtx],
   );
 
   const messages = conv.messages;

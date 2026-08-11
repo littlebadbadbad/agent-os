@@ -3,8 +3,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { getProxyConfig, updateProxyConfig, testProxyTarget } from '../../plugin/core';
-import type { ProxyConfig } from '../../plugin/core';
+import { getProxyConfig, updateProxyConfig, testProxyTarget } from '../../app/core';
+import type { ProxyConfig } from '../../app/core';
 import styles from './ProxyManagerPanel.module.scss';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ import styles from './ProxyManagerPanel.module.scss';
 const PROTOCOLS = ['http', 'https', 'socks5', 'socks4'] as const;
 type Protocol = (typeof PROTOCOLS)[number];
 
-// ProxyConfig is imported from plugin/core — the core API module.
+// ProxyConfig is imported from app/core — the core API module.
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
 
 interface ProxyManagerPanelProps {

@@ -21,8 +21,8 @@ import {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const SYM_A = Symbol('plugin-a');
-const SYM_B = Symbol('plugin-b');
+const SYM_A = Symbol('app-a');
+const SYM_B = Symbol('app-b');
 
 function makeScope(overrides?: Partial<ToolSetScope>): ToolSetScope {
   return {

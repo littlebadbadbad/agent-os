@@ -1,8 +1,8 @@
 /**
- * agent-UI/store/sessionStore.ts — Session persistence via core plugin API
+ * agent-UI/store/sessionStore.ts — Session persistence via core app API
  *
  * PURE BUSINESS LOGIC — ZERO direct transport calls.
- * Delegated to the super built-in "sessions" plugin client.
+ * Delegated to the super built-in "sessions" app client.
  */
 
-export { loadSessions, saveSessions } from '../plugin/core/sessions';
+export { loadSessions, saveSessions } from '../app/core/sessions';

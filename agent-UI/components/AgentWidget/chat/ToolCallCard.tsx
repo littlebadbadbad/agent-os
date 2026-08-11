@@ -20,7 +20,7 @@ import { SlotToolCard } from "./SlotToolCard";
 import { ToolCallInlineCard } from "./ToolCallInlineCard";
 import { ToolCardModal } from "./ToolCardModal";
 import styles from "../AgentWidget.module.scss";
-import { useSlotRegistry } from "../../../plugin/PluginContext";
+import { useSlotRegistry } from "../../../app/AppContext";
 
 export { formatResult };
 
@@ -77,15 +77,15 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
   const { getByType } = useSlotRegistry();
   const { name } = info;
 
-  // Plugin tool-card slot: if a plugin declares a toolCard slot whose
-  // toolNames include this tool, route to the plugin's iframe renderer.
+  // App tool-card slot: if a app declares a toolCard slot whose
+  // toolNames include this tool, route to the app's iframe renderer.
 
   const slot = getByType('toolCard')
       .find((entry) => entry.declaration.toolNames.includes(info.name));
   if (slot) {
     return (
       <SlotRenderer
-        pluginId={slot.pluginId}
+        appId={slot.appId}
         slotType="toolCard"
         slotId={slot.slotId}
         toolSetSymbol={slot.toolSetSymbol}
@@ -95,7 +95,7 @@ function DetailCard({ info, session }: { info: ToolCallInfo; session: SlotSessio
     );
   }
 
-  // Non-plugin tools (sub-agent meta-operations).
+  // Non-app tools (sub-agent meta-operations).
   if (isSubAgentMetaTool(name)) return <SubAgentMetaCard info={info} />;
 
   return <GenericCard info={info} />;
@@ -107,7 +107,7 @@ export function ToolCallCard({ info, session }: { info: ToolCallInfo; session: S
   const [isOpen, setIsOpen] = useState(false);
   const { getByType } = useSlotRegistry();
 
-  // Plugins may declare a compactToolCard slot to claim specific tools;
+  // Apps may declare a compactToolCard slot to claim specific tools;
   // those render via SlotToolCard, everything else uses the default inline
   // execution note.
   const slotCard = getByType('compactToolCard')

@@ -1,16 +1,16 @@
 /**
- * Tests for agent-UI/plugin/loader.ts
+ * Tests for agent-UI/app/loader.ts
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-describe('loadPluginAgentEntry', () => {
-  let loadPluginAgentEntry: any;
+describe('loadAppAgentEntry', () => {
+  let loadAppAgentEntry: any;
 
   beforeEach(async () => {
     vi.resetModules();
-    const mod = await import('../plugin/loader');
-    loadPluginAgentEntry = mod.loadPluginAgentEntry;
+    const mod = await import('../app/loader');
+    loadAppAgentEntry = mod.loadAppAgentEntry;
   });
 
   it('returns module when import succeeds and activate exists', async () => {
@@ -19,7 +19,7 @@ describe('loadPluginAgentEntry', () => {
     // Mock dynamic import
     vi.stubGlobal('__mockImport', fakeModule);
 
-    const result = await loadPluginAgentEntry('test-plugin', '/plugins/test/activate.js');
+    const result = await loadAppAgentEntry('test-app', '/agent-apps/test/activate.js');
 
     // Since we can't easily mock dynamic import(), just test error handling
     expect(result).toHaveProperty('module');
@@ -27,7 +27,7 @@ describe('loadPluginAgentEntry', () => {
   });
 
   it('returns error when import fails', async () => {
-    const result = await loadPluginAgentEntry('broken', '/nonexistent/module.js');
+    const result = await loadAppAgentEntry('broken', '/nonexistent/module.js');
 
     expect(result.module).toBeNull();
     expect(result.error).toContain('broken');

@@ -1,0 +1,24 @@
+{
+  "name": "@uap/app-devops",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@agent-type": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@vitejs/plugin-react": "*",
+    "esbuild": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sass": "*",
+    "vite": "*"
+  }
+}

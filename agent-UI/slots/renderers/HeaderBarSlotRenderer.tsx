@@ -15,10 +15,10 @@ import { type ReactElement } from "react";
 import type { SlotSession } from "@agent-type";
 import { IframeSandbox } from "../IframeSandbox";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import { useSlotRegistry, usePluginSystem } from "../../plugin/PluginContext";
+import { useSlotRegistry, useAppSystem } from "../../app/AppContext";
 
 export interface HeaderBarSlotRendererProps {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   readonly session: SlotSession;
   readonly toolSetSymbol: symbol;
@@ -28,15 +28,15 @@ export interface HeaderBarSlotRendererProps {
 export function HeaderBarSlotRenderer(
   props: HeaderBarSlotRendererProps,
 ): ReactElement | null {
-  const { pluginId, slotId, session, toolSetSymbol, className } = props;
+  const { appId, slotId, session, toolSetSymbol, className } = props;
 
-  const { getPlugin } = usePluginSystem();
-  const uiPlugin = getPlugin(pluginId);
-  if (!uiPlugin?.uiEntryUrl) return null;
+  const { getApp } = useAppSystem();
+  const uiApp = getApp(appId);
+  if (!uiApp?.uiEntryUrl) return null;
 
   // Read dimensions from slot declaration, fall back to sensible defaults.
   const { getSlot } = useSlotRegistry();
-  const slotEntry = getSlot(pluginId, slotId);
+  const slotEntry = getSlot(appId, slotId);
   // Discriminant narrowing — no cast needed.
   const headerDecl = slotEntry?.declaration.type === "headerBar" ? slotEntry.declaration : undefined;
   const containingWidth = headerDecl?.containingWidth ?? "100%";
@@ -44,17 +44,17 @@ export function HeaderBarSlotRenderer(
 
   const { host, handleReady } = useSlotHostBridge({
     session,
-    pluginId,
+    appId,
     slotId,
     slotType: "headerBar",
     toolSetSymbol,
-    uiPlugin,
+    uiApp,
   });
 
   return (
     <IframeSandbox
       className={className}
-      uiEntryUrl={uiPlugin.uiEntryUrl}
+      uiEntryUrl={uiApp.uiEntryUrl}
       host={host}
       onReady={handleReady}
       sizing="fit"

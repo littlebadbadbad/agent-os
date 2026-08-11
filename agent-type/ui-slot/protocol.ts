@@ -3,7 +3,7 @@
  *
  * Three-layer architecture:
  *   1. ToolSet registers slots via `host.registerToolSet(toolSet, slots)` — "what capabilities"
- *   2. Plugin UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
+ *   2. App UI (iframe) renders per slot via `host.getSlotContext()` — "what it looks like"
  *   3. Host renders slots via `SlotRenderer` + `SlotRegistry` — "where it goes"
  *
  * This file contains typed message interfaces for host→iframe communication.
@@ -12,8 +12,8 @@
  */
 
 import type { SessionStateLike } from "../core";
-import type { ToolCallInfo } from "../plugin";
-import type { PluginSlotDeclaration, SlotType } from "./types";
+import type { ToolCallInfo } from "../app";
+import type { AppSlotDeclaration, SlotDeclaration, SlotType } from "./types";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Host → Iframe message protocol (per slot type)
@@ -22,7 +22,7 @@ import type { PluginSlotDeclaration, SlotType } from "./types";
 /**
  * Host pushes full session state to a panel iframe on every change.
  *
- * The iframe re-reads `host.getPluginState()` when notified,
+ * The iframe re-reads `host.getAppState()` when notified,
  * same pattern as the current Link B `stateUpdate`.
  */
 export interface PanelHostMessage {
@@ -53,7 +53,7 @@ export interface ToolCardHostMessage {
 /**
  * Host pushes state updates to an inlinePrompt iframe.
  *
- * The iframe re-reads `host.getPluginState()` when notified
+ * The iframe re-reads `host.getAppState()` when notified
  * to access the current prompt entries and responder callbacks.
  */
 export interface InlinePromptHostMessage {
@@ -71,7 +71,7 @@ export interface InlinePromptHostMessage {
  * Host pushes full session state to a headerBar iframe on every change.
  *
  * Same payload shape as {@link PanelHostMessage} — the headerBar iframe
- * re-reads `host.getPluginState()` when notified.
+ * re-reads `host.getAppState()` when notified.
  */
 export interface HeaderBarHostMessage {
   readonly version: 1;
@@ -92,7 +92,7 @@ export interface HeaderBarHostMessage {
  * Host pushes full session state to a toolButton iframe on every change.
  *
  * Same payload shape as {@link PanelHostMessage} — the toolButton iframe
- * re-reads `host.getPluginState()` when notified, but uses a separate
+ * re-reads `host.getAppState()` when notified, but uses a separate
  * message type so the iframe can distinguish dropdown-panel rendering
  * from sidebar-panel rendering.
  */
@@ -115,7 +115,7 @@ export interface ToolButtonHostMessage {
  * Host pushes full session state to an app iframe on every change.
  *
  * Same payload shape as {@link PanelHostMessage} — the app iframe
- * re-reads `host.getPluginState()` when notified.
+ * re-reads `host.getAppState()` when notified.
  */
 export interface AppHostMessage {
   readonly version: 1;
@@ -132,7 +132,7 @@ export interface AppHostMessage {
  * Discriminated union of all host → iframe messages.
  *
  * Each branch carries `slotId` so the iframe can identify which
- * slot instance the message targets (supports multi-slot plugins).
+ * slot instance the message targets (supports multi-slot apps).
  */
 export type SlotHostMessage =
   | PanelHostMessage
@@ -147,10 +147,10 @@ export type SlotHostMessage =
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Filter {@link PluginSlotDeclaration}[] to a specific slot type.
+ * Filter {@link AppSlotDeclaration}[] to a specific slot type.
  * Narrows the discriminated union at compile time.
  */
 export type FilterSlots<
-  TDeclarations extends readonly PluginSlotDeclaration[],
+  TDeclarations extends readonly SlotDeclaration[],
   TType extends SlotType,
 > = Extract<TDeclarations[number], { readonly type: TType }>;

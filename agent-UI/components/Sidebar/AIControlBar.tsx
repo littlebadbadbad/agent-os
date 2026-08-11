@@ -1,12 +1,12 @@
 import { type ReactElement, useMemo, useSyncExternalStore } from 'react';
-import type { SlotDisplayContext, SlotSession, PluginStateExtension } from '@agent-type';
+import type { SlotDisplayContext, SlotSession, AppStateExtension } from '@agent-type';
 import { SlotRenderer } from '../../slots/SlotRenderer';
-import { useSlotRegistry } from '../../plugin/PluginContext';
+import { useSlotRegistry } from '../../app/AppContext';
 import { DropdownPanel } from '../DropdownPanel';
 import { NATIVE_PILLS, type NativePopoverPill, type NativeComponentPill } from './nativePills';
 import styles from './AIControlBar.module.scss';
 
-// ── Slot-based bar entry (plugin-provided toolButton) ────────────────────────
+// ── Slot-based bar entry (app-provided toolButton) ────────────────────────
 
 interface SlotBarEntry {
   readonly kind: 'slot';
@@ -14,7 +14,7 @@ interface SlotBarEntry {
   readonly icon: string | undefined;
   readonly label: string;
   readonly badge: string | null;
-  readonly pluginId: string;
+  readonly appId: string;
   readonly toolSetSymbol: symbol;
 }
 
@@ -25,7 +25,7 @@ type BarEntry = NativePopoverPill | SlotBarEntry;
 
 export interface AIControlBarProps {
   /**
-   * Active session for plugin slot panels.
+   * Active session for app slot panels.
    * May be null — toolButton slots are session-independent and can render
    * without an active session (callbacks receive empty context and undefined state).
    */
@@ -71,7 +71,7 @@ function renderPopoverEntry(
       {() => (
         <SlotRenderer
           slotType="toolButton"
-          pluginId={entry.pluginId}
+          appId={entry.appId}
           slotId={entry.slotId}
           session={activeSession}
           toolSetSymbol={entry.toolSetSymbol}
@@ -93,10 +93,10 @@ function renderComponentEntry(entry: NativeComponentPill): ReactElement {
 /**
  * Toolbar bar that sits below the sidebar header, providing quick-access
  * buttons for AI-related controls: provider/model selection, proxy,
- * and any plugin-registered toolButton slots.
+ * and any app-registered toolButton slots.
  *
- * Plugin toolButton slots are discovered via
- * {@link slotRegistry} — no plugin name is hardcoded.
+ * App toolButton slots are discovered via
+ * {@link slotRegistry} — no app name is hardcoded.
  *
  * Native pills (provider selector, proxy) are registered in
  * {@link NATIVE_PILLS} — add a new entry there to extend the bar.
@@ -127,10 +127,10 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
   );
 
   // Derive toolset state lookup from session state.
-  // AgentSessionState has [key: symbol]: PluginStateExtension via AgentSessionExtension.
-  const toolSetState = useMemo<Record<symbol, PluginStateExtension> | null>(() => {
+  // AgentSessionState has [key: symbol]: AppStateExtension via AgentSessionExtension.
+  const toolSetState = useMemo<Record<symbol, AppStateExtension> | null>(() => {
     if (!sessionState) return null;
-    const result: Record<symbol, PluginStateExtension> = Object.create(null);
+    const result: Record<symbol, AppStateExtension> = Object.create(null);
     const symbols = Object.getOwnPropertySymbols(sessionState);
     for (const sym of symbols) {
       result[sym] = sessionState[sym];
@@ -165,7 +165,7 @@ export function AIControlBar({ activeSession }: AIControlBarProps): ReactElement
         icon: entry.declaration.icon,
         label: entry.declaration.label,
         badge: badgeText,
-        pluginId: entry.pluginId,
+        appId: entry.appId,
         toolSetSymbol: entry.toolSetSymbol,
       });
     }

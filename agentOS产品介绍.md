@@ -31,7 +31,7 @@ graph TB
         
         subgraph "类型契约层 — Agent Type"
             B1["Tool / ToolSet 定义"]
-            B2["Plugin 生命周期接口"]
+            B2["App 生命周期接口"]
             B3["UI Slot 注入点协议"]
             B4["Message 类型体系"]
             B5["Vendor 适配器协议"]
@@ -39,9 +39,9 @@ graph TB
         
         subgraph "服务层 — Backend"
             C1["HTTP + WebSocket 服务器"]
-            C2["Plugin Router 插件路由器"]
+            C2["App Router 插件路由器"]
             C3["Core Services 核心服务"]
-            C4["Plugin Scanner 插件扫描器"]
+            C4["App Scanner 插件扫描器"]
             C5["IPC / HTTP 双模传输"]
         end
     end
@@ -62,7 +62,7 @@ graph TB
     style B3 fill:#e1f5fe
 ```
 
-**类型契约层（Agent Type）**是整个平台的"宪法"——它定义了 Tool、ToolSet、Plugin、Slot、Message 等所有核心概念的类型接口。它不包含任何运行时代码，只输出纯 TypeScript 类型。上层实现面向接口编程，下层服务通过同一套类型契约与上层通信。这种设计确保了：
+**类型契约层（Agent Type）**是整个平台的"宪法"——它定义了 Tool、ToolSet、App、Slot、Message 等所有核心概念的类型接口。它不包含任何运行时代码，只输出纯 TypeScript 类型。上层实现面向接口编程，下层服务通过同一套类型契约与上层通信。这种设计确保了：
 
 - **编译期安全**：插件开发时即可获得完整的类型提示和校验
 - **运行期解耦**：UI 层和 Backend 层可以独立迭代
@@ -119,7 +119,7 @@ AgentOS 的插件系统是整个平台最核心的"操作系统特性"。每个�
 graph LR
     subgraph "一个插件 = 三个运行时入口"
         direction TB
-        P["Plugin 包<br/>manifest.json"]
+        P["App 包<br/>manifest.json"]
         P --> AE["agentEntry<br/>🧠 运行于 Agent 沙箱"]
         P --> BE["backendEntry<br/>⚙️ 运行于 Node.js 后端"]
         P --> UE["uiEntry<br/>🖥️ 运行于浏览器 iframe"]
@@ -127,11 +127,11 @@ graph LR
     
     AE -->|"registerToolSet()"| Agent["Agent 引擎"]
     AE -->|"声明 UI Slots"| UI["Slot 注册表"]
-    BE -->|"defineApi()"| Router["Plugin Router"]
+    BE -->|"defineApi()"| Router["App Router"]
     BE -->|"defineStream()"| WS["WebSocket"]
-    BE -->|"注册服务"| PSR["PluginServiceRegistry"]
+    BE -->|"注册服务"| PSR["AppServiceRegistry"]
     UE -->|"渲染自定义 UI"| Iframe["iframe 沙箱"]
-    UE -->|"宿主通信"| Bridge["PluginBridge"]
+    UE -->|"宿主通信"| Bridge["AppBridge"]
     
     AE -.->|"共享对象"| Bridge
     UE -.->|"共享对象"| Bridge
@@ -140,13 +140,13 @@ graph LR
 **三入口模型的价值**在于：
 
 - **Agent 入口**：插件可以向 Agent 注册工具，扩展 AI 的能力边界。例如，Browser 插件注册浏览器自动化工具，File 插件注册文件操作工具。
-- **Backend 入口**：插件可以注册 HTTP API 和 WebSocket 流，暴露需要 Node.js 运行时能力的后端服务。所有 API 统一通过 Plugin Router 路由。
-- **UI 入口**：插件可以在平台 UI 的预定义插槽（Slot）中渲染自定义界面。UI 代码运行在沙箱 iframe 中，通过 `UiPluginHost` 与宿主通信。
+- **Backend 入口**：插件可以注册 HTTP API 和 WebSocket 流，暴露需要 Node.js 运行时能力的后端服务。所有 API 统一通过 App Router 路由。
+- **UI 入口**：插件可以在平台 UI 的预定义插槽（Slot）中渲染自定义界面。UI 代码运行在沙箱 iframe 中，通过 `UiAppHost` 与宿主通信。
 
 **插件间的跨进程通信**由两套机制支撑：
 
-- **PluginBridge**：Agent 侧和 UI 侧共享同一个按引用传递的对象，Agent 在激活时写入方法/属性，UI 直接读取调用。这是一种零序列化开销的通信方式。
-- **PluginServiceRegistry**：Backend 侧的插件可以将服务注册到全局注册表，其他插件通过服务名解析并调用。这是一种类似 OS 中"服务管理器"的模式。
+- **AppBridge**：Agent 侧和 UI 侧共享同一个按引用传递的对象，Agent 在激活时写入方法/属性，UI 直接读取调用。这是一种零序列化开销的通信方式。
+- **AppServiceRegistry**：Backend 侧的插件可以将服务注册到全局注册表，其他插件通过服务名解析并调用。这是一种类似 OS 中"服务管理器"的模式。
 
 **插件生命周期管理**完整覆盖了插件的加载、激活、停用、启用/禁用、安装和卸载：
 
@@ -164,7 +164,7 @@ stateDiagram-v2
     disabled --> [*]: uninstall()
 ```
 
-插件系统还支持**配置管理**——每个插件可以声明自己的配置 Schema（类似 VS Code 的 `contributes.configuration`），配置值通过 `PluginConfigClient` 读写，变更时通过回调通知所有监听方。
+插件系统还支持**配置管理**——每个插件可以声明自己的配置 Schema（类似 VS Code 的 `contributes.configuration`），配置值通过 `AppConfigClient` 读写，变更时通过回调通知所有监听方。
 
 ## 3.3 会话子系统 — 相当于 OS 的"进程管理"
 
@@ -246,7 +246,7 @@ graph TB
 2. **注册**：Slot 声明被写入全局 `SlotRegistry`
 3. **发现**：UI 层按插槽类型从注册表中取出所有声明
 4. **渲染**：`SlotRenderer` 为每个声明创建 `IframeSandbox` 实例
-5. **通信**：宿主通过 `UiPluginHost` 向 iframe 推送 `SlotHostMessage`，iframe 通过 `postMessage` 回传
+5. **通信**：宿主通过 `UiAppHost` 向 iframe 推送 `SlotHostMessage`，iframe 通过 `postMessage` 回传
 
 这种架构的妙处在于：**插件 UI 完全隔离**——一个插件的 UI 崩溃不会影响主界面；**通信是类型安全的**——每条消息都有明确的类型定义；**渲染是按需的**——只有当前激活会话需要的插槽才会渲染。
 
@@ -259,7 +259,7 @@ AgentOS 支持两种传输模式，在编译期和运行期自动切换：
 | **Standalone** | HTTP + WebSocket | 独立 Web 应用，浏览器直接连接后端 |
 | **Electron IPC** | Electron IPC | 桌面应用，通过 `ipcMain`/`ipcRenderer` 通信 |
 
-传输层对上透明——`PluginApiClient` 封装了所有差异，上层代码只调用 `apiClient.call(method, params)`，无需关心底层是 fetch 还是 `electronAPI.invoke`。WebSocket 用于流式数据传输，同样通过 `PluginStreamClient` 抽象。
+传输层对上透明——`AppApiClient` 封装了所有差异，上层代码只调用 `apiClient.call(method, params)`，无需关心底层是 fetch 还是 `electronAPI.invoke`。WebSocket 用于流式数据传输，同样通过 `AppStreamClient` 抽象。
 
 ---
 
@@ -406,7 +406,7 @@ graph TB
 | **子 Agent** | 主 Agent 可派生多个子 Agent，各自拥有独立上下文和工具集 |
 | **插槽扩展** | 8 种预定义 UI 注入点，插件可按需声明和渲染自定义界面 |
 | **双模传输** | 自动适配 HTTP/WebSocket（Web 模式）和 Electron IPC（桌面模式） |
-| **服务注册** | 插件间通过 PluginServiceRegistry 进行服务发现和调用 |
+| **服务注册** | 插件间通过 AppServiceRegistry 进行服务发现和调用 |
 | **配置管理** | 每个插件独立声明配置 Schema，平台统一管理配置值的读写和变更通知 |
 
 ---
@@ -423,12 +423,12 @@ graph TB
         Widget["AgentWidget"]
         Sessions["会话管理"]
         SlotEngine["Slot 渲染引擎"]
-        PluginSys["插件系统<br/>PluginSystem"]
+        AppSys["插件系统<br/>AppSystem"]
         Stores["状态存储<br/>Session / Provider / Config"]
     end
     
     subgraph "📜 Type Contract"
-        Types["@agent-type<br/>Tool | ToolSet | Plugin | Slot<br/>Message | Vendor | Handler"]
+        Types["@agent-type<br/>Tool | ToolSet | App | Slot<br/>Message | Vendor | Handler"]
     end
     
     subgraph "🔧 Agent SDK"
@@ -441,12 +441,12 @@ graph TB
     subgraph "⚙️ Backend Services"
         HTTPServer["HTTP Server"]
         WSServer["WebSocket Server"]
-        Router["Plugin Router"]
-        Scanner["Plugin Scanner"]
+        Router["App Router"]
+        Scanner["App Scanner"]
         CoreSvcs["Core Services<br/>chat | models | sessions<br/>proxy | system | api-keys"]
     end
     
-    subgraph "🧩 Plugins"
+    subgraph "🧩 Apps"
         direction LR
         P1["browser"] --- P2["file"] --- P3["terminal"]
         P4["git"] --- P5["mcp"] --- P6["plan"]
@@ -458,7 +458,7 @@ graph TB
     Electron --> HTTPServer
     Widget --> Stores
     Widget --> SlotEngine
-    Widget --> PluginSys
+    Widget --> AppSys
     Widget --> Types
     Client --> Types
     SessionMgr --> Client
@@ -470,7 +470,7 @@ graph TB
     Router --> CoreSvcs
     Router --> Scanner
     Scanner --> P1
-    PluginSys --> P1
+    AppSys --> P1
     SlotEngine --> P1
 ```
 

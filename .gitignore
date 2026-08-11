@@ -23,7 +23,7 @@ release/
 
 # Backend runtime data
 data/
-plugins/
+agent-apps/
 
 # Logs
 *.log

@@ -1,5 +1,5 @@
 /**
- * backend/core/system.js — Super built-in "system" plugin
+ * backend/core/system.js — Super built-in "system" app
  *
  * Registers system-level API methods via defineApi().
  *
@@ -8,14 +8,14 @@
  *   health     → systemService.checkHealth()
  */
 
-import { createCorePluginHost } from '../lib/core-plugin-host.js';
+import { createCoreAppHost } from '../lib/core-app-host.js';
 import * as systemService from '../services/system.js';
 
-const PLUGIN_ID = 'system';
+const APP_ID = 'system';
 
-/** @param {import('../lib/plugin-router.js').pluginRouter} router */
+/** @param {import('../lib/app-router.js').appRouter} router */
 export function register(router) {
-  const host = createCorePluginHost(PLUGIN_ID, router);
+  const host = createCoreAppHost(APP_ID, router);
 
   host.defineApi('publicKey', async () => systemService.getPublicKeyInfo());
 

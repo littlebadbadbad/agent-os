@@ -1,10 +1,10 @@
 /**
  * agent-type/services/terminal.ts — Terminal service type contract
  *
- * Defines the shape of the `'terminal'` service that the terminal plugin
- * registers on the backend host's PluginServiceRegistry during activation.
+ * Defines the shape of the `'terminal'` service that the terminal app
+ * registers on the backend host's AppServiceRegistry during activation.
  *
- * Other backend plugins (e.g., MCP for stdio transport) resolve this service
+ * Other backend apps (e.g., MCP for stdio transport) resolve this service
  * to create and manage terminal sessions programmatically — without going
  * through the agent layer or HTTP/IPC transport.
  */
@@ -176,10 +176,10 @@ export interface SubscribeOutputParams {
 // ── Service interface ────────────────────────────────────────────────────────
 
 /**
- * Terminal management service exposed by the terminal plugin.
+ * Terminal management service exposed by the terminal app.
  *
- * Registered as `'terminal'` on {@link PluginServiceRegistry} during backend
- * activation.  Other backend plugins resolve this to create and control
+ * Registered as `'terminal'` on {@link AppServiceRegistry} during backend
+ * activation.  Other backend apps resolve this to create and control
  * terminal sessions without agent-layer overhead.
  */
 export interface TerminalService {

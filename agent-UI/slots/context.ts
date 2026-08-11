@@ -13,7 +13,7 @@ import type { SlotDisplayContext, SlotSession } from '@agent-type';
 /**
  * Build a `SlotDisplayContext` from a `SlotSession`.
  *
- * Plugins use this context to decide whether a slot should render
+ * Apps use this context to decide whether a slot should render
  * for the current conversation (main agent vs. sub-agent).
  */
 export function buildSlotDisplayContext(session: SlotSession): SlotDisplayContext {

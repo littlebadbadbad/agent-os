@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/chat.js — super built-in "chat" plugin
+ * Tests for backend/core/chat.js — super built-in "chat" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,7 +11,7 @@ vi.mock('../services/chat.js', () => ({
 
 import * as chatService from '../services/chat.js';
 
-describe('core/chat plugin', () => {
+describe('core/chat app', () => {
   let router;
   let register;
 

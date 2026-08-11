@@ -61,7 +61,7 @@ const BASE_COMPONENTS: Components = {
       : <input type={type} {...rest} />,
 };
 
-const REMARK_PLUGINS = [remarkGfm];
+const REMARK_APPS = [remarkGfm];
 
 // ── Public component ──────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ export function MarkdownText({
 
   return (
     <span className={styles['md-root']}>
-      <ReactMarkdown components={components} remarkPlugins={REMARK_PLUGINS}>
+      <ReactMarkdown components={components} remarkApps={REMARK_APPS}>
         {text}
       </ReactMarkdown>
       {isStreaming && <span className={styles['cursor']} aria-hidden="true" />}

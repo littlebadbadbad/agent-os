@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-//  @agent-type  —  Plugin development type contract layer
+//  @agent-type  —  App development type contract layer
 //
 //  This is the barrel export for the entire agent-type package.
-//  Plugin authors should `import type { ... } from '@agent-type'`.
+//  App authors should `import type { ... } from '@agent-type'`.
 //  All exports here are pure types/interfaces — zero runtime code.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -37,7 +37,7 @@ export type {
   AgentErrorChunk,
   AgentStreamChunk,
   AgentTurnResponse,
-  PluginStateExtension,
+  AppStateExtension,
   UserInputRequest,
   UserInputMode,
 } from "./core";
@@ -84,7 +84,7 @@ export type {
   SessionReadyHelpers,
 } from "./toolset";
 
-// Runtime constants & helpers (shared between core and internal-plugins)
+// Runtime constants & helpers (shared between core and internal-apps)
 export { MAIN_CONVERSATION_ID, ctxKey as ctxKey } from "./toolset";
 
 // ── Widget types ──────────────────────────────────────────────────────────────
@@ -95,37 +95,37 @@ export type {
   WidgetHandler,
 } from "./widget";
 
-// ── Plugin Bridge (shared agent↔UI object) ───────────────────────────────────
-export type { PluginBridge } from "./plugin-bridge";
+// ── App Bridge (shared agent↔UI object) ───────────────────────────────────
+export type { AppBridge } from "./app-bridge";
 
-// ── Plugin services (inter-plugin backend communication) ─────────────────────
-export type { PluginServiceRegistry } from "./plugin-services";
+// ── App services (inter-app backend communication) ─────────────────────
+export type { AppServiceRegistry } from "./app-services";
 
-// ── Plugin types ──────────────────────────────────────────────────────────────
+// ── App types ──────────────────────────────────────────────────────────────
 export type {
   Logger,
-  PluginManifest,
-  PluginState,
-  PluginMethod,
-  BackendPluginHost,
-  AgentPluginHost,
+  AppManifest,
+  AppState,
+  AppMethod,
+  BackendAppHost,
+  AgentAppHost,
   SlotSession,
-  UiPluginHost,
-  UiPluginHostInternal,
+  UiAppHost,
+  UiAppHostInternal,
   ToolCallStatus,
   ToolCallInfo,
   ToolCardDescriptor,
   ToolCardRenderContext,
   StreamHandler,
   StreamConnection,
-  PluginStreamClient,
+  AppStreamClient,
   StreamSubscription,
-  PluginApiClient,
-  ActivatedBackendPlugin,
-  PluginActivateFunction,
-} from "./plugin";
+  AppApiClient,
+  ActivatedBackendApp,
+  AppActivateFunction,
+} from "./app";
 
-// ── UI Slot types (plugin injection points) ───────────────────────────────────
+// ── UI Slot types (app injection points) ───────────────────────────────────
 export {
   startsWithPrefix,
   inlinePrefix,
@@ -148,8 +148,8 @@ export type {
   HeaderBarSlotDeclaration,
   InlineSlotDeclaration,
   IframeSlotDeclaration,
-  PluginSlotDeclaration,
   AppSlotDeclaration,
+  SlotDeclaration,
   SlotContext,
   SlotDisplayContext,
   PanelHostMessage,

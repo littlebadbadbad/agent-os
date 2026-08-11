@@ -23,9 +23,9 @@ import { contextBridge, ipcRenderer } from 'electron';
  * sessions:   load, save
  * health:     check
  * publicKey:  get
- * plugin:     <pluginId>:<method> — handled dynamically via plugin-router.js
+ * app:     <appId>:<method> — handled dynamically via app-router.js
  *             (git, file, and dynamic-tool IPC are registered by their
- *             respective plugin backend's activate() function)
+ *             respective app backend's activate() function)
  */
 
 interface ElectronAPI {

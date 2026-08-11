@@ -1,10 +1,10 @@
 /**
  * agent-type/services/browser.ts — Browser service type contract
  *
- * Defines the shape of the `'browser'` service that the browser plugin
- * registers on the backend host's PluginServiceRegistry during activation.
+ * Defines the shape of the `'browser'` service that the browser app
+ * registers on the backend host's AppServiceRegistry during activation.
  *
- * Other backend plugins (e.g., Skill for web scraping) resolve this service
+ * Other backend apps (e.g., Skill for web scraping) resolve this service
  * to launch and control browser sessions programmatically — without going
  * through the agent layer or HTTP/IPC transport.
  */
@@ -218,10 +218,10 @@ export interface NetworkQueryResult {
 // ── Service interface ────────────────────────────────────────────────────────
 
 /**
- * Browser management service exposed by the browser plugin.
+ * Browser management service exposed by the browser app.
  *
- * Registered as `'browser'` on {@link PluginServiceRegistry} during backend
- * activation.  Other backend plugins resolve this to launch and control
+ * Registered as `'browser'` on {@link AppServiceRegistry} during backend
+ * activation.  Other backend apps resolve this to launch and control
  * browser sessions without agent-layer overhead.
  */
 export interface BrowserService {

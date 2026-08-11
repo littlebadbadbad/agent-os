@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/proxy.js — super built-in "proxy" plugin
+ * Tests for backend/core/proxy.js — super built-in "proxy" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -12,7 +12,7 @@ vi.mock('../services/proxy.js', () => ({
 
 import * as proxyService from '../services/proxy.js';
 
-describe('core/proxy plugin', () => {
+describe('core/proxy app', () => {
   let router;
   let register;
 

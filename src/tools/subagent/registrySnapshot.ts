@@ -5,7 +5,7 @@
  * lives in `sharedStateCollector.ts` and is routed through the scope.
  */
 
-import type { ToolSetContext, ToolSetStateContext, PluginStateExtension } from '@agent-type';
+import type { ToolSetContext, ToolSetStateContext, AppStateExtension } from '@agent-type';
 import type { ToolSetScope } from '@agent-sdk/tools/toolSetScope';
 import type {
   SubAgentConversationState,
@@ -35,12 +35,12 @@ export function collectToolSetSymbolState(
   toolNames: readonly string[],
   scope: ToolSetScope,
   ctx: ToolSetContext,
-): Record<symbol, PluginStateExtension> {
+): Record<symbol, AppStateExtension> {
   const full = scope.collectState(ctx, buildStateCtx(resolveTools, toolNames));
   const keys = Object.getOwnPropertySymbols(full);
-  const symbol: Record<symbol, PluginStateExtension> = {};
+  const symbol: Record<symbol, AppStateExtension> = {};
   for (let i = 0; i < keys.length; i++) {
-    symbol[keys[i]] = full[keys[i]] as PluginStateExtension;
+    symbol[keys[i]] = full[keys[i]] as AppStateExtension;
   }
   return symbol;
 }

@@ -3,7 +3,7 @@
  * scripts/gui-dev.mjs  —  Start Electron in GUI development mode
  *
  * Orchestrates a two-way concurrent process:
- *   1. Interactive plugin selection (new! — space to toggle, arrow keys to move)
+ *   1. Interactive app selection (new! — space to toggle, arrow keys to move)
  *   2. Vite dev server (frontend with HMR, proxying /api to backend)
  *   3. Electron window, which loads the backend source directly via
  *      dynamic import() (no pre-bundling step needed)
@@ -13,12 +13,12 @@
  *   node scripts/gui-dev.mjs
  *   pnpm run gui:dev
  *
- * Plugin selection supports:
- *   • Space to toggle individual plugins
+ * App selection supports:
+ *   • Space to toggle individual apps
  *   • Arrow keys (↑/↓) to navigate
  *   • Ctrl+A to select all / Ctrl+R to toggle all
  *   • Type to filter
- *   • Default: none selected (skips plugin compilation)
+ *   • Default: none selected (skips app compilation)
  *
  * Environment overrides
  * ─────────────────────
@@ -30,7 +30,7 @@
 import { execSync, spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { selectPlugins } from './plugin-selector.mjs';
+import { selectApps } from './app-selector.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -89,17 +89,17 @@ async function main() {
   console.log('\n=== Step 1: Compile Electron entry points ===');
   run('node scripts/compile-electron.mjs');
 
-  // ── Step 1.5: Interactive plugin selection + compile ────────────────────
-  // Ask the user which plugins to bundle before booting the backend.
-  console.log('\n=== Step 1.5: Select plugins to bundle ===');
-  const selectedPluginNames = await selectPlugins();
+  // ── Step 1.5: Interactive app selection + compile ────────────────────
+  // Ask the user which apps to bundle before booting the backend.
+  console.log('\n=== Step 1.5: Select apps to bundle ===');
+  const selectedAppNames = await selectApps();
 
-  if (selectedPluginNames.length > 0) {
-    process.env.PLUGIN_FILTER = selectedPluginNames.join(',');
-    console.log(`\n=== Step 1.5b: Compile selected plugins (${selectedPluginNames.length}) ===`);
-    run('node scripts/compile-plugins.mjs');
+  if (selectedAppNames.length > 0) {
+    process.env.APP_FILTER = selectedAppNames.join(',');
+    console.log(`\n=== Step 1.5b: Compile selected apps (${selectedAppNames.length}) ===`);
+    run('node scripts/compile-apps.mjs');
   } else {
-    console.log('  ℹ  No plugins selected — skipping plugin compilation.');
+    console.log('  ℹ  No apps selected — skipping app compilation.');
   }
 
   // ── Step 2: Start Vite dev server ────────────────────────────────────────

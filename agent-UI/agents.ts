@@ -3,9 +3,9 @@ import {
   createSubAgentToolset,
 } from "@agent-sdk";
 import type { ToolSet } from "@agent-type";
-import { createPluginSystem } from "./plugin";
-import { createPluginManagerToolSet } from "./plugin/core/pluginManagerToolSet";
-import type { AgentPluginContext } from "./plugin/host";
+import { createAppSystem } from "./app";
+import { createAppManagerToolSet } from "./app/core/appManagerToolSet";
+import type { AgentAppContext } from "./app/host";
 import { streamHandler } from "./handlers/streamHandler";
 import { providerConfigStore } from "./store/providerConfigStore";
 import {
@@ -17,32 +17,32 @@ import { IS_ELECTRON_IPC } from "./env";
 // ── Internal brand ─────────────────────────────────────────────────────────────
 // Opaque symbol used to identify "built-in" ToolSets.
 // Created once per agent-client instance — external code cannot reproduce it.
-// The plugin system injects this brand into all built-in plugin ToolSets at
+// The app system injects this brand into all built-in app ToolSets at
 // registration time; the SDK uses it to grant privileged capabilities.
 
 const INTERNAL_BRAND = Symbol('agent.internal');
 
-// ── Plugin system ──────────────────────────────────────────────────────────────
-// Initialised after agent creation so plugins can register tools on sessions.
+// ── App system ──────────────────────────────────────────────────────────────
+// Initialised after agent creation so apps can register tools on sessions.
 
-export const pluginSystem = createPluginSystem();
+export const appSystem = createAppSystem();
 
 /**
- * AgentPluginContext bound to the single production agent (`streamAgent`).
+ * AgentAppContext bound to the single production agent (`streamAgent`).
  *
  * The async agent exists only as a reference example (see handlers/asyncHandler)
  * and is deliberately NOT wired here — mounting two agents would fan one shared
  * ToolSet instance out to both, letting the second `onAttach` clobber the
  * first (the tool_search-wrong-pool bug).  One agent, one registration.
  */
-function createPluginContext(): AgentPluginContext {
+function createAppContext(): AgentAppContext {
   // Use getters so these work regardless of module evaluation order.
-  const ctx: AgentPluginContext = {
+  const ctx: AgentAppContext = {
     addToolSet: (ts) => streamAgent.registerToolSet(ts),
     getRegisteredToolSets: () => streamAgent.getRegisteredToolSets(),
     getTools: () => streamAgent.getTools(),
     agentName: 'stream-agent',
-    /** Internal brand — injected into all built-in plugin ToolSets. */
+    /** Internal brand — injected into all built-in app ToolSets. */
     internalBrand: INTERNAL_BRAND,
   };
   return ctx;
@@ -55,7 +55,7 @@ const SYSTEM_PROMPT = "";
 // ── Shared tools ──────────────────────────────────────────────────────────────
 // Sub-agent meta-tools only.
 // Core ToolSets (variable, memory-graph, tool-search, tool-result-compressor,
-// permissions, delegation-nudge) are registered as plugins via the plugin system.
+// permissions, delegation-nudge) are registered as apps via the app system.
 
 // Sub-agent meta-tools — the tool pool is derived lazily from the agent's
 // live registered tools.
@@ -64,9 +64,9 @@ const streamSubAgentToolset = createSubAgentToolset("stream", {
   brand: INTERNAL_BRAND,
 });
 
-// Plugin management is core capability, always available — not itself a
-// toggleable plugin — so it's registered directly, like the sub-agent toolset.
-const sharedToolSets: readonly ToolSet[] = [createPluginManagerToolSet(pluginSystem)];
+// App management is core capability, always available — not itself a
+// toggleable app — so it's registered directly, like the sub-agent toolset.
+const sharedToolSets: readonly ToolSet[] = [createAppManagerToolSet(appSystem)];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -161,9 +161,9 @@ export const streamAgent = createAgentClient({
 });
 
 export async function initSessions(): Promise<void> {
-  // Initialise plugin system FIRST so plugins register their ToolSets
+  // Initialise app system FIRST so apps register their ToolSets
   // BEFORE session restore (plugged tools appear in restored sessions).
-  await pluginSystem.init(createPluginContext());
+  await appSystem.init(createAppContext());
   // Load provider config before anything else
   await providerConfigStore.load();
 

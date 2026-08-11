@@ -7,7 +7,7 @@
  * (fills in safe defaults + freeze) for constructing fully-typed Tool objects.
  *
  * These are runtime functions (not just types), placed here so both the SDK
- * and internal-plugins can import them from `@agent-type/defineTool` without
+ * and internal-apps can import them from `@agent-type/defineTool` without
  * depending on `@agent-sdk`.
  */
 

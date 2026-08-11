@@ -16,10 +16,10 @@
       "import": "./services/index.ts",
       "default": "./services/index.ts"
     },
-    "./plugin-services": {
-      "types": "./plugin-services.ts",
-      "import": "./plugin-services.ts",
-      "default": "./plugin-services.ts"
+    "./app-services": {
+      "types": "./app-services.ts",
+      "import": "./app-services.ts",
+      "default": "./app-services.ts"
     },
     "./*": {
       "types": "./*.ts",

@@ -5,12 +5,12 @@
  * No React dependency — usable from any framework.
  */
 
-import type { AppSlotDeclaration } from "@agent-type";
+import type { AppSlotDeclaration, SlotDeclaration } from "@agent-type";
 
 // ── Entry ─────────────────────────────────────────────────────────────────────
 
 export interface AppWindowEntry {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   readonly declaration: AppSlotDeclaration;
   readonly toolSetSymbol: symbol;

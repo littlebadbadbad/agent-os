@@ -1,0 +1,21 @@
+{
+  "apps": [
+    "user-input",
+    "todo",
+    "token-budget",
+    "plan",
+    "terminal",
+    "tool-state",
+    "skill",
+    "mcp",
+    "devops",
+    "experience",
+    "git",
+    "file",
+    "dynamic-tool",
+    "variable",
+    "tool-result-compressor",
+    "memory-graph",
+    "permissions"
+  ]
+}

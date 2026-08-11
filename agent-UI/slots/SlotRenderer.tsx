@@ -19,14 +19,14 @@
  *
  * Usage:
  *   <SlotRenderer
- *     pluginId="browser"
+ *     appId="browser"
  *     slotType="panel"
  *     slotId="browser.main"
  *     session={session}
  *   />
  *
  *   <SlotRenderer
- *     pluginId="browser"
+ *     appId="browser"
  *     slotType="toolCard"
  *     slotId="browser.toolCard"
  *     session={session}
@@ -38,8 +38,8 @@ import { type ReactElement } from "react";
 import type {
   ToolCallInfo,
   SlotSession,
-  PluginSlotDeclaration,
-  PluginStateExtension,
+  AppSlotDeclaration,
+  AppStateExtension,
 } from "@agent-type";
 import type { SlotRegistry } from "./registry";
 import { PanelSlotRenderer } from "./renderers/PanelSlotRenderer";
@@ -49,7 +49,7 @@ import { HeaderBarSlotRenderer } from "./renderers/HeaderBarSlotRenderer";
 import { ToolButtonSlotPanel } from "./renderers/ToolButtonSlotPanel";
 import { AppSlotPanel } from "./renderers/AppSlotPanel";
 import { buildSlotDisplayContext } from "./context";
-import { useSlotRegistry } from "../plugin/PluginContext";
+import { useSlotRegistry } from "../app/AppContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,14 +70,14 @@ import { useSlotRegistry } from "../plugin/PluginContext";
  * inside the renderer.
  */
 function checkShouldRender(
-  pluginId: string,
+  appId: string,
   slotId: string,
   session: SlotSession | null | undefined,
   getSlot: SlotRegistry["getSlot"],
   toolSetSymbol: symbol,
-  declaration?: PluginSlotDeclaration,
+  declaration?: AppSlotDeclaration,
 ): boolean {
-  const decl = declaration ?? getSlot(pluginId, slotId)?.declaration;
+  const decl = declaration ?? getSlot(appId, slotId)?.declaration;
   // Inline slot types never use the iframe dispatch — skip silently.
   if (!decl || decl.type === "compactToolCard" || decl.type === "autocomplete") return true;
 
@@ -96,19 +96,19 @@ function checkShouldRender(
 
   if (!decl.shouldRender) return true;
   const ctx = buildSlotDisplayContext(session);
-  const state = session.getState()[toolSetSymbol] as PluginStateExtension | undefined;
+  const state = session.getState()[toolSetSymbol] as AppStateExtension | undefined;
   return decl.shouldRender(ctx, state);
 }
 
 // ── Base fields shared by every iframe slot renderer ──────────────────────────
 
 interface IframeSlotRendererBase {
-  readonly pluginId: string;
+  readonly appId: string;
   readonly slotId: string;
   /** Session — may be null for session-independent slots (toolButton). */
   readonly session?: SlotSession | null;
   readonly toolSetSymbol: symbol;
-  readonly declaration?: PluginSlotDeclaration;
+  readonly declaration?: AppSlotDeclaration;
   readonly className?: string;
 }
 
@@ -138,10 +138,10 @@ export type SlotRendererProps =
 // ── Component ─────────────────────────────────────────────────────────────────
 
 /**
- * Render a plugin slot by type.
+ * Render a app slot by type.
  *
  * Type-safe dispatch: the intersection pattern ensures that common fields
- * (`pluginId`, `slotId`, `session`, `toolSetSymbol`) are shared across all
+ * (`appId`, `slotId`, `session`, `toolSetSymbol`) are shared across all
  * variants, while slot-specific props (`toolCallInfo`) are gated behind
  * the `slotType` discriminant.
  *
@@ -151,7 +151,7 @@ export type SlotRendererProps =
  */
 export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
   const {
-    pluginId,
+    appId,
     slotId,
     session,
     toolSetSymbol,
@@ -161,7 +161,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
 
   // ── shouldRender gate — evaluated before dispatch ─────────────────────────
   const { getSlot } = useSlotRegistry();
-  if (!checkShouldRender(pluginId, slotId, session, getSlot, toolSetSymbol, declaration)) {
+  if (!checkShouldRender(appId, slotId, session, getSlot, toolSetSymbol, declaration)) {
     return null;
   }
 
@@ -172,7 +172,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       if (!session) return null;
       return (
         <PanelSlotRenderer
-          pluginId={pluginId}
+          appId={appId}
           slotId={slotId}
           session={session}
           toolSetSymbol={toolSetSymbol}
@@ -184,7 +184,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       if (!session) return null;
       return (
         <ToolCardSlotRenderer
-          pluginId={pluginId}
+          appId={appId}
           slotId={slotId}
           session={session}
           toolCallInfo={props.toolCallInfo}
@@ -197,7 +197,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       if (!session) return null;
       return (
         <InlinePromptSlotRenderer
-          pluginId={pluginId}
+          appId={appId}
           slotId={slotId}
           session={session}
           toolSetSymbol={toolSetSymbol}
@@ -210,7 +210,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       if (!session) return null;
       return (
         <HeaderBarSlotRenderer
-          pluginId={pluginId}
+          appId={appId}
           slotId={slotId}
           session={session}
           toolSetSymbol={toolSetSymbol}
@@ -221,7 +221,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
     case "toolButton":
       return (
         <ToolButtonSlotPanel
-          pluginId={pluginId}
+          appId={appId}
           slotId={slotId}
           session={session}
           toolSetSymbol={toolSetSymbol}
@@ -233,7 +233,7 @@ export function SlotRenderer(props: SlotRendererProps): ReactElement | null {
       // App slots accept null session — the window renders without it.
       return (
         <AppSlotPanel
-          pluginId={pluginId}
+          appId={appId}
           slotId={slotId}
           session={session}
           toolSetSymbol={toolSetSymbol}

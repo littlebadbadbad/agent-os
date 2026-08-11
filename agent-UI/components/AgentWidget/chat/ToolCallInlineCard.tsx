@@ -11,7 +11,7 @@ const RESULT_PREVIEW_LINES = 6;
 interface ToolCallInlineCardProps {
   readonly info: ToolCallInfo;
   readonly onOpen: () => void;
-  /** Plugin-provided descriptor; overrides icon/label/summary/status. */
+  /** App-provided descriptor; overrides icon/label/summary/status. */
   readonly descriptor?: CompactToolCardDescriptor;
 }
 

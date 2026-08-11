@@ -1,18 +1,18 @@
 /**
- * Tests for agent-UI/plugin/core/chat.ts
+ * Tests for agent-UI/app/core/chat.ts
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockCall = vi.hoisted(() => vi.fn());
 const mockConnectStream = vi.hoisted(() => vi.fn());
-vi.mock('../plugin/apiClient', () => ({
-  createPluginApiClient: () => ({ call: mockCall, connectStream: mockConnectStream }),
+vi.mock('../app/apiClient', () => ({
+  createAppApiClient: () => ({ call: mockCall, connectStream: mockConnectStream }),
 }));
 
-import { sendAsync, sendStream } from '../plugin/core/chat';
+import { sendAsync, sendStream } from '../app/core/chat';
 
-describe('chat core plugin', () => {
+describe('chat core app', () => {
   beforeEach(() => vi.clearAllMocks());
 
   describe('sendAsync', () => {

@@ -8,7 +8,7 @@ import { SessionContent } from './SessionContent';
 import { ConversationNavigator } from '../navigator';
 import type { ConversationItem, SessionHandle } from '../navigator';
 import styles from '../AgentWidget.module.scss';
-import { PluginProvider, useSlotRegistry } from '../../../plugin/PluginContext';
+import { AppProvider, useSlotRegistry } from '../../../app/AppContext';
 import { DesktopLayout } from '../../DesktopLayout/DesktopLayout';
 
 // ── Welcome state (shown when no sessions exist) ──────────────────────────────
@@ -25,7 +25,7 @@ function WelcomeState(): ReactElement {
   );
 }
 
-// ── Inner layout — rendered inside PluginProvider ──────────────────────────
+// ── Inner layout — rendered inside AppProvider ──────────────────────────
 
 import type { SlotSession } from "@agent-type";
 
@@ -199,7 +199,7 @@ export function MultiSessionWidget({
   );
 
   return (
-    <PluginProvider session={panelSession ?? null}>
+    <AppProvider session={panelSession ?? null}>
       <DesktopLayoutShell
         icon={icon}
         theme={theme}
@@ -214,6 +214,6 @@ export function MultiSessionWidget({
         onRename={handleRename}
         onCreateSession={handleCreateSession}
       />
-    </PluginProvider>
+    </AppProvider>
   );
 }

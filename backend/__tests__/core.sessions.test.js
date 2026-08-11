@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/sessions.js — super built-in "sessions" plugin
+ * Tests for backend/core/sessions.js — super built-in "sessions" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,7 +11,7 @@ vi.mock('../services/sessions.js', () => ({
 
 import * as sessionService from '../services/sessions.js';
 
-describe('core/sessions plugin', () => {
+describe('core/sessions app', () => {
   let router;
   let register;
 

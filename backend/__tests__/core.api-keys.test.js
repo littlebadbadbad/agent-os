@@ -1,5 +1,5 @@
 /**
- * Tests for backend/core/api-keys.js — super built-in "api-keys" plugin
+ * Tests for backend/core/api-keys.js — super built-in "api-keys" app
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -12,7 +12,7 @@ vi.mock('../services/api-keys.js', () => ({
 
 import { getKeyList, saveKey, removeKey } from '../services/api-keys.js';
 
-describe('core/api-keys plugin', () => {
+describe('core/api-keys app', () => {
   let router;
   let register;
 

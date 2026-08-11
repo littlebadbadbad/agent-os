@@ -3,7 +3,7 @@
  *
  * CRUD operations for the two-layer model config system.
  *
- * Legacy file — prefer importing directly from plugin/core/ for new code.
+ * Legacy file — prefer importing directly from app/core/ for new code.
  * Kept for backward compat convenience re-exports.
  */
 
@@ -15,4 +15,4 @@ export {
   addCustomModelProvider,
   removeCustomModelProvider,
   updateCustomModelProvider,
-} from '../plugin/core/model-config';
+} from '../app/core/model-config';

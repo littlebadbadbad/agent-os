@@ -150,10 +150,10 @@ function fileSha256(filePath) {
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-const pluginsIdx = args.indexOf('--plugins');
-if (pluginsIdx !== -1 && args[pluginsIdx + 1]) {
-  process.env.PLUGIN_FILTER = args[pluginsIdx + 1];
-  console.log(`  --plugins = ${process.env.PLUGIN_FILTER}`);
+const appsIdx = args.indexOf('--apps');
+if (appsIdx !== -1 && args[appsIdx + 1]) {
+  process.env.APP_FILTER = args[appsIdx + 1];
+  console.log(`  --apps = ${process.env.APP_FILTER}`);
 }
 
 // ── Step 1: Build frontend ────────────────────────────────────────────────────
@@ -161,10 +161,10 @@ if (pluginsIdx !== -1 && args[pluginsIdx + 1]) {
 console.log('\n=== Step 1: Build frontend ===');
 run('vite build --config vite.demo.config.ts');
 
-// ── Step 1.5: Compile all internal-plugins into plugins/ ───────────────────────────
+// ── Step 1.5: Compile all internal-apps into agent-apps/ ────────────────────
 
-console.log('\n=== Step 1.5: Compile plugins ===');
-run('node scripts/compile-plugins.mjs');
+console.log('\n=== Step 1.5: Compile apps ===');
+run('node scripts/compile-apps.mjs');
 
 // ── Step 2: Compile Electron main + preload ────────────────────────────────────
 
@@ -398,16 +398,16 @@ if (!existsSync(WIN_UNPACKED)) {
 ensureDir(VER_DIR);
 cpSync(WIN_UNPACKED, VER_DIR, { recursive: true, force: true });
 
-// ── Step 8.5: Copy plugins into release/ ─────────────────────────────────────
+// ── Step 8.5: Copy apps into release/ ─────────────────────────────────────
 
-console.log('\n=== Step 8.5: Copy plugins into release/ ===');
-const PLUGINS_SRC = join(ROOT, 'plugins');
-const PLUGINS_DST = join(RELEASE, 'plugins');
-if (existsSync(PLUGINS_SRC)) {
-  rmSync(PLUGINS_DST, { recursive: true, force: true });
-  mkdirSync(PLUGINS_DST, { recursive: true });
-  cpSync(PLUGINS_SRC, PLUGINS_DST, { recursive: true, force: true });
-  console.log('  -> plugins/');
+console.log('\n=== Step 8.5: Copy apps into release/ ===');
+const APPS_SRC = join(ROOT, 'agent-apps');
+const APPS_DST = join(RELEASE, 'agent-apps');
+if (existsSync(APPS_SRC)) {
+  rmSync(APPS_DST, { recursive: true, force: true });
+  mkdirSync(APPS_DST, { recursive: true });
+  cpSync(APPS_SRC, APPS_DST, { recursive: true, force: true });
+  console.log('  -> agent-apps/');
 }
 
 // ── Step 9: Verify Electron exe exists ──────────────────────────────────────
@@ -497,7 +497,7 @@ console.log(`\nDone!
           node_modules/      ← native bindings rebuilt for Electron
       locales/
       *.dll
-    plugins/ / .agent/ / data/ / workspace/  ← shared data (not touched by this build)
+    agent-apps/ / .agent/ / data/ / workspace/  ← shared data (not touched by this build)
 
 Usage:
   cd release

@@ -36,9 +36,9 @@ describe('paths (dev mode)', () => {
     expect(paths.AGENT_DIR).toContain('.agent');
   });
 
-  it('RELEASE_PLUGINS_DIR is defined in dev mode', () => {
-    expect(paths.RELEASE_PLUGINS_DIR).toBeTruthy();
-    expect(paths.RELEASE_PLUGINS_DIR).toContain('release');
+  it('RELEASE_APPS_DIR is defined in dev mode', () => {
+    expect(paths.RELEASE_APPS_DIR).toBeTruthy();
+    expect(paths.RELEASE_APPS_DIR).toContain('release');
   });
 
   it('WORKSPACE_ROOT falls back to default', () => {
