@@ -128,7 +128,7 @@ export function createExternalizeApp(srcDir) {
 export async function buildApp(callerMetaUrl, config) {
   const callerDir = dirname(fileURLToPath(callerMetaUrl));
   const srcDir = resolve(callerDir, "..");
-  const outDir = config.outDir ?? resolve(srcDir, "..", "..", "apps", config.appName);
+  const outDir = config.outDir ?? resolve(srcDir, "..", "..", "agent-apps", config.appName);
   const { appName } = config;
 
   let builtCount = 0;
