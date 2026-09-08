@@ -6,11 +6,91 @@
  * - Error response parsing with body truncation
  * - AbortSignal passthrough
  * - Content-Type header management
+ * - Browser-DevTools-style network logging of every request/response
+ *   (full headers + body; streaming bodies are logged chunk-by-chunk).
+ *   Disable with env HTTP_LOG=off.
  */
 
 import { createLogger } from './logger.js';
 
 const log = createLogger('http-client');
+
+// ── Network logging (browser DevTools Network style) ─────────────────────────
+
+/** Set HTTP_LOG=off to suppress full request/response logging. */
+const NETLOG = process.env.HTTP_LOG !== 'off';
+
+/** Header names whose values are masked in logs (still identifiable by prefix). */
+const SENSITIVE_HEADERS = new Set(['authorization', 'x-api-key', 'proxy-authorization', 'cookie']);
+
+let _netSeq = 0;
+
+function maskSecret(value) {
+  const s = String(value);
+  if (s.length <= 10) return '***';
+  return `${s.slice(0, 6)}…${s.slice(-4)} [masked, ${s.length} chars]`;
+}
+
+/** Copy a Headers object (or plain object) into a plain object, masking secrets. */
+function sanitizeHeaders(headers) {
+  const out = {};
+  if (!headers) return out;
+  if (typeof headers.forEach === 'function') {
+    // fetch Headers object: forEach(value, key)
+    headers.forEach((value, key) => {
+      out[key] = SENSITIVE_HEADERS.has(key.toLowerCase()) ? maskSecret(value) : value;
+    });
+  } else {
+    for (const [key, value] of Object.entries(headers)) {
+      out[key] = SENSITIVE_HEADERS.has(key.toLowerCase()) ? maskSecret(value) : value;
+    }
+  }
+  return out;
+}
+
+/** Pretty-print a JSON string; fall back to the raw text if unparsable. */
+function prettyJson(text) {
+  try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
+}
+
+function netLogRequest(id, url, headers, bodyStr) {
+  log.info(
+    `→ #${id} POST ${url}\n` +
+    `  Request Headers: ${JSON.stringify(sanitizeHeaders(headers), null, 2)}\n` +
+    `  Request Body: ${prettyJson(bodyStr)}`,
+  );
+}
+
+function netLogResponseHead(id, resp, startMs) {
+  log.info(
+    `← #${id} ${resp.status} ${resp.statusText || ''}· TTFB ${Date.now() - startMs} ms\n` +
+    `  Response Headers: ${JSON.stringify(sanitizeHeaders(resp.headers), null, 2)}`,
+  );
+}
+
+/**
+ * Drain one branch of a tee'd response body, logging every chunk as it
+ * arrives (works for both one-shot JSON bodies and streaming SSE bodies).
+ * The other branch is returned to the caller untouched.
+ */
+async function netLogResponseBody(id, stream, startMs) {
+  const decoder = new TextDecoder();
+  const reader = stream.getReader();
+  let chunks = 0;
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks += 1;
+      bytes += value?.byteLength ?? 0;
+      log.info(`← #${id} [body #${chunks}] ${decoder.decode(value, { stream: true })}`);
+    }
+    log.ok(`← #${id} done · ${chunks} chunks / ${bytes} bytes / ${Date.now() - startMs} ms`);
+  } catch (err) {
+    log.warn(`← #${id} response body logging aborted: ${err.message}`);
+  }
+}
 
 /**
  * Build the standard request headers for an API call.
@@ -57,11 +137,36 @@ export function buildAnthropicHeaders(apiKey, anthropicVersion = '2023-06-01') {
  */
 export async function post(url, headers, body, signal, customFetch) {
   const f = customFetch ?? fetch;
-  return f(url, {
+  const bodyStr = JSON.stringify(body);
+  const id = ++_netSeq;
+
+  if (NETLOG) netLogRequest(id, url, headers, bodyStr);
+
+  const startMs = Date.now();
+  const resp = await f(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: bodyStr,
     signal,
+  });
+
+  if (!NETLOG) return resp;
+
+  // Log status + response headers, then tee the body so the consumer still
+  // gets the full stream while we log every chunk as it arrives.
+  netLogResponseHead(id, resp, startMs);
+  if (!resp.body) {
+    log.ok(`← #${id} ${resp.status} · (no response body) · ${Date.now() - startMs} ms`);
+    return resp;
+  }
+  const [logged, passed] = resp.body.tee();
+  netLogResponseBody(id, logged, startMs).catch(() => { /* logging must never break the call */ });
+  // Rebuild a Response with the untouched branch so resp.json()/resp.text()/
+  // resp.body all behave exactly as before.
+  return new Response(passed, {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers: resp.headers,
   });
 }
 

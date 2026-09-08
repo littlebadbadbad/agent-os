@@ -12,6 +12,12 @@ interface HighlightTextProps {
   readonly matchPrefix?: string;
   /** Key of the match to emphasise: `${matchPrefix}:${matchIndex}`. */
   readonly currentMatchKey?: string | null;
+  /**
+   * Shared match counter for multi-node texts (e.g. a whole markdown message):
+   * each match consumes the next index so keys stay aligned with a plain-text
+   * scan of the same content. When omitted, matches are numbered locally.
+   */
+  readonly counter?: { value: number };
 }
 
 /**
@@ -23,6 +29,7 @@ export function HighlightText({
   query,
   matchPrefix,
   currentMatchKey,
+  counter,
 }: HighlightTextProps): ReactElement {
   const ranges = findMatches(text, query);
   if (ranges.length === 0) return <Fragment>{text}</Fragment>;
@@ -33,7 +40,8 @@ export function HighlightText({
     if (range.start > cursor) {
       parts.push(<Fragment key={`t${i}`}>{text.slice(cursor, range.start)}</Fragment>);
     }
-    const key = matchPrefix ? `${matchPrefix}:${i}` : undefined;
+    const matchIndex = counter ? counter.value++ : i;
+    const key = matchPrefix ? `${matchPrefix}:${matchIndex}` : undefined;
     const className =
       key !== undefined && key === currentMatchKey
         ? `${styles['mark']} ${styles['mark--current']}`

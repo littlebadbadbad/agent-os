@@ -52,7 +52,7 @@ const components: Components = {
       : <input type={type} {...rest} />,
 };
 
-const REMARK_APPS = [remarkGfm];
+const remarkPlugins = [remarkGfm];
 
 // ── Public component ──────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ interface MarkdownTextProps {
 export function MarkdownText({ text, isStreaming }: MarkdownTextProps) {
   return (
     <span className={styles['md-root']}>
-      <ReactMarkdown components={components} remarkApps={REMARK_APPS}>
+      <ReactMarkdown components={components} remarkPlugins={remarkPlugins}>
         {text}
       </ReactMarkdown>
       {isStreaming && <span className={styles['cursor']} aria-hidden="true" />}

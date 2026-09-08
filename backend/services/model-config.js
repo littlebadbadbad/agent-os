@@ -29,11 +29,41 @@ const log = createLogger('model-config');
 
 const CUSTOM_CONFIG_FILE = join(DATA_ROOT, 'custom-provider-config.json');
 
-// ── In-memory cache for custom config (reloaded on every read to support hot edits) ─
-
-let _cachedCustom = null;
+const API_TYPES = ['chat-completions', 'messages', 'responses'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Validate a provider entry before it is persisted, throwing a message that
+ * names the exact problem so the UI can surface it verbatim.
+ *
+ * @param {unknown} entry
+ * @returns {{name: string, models: Array}}
+ */
+function assertValidEntry(entry) {
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error('Provider entry must be a JSON object');
+  }
+  if (typeof entry.name !== 'string' || entry.name.trim() === '') {
+    throw new Error('Provider entry must have a non-empty name');
+  }
+  const name = entry.name.trim();
+  if (!Array.isArray(entry.models) || entry.models.length === 0) {
+    throw new Error(`Provider "${name}" must have at least one model`);
+  }
+  if (entry.apiType !== undefined && !API_TYPES.includes(entry.apiType)) {
+    throw new Error(`Provider "${name}" has unknown apiType "${entry.apiType}"`);
+  }
+  for (const [i, model] of entry.models.entries()) {
+    if (model === null || typeof model !== 'object' || typeof model.id !== 'string' || model.id.trim() === '') {
+      throw new Error(`Provider "${name}": model #${i + 1} must have a non-empty id`);
+    }
+    if (typeof model.url !== 'string' || model.url.trim() === '') {
+      throw new Error(`Provider "${name}": model "${model.id}" must have a non-empty url`);
+    }
+  }
+  return { ...entry, name };
+}
 
 /**
  * Deep clone a plain object/array (JSON-safe only).
@@ -73,7 +103,6 @@ function parseCustomConfig() {
   if (!Array.isArray(parsed)) {
     throw new Error('Custom provider config must be a JSON array');
   }
-  _cachedCustom = parsed;
   return parsed;
 }
 
@@ -160,7 +189,6 @@ export function saveCustomConfig(config) {
     throw new Error('Custom config must be an array');
   }
   writeFileSync(CUSTOM_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
-  _cachedCustom = config;
   log.info('Custom provider config saved');
 }
 
@@ -170,14 +198,12 @@ export function saveCustomConfig(config) {
  * @param {object} entry
  */
 export function addCustomProvider(entry) {
-  if (!entry.name || !entry.models?.length) {
-    throw new Error('Provider entry must have name and at least one model');
-  }
+  const valid = assertValidEntry(entry);
   const config = parseCustomConfig();
-  if (config.find((p) => p.name === entry.name)) {
-    throw new Error(`Provider "${entry.name}" already exists in custom config`);
+  if (config.find((p) => p.name === valid.name)) {
+    throw new Error(`Provider "${valid.name}" already exists in custom config`);
   }
-  config.push(entry);
+  config.push(valid);
   saveCustomConfig(config);
 }
 
@@ -202,15 +228,13 @@ export function removeCustomProvider(name) {
  * @param {object} entry
  */
 export function updateCustomProvider(name, entry) {
-  if (!entry.name || !entry.models?.length) {
-    throw new Error('Provider entry must have name and at least one model');
-  }
+  const valid = assertValidEntry(entry);
   const config = parseCustomConfig();
   const idx = config.findIndex((p) => p.name === name);
   if (idx === -1) {
-    config.push(entry);
+    config.push(valid);
   } else {
-    config[idx] = entry;
+    config[idx] = valid;
   }
   saveCustomConfig(config);
 }
@@ -236,9 +260,3 @@ export function listMergedModelsForProvider(providerName) {
   return provider.models;
 }
 
-/**
- * Reset the in-memory cache (used in tests for isolation).
- */
-export function _resetCache() {
-  _cachedCustom = null;
-}

@@ -29,12 +29,12 @@ export function register(router) {
   host.defineApi('getCustom', async () => modelConfigService.getCustomConfig());
 
   host.defineApi('saveCustom', async (params) => {
-    modelConfigService.saveCustomConfig(params);
+    modelConfigService.saveCustomConfig(params?.config);
     return { ok: true };
   });
 
   host.defineApi('addCustom', async (params) => {
-    modelConfigService.addCustomProvider(params);
+    modelConfigService.addCustomProvider(params?.entry);
     return { ok: true };
   });
 

@@ -15,8 +15,6 @@ import {
   fetchBuiltInModelConfig,
   fetchCustomModelConfig,
   saveCustomModelConfig,
-  addCustomModelProvider,
-  removeCustomModelProvider,
 } from '../api/providerConfigApi';
 
 // ── Types (mirror the JSON config structure) ─────────────────────────────────

@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { fetchPublicKey, fetchApiKeys, saveApiKey, deleteApiKey } from '../../api/backend';
+import { providerIcon } from './providerConfig';
 import styles from './ProviderSelector.module.scss';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -20,14 +21,6 @@ type KeyStatus = 'idle' | 'saving' | 'ok' | 'err';
 export interface ApiKeyManagerProps {
   /** Ordered list of provider names to show key rows for. */
   providerNames: readonly string[];
-}
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-const ICONS = ['✦', '🔮', '☁️', '🧠', '🐋', '⚡', '🔌', '🌐', '⚙️', '📡'];
-
-function providerIcon(index: number): string {
-  return ICONS[index % ICONS.length];
 }
 
 // ── Web-Crypto helpers (RSA-OAEP encryption) ─────────────────────────────────
@@ -148,10 +141,10 @@ export function ApiKeyManager({ providerNames }: ApiKeyManagerProps) {
         <div className={styles.providerEmpty}>暂无已配置提供商</div>
       )}
 
-      {providerNames.map((name, idx) => (
+      {providerNames.map((name) => (
         <div key={name} className={styles.keyRow}>
           <div className={styles.keyRowHeader}>
-            <span className={styles.keyRowIcon}>{providerIcon(idx)}</span>
+            <span className={styles.keyRowIcon}>{providerIcon(name)}</span>
             <span className={styles.keyRowLabel}>{name}</span>
             {maskedKeys[name]
               ? <span className={styles.keySet}>{maskedKeys[name]}</span>

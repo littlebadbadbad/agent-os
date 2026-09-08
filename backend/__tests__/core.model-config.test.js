@@ -64,8 +64,8 @@ describe('core/model-config app', () => {
   it('saveCustom stores config and returns ok', async () => {
     register(router);
     const h = findHandler('saveCustom');
-    const cfg = { name: 'new' };
-    const result = await h(cfg);
+    const cfg = [{ name: 'new' }];
+    const result = await h({ config: cfg });
     expect(result).toEqual({ ok: true });
     expect(mcs.saveCustomConfig).toHaveBeenCalledWith(cfg);
   });
@@ -73,8 +73,8 @@ describe('core/model-config app', () => {
   it('addCustom adds provider and returns ok', async () => {
     register(router);
     const h = findHandler('addCustom');
-    const entry = { name: 'NewProvider' };
-    const result = await h(entry);
+    const entry = { name: 'NewProvider', models: [{ id: 'm', url: 'https://x/v1' }] };
+    const result = await h({ entry });
     expect(result).toEqual({ ok: true });
     expect(mcs.addCustomProvider).toHaveBeenCalledWith(entry);
   });

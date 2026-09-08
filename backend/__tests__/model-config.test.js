@@ -4,7 +4,7 @@
  * Covers: getBuiltInConfig, getCustomConfig, getMergedConfig,
  * getMergedProvider, getMergedModelConfig, saveCustomConfig,
  * addCustomProvider, removeCustomProvider, updateCustomProvider,
- * listMergedProviderNames, listMergedModelsForProvider, _resetCache.
+ * listMergedProviderNames, listMergedModelsForProvider.
  *
  * Uses vi.mock on 'fs' to control file system behavior.
  * Target: 100% coverage.
@@ -89,7 +89,6 @@ import {
   updateCustomProvider,
   listMergedProviderNames,
   listMergedModelsForProvider,
-  _resetCache,
 } from '../services/model-config.js';
 
 const CUSTOM_CONFIG_PATH = join('/mock/data', 'custom-provider-config.json');
@@ -97,7 +96,6 @@ const DATA_DIR = join('/mock/data');
 
 beforeEach(() => {
   vi.clearAllMocks();
-  _resetCache();
   existsSync.mockReturnValue(true);
   readFileSync.mockReturnValue(JSON.stringify(SAMPLE_CUSTOM));
 });
@@ -326,26 +324,32 @@ describe('addCustomProvider', () => {
   });
 
   it('throws when name is missing', () => {
-    expect(() => addCustomProvider({ name: '', models: [{ id: 'm' }] })).toThrow(
-      'Provider entry must have name and at least one model',
+    expect(() => addCustomProvider({ name: '', models: [{ id: 'm', url: 'https://m/v1' }] })).toThrow(
+      'Provider entry must have a non-empty name',
     );
   });
 
   it('throws when models are empty', () => {
     expect(() => addCustomProvider({ name: 'X', models: [] })).toThrow(
-      'Provider entry must have name and at least one model',
+      'Provider "X" must have at least one model',
     );
   });
 
   it('throws when models is missing', () => {
     expect(() => addCustomProvider({ name: 'X' })).toThrow(
-      'Provider entry must have name and at least one model',
+      'Provider "X" must have at least one model',
+    );
+  });
+
+  it('throws when a model has no url', () => {
+    expect(() => addCustomProvider({ name: 'X', models: [{ id: 'm' }] })).toThrow(
+      'Provider "X": model "m" must have a non-empty url',
     );
   });
 
   it('throws when provider already exists in custom config', () => {
     readFileSync.mockReturnValue(JSON.stringify(SAMPLE_CUSTOM));
-    expect(() => addCustomProvider({ name: 'deepseek', models: [{ id: 'dup' }] })).toThrow(
+    expect(() => addCustomProvider({ name: 'deepseek', models: [{ id: 'dup', url: 'https://dup/v1' }] })).toThrow(
       'Provider "deepseek" already exists in custom config',
     );
   });
@@ -430,14 +434,14 @@ describe('updateCustomProvider', () => {
   });
 
   it('throws when entry has no name', () => {
-    expect(() => updateCustomProvider('x', { models: [{ id: 'm' }] })).toThrow(
-      'Provider entry must have name and at least one model',
+    expect(() => updateCustomProvider('x', { models: [{ id: 'm', url: 'https://m/v1' }] })).toThrow(
+      'Provider entry must have a non-empty name',
     );
   });
 
   it('throws when entry has empty models', () => {
     expect(() => updateCustomProvider('x', { name: 'x', models: [] })).toThrow(
-      'Provider entry must have name and at least one model',
+      'Provider "x" must have at least one model',
     );
   });
 });
@@ -496,24 +500,6 @@ describe('listMergedModelsForProvider', () => {
   });
 });
 
-// ── _resetCache ─────────────────────────────────────────────────────────────
-
-describe('_resetCache', () => {
-  it('clears the in-memory cache, forcing re-read on next getCustomConfig', () => {
-    readFileSync.mockReturnValue(JSON.stringify(SAMPLE_CUSTOM));
-    const first = getCustomConfig();
-    expect(first).toEqual(SAMPLE_CUSTOM);
-
-    // Change what readFileSync returns
-    const newCustom = [{ name: 'new', apiKey: '', apiType: 'chat-completions', models: [] }];
-    // Note: _resetCache() was called in beforeEach, so we need to test that the
-    // cache is cleared and next call re-reads from disk
-    _resetCache();
-    readFileSync.mockReturnValue(JSON.stringify(newCustom));
-    const second = getCustomConfig();
-    expect(second).toEqual(newCustom);
-  });
-});
 
 // ── Edge cases for getMergedConfig ──────────────────────────────────────────
 
