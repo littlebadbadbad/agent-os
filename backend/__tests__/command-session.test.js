@@ -34,6 +34,17 @@ async function readUntilContains(cs, needle, timeout = 5000) {
   return cs.read(0).output;
 }
 
+/** Poll until the process has exited and info().exitCode is set (or timeout). */
+async function waitExitCode(cs, timeout = 5000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const code = cs.info().exitCode;
+    if (typeof code === 'number') return code;
+    await sleep(50);
+  }
+  return cs.info().exitCode;
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('CommandSession', () => {
@@ -242,8 +253,7 @@ describe('CommandSession', () => {
     it('sets exitCode after process ends', async () => {
       const cs = makeSession('kill-3', { commandLine: `${ECHO_CMD} quick` });
       await readUntilContains(cs, 'quick');
-      await sleep(500);
-      const exitCode = cs.info().exitCode;
+      const exitCode = await waitExitCode(cs);
       expect(typeof exitCode).toBe('number');
     });
 
@@ -286,8 +296,7 @@ describe('CommandSession', () => {
         ? 'cmd /c "exit /b 42"'
         : 'exit 42';
       const cs = makeSession('err-2', { commandLine: failCmd });
-      await sleep(500);
-      const exitCode = cs.info().exitCode;
+      const exitCode = await waitExitCode(cs);
       expect(typeof exitCode).toBe('number');
     });
 

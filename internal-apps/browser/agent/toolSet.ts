@@ -122,12 +122,6 @@ export function createBrowserToolSet(adapter: BrowserAdapter): ToolSet {
   return {
     symbol: BROWSER_SYMBOL,
     name: "browser",
-    coreTools: [
-      "browser_launch",
-      "browser_navigate",
-      "browser_run",
-      "browser_snapshot",
-    ],
     tools,
     onGetSystemPrompt: getSystemPrompt,
     onGetSymbolState: (_ctx: ToolSetContext) => ({

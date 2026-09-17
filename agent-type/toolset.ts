@@ -335,20 +335,6 @@ export type ToolSet<
    */
   tools: readonly Tool[] | (() => readonly Tool[]);
 
-  /**
-   * Names of this ToolSet's tools that must always remain visible to the model,
-   * even when the ToolState ToolSet defers non-core tools behind `tool_search`.
-   *
-   * Declare the tools that the agent needs to *discover* or *initiate* a
-   * workflow — once inside a mode (e.g. plan mode) the ToolSet's own
-   * `onFilterTools` controls visibility independently.
-   *
-   * The ToolState ToolSet's `onFilterTools` aggregates `coreTools` from every
-   * registered ToolSet at filter time, so new ToolSets registered dynamically
-   * are also respected without any manual bookkeeping.
-   */
-  coreTools?: readonly string[];
-
   // ── Agent attachment ───────────────────────────────────────────────────────
 
   /**

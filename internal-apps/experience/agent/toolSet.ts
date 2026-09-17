@@ -251,7 +251,6 @@ export function createExperienceToolSet(): ToolSet {
     symbol: EXPERIENCE_SYMBOL,
     name: 'experience',
     description: 'Persistent trigger->insight experience records for pattern matching.',
-    coreTools: ['experience_add', 'experience_list'],
     tools: [experienceAdd, experienceUpdate, experienceDelete, experienceList],
 
     // Sub-agents: no experience tools, no system-prompt injection.

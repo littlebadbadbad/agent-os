@@ -21,7 +21,6 @@ export function createFileToolSet(adapter: FileAdapter): ToolSet {
     symbol: FILE_SYMBOL,
     description: 'File read/write, search, and workspace management',
     tools,
-    coreTools: ['read_file', 'write_file', 'str_replace', 'list_dir', 'search_files'],
 
     onGetSymbolState: (_ctx: ToolSetContext) => ({
       type: 'file' as const,

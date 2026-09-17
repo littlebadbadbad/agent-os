@@ -38,7 +38,7 @@ import { type ReactElement } from "react";
 import type {
   ToolCallInfo,
   SlotSession,
-  AppSlotDeclaration,
+  SlotDeclaration,
   AppStateExtension,
 } from "@agent-type";
 import type { SlotRegistry } from "./registry";
@@ -75,7 +75,7 @@ function checkShouldRender(
   session: SlotSession | null | undefined,
   getSlot: SlotRegistry["getSlot"],
   toolSetSymbol: symbol,
-  declaration?: AppSlotDeclaration,
+  declaration?: SlotDeclaration,
 ): boolean {
   const decl = declaration ?? getSlot(appId, slotId)?.declaration;
   // Inline slot types never use the iframe dispatch — skip silently.
@@ -108,7 +108,7 @@ interface IframeSlotRendererBase {
   /** Session — may be null for session-independent slots (toolButton). */
   readonly session?: SlotSession | null;
   readonly toolSetSymbol: symbol;
-  readonly declaration?: AppSlotDeclaration;
+  readonly declaration?: SlotDeclaration;
   readonly className?: string;
 }
 

@@ -2,7 +2,7 @@
  * Tests for agent/manager.ts — createMcpToolset
  *
  * Covers the full lifecycle:
- *   - ToolSet structure (symbol, name, coreTools, tools)
+ *   - ToolSet structure (symbol, name, tools)
  *   - Meta-tools: list/add/remove/connect/disable MCP servers
  *   - Proxy tool registration/unregistration on connect/disconnect
  *   - Content serialization (text, image, resource, audio)
@@ -166,10 +166,6 @@ describe('createMcpToolset', () => {
       expect(names).toContain('read_mcp_resource');
       expect(names).toContain('list_mcp_prompts');
       expect(names).toContain('get_mcp_prompt');
-    });
-
-    it('coreTools includes list_mcp_servers', () => {
-      expect(bundle.toolSet.coreTools).toEqual(['list_mcp_servers']);
     });
 
     it('has 4 slot declarations including autocomplete', () => {

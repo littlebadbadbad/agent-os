@@ -33,7 +33,7 @@ export const appSystem = createAppSystem();
  * The async agent exists only as a reference example (see handlers/asyncHandler)
  * and is deliberately NOT wired here — mounting two agents would fan one shared
  * ToolSet instance out to both, letting the second `onAttach` clobber the
- * first (the tool_search-wrong-pool bug).  One agent, one registration.
+ * first (the tool-state wrong-pool bug).  One agent, one registration.
  */
 function createAppContext(): AgentAppContext {
   // Use getters so these work regardless of module evaluation order.

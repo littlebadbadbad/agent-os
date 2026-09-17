@@ -34,7 +34,6 @@ export function createTerminalToolSet(adapter: TerminalManagerAdapter): ToolSet 
 
   return {
     name: 'terminal',
-    coreTools: ['terminal_list', 'terminal_create', 'terminal_send', 'terminal_read', 'terminal_wait'],
     tools,
     onGetSystemPrompt: getSystemPrompt,
   };

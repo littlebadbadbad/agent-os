@@ -8,7 +8,8 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['ui/components/__tests__/**/*.test.ts', 'ui/components/__tests__/**/*.test.tsx'],
+    root: __dirname,
+    include: ['ui/**/__tests__/**/*.test.ts', 'ui/**/__tests__/**/*.test.tsx'],
     environment: 'node',
     reporters: ['verbose'],
   },

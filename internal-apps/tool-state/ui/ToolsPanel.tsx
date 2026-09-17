@@ -23,17 +23,38 @@ function groupTools(tools: ToolStateEntry[]): ToolGroup[] {
 }
 
 function ToolItem({ tool, onToggle }: { tool: ToolStateEntry; onToggle: (name: string) => void }): ReactElement {
+  const locked = tool.locked === true;
+  const resident = tool.resident === true;
+  const itemClass = [
+    styles['tool-item'],
+    !tool.enabled ? styles['tool-item--disabled'] : '',
+    locked ? styles['tool-item--locked'] : '',
+    resident ? styles['tool-item--resident'] : '',
+  ].filter(Boolean).join(' ');
+
+  const title = resident
+    ? 'Resident tool — always enabled'
+    : locked
+      ? 'Disabled globally — enable it from the Tools button'
+      : tool.enabled
+        ? 'Disable tool'
+        : 'Enable tool';
+
   return (
-    <div className={`${styles['tool-item']}${!tool.enabled ? ` ${styles['tool-item--disabled']}` : ''}`}>
+    <div className={itemClass}>
       <div className={styles['tool-item-info']}>
-        <div className={styles['tool-item-name']}>{tool.name}</div>
+        <div className={styles['tool-item-name']}>
+          {tool.name}
+          {resident && <span className={styles['tool-item-pin']} aria-hidden="true">{'\u{1F4CC}'}</span>}
+          {locked && <span className={styles['tool-item-lock']} aria-hidden="true">{'\u{1F512}'}</span>}
+        </div>
         {tool.description && <div className={styles['tool-item-desc']}>{tool.description}</div>}
       </div>
       <button
-        type="button" role="switch" aria-checked={tool.enabled}
-        className={`${styles['toggle']}${tool.enabled ? ` ${styles['toggle--on']}` : ''}`}
+        type="button" role="switch" aria-checked={tool.enabled} disabled={locked || resident}
+        className={`${styles['toggle']}${tool.enabled ? ` ${styles['toggle--on']}` : ''}${locked || resident ? ` ${styles['toggle--locked']}` : ''}`}
         onClick={() => onToggle(tool.name)}
-        title={tool.enabled ? 'Disable tool' : 'Enable tool'}
+        title={title}
       >
         <span className={styles['toggle-thumb']} />
       </button>
@@ -61,7 +82,10 @@ export function ToolsPanel({
       {groups.map(({ name, tools }) => {
         const isCollapsed = collapsed[name] ?? true;
         const enabledCount = tools.filter((t) => t.enabled).length;
-        const allEnabled = enabledCount === tools.length;
+        // Bulk toggling can only reach tools the session is allowed to change
+        // (not globally-locked, not resident).
+        const togglable = tools.filter((t) => !t.locked && !t.resident);
+        const allEnabled = togglable.length > 0 && togglable.every((t) => t.enabled);
         return [
           <div key={name} className={styles['tool-group']}>
             <div className={styles['tool-group-header']}>
@@ -73,12 +97,17 @@ export function ToolsPanel({
                 <span className={styles['tool-group-count']}>{enabledCount}/{tools.length}</span>
               </button>
               <button type="button" role="switch" aria-checked={allEnabled}
-                className={`${styles['toggle']}${allEnabled ? ` ${styles['toggle--on']}` : ''}`}
+                disabled={togglable.length === 0}
+                className={`${styles['toggle']}${allEnabled ? ` ${styles['toggle--on']}` : ''}${togglable.length === 0 ? ` ${styles['toggle--locked']}` : ''}`}
                 onClick={() => {
-                  const targets = allEnabled ? tools : tools.filter((t) => !t.enabled);
+                  const targets = allEnabled ? togglable : togglable.filter((t) => !t.enabled);
                   targets.forEach((t) => onToggle(t.name));
                 }}
-                title={allEnabled ? 'Disable all tools in this group' : 'Enable all tools in this group'}>
+                title={togglable.length === 0
+                  ? 'All tools in this group are globally disabled'
+                  : allEnabled
+                    ? 'Disable all tools in this group'
+                    : 'Enable all tools in this group'}>
                 <span className={styles['toggle-thumb']} />
               </button>
             </div>

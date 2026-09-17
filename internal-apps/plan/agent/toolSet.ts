@@ -8,7 +8,7 @@ import { PLAN_GUIDANCE } from './prompt';
 
 const PLAN_MODE_ALLOWED = new Set([
   'plan_write', 'plan_exit', 'read_file', 'list_dir',
-  'search_files', 'get_workspace_root', 'ask_user', 'tool_search',
+  'search_files', 'get_workspace_root', 'ask_user', 'manage_tools',
 ]);
 
 export const PLAN_SYMBOL = Symbol('plan');
@@ -54,13 +54,6 @@ export function createPlanToolSet(): ToolSet {
     name: 'plan',
     symbol: PLAN_SYMBOL,
     tools,
-
-    /**
-     * All plan tools are core — the agent must always be able to see them so
-     * it can initiate planning, checkpoint progress, and verify completion
-     * without first having to discover them via `tool_search`.
-     */
-    coreTools: ['plan_write', 'plan_checkpoint', 'plan_enter', 'plan_exit', 'plan_verify'],
 
     onInit(ctx: ToolSetContext, entryData?: SessionEntryData): void {
       if (entryData?.plan) {

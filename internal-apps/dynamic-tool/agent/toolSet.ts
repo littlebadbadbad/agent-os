@@ -55,7 +55,6 @@ export function createDynamicToolset(adapter: DynamicToolAdapter): ToolSet {
     symbol: DYNAMIC_TOOL_SYMBOL,
     description: 'Manages dynamically created agent tools, shared modules, and npm dependencies.',
     tools,
-    coreTools: ['create_tool', 'update_tool', 'list_dynamic_tools', 'create_module', 'install_tool_deps'],
 
     onAttach(agent: AgentQueryFns): (() => void) | void {
       // Defer backend hydration to onAttach — at factory-construction time the

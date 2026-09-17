@@ -2,7 +2,7 @@
   "id": "tool-state",
   "name": "Tool State",
   "version": "0.1.0",
-  "description": "Tool enable/disable management. Provides per-scope tool state control with persistent preferences.",
+  "description": "Default-off tool access control: sessions start with every tool disabled; the resident manage_tools tool batch-enables what a task needs. Per-session panel plus a global toolButton control, with persistent preferences.",
   "agentEntry": "activate.js",
   "uiEntry": "ui/index.html"
 }

@@ -263,7 +263,6 @@ export function createUserInputToolSet(
     symbol: USER_INPUT_SYMBOL,
     name: "user-input",
     description: "Ask user for input",
-    coreTools: ["ask_user"],
     tools: [askUserTool],
 
     // ── System prompt ────────────────────────────────────────────────────────

@@ -7,6 +7,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Disable http-client NETLOG before it is imported: post() would otherwise
+// tee() the mocked response body and rebuild a new Response, so
+// readSSEStream would receive a different stream object than resp.body.
+vi.hoisted(() => {
+  process.env.HTTP_LOG = 'off';
+});
+
 // ── Logger mock ───────────────────────────────────────────────────────────────
 
 vi.mock('../lib/logger.js', () => ({

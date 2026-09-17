@@ -1,14 +1,33 @@
 // @ts-nocheck
+/**
+ * Tool-state app tests — default-off model.
+ *
+ * Covers: per-scope enabled sets (default: everything off), the resident
+ * `manage_tools` batch switcher (atomic + validated), session-panel state
+ * rendering data, snapshot persist/restore, execution gating, system-prompt
+ * catalogue/suppression, the global (toolButton) lock, and resident-tool
+ * immunity across every control surface.
+ */
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { createToolStateToolSet } from '../agent';
-import { createToolSearchTool, TOOL_SEARCH_THRESHOLD } from '../agent/tools';
+import {
+  createToolStateToolSet,
+  createGlobalToolStore,
+  createToolStateBridge,
+  createToolStateSlots,
+  MANAGE_TOOLS_NAME,
+  isResident,
+  TOOL_STATE_GUIDANCE,
+  truncateDescription,
+  DESCRIPTION_LIMIT,
+} from '../agent';
 import { MAIN_CONVERSATION_ID } from '@agent-type';
-import type { Tool, ToolExecutionContext, ToolSet, AgentQueryFns } from '@agent-type';
+import type { Tool, ToolExecutionContext, ToolSetContext, AgentQueryFns } from '@agent-type';
+import type { ToolStateEntry } from '../agent/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeCtx(sessionId = 'session-1', agentName = 'main', conversationId = MAIN_CONVERSATION_ID) {
+function makeCtx(sessionId = 'session-1', agentName = 'main', conversationId = MAIN_CONVERSATION_ID): ToolSetContext {
   return { sessionId, agentName, conversationId };
 }
 
@@ -34,735 +53,618 @@ function makeTool(name: string, description?: string, group?: string): Tool {
   };
 }
 
-// ── createToolSearchTool ──────────────────────────────────────────────────────
+/** The manage_tools tool instance carried by a ToolSet. */
+function manageTools(ts): Tool {
+  const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
+  return tools.find((t: Tool) => t.name === MANAGE_TOOLS_NAME);
+}
 
-describe('createToolSearchTool', () => {
-  /**
-   * Fake search scope carrying a pool + core-tool declarations, mirroring
-   * what the real ToolSet resolves for a scope (see ToolSearchScope).
-   */
-  function makeSearchScope(
-    tools: readonly Tool[],
-    coreTools: readonly string[] = [],
-  ): { pool: readonly Tool[]; core: ReadonlySet<string> } {
-    return { pool: tools, core: new Set(coreTools) };
-  }
+const POOL = () => [makeTool(MANAGE_TOOLS_NAME, 'manage tools', 'Tool State'), makeTool('alpha'), makeTool('beta', undefined, 'Git')];
 
-  it('returns top match for deferred tools matching by name', async () => {
-    const tools = [
-      makeTool('visible_tool', 'Always visible'),
-      makeTool('deferred_reader', 'Reads data from files'),
-      makeTool('another_tool', 'Something else'),
-    ];
-    const tool = createToolSearchTool(
-      () => makeSearchScope(tools, ['visible_tool']),
-      () => new Set(),
-    );
-    const result = await tool.execute({ query: 'reader' }, makeExecCtx());
-    expect(result.top).not.toBeNull();
-    expect(result.top!.name).toBe('deferred_reader');
-    expect(result.total).toBe(1);
-    expect(result.others).toHaveLength(0);
-  });
+function makePromptCtx() {
+  return {
+    userMessage: undefined,
+    baseSystemPrompt: undefined,
+    currentSystemPromptParts: [],
+    suppressToolSetPrompt: vi.fn(),
+  };
+}
 
-  it('returns top match with full description and parameters schema', async () => {
-    const tools = [
-      makeTool('file_reader', 'Reads and parses files from the filesystem. Supports text, JSON, and binary formats.'),
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'file' }, makeExecCtx());
-    expect(result.top).not.toBeNull();
-    expect(result.top!.name).toBe('file_reader');
-    expect(result.top!.description).toBe(
-      'Reads and parses files from the filesystem. Supports text, JSON, and binary formats.',
-    );
-    expect(result.top!.parameters).toBeDefined();
-    expect(typeof result.top!.parameters).toBe('object');
-    // Should have JSON Schema properties (type, properties, additionalProperties)
-    expect(result.top!.parameters).toHaveProperty('type', 'object');
-    expect(result.top!.parameters).toHaveProperty('properties');
-  });
+// ── toolMeta ──────────────────────────────────────────────────────────────────
 
-  it('returns results matching by description', async () => {
-    const tools = [
-      makeTool('tool_a', 'Handles file processing'),
-      makeTool('tool_b', 'Network requests'),
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'file' }, makeExecCtx());
-    expect(result.top).not.toBeNull();
-    expect(result.top!.name).toBe('tool_a');
-    expect(result.total).toBe(1);
-  });
-
-  it('supports multiple space-separated keywords', async () => {
-    const tools = [
-      makeTool('git_commit', 'Creates a git commit'),
-      makeTool('file_read', 'Reads a file from disk'),
-      makeTool('git_diff', 'Shows git diff'),
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'git file' }, makeExecCtx());
-    // git_commit matches "git"; file_read matches "file" �?the one matching more keywords ranks higher
-    expect(result.top).not.toBeNull();
-    // Both match one keyword, but name match scores higher... let's verify
-    expect(result.total).toBeGreaterThanOrEqual(2);
-  });
-
-  it('ranks results by relevance score', async () => {
-    const tools = [
-      makeTool('file_reader', 'Some utility tool'),
-      makeTool('file_writer', 'Writes files to disk'),
-      makeTool('read_config', 'Reads configuration'),
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'file read' }, makeExecCtx());
-    expect(result.top).not.toBeNull();
-    // file_reader matches both "file" AND "read" �?should rank highest
-    expect(result.top!.name).toBe('file_reader');
-    expect(result.top!.score).toBeGreaterThan(0);
-  });
-
-  it('excludes core tools from search results', async () => {
-    const tools = [
-      makeTool('core_reader', 'Core reader'),
-      makeTool('deferred_writer', 'Deferred writer'),
-    ];
-    const tool = createToolSearchTool(
-      () => makeSearchScope(tools, ['core_reader']),
-      () => new Set(),
-    );
-    const result = await tool.execute({ query: 'reader' }, makeExecCtx());
-    expect(result.total).toBe(0);
-    expect(result.top).toBeNull();
-  });
-
-  it('excludes disabled tools from search results', async () => {
-    const tools = [
-      makeTool('disabled_tool', 'A disabled tool'),
-      makeTool('enabled_tool', 'An enabled tool'),
-    ];
-    const tool = createToolSearchTool(
-      () => makeSearchScope(tools),
-      (key: string) => new Set(['disabled_tool']),
-    );
-    const result = await tool.execute({ query: 'tool' }, makeExecCtx());
-    expect(result.total).toBe(1);
-    expect(result.top!.name).toBe('enabled_tool');
-  });
-
-  it('returns empty when no tools match', async () => {
-    const tool = createToolSearchTool(() => makeSearchScope([]), () => new Set());
-    const result = await tool.execute({ query: 'nonexistent' }, makeExecCtx());
-    expect(result.total).toBe(0);
-    expect(result.top).toBeNull();
-    expect(result.others).toHaveLength(0);
-  });
-
-  it('limits results to 15', async () => {
-    const tools = Array.from({ length: 20 }, (_, i) => makeTool(`tool_${i}`, `Description ${i}`));
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'tool' }, makeExecCtx());
-    expect(result.total).toBeLessThanOrEqual(15);
-  });
-
-  it('handles factory-function descriptions', async () => {
-    const tools = [
-      {
-        name: 'dynamic_tool',
-        description: () => 'A dynamically described tool for testing features',
-        group: 'test',
-        parameters: z.object({ input: z.string() }),
-        execute: async () => 'ok',
-      },
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'testing' }, makeExecCtx());
-    expect(result.total).toBe(1);
-    expect(result.top!.name).toBe('dynamic_tool');
-    expect(result.top!.description).toContain('dynamically described');
-  });
-
-  it('uses per-scope disabled names via context', async () => {
-    const tools = [makeTool('t1'), makeTool('t2')];
-    const disabledByScope = new Map<string, Set<string>>();
-    disabledByScope.set('session-s1', new Set(['t1']));
-
-    const tool = createToolSearchTool(
-      () => makeSearchScope(tools),
-      (key: string) => disabledByScope.get(key) ?? new Set(),
-    );
-    const result = await tool.execute({ query: 't' }, makeExecCtx('session-s1'));
-    expect(result.total).toBe(1);
-    expect(result.top!.name).toBe('t2');
-  });
-
-  it('handles tools with rawParametersSchema', async () => {
-    const rawSchema = { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] };
-    const tools: Tool[] = [
-      {
-        name: 'read_raw',
-        description: 'Read using raw schema',
-        parameters: () => z.object({}),
-        rawParametersSchema: rawSchema,
-        execute: async () => null,
-      },
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'read' }, makeExecCtx());
-    expect(result.top).not.toBeNull();
-    expect(result.top!.parameters).toEqual(rawSchema);
-  });
-
-  it('others list contains secondary matches with name and description', async () => {
-    const tools = [
-      makeTool('tool_a', 'Primary match for testing'),
-      makeTool('tool_b', 'Secondary match also for testing'),
-      makeTool('tool_c', 'Third match for testing purposes'),
-    ];
-    const tool = createToolSearchTool(() => makeSearchScope(tools), () => new Set());
-    const result = await tool.execute({ query: 'testing' }, makeExecCtx());
-    expect(result.total).toBe(3);
-    expect(result.top).not.toBeNull();
-    expect(result.others).toHaveLength(2);
-    expect(result.others[0].name).toBeDefined();
-    expect(result.others[0].description).toBeDefined();
-    expect(result.others[0].score).toBeGreaterThan(0);
+describe('toolMeta', () => {
+  it('manage_tools is the only resident tool', () => {
+    expect(isResident(MANAGE_TOOLS_NAME)).toBe(true);
+    expect(isResident('read_file')).toBe(false);
+    expect(isResident('')).toBe(false);
   });
 });
 
-// ── createToolStateToolSet ────────────────────────────────────────────────────
+// ── prompt helpers ────────────────────────────────────────────────────────────
+
+describe('prompt', () => {
+  it('truncateDescription flattens whitespace', () => {
+    expect(truncateDescription('a\n\n  b\t c')).toBe('a b c');
+  });
+
+  it('truncateDescription caps at DESCRIPTION_LIMIT with an ellipsis', () => {
+    const long = 'x'.repeat(DESCRIPTION_LIMIT + 40);
+    const out = truncateDescription(long);
+    expect(out.length).toBe(DESCRIPTION_LIMIT);
+    expect(out.endsWith('…')).toBe(true);
+  });
+
+  it('truncateDescription leaves short descriptions untouched', () => {
+    expect(truncateDescription('short one')).toBe('short one');
+  });
+});
+
+// ── createToolStateToolSet — shape ───────────────────────────────────────────
 
 describe('createToolStateToolSet', () => {
-  // ── Shape ──────────────────────────────────────────────────────────────────
-
-  it('has name "ToolState"', () => {
+  it('has name "ToolState" and carries the resident manage_tools tool', () => {
     const ts = createToolStateToolSet();
     expect(ts.name).toBe('ToolState');
+    const manage = manageTools(ts);
+    expect(manage).toBeDefined();
+    expect(manage.group).toBe('Tool State');
   });
 
-  it('registers the tool_search tool', () => {
+  // ── Default-off filtering ──────────────────────────────────────────────────
+
+  it('onFilterTools keeps ONLY the resident tool on a fresh scope', () => {
     const ts = createToolStateToolSet();
-    const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
-    expect(tools.some((t) => t.name === 'tool_search')).toBe(true);
+    const filtered = ts.onFilterTools!(makeCtx(), POOL());
+    expect(filtered.map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
   });
 
-  it('onAttach captures the agent reference', () => {
-    const ts = createToolStateToolSet();
-    const detach = ts.onAttach?.({
-      getTools: () => [],
-      getRegisteredToolSets: () => [],
-    } as AgentQueryFns);
-    expect(detach).toBeUndefined();
-  });
-
-  // ── Multi-agent shared instance (regression: tool_search searched the wrong pool) ──
-
-  /**
-   * The UI's combined app context registers ONE ToolSet instance on BOTH
-   * the stream and async agents.  `tool_search` must search the pool of the
-   * agent that actually called it �?not the last one attached.
-   */
-  it('tool_search searches the pool of the agent that called it', async () => {
-    const ts = createToolStateToolSet();
-    const streamTools = [
-      makeTool('create_stream_subagent', 'Define a new stream sub-agent'),
-      makeTool('send_stream_message', 'Send a message to a stream sub-agent'),
-    ];
-    const asyncTools = [
-      makeTool('create_async_subagent', 'Define a new async sub-agent'),
-      makeTool('send_async_message', 'Send a message to an async sub-agent'),
-    ];
-    const streamAgent: AgentQueryFns = {
-      id: 'stream-agent',
-      getTools: () => streamTools,
-      getFilteredTools: () => streamTools,
-      getRegisteredToolSets: () => [],
-      handler: async () => {},
-    };
-    const asyncAgent: AgentQueryFns = {
-      id: 'async-agent',
-      getTools: () => asyncTools,
-      getFilteredTools: () => asyncTools,
-      getRegisteredToolSets: () => [],
-      handler: async () => {},
-    };
-
-    // Combined-context order: stream first, async second.
-    ts.onAttach?.(streamAgent);
-    ts.onAttach?.(asyncAgent);
-
-    const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
-    const search = tools.find((t) => t.name === 'tool_search')!;
-
-    // A stream-agent call must search the stream pool �?never the async pool.
-    const streamResult = await search.execute(
-      { query: 'create stream subagent' },
-      makeExecCtx('s-stream', 'stream-agent'),
-    );
-    expect(streamResult.top?.name).toBe('create_stream_subagent');
-
-    // An async-agent call must search the async pool.
-    const asyncResult = await search.execute(
-      { query: 'create stream subagent' },
-      makeExecCtx('s-async', 'async-agent'),
-    );
-    expect(asyncResult.top?.name).toBe('create_async_subagent');
-  });
-
-  it('sub-agent tool_search searches its own granted allow-list only', async () => {
-    const ts = createToolStateToolSet();
-    const streamTools = [
-      makeTool('create_stream_subagent', 'Define a new stream sub-agent'),
-      makeTool('send_stream_message', 'Send a message to a stream sub-agent'),
-    ];
-    const streamAgent: AgentQueryFns = {
-      id: 'stream-agent',
-      getTools: () => streamTools,
-      getFilteredTools: () => streamTools,
-      getRegisteredToolSets: () => [],
-      handler: async () => {},
-    };
-    ts.onAttach?.(streamAgent);
-
-    // Main-session filter run records the session → agent ownership.
-    ts.onFilterTools!(makeCtx('s-main', 'stream-agent'), streamTools);
-
-    // The sub-agent's own filter run grants it a single tool.
-    ts.onFilterTools!(
-      makeCtx('s-main', 'researcher', 'conv-1'),
-      [makeTool('create_stream_subagent', 'Define a new stream sub-agent')],
-    );
-
-    const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
-    const search = tools.find((t) => t.name === 'tool_search')!;
-    const result = await search.execute(
-      { query: 'send message' },
-      makeExecCtx('s-main', 'researcher', 'conv-1'),
-    );
-    // send_stream_message was NOT granted to the sub-agent — must not surface,
-    // and neither does anything else (the granted tool doesn't match these words).
-    expect(result.total).toBe(0);
-  });
-
-  // ── Sub-agent tool_search risk verification ────────────────────────────────
-  //
-  // A sub-agent is created with an explicit allow-list (`tool_names`).  Its
-  // runtime registry contains ONLY those tools — anything else fails at
-  // execution.  `tool_search` must therefore only ever surface tools inside
-  // that allow-list.  These tests pin down the concrete risks:
-
-  describe('sub-agent tool_search risks', () => {
-    /**
-     * Parent agent whose pool mixes the sub-agent's granted tools with
-     * sensitive tools that the sub-agent was NOT granted.
-     */
-    function makeRestrictedParent(): { ts: ReturnType<typeof createToolStateToolSet>; search: Tool } {
-      const ts = createToolStateToolSet();
-      const parentTools = [
-        makeTool('read_file', 'Read a file from disk'),
-        makeTool('write_file', 'Write a file to disk'),
-        makeTool('git_commit', 'Create a git commit'),
-        makeTool('browser_launch', 'Launch a browser'),
-      ];
-      const parent: AgentQueryFns = {
-        id: 'stream-agent',
-        getTools: () => parentTools,
-        getFilteredTools: () => parentTools,
-        getRegisteredToolSets: () => [],
-        handler: async () => {},
-      };
-      ts.onAttach?.(parent);
-      // Main-session filter run records session ownership.
-      ts.onFilterTools!(makeCtx('s-main', 'stream-agent'), parentTools);
-      // Sub-agent conversation filter run �?grants read_file + write_file only.
-      ts.onFilterTools!(
-        makeCtx('s-main', 'researcher', 'conv-1'),
-        [makeTool('read_file', 'Read a file from disk'), makeTool('write_file', 'Write a file to disk')],
-      );
-      const tools = typeof ts.tools === 'function' ? ts.tools() : ts.tools;
-      const search = tools.find((t) => t.name === 'tool_search')!;
-      return { ts, search };
-    }
-
-    const SUB_CTX = () => makeExecCtx('s-main', 'researcher', 'conv-1');
-
-    it('RISK-R1: must not leak parent-only tools to a restricted sub-agent', async () => {
-      const { search } = makeRestrictedParent();
-      const result = await search.execute({ query: 'git commit' }, SUB_CTX());
-      // The sub-agent was only granted read_file/write_file �?searching for
-      // git_commit must return nothing, not the parent's tool + schema.
-      expect(result.total).toBe(0);
-      expect(result.top).toBeNull();
-    });
-
-    it('RISK-R1: must not leak browser tools with full schemas either', async () => {
-      const { search } = makeRestrictedParent();
-      const result = await search.execute({ query: 'browser launch' }, SUB_CTX());
-      expect(result.total).toBe(0);
-      expect(result.top).toBeNull();
-    });
-
-    it('RISK-R2: every result must be inside the sub-agent allow-list (executable)', async () => {
-      const { search } = makeRestrictedParent();
-      const granted = new Set(['read_file', 'write_file', 'tool_search']);
-      const result = await search.execute({ query: 'file' }, SUB_CTX());
-      expect(result.total).toBeGreaterThan(0);
-      const found = [result.top?.name, ...(result.others ?? []).map((o) => o.name)]
-        .filter((n): n is string => typeof n === 'string');
-      // Searching for "file" only surfaces granted tools �?never git/browser.
-      for (const name of found) {
-        expect(granted.has(name)).toBe(true);
-      }
-    });
-
-    it('RISK-R3: tools outside the allow-list stay hidden even when parent-disabled', async () => {
-      const { ts, search } = makeRestrictedParent();
-      // Parent disables git_commit at the main scope.
-      ts.toggleTool(makeCtx('s-main', 'stream-agent'), 'git_commit');
-      const result = await search.execute({ query: 'git commit' }, SUB_CTX());
-      expect(result.total).toBe(0);
-      expect(result.top).toBeNull();
-    });
-
-    it('RISK-R4: a granted tool stays searchable by the sub-agent', async () => {
-      const { search } = makeRestrictedParent();
-      const result = await search.execute({ query: 'write file' }, SUB_CTX());
-      expect(result.top?.name).toBe('write_file');
-    });
-
-    it('RISK-R5: deferred-tool guidance lists only sub-agent granted tools', () => {
-      const ts = createToolStateToolSet();
-      const parentTools = [
-        makeTool('read_file', 'Read a file from disk'),
-        makeTool('write_file', 'Write a file to disk'),
-        makeTool('git_commit', 'Create a git commit'),
-        makeTool('browser_launch', 'Launch a browser'),
-      ];
-      const parent: AgentQueryFns = {
-        id: 'stream-agent',
-        getTools: () => parentTools,
-        getFilteredTools: () => parentTools,
-        getRegisteredToolSets: () => [],
-        handler: async () => {},
-      };
-      ts.onAttach?.(parent);
-      ts.onFilterTools!(makeCtx('s-main', 'stream-agent'), parentTools);
-      // Sub-agent granted only file tools — its filter run caches its pool.
-      ts.onFilterTools!(
-        makeCtx('s-main', 'researcher', 'conv-1'),
-        [makeTool('read_file', 'Read a file from disk'), makeTool('write_file', 'Write a file to disk')],
-      );
-
-      const prompt = ts.onGetSystemPrompt?.(
-        makeCtx('s-main', 'researcher', 'conv-1'),
-        { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
-        [],
-      ) ?? '';
-      expect(prompt).not.toContain('git_commit');
-      expect(prompt).not.toContain('browser_launch');
-      expect(prompt).toContain('read_file');
-      expect(prompt).toContain('write_file');
-    });
-  });
-
-  // ── onFilterTools ──────────────────────────────────────────────────────────
-
-  it('onFilterTools returns all tools when nothing is disabled and below threshold', () => {
+  it('enabled tools appear in the NEXT filter run', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    const tools = [makeTool('t1'), makeTool('t2')];
-    const filtered = ts.onFilterTools!(ctx, tools);
-    expect(filtered).toHaveLength(2);
+    ts.onFilterTools!(ctx, POOL());
+    ts.toggleTool(ctx, 'alpha');
+    const filtered = ts.onFilterTools!(ctx, POOL());
+    expect(filtered.map((t: Tool) => t.name).sort()).toEqual(['alpha', MANAGE_TOOLS_NAME]);
   });
 
-  it('onFilterTools excludes disabled tools', () => {
+  it('scopes are isolated: enabling in one session does not affect another', () => {
     const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('t1'), makeTool('t2'), makeTool('t3')];
-    ts.onFilterTools!(ctx, tools);
-    ts.toggleTool(ctx, 't2');
-    const filtered = ts.onFilterTools!(ctx, tools);
-    expect(filtered.map((t: Tool) => t.name)).not.toContain('t2');
-    expect(filtered.map((t: Tool) => t.name)).toContain('t1');
-    expect(filtered.map((t: Tool) => t.name)).toContain('t3');
-  });
-
-  it('onFilterTools defers non-core tools when above threshold', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    // Attach agent with a ToolSet declaring core tools
-    ts.onAttach?.({
-      getTools: () => [],
-      getRegisteredToolSets: () => [{ coreTools: ['core_a', 'core_b'] } as ToolSet],
-    } as AgentQueryFns);
-
-    const tools = Array.from({ length: TOOL_SEARCH_THRESHOLD + 5 }, (_, i) =>
-      makeTool(i < 2 ? `core_${String.fromCharCode(97 + i)}` : `deferred_${i}`),
-    );
-    const filtered = ts.onFilterTools!(ctx, tools);
-    // Only core tools + tool_search should remain
-    expect(filtered.map((t: Tool) => t.name)).toContain('core_a');
-    expect(filtered.map((t: Tool) => t.name)).toContain('core_b');
-    expect(filtered.every((t: Tool) => !t.name.startsWith('deferred_'))).toBe(true);
+    const ctx1 = makeCtx('s1');
+    const ctx2 = makeCtx('s2');
+    ts.onFilterTools!(ctx1, POOL());
+    ts.onFilterTools!(ctx2, POOL());
+    ts.toggleTool(ctx1, 'alpha');
+    expect(ts.onFilterTools!(ctx1, POOL()).map((t: Tool) => t.name)).toContain('alpha');
+    expect(ts.onFilterTools!(ctx2, POOL()).map((t: Tool) => t.name)).not.toContain('alpha');
   });
 
   // ── toggleTool ─────────────────────────────────────────────────────────────
 
-  it('toggleTool disables an enabled tool', () => {
+  it('toggleTool flips a tool on, then off again', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    ts.toggleTool(ctx, 'echo');
-    ts.onFilterTools!(ctx, [makeTool('echo')]);
-    const state = ts.onGetSymbolState!(ctx);
-    expect(state.toolStates[0].enabled).toBe(false);
+    ts.onFilterTools!(ctx, POOL());
+    ts.toggleTool(ctx, 'alpha');
+    expect(ts.onGetSymbolState!(ctx).toolStates.find((e: ToolStateEntry) => e.name === 'alpha').enabled).toBe(true);
+    ts.toggleTool(ctx, 'alpha');
+    expect(ts.onGetSymbolState!(ctx).toolStates.find((e: ToolStateEntry) => e.name === 'alpha').enabled).toBe(false);
   });
 
-  it('toggleTool re-enables a disabled tool', () => {
+  it('toggleTool refuses to toggle the resident tool', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
-    ts.toggleTool(ctx, 'echo');
-    ts.toggleTool(ctx, 'echo');
-    ts.onFilterTools!(ctx, [makeTool('echo')]);
-    const state = ts.onGetSymbolState!(ctx);
-    expect(state.toolStates[0].enabled).toBe(true);
+    ts.onFilterTools!(ctx, POOL());
+    ts.toggleTool(ctx, MANAGE_TOOLS_NAME);
+    // Still visible — resident tools are immune to panel toggling.
+    expect(ts.onGetSymbolState!(ctx).toolStates.find((e: ToolStateEntry) => e.name === MANAGE_TOOLS_NAME).enabled).toBe(true);
   });
 
-  // ── onInit ──────────────────────────────────────────────────────────────────
-
-  it('onInit restores disabled tools from entryData.toolStates', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx('s1');
-    ts.onInit!(ctx, { id: 's1', title: 'T', toolStates: { echo: false, search: true } });
-    ts.onFilterTools!(ctx, [makeTool('echo'), makeTool('search')]);
-    const state = ts.onGetSymbolState!(ctx);
-    expect(state.toolStates.find((t) => t.name === 'echo')?.enabled).toBe(false);
-    expect(state.toolStates.find((t) => t.name === 'search')?.enabled).toBe(true);
+  it('toggleTool refuses to toggle a globally-locked tool', () => {
+    const store = createGlobalToolStore();
+    const ts = createToolStateToolSet(store);
+    store.disable('alpha');
+    const ctx = makeCtx();
+    ts.onFilterTools!(ctx, POOL());
+    ts.toggleTool(ctx, 'alpha'); // would enable — refused
+    expect(ts.onGetSymbolState!(ctx).toolStates.find((e: ToolStateEntry) => e.name === 'alpha')).toMatchObject({
+      enabled: false,
+      locked: true,
+    });
   });
 
-  it('onInit ignores missing toolStates', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx('s1');
-    expect(() => ts.onInit!(ctx, { id: 's1', title: 'T' })).not.toThrow();
-    ts.onFilterTools!(ctx, [makeTool('echo')]);
-    const state = ts.onGetSymbolState!(ctx);
-    expect(state.toolStates[0].enabled).toBe(true);
+  // ── manage_tools batch ─────────────────────────────────────────────────────
+
+  describe('manage_tools', () => {
+    it('enables tools atomically and reports the resulting state', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const result = await manageTools(ts).execute({ enable: ['alpha', 'beta'] }, makeExecCtx());
+      expect(result.errors).toEqual([]);
+      expect(result.enabled.sort()).toEqual(['alpha', 'beta', MANAGE_TOOLS_NAME]);
+      expect(result.disabled).toEqual([]);
+      // Visible from the next filter run onwards.
+      expect(ts.onFilterTools!(ctx, POOL())).toHaveLength(3);
+    });
+
+    it('disables previously enabled tools', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      await manageTools(ts).execute({ enable: ['alpha', 'beta'] }, makeExecCtx());
+      const result = await manageTools(ts).execute({ disable: ['beta'] }, makeExecCtx());
+      expect(result.errors).toEqual([]);
+      expect(result.enabled.sort()).toEqual(['alpha', MANAGE_TOOLS_NAME]);
+      expect(result.disabled).toEqual(['beta']);
+    });
+
+    it('rejects unknown names and applies NOTHING (atomic)', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const result = await manageTools(ts).execute({ enable: ['alpha', 'nope'] }, makeExecCtx());
+      expect(result.errors).toEqual(['Unknown tool "nope".']);
+      // The valid half of the batch was NOT applied either.
+      expect(ts.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
+    });
+
+    it('refuses to enable a globally-disabled tool', async () => {
+      const store = createGlobalToolStore();
+      const ts = createToolStateToolSet(store);
+      store.disable('alpha');
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const result = await manageTools(ts).execute({ enable: ['alpha'] }, makeExecCtx());
+      expect(result.errors).toEqual([
+        'Tool "alpha" is globally disabled by the user and cannot be enabled.',
+      ]);
+      expect(ts.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
+    });
+
+    it('refuses to disable the resident tool', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const result = await manageTools(ts).execute({ disable: [MANAGE_TOOLS_NAME] }, makeExecCtx());
+      expect(result.errors).toEqual(['Tool "manage_tools" is resident and cannot be disabled.']);
+    });
+
+    it('treats enabling the resident tool as a harmless no-op', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const result = await manageTools(ts).execute({ enable: [MANAGE_TOOLS_NAME] }, makeExecCtx());
+      expect(result.errors).toEqual([]);
+    });
+
+    it('rejects a name appearing in both enable and disable', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const result = await manageTools(ts).execute({ enable: ['alpha'], disable: ['alpha'] }, makeExecCtx());
+      expect(result.errors).toEqual(['Tool "alpha" appears in both `enable` and `disable`.']);
+      expect(ts.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
+    });
+
+    it('requires at least one name', async () => {
+      const ts = createToolStateToolSet();
+      const result = await manageTools(ts).execute({}, makeExecCtx());
+      expect(result.errors).toEqual(['Provide at least one name in `enable` or `disable`.']);
+      expect(result.enabled).toEqual([]);
+    });
+
+    it('addresses the CALLING scope, not the last attached agent', async () => {
+      // Regression: the UI registers one ToolSet instance on several agents;
+      // manage_tools must mutate the scope of the exec context it was called with.
+      const ts = createToolStateToolSet();
+      const ctxA = makeCtx('sa', 'stream-agent');
+      const ctxB = makeCtx('sb', 'async-agent');
+      ts.onFilterTools!(ctxA, POOL());
+      ts.onFilterTools!(ctxB, POOL());
+      await manageTools(ts).execute({ enable: ['alpha'] }, makeExecCtx('sa', 'stream-agent'));
+      expect(ts.onFilterTools!(ctxA, POOL()).map((t: Tool) => t.name)).toContain('alpha');
+      expect(ts.onFilterTools!(ctxB, POOL()).map((t: Tool) => t.name)).not.toContain('alpha');
+    });
+
+    it('notifies subscribers so panels refresh after a batch', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const fn = vi.fn();
+      ts.onSubscribe!(ctx, fn);
+      await manageTools(ts).execute({ enable: ['alpha'] }, makeExecCtx());
+      expect(fn).toHaveBeenCalled();
+    });
   });
 
-  // ── onRemove ────────────────────────────────────────────────────────────────
+  // ── Snapshot persist / restore ─────────────────────────────────────────────
 
-  it('onRemove clears disabled state for the session', () => {
+  describe('persistence', () => {
+    it('onBuildSnapshot returns {} for a scope with no pool and no state', () => {
+      const ts = createToolStateToolSet();
+      expect(ts.onBuildSnapshot!(makeCtx())).toEqual({});
+    });
+
+    it('onBuildSnapshot records enabled=true, disabled=false, resident=true', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      ts.toggleTool(ctx, 'alpha');
+      const snap = ts.onBuildSnapshot!(ctx);
+      expect(snap.toolStates).toEqual({
+        [MANAGE_TOOLS_NAME]: true,
+        alpha: true,
+        beta: false,
+      });
+    });
+
+    it('onBuildSnapshot keeps enabled names that are outside the cached pool', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onInit!(ctx, { id: 'session-1', toolStates: { ghost: true } });
+      const snap = ts.onBuildSnapshot!(ctx);
+      expect(snap.toolStates).toEqual({ ghost: true });
+    });
+
+    it('onInit restores the saved enabled set (default-off only without state)', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onInit!(ctx, { id: 'session-1', toolStates: { alpha: true, beta: false } });
+      const filtered = ts.onFilterTools!(ctx, POOL());
+      expect(filtered.map((t: Tool) => t.name).sort()).toEqual(['alpha', MANAGE_TOOLS_NAME]);
+    });
+
+    it('onInit without toolStates leaves the scope fully off', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      expect(() => ts.onInit!(ctx, { id: 'session-1' })).not.toThrow();
+      expect(ts.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
+    });
+
+    it('round-trip: snapshot from one ToolSet restores identically in the next', () => {
+      const ts1 = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts1.onFilterTools!(ctx, POOL());
+      ts1.toggleTool(ctx, 'beta');
+      const snap = ts1.onBuildSnapshot!(ctx);
+
+      const ts2 = createToolStateToolSet();
+      ts2.onInit!(ctx, { id: 'session-1', ...snap });
+      expect(ts2.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name).sort()).toEqual([
+        'beta',
+        MANAGE_TOOLS_NAME,
+      ]);
+    });
+  });
+
+  it('onRemove clears every per-scope map entry', () => {
     const ts = createToolStateToolSet();
-    const ctx = makeCtx('s1');
-    const tools = [makeTool('echo')];
-    ts.onFilterTools!(ctx, tools);
-    ts.toggleTool(ctx, 'echo');
+    const ctx = makeCtx();
+    ts.onFilterTools!(ctx, POOL());
+    ts.toggleTool(ctx, 'alpha');
     ts.onRemove!(ctx);
-    const state = ts.onGetSymbolState!(ctx, { tools });
-    expect(state.toolStates[0].enabled).toBe(true);
+    // Fresh scope again: only the resident tool survives the filter.
+    expect(ts.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
   });
 
-  it('onRemove does not affect other sessions', () => {
-    const ts = createToolStateToolSet();
-    const ctx1 = makeCtx('s1');
-    const ctx2 = makeCtx('s2');
-    ts.onFilterTools!(ctx1, [makeTool('echo')]);
-    ts.toggleTool(ctx1, 'echo');
-    ts.onFilterTools!(ctx2, [makeTool('search')]);
-    ts.toggleTool(ctx2, 'search');
-    ts.onRemove!(ctx1);
-    const state2 = ts.onGetSymbolState!(ctx2);
-    expect(state2.toolStates.find((t) => t.name === 'search')?.enabled).toBe(false);
-  });
+  // ── onGetSymbolState (session panel data) ─────────────────────────────────
 
-  // ── onGetSymbolState ───────────────────────────────────────────────────────
+  describe('onGetSymbolState', () => {
+    it('lists every pool tool with enabled/locked/resident flags', () => {
+      const store = createGlobalToolStore();
+      const ts = createToolStateToolSet(store);
+      store.disable('beta');
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      ts.toggleTool(ctx, 'alpha');
+      const state = ts.onGetSymbolState!(ctx);
+      const byName = Object.fromEntries(state.toolStates.map((e: ToolStateEntry) => [e.name, e]));
+      expect(byName[MANAGE_TOOLS_NAME]).toMatchObject({ enabled: true, locked: false, resident: true });
+      expect(byName.alpha).toMatchObject({ enabled: true, locked: false, resident: false, group: undefined });
+      expect(byName.beta).toMatchObject({ enabled: false, locked: true, resident: false, group: 'Git' });
+    });
 
-  it('onGetSymbolState returns toolStates with enabled=true for all tools', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('echo'), makeTool('search')];
-    const state = ts.onGetSymbolState!(ctx, { tools });
-    expect(state.toolStates.find((t) => t.name === 'echo')?.enabled).toBe(true);
-    expect(state.toolStates.find((t) => t.name === 'search')?.enabled).toBe(true);
-  });
+    it('falls back to the cached pool when stateCtx.tools is absent', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      expect(ts.onGetSymbolState!(ctx).toolStates).toHaveLength(3);
+    });
 
-  it('onGetSymbolState marks disabled tools with enabled=false', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('echo'), makeTool('search')];
-    ts.onFilterTools!(ctx, tools);
-    ts.toggleTool(ctx, 'echo');
-    const state = ts.onGetSymbolState!(ctx, { tools });
-    expect(state.toolStates.find((t) => t.name === 'echo')?.enabled).toBe(false);
-    expect(state.toolStates.find((t) => t.name === 'search')?.enabled).toBe(true);
-  });
-
-  it('onGetSymbolState includes group in each entry', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('g1', undefined, 'Grp')];
-    const state = ts.onGetSymbolState!(ctx, { tools });
-    expect(state.toolStates[0].group).toBe('Grp');
+    it('exposes a scope-bound toggleTool', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const state = ts.onGetSymbolState!(ctx);
+      state.toggleTool('alpha');
+      expect(ts.onGetSymbolState!(ctx).toolStates.find((e: ToolStateEntry) => e.name === 'alpha').enabled).toBe(true);
+    });
   });
 
   // ── onSubscribe ────────────────────────────────────────────────────────────
 
-  it('onSubscribe fires when a tool is toggled', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const fn = vi.fn();
-    ts.onSubscribe!(ctx, fn);
-    ts.toggleTool(ctx, 'echo');
-    expect(fn).toHaveBeenCalled();
-  });
-
-  it('onSubscribe returns an unsubscribe function', () => {
+  it('onSubscribe fires on toggle and stops after unsubscribe', () => {
     const ts = createToolStateToolSet();
     const ctx = makeCtx();
     const fn = vi.fn();
     const unsub = ts.onSubscribe!(ctx, fn);
+    ts.toggleTool(ctx, 'alpha');
+    expect(fn).toHaveBeenCalledTimes(1);
     unsub();
-    ts.toggleTool(ctx, 'echo');
-    expect(fn).not.toHaveBeenCalled();
-  });
-
-  // ── onBuildSnapshot ────────────────────────────────────────────────────────
-
-  it('onBuildSnapshot returns empty object when no tools or state', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const snap = ts.onBuildSnapshot!(ctx);
-    expect(snap).toEqual({});
-  });
-
-  it('onBuildSnapshot persists enabled/disabled states', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('echo'), makeTool('search')];
-    ts.onFilterTools!(ctx, tools);
-    ts.toggleTool(ctx, 'echo');
-    const snap = ts.onBuildSnapshot!(ctx);
-    expect(snap.toolStates?.['echo']).toBe(false);
-    expect(snap.toolStates?.['search']).toBe(true);
-  });
-
-  // ── scope isolation ────────────────────────────────────────────────────────
-
-  it('different sessions have independent disabled sets', () => {
-    const ts = createToolStateToolSet();
-    const ctx1 = makeCtx('s1');
-    const ctx2 = makeCtx('s2');
-    ts.onFilterTools!(ctx1, [makeTool('echo')]);
-    ts.toggleTool(ctx1, 'echo');
-    ts.onFilterTools!(ctx2, [makeTool('echo')]);
-    const state2 = ts.onGetSymbolState!(ctx2);
-    expect(state2.toolStates[0].enabled).toBe(true);
+    ts.toggleTool(ctx, 'beta');
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 
   // ── onBeforeToolExecute ────────────────────────────────────────────────────
 
-  it('onBeforeToolExecute blocks disabled tools with a failure result', async () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    ts.onFilterTools!(ctx, [makeTool('echo')]);
-    ts.toggleTool(ctx, 'echo');
-    const tool = makeTool('echo');
-    const execCtx = makeExecCtx();
-    const intercept = await ts.onBeforeToolExecute!(ctx, 'echo', tool, {}, execCtx);
-    expect(intercept).toEqual({
-      allow: false,
-      result: {
-        toolCallId: 'call_00_test123',
-        name: 'echo',
-        result: { ok: false, error: 'Tool "echo" is currently disabled.' },
-      },
+  describe('onBeforeToolExecute', () => {
+    it('blocks a never-enabled tool with the exact failure result', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const intercept = await ts.onBeforeToolExecute!(ctx, 'alpha', makeTool('alpha'), {}, makeExecCtx());
+      expect(intercept).toEqual({
+        allow: false,
+        result: {
+          toolCallId: 'call_00_test123',
+          name: 'alpha',
+          result: { ok: false, error: 'Tool "alpha" is currently disabled.' },
+        },
+      });
     });
-  });
 
-  it('onBeforeToolExecute allows enabled tools through', async () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tool = makeTool('echo');
-    const execCtx = makeExecCtx();
-    const intercept = await ts.onBeforeToolExecute!(ctx, 'echo', tool, {}, execCtx);
-    expect(intercept).toEqual({ allow: true });
-  });
+    it('allows the resident tool and enabled tools through', async () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      expect(await ts.onBeforeToolExecute!(ctx, MANAGE_TOOLS_NAME, makeTool(MANAGE_TOOLS_NAME), {}, makeExecCtx())).toEqual({ allow: true });
+      ts.toggleTool(ctx, 'alpha');
+      expect(await ts.onBeforeToolExecute!(ctx, 'alpha', makeTool('alpha'), {}, makeExecCtx())).toEqual({ allow: true });
+    });
 
-  it('onBeforeToolExecute is per-session isolated', async () => {
-    const ts = createToolStateToolSet();
-    const ctx1 = makeCtx('s1');
-    const ctx2 = makeCtx('s2');
-    ts.onFilterTools!(ctx1, [makeTool('echo')]);
-    ts.toggleTool(ctx1, 'echo');
-    const tool = makeTool('echo');
-    const execCtx = makeExecCtx();
-    const intercept = await ts.onBeforeToolExecute!(ctx2, 'echo', tool, {}, execCtx);
-    expect(intercept).toEqual({ allow: true });
-  });
-
-  it('re-enabling a disabled tool allows it to execute again', async () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    ts.onFilterTools!(ctx, [makeTool('echo')]);
-    ts.toggleTool(ctx, 'echo');
-    ts.toggleTool(ctx, 'echo');
-    const tool = makeTool('echo');
-    const execCtx = makeExecCtx();
-    const intercept = await ts.onBeforeToolExecute!(ctx, 'echo', tool, {}, execCtx);
-    expect(intercept).toEqual({ allow: true });
+    it('blocks a globally-locked tool even when enabled at the scope', async () => {
+      const store = createGlobalToolStore();
+      const ts = createToolStateToolSet(store);
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      ts.toggleTool(ctx, 'alpha');
+      store.disable('alpha'); // locked AFTER being enabled
+      const intercept = await ts.onBeforeToolExecute!(ctx, 'alpha', makeTool('alpha'), {}, makeExecCtx());
+      expect(intercept).toMatchObject({ allow: false });
+    });
   });
 
   // ── onGetSystemPrompt ──────────────────────────────────────────────────────
 
-  it('onGetSystemPrompt returns guidance when deferred tools exist', () => {
-    const ts = createToolStateToolSet();
-    ts.onAttach?.({
-      getTools: () => Array.from({ length: TOOL_SEARCH_THRESHOLD + 5 }, (_, i) => makeTool(`tool_${i}`)),
-      getRegisteredToolSets: () => [],
-    } as unknown as AgentQueryFns);
+  describe('onGetSystemPrompt', () => {
+    it('lists hidden enable-able tools grouped with truncated descriptions', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      const pool = [
+        makeTool(MANAGE_TOOLS_NAME),
+        makeTool('alpha', 'Does alpha things', 'Files'),
+        makeTool('beta', 'B'.repeat(DESCRIPTION_LIMIT + 30), 'Files'),
+      ];
+      ts.onFilterTools!(ctx, pool);
+      ts.toggleTool(ctx, 'alpha'); // now visible → leaves the catalogue
 
-    const result = ts.onGetSystemPrompt?.(
-      makeCtx(),
-      { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
-      [],
-    );
-    expect(result).toContain('Available Deferred Tools');
+      const out = ts.onGetSystemPrompt!(ctx, makePromptCtx(), []) ?? '';
+      expect(out).toContain(TOOL_STATE_GUIDANCE);
+      expect(out).toContain('`beta`');
+      expect(out).toContain('- **Files**');
+      expect(out).not.toContain('`alpha`'); // enabled tools are not listed
+      expect(out).not.toContain('  - `manage_tools`'); // resident never appears in the catalogue
+      // Long description truncated to DESCRIPTION_LIMIT chars inside the line.
+      expect(out).toContain('…');
+      expect(out).not.toContain('B'.repeat(DESCRIPTION_LIMIT + 1));
+    });
+
+    it('excludes globally-locked tools from the catalogue', () => {
+      const store = createGlobalToolStore();
+      const ts = createToolStateToolSet(store);
+      store.disable('beta');
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      const out = ts.onGetSystemPrompt!(ctx, makePromptCtx(), []) ?? '';
+      expect(out).toContain('`alpha`');
+      expect(out).not.toContain('`beta`');
+    });
+
+    it('returns undefined when nothing enable-able is hidden', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      ts.toggleTool(ctx, 'alpha');
+      ts.toggleTool(ctx, 'beta');
+      expect(ts.onGetSystemPrompt!(ctx, makePromptCtx(), [])).toBeUndefined();
+    });
+
+    it('suppresses the prompt of fully-hidden ToolSets only', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      ts.onFilterTools!(ctx, POOL());
+      ts.toggleTool(ctx, 'alpha');
+
+      const hiddenSet = { name: 'Hidden', tools: [makeTool('beta')] } as unknown as ToolSet;
+      const partialSet = { name: 'Partial', tools: [makeTool('alpha'), makeTool('nope')] } as unknown as ToolSet;
+      const emptySet = { name: 'Empty', tools: [] } as unknown as ToolSet;
+      const selfSet = { name: 'ToolState', tools: [makeTool(MANAGE_TOOLS_NAME)] } as unknown as ToolSet;
+      const promptCtx = makePromptCtx();
+
+      ts.onGetSystemPrompt!(ctx, promptCtx, [hiddenSet, partialSet, emptySet, selfSet]);
+      expect(promptCtx.suppressToolSetPrompt).toHaveBeenCalledWith('Hidden');
+      expect(promptCtx.suppressToolSetPrompt).not.toHaveBeenCalledWith('Partial');
+      expect(promptCtx.suppressToolSetPrompt).not.toHaveBeenCalledWith('Empty');
+      expect(promptCtx.suppressToolSetPrompt).not.toHaveBeenCalledWith('ToolState');
+    });
+
+    it('handles factory-function descriptions in the catalogue', () => {
+      const ts = createToolStateToolSet();
+      const ctx = makeCtx();
+      const tool: Tool = {
+        name: 'dyn',
+        description: () => 'dynamic description',
+        parameters: z.object({}),
+        execute: async () => null,
+      };
+      ts.onFilterTools!(ctx, [makeTool(MANAGE_TOOLS_NAME), tool]);
+      const out = ts.onGetSystemPrompt!(ctx, makePromptCtx(), []) ?? '';
+      expect(out).toContain('`dyn` — dynamic description');
+    });
   });
 
-  it('onGetSystemPrompt excludes disabled tools from deferred listing', () => {
-    const ts = createToolStateToolSet();
-    const ctx = makeCtx();
-    const tools = [makeTool('core_tool'), makeTool('disabled_deferred'), makeTool('enabled_deferred')];
-    ts.onAttach?.({
-      getTools: () => tools,
-      getRegisteredToolSets: () => [{ coreTools: ['core_tool'] } as ToolSet],
-    } as unknown as AgentQueryFns);
-    ts.onFilterTools!(ctx, tools);
-    ts.toggleTool(ctx, 'disabled_deferred');
+  // ── Multi-agent pool union ─────────────────────────────────────────────────
 
-    const result = ts.onGetSystemPrompt?.(
-      ctx,
-      { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
-      [],
-    );
-    expect(result).toContain('enabled_deferred');
-    expect(result).not.toContain('disabled_deferred');
-    expect(result).not.toContain('core_tool');
-  });
-
-  it('onGetSystemPrompt returns undefined when no deferred tools', () => {
+  it('getToolPool unions the tools of every attached agent, deduped by name', () => {
     const ts = createToolStateToolSet();
     ts.onAttach?.({
-      getTools: () => [makeTool('tool_search')],
+      id: 'stream',
+      getTools: () => [makeTool('a'), makeTool('shared')],
       getRegisteredToolSets: () => [],
     } as unknown as AgentQueryFns);
+    ts.onAttach?.({
+      id: 'async',
+      getTools: () => [makeTool('b'), makeTool('shared')],
+      getRegisteredToolSets: () => [],
+    } as unknown as AgentQueryFns);
+    expect(ts.getToolPool().map((t: Tool) => t.name).sort()).toEqual(['a', 'b', 'shared']);
+  });
 
-    const result = ts.onGetSystemPrompt?.(
-      makeCtx(),
-      { userMessage: undefined, baseSystemPrompt: undefined, currentSystemPromptParts: [], suppressToolSetPrompt: vi.fn() },
-      [],
-    );
-    expect(result).toBeUndefined();
+  it('manage_tools falls back to the global pool before any filter run', async () => {
+    const ts = createToolStateToolSet();
+    ts.onAttach?.({
+      id: 'main',
+      getTools: () => [makeTool(MANAGE_TOOLS_NAME), makeTool('zeta')],
+      getRegisteredToolSets: () => [],
+    } as unknown as AgentQueryFns);
+    // No onFilterTools yet — batch validation uses the union pool.
+    const result = await manageTools(ts).execute({ enable: ['zeta'] }, makeExecCtx());
+    expect(result.errors).toEqual([]);
+    expect(result.enabled).toContain('zeta');
   });
 });
 
+// ── Global (toolButton) lock ─────────────────────────────────────────────────
+
+describe('global tool store', () => {
+  it('toggle flips state, notifies subscribers, returns new disabled flag', () => {
+    const store = createGlobalToolStore();
+    const fn = vi.fn();
+    const unsub = store.subscribe(fn);
+    expect(store.toggle('a')).toBe(true);
+    expect(store.isDisabled('a')).toBe(true);
+    expect(store.toggle('a')).toBe(false);
+    expect(store.isDisabled('a')).toBe(false);
+    expect(fn).toHaveBeenCalledTimes(2);
+    unsub();
+    store.toggle('a');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('disable/enable/setDisabled are idempotent and only notify on change', () => {
+    const store = createGlobalToolStore();
+    const fn = vi.fn();
+    store.subscribe(fn);
+    store.disable('a');
+    store.disable('a');
+    expect(fn).toHaveBeenCalledTimes(1);
+    store.setDisabled(['a', 'b']);
+    expect(store.getDisabled()).toEqual(['a', 'b']);
+    store.setDisabled(['b', 'a']); // same set, no change
+    expect(fn).toHaveBeenCalledTimes(2);
+    store.enable('a');
+    expect(store.size()).toBe(1);
+  });
+
+  it('the resident tool can never enter the disabled set', () => {
+    const store = createGlobalToolStore();
+    store.disable(MANAGE_TOOLS_NAME);
+    expect(store.isDisabled(MANAGE_TOOLS_NAME)).toBe(false);
+    expect(store.toggle(MANAGE_TOOLS_NAME)).toBe(false);
+    store.setDisabled([MANAGE_TOOLS_NAME, 'a']);
+    expect(store.getDisabled()).toEqual(['a']);
+  });
+});
+
+describe('toolButton bridge', () => {
+  it('lists the global pool WITHOUT the resident tool', () => {
+    const store = createGlobalToolStore();
+    const pool = [makeTool(MANAGE_TOOLS_NAME), makeTool('a', 'A tool', 'G1'), makeTool('b')];
+    const bridge = createToolStateBridge(store, () => pool);
+    store.disable('b');
+    const states = bridge.getGlobalToolStates();
+    expect(states).toHaveLength(2);
+    expect(states.find((s) => s.name === 'a')).toMatchObject({ enabled: true, group: 'G1' });
+    expect(states.find((s) => s.name === 'b')?.enabled).toBe(false);
+    expect(states.some((s) => s.name === MANAGE_TOOLS_NAME)).toBe(false);
+    expect(bridge.getGlobalDisabledCount()).toBe(1);
+    expect(bridge.isGloballyDisabled('b')).toBe(true);
+  });
+
+  it('toggleGlobal / setGlobalDisabled / subscribeGlobal proxy the store', () => {
+    const store = createGlobalToolStore();
+    const bridge = createToolStateBridge(store, () => []);
+    const fn = vi.fn();
+    bridge.subscribeGlobal(fn);
+    expect(bridge.toggleGlobal('x')).toBe(true);
+    expect(bridge.getGlobalDisabled()).toEqual(['x']);
+    bridge.setGlobalDisabled([]);
+    expect(store.size()).toBe(0);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('global lock enforcement in ToolSet', () => {
+  function makeLockedSet() {
+    const store = createGlobalToolStore();
+    const ts = createToolStateToolSet(store);
+    return { store, ts };
+  }
+
+  it('onFilterTools removes globally-disabled tools in EVERY scope', () => {
+    const { store, ts } = makeLockedSet();
+    store.disable('alpha');
+    const expect1 = ts.onFilterTools!(makeCtx('s1'), POOL()).map((t: Tool) => t.name);
+    const expect2 = ts.onFilterTools!(makeCtx('s2'), POOL()).map((t: Tool) => t.name);
+    expect(expect1).toEqual([MANAGE_TOOLS_NAME]);
+    expect(expect2).toEqual([MANAGE_TOOLS_NAME]);
+  });
+
+  it('a global disable refreshes every subscribed scope', () => {
+    const { store, ts } = makeLockedSet();
+    const fn1 = vi.fn();
+    const fn2 = vi.fn();
+    ts.onSubscribe!(makeCtx('s1'), fn1);
+    ts.onSubscribe!(makeCtx('s2'), fn2);
+    store.disable('alpha');
+    expect(fn1).toHaveBeenCalledTimes(1);
+    expect(fn2).toHaveBeenCalledTimes(1);
+  });
+
+  it('resuming a saved session keeps enabled names that were later locked out', () => {
+    const { store, ts } = makeLockedSet();
+    const ctx = makeCtx();
+    ts.onInit!(ctx, { id: 'session-1', toolStates: { alpha: true } });
+    store.disable('alpha');
+    // Lock wins over the restored enabled set — visibility is derived, not stored.
+    expect(ts.onFilterTools!(ctx, POOL()).map((t: Tool) => t.name)).toEqual([MANAGE_TOOLS_NAME]);
+  });
+});
+
+// ── Slot declarations ────────────────────────────────────────────────────────
+
+describe('slot declarations', () => {
+  it('declares a panel slot and a session-independent toolButton slot', () => {
+    const store = createGlobalToolStore();
+    const slots = createToolStateSlots(store);
+    const panel = slots.find((s) => s.type === 'panel');
+    const button = slots.find((s) => s.type === 'toolButton');
+    expect(panel).toBeDefined();
+    expect(button).toMatchObject({ type: 'toolButton', label: 'Tools', showBtn: expect.any(Function) });
+    // Badge counts globally-disabled tools from the closure store — with no
+    // session state at all.
+    expect(button.badge({ sessionId: '', agentName: '', conversationId: '' }, undefined)).toBeNull();
+    store.disable('x');
+    expect(button.badge({ sessionId: '', agentName: '', conversationId: '' }, undefined)).toBe('off 1');
+  });
+});

@@ -364,7 +364,6 @@ export function createSkillToolset(
   const managerToolSet: ToolSet = {
     symbol: SKILL_MANAGER_SYMBOL,
     name: "skill-manager",
-    coreTools: ["list_skills"],
     tools: [
       installSkillTool,
       listSkillsTool,

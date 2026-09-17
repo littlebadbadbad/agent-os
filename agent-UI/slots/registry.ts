@@ -54,7 +54,7 @@ export interface SlotRegistry {
   getByType(type: "inlinePrompt"): ReadonlyArray<SlotEntry<InlinePromptSlotDeclaration>>;
   getByType(type: "headerBar"): ReadonlyArray<SlotEntry<HeaderBarSlotDeclaration>>;
   getByType(type: "toolButton"): ReadonlyArray<SlotEntry<ToolButtonSlotDeclaration>>;
-  getByType(type: "app"): ReadonlyArray<SlotEntry<SlotDeclaration>>;
+  getByType(type: "app"): ReadonlyArray<SlotEntry<AppSlotDeclaration>>;
   getByType(type: "autocomplete"): ReadonlyArray<SlotEntry<AutocompleteSlotDeclaration>>;
   getByType(type: SlotType): ReadonlyArray<SlotEntry<SlotDeclaration>>;
 
@@ -107,7 +107,7 @@ export function createSlotRegistry(slotEntries?: readonly SlotEntry[]): SlotRegi
     },
 
     getForApp(appId: string): readonly SlotDeclaration[] {
-      const result: AppSlotDeclaration[] = [];
+      const result: SlotDeclaration[] = [];
       for (const entry of entries.values()) {
         if (entry.appId === appId) {
           result.push(entry.declaration);

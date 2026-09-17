@@ -71,11 +71,6 @@ describe('createUserInputToolSet — basics', () => {
     expect(tools[0].name).toBe('ask_user');
   });
 
-  it('declares ask_user as core tool', () => {
-    const ts = createUserInputToolSet();
-    expect(ts.coreTools).toContain('ask_user');
-  });
-
   it('onGetSystemPrompt returns detailed usage rules', () => {
     const ts = createUserInputToolSet();
     const prompt = ts.onGetSystemPrompt!();

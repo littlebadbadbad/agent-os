@@ -39,14 +39,6 @@ describe('createPlanToolSet', () => {
     expect(resolveToolSetTools(ts)).toHaveLength(5);
   });
 
-  it('has coreTools covering all five tools', () => {
-    const ts = createPlanToolSet();
-    expect(ts.coreTools).toContain('plan_write');
-    expect(ts.coreTools).toContain('plan_checkpoint');
-    expect(ts.coreTools).toContain('plan_enter');
-    expect(ts.coreTools).toContain('plan_exit');
-    expect(ts.coreTools).toContain('plan_verify');
-  });
 
   // ── plan_write ───────────────────────────────────────────────────────────
 

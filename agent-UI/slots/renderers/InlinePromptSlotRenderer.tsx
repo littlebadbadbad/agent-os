@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { IframeSandbox } from "../IframeSandbox";
 import { getSlotPermissions } from "../iframePermissions";
 import { useSlotHostBridge } from "../hooks/useSlotHostBridge";
-import type { SlotSession, AppSlotDeclaration, SlotDeclaration } from "@agent-type";
+import type { SlotSession, SlotDeclaration } from "@agent-type";
 import { useSlotRegistry, useAppSystem } from "../../app/AppContext";
 
 export interface InlinePromptSlotRendererProps {
@@ -21,7 +21,7 @@ export interface InlinePromptSlotRendererProps {
   readonly session: SlotSession;
   readonly toolSetSymbol: symbol;
   /** Direct declaration for sub-agent slots (bypasses global slotRegistry). */
-  readonly declaration?: AppSlotDeclaration;
+  readonly declaration?: SlotDeclaration;
   readonly className?: string;
 }
 

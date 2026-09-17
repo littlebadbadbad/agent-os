@@ -124,7 +124,6 @@ export function createAppManagerToolSet(appSystem: AppSystem): ToolSet {
   return {
     symbol: APP_MANAGER_TOOLSET_SYMBOL,
     name: "app-manager",
-    coreTools: ["list_apps"],
     tools: [
       listAppsTool,
       enableAppTool,

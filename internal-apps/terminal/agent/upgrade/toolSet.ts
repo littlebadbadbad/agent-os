@@ -78,7 +78,6 @@ export function createUpgradeToolSet(options: UpgradeToolSetOptions): ToolSet {
     name: "upgrade",
     description:
       "Server version querying, upgrade management, dev server, and test runner",
-    coreTools: ["upgrade_get_version"],
     tools,
 
     // ── Session lifecycle ──────────────────────────────────────────────

@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    root: __dirname,
     include: ['__tests__/**/*.test.ts', '__tests__/**/*.test.js'],
     environment: 'node',
     reporters: ['verbose'],

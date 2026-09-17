@@ -5,6 +5,16 @@
   padding: 12px 8px;
 }
 
+.panel-loading {
+  padding: 16px;
+  color: var(--text-muted);
+}
+
+.boot-error {
+  padding: 16px;
+  color: #f87171;
+}
+
 .tools-empty {
   padding: 16px;
   color: var(--text-muted);
@@ -62,7 +72,26 @@
   padding: 6px 8px;
   border-radius: 4px;
   &--disabled { opacity: 0.5; }
+  &--locked {
+    opacity: 0.45;
+    &:hover { background: transparent; }
+  }
+  &--resident {
+    opacity: 0.85;
+  }
   &:hover { background: color-mix(in srgb, var(--text-inverse) 3%, transparent); }
+}
+
+.tool-item-pin {
+  margin-left: 6px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.tool-item-lock {
+  margin-left: 6px;
+  font-size: 10px;
+  vertical-align: middle;
 }
 
 .tool-item-info {
@@ -96,6 +125,10 @@
   flex-shrink: 0;
   transition: background 0.2s;
   &--on { background: var(--primary-light); }
+  &--locked {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 }
 
 .toggle-thumb {

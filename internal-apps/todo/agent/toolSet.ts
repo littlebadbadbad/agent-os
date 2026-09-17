@@ -134,7 +134,6 @@ export function createTodoTools(): ToolSet {
     symbol: TODO_SYMBOL,
     name: 'todo',
     description: 'Task tracking: decompose work into items, mark progress, track completion.',
-    coreTools: ['todo_write', 'todo_read'],
     tools: [todoWrite, todoRead],
 
     onGetSystemPrompt(ctx: ToolSetContext): string | undefined {

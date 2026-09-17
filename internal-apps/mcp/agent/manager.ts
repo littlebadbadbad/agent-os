@@ -646,7 +646,6 @@ export function createMcpToolset(adapter: McpAdapter): McpToolsetBundle {
   const toolset: ToolSet = {
     symbol: MCP_MANAGER_SYMBOL,
     name: 'mcp-manager',
-    coreTools: ['list_mcp_servers'],
     tools: [
       listMcpServers,
       addMcpServer,

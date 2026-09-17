@@ -177,11 +177,6 @@ export function createSubAgentToolset(
 
   const base = {
     name: `subagent-${suffix}`,
-    coreTools: [
-      `create_${suffix}_subagent`,
-      `send_${suffix}_message`,
-      `delegate_${suffix}_task`,
-    ],
     tools: allTools,
 
     // ── Lifecycle hooks ────────────────────────────────────────────────

@@ -55,7 +55,6 @@ export function createVariableToolSet(options: VariableToolSetOptions = {}): Too
   return {
     name: 'variable',
     symbol: VARIABLE_SYMBOL,
-    coreTools: ['var_write', 'var_overview', 'var_explore'],
     tools: [...tools],
 
     onResolveToolArgs(ctx: ToolSetContext, toolName: string, args: Record<string, unknown>) {

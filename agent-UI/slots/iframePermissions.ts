@@ -12,7 +12,7 @@
  * becomes real iframe attributes — IframeSandbox just applies the result.
  */
 
-import type { AppSlotDeclaration, SlotDeclaration } from "@agent-type";
+import type { SlotDeclaration } from "@agent-type";
 
 /** Features that additionally require a sandbox token on sandboxed iframes. */
 const SANDBOX_TOKENS: Readonly<Record<string, string>> = {
@@ -73,7 +73,7 @@ export function buildIframePermissions(permissions: readonly string[]): IframePe
  * back to {@link DEFAULT_IFRAME_PERMISSIONS}.
  */
 export function getSlotPermissions(
-  declaration: AppSlotDeclaration | undefined,
+  declaration: SlotDeclaration | undefined,
 ): readonly string[] | undefined {
   return declaration !== undefined && "permissions" in declaration
     ? declaration.permissions

@@ -3,6 +3,17 @@ export interface ToolStateEntry {
   readonly name: string;
   readonly description: string;
   readonly enabled: boolean;
+  /**
+   * True when the tool is globally disabled via the toolButton control:
+   * it is force-off in every session and cannot be toggled from a
+   * per-session panel (rendered greyed-out / non-interactive).
+   */
+  readonly locked?: boolean;
+  /**
+   * True for resident tools (e.g. `manage_tools`): always enabled in every
+   * scope and not togglable from any control surface.
+   */
+  readonly resident?: boolean;
   readonly group?: string;
 }
 
@@ -11,28 +22,6 @@ export interface ToolStateSymbolState {
   readonly type: 'toolState';
   readonly toolStates: readonly ToolStateEntry[];
   readonly toggleTool: (name: string) => void;
-}
-
-/** Full detail for the best match — everything the AI needs to invoke the tool. */
-export interface ToolSearchDetail {
-  readonly name: string;
-  readonly description: string;
-  readonly parameters: Record<string, unknown>;
-  readonly score: number;
-}
-
-/** Summary for secondary matches — just enough to decide if it's the right tool. */
-export interface ToolSearchSummary {
-  readonly name: string;
-  readonly description: string;
-  readonly score: number;
-}
-
-/** Result shape returned by `tool_search`. */
-export interface ToolSearchResults {
-  readonly top: ToolSearchDetail | null;
-  readonly others: readonly ToolSearchSummary[];
-  readonly total: number;
 }
 
 // ── Module augmentation ───────────────────────────────────────────────────────

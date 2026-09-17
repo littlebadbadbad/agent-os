@@ -5,7 +5,7 @@
 import type {
   AgentAppHost,
   AppBridge,
-  AppSlotDeclaration,
+  SlotDeclaration,
 } from "@agent-type";
 import { AgentAppContext } from "./host";
 

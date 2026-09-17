@@ -20,7 +20,6 @@ export function createGitToolSet(adapter: GitAdapter): ToolSet {
     name: 'git',
     symbol: GIT_SYMBOL,
     description: 'Git status, diff, log, stage, unstage, commit, and discard operations',
-    coreTools: ['git_status', 'git_diff', 'git_stage', 'git_commit'],
     tools,
     onGetSystemPrompt: () => getSystemPrompt(),
 
