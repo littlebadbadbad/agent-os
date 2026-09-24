@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock env to be Electron IPC at top level (hoisted by vitest)
-vi.mock('../env', () => ({ IS_ELECTRON_IPC: true }));
+vi.mock('../env', () => ({ IS_ELECTRON_IPC: true, IS_DEBUG: false }));
 
 describe('AppApiClient — IPC mode', () => {
   const mockInvoke = vi.fn();

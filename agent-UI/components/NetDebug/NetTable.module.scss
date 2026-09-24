@@ -1,0 +1,148 @@
+// ── NetTable — request list ───────────────────────────────────────────────────
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.scroll {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-xs);
+  table-layout: fixed;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--sp-1) var(--sp-2);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+}
+
+.row,
+.rowSelected {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+
+  td {
+    padding: var(--sp-1) var(--sp-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+
+  &:hover td {
+    background: var(--bg-hover);
+  }
+}
+
+.rowSelected td {
+  background: var(--bg-active);
+}
+
+// Column widths
+.colStatus {
+  width: 26px;
+  text-align: center;
+}
+.colKind {
+  width: 46px;
+}
+.colApp {
+  width: 20%;
+  color: var(--text-secondary) !important;
+}
+.colName {
+  width: auto;
+}
+.colTime {
+  width: 84px;
+  color: var(--text-muted) !important;
+  font-variant-numeric: tabular-nums;
+}
+.colDuration {
+  width: 60px;
+  text-align: right;
+  color: var(--text-secondary) !important;
+  font-variant-numeric: tabular-nums;
+}
+.colSize {
+  width: 90px;
+  text-align: right;
+  color: var(--text-muted) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Status dot ────────────────────────────────────────────────────────────────
+
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+
+  &[data-status='pending'] {
+    background: var(--yellow);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  &[data-status='ok'] {
+    background: var(--green);
+  }
+  &[data-status='error'] {
+    background: var(--red);
+  }
+  &[data-status='live'] {
+    background: var(--blue-light);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  &[data-status='closed'] {
+    background: var(--text-muted);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+// ── Kind badge ────────────────────────────────────────────────────────────────
+
+.kindBadge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+
+  &[data-kind='call'] {
+    background: var(--blue-subtle);
+    color: var(--blue-light);
+  }
+  &[data-kind='stream'] {
+    background: var(--purple-subtle);
+    color: var(--purple);
+  }
+}

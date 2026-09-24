@@ -30,3 +30,23 @@ export const IS_ELECTRON_IPC = detectEnvironment() === 'electron-ipc';
  * True when running as a standalone web app (HTTP backend).
  */
 export const IS_STANDALONE = !IS_ELECTRON_IPC;
+
+/**
+ * True when debug tooling should be enabled.
+ *
+ * Enabled in Vite dev builds (`import.meta.env.DEV`) or when the URL carries
+ * a `?debug` / `?netdebug` query parameter, which lets debug overlays be
+ * surfaced in a production bundle for on-site diagnosis.
+ *
+ * Evaluated once at module load — the value is constant for the app lifetime.
+ */
+export const IS_DEBUG: boolean = (() => {
+  if (import.meta.env.DEV) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    const q = new URLSearchParams(window.location.search);
+    return q.has('debug') || q.has('netdebug');
+  } catch {
+    return false;
+  }
+})();

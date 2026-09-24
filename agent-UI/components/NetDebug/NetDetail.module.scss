@@ -1,0 +1,322 @@
+// ── NetDetail — payload inspector ─────────────────────────────────────────────
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.detail {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--sp-3);
+}
+
+.section {
+  margin-bottom: var(--sp-4);
+}
+
+.sectionTitle {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-2);
+}
+
+.count {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-muted);
+}
+
+// ── Meta grid ─────────────────────────────────────────────────────────────────
+
+.meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metaRow {
+  display: flex;
+  gap: var(--sp-3);
+  font-size: var(--font-sm);
+
+  dt {
+    width: 56px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--text-primary);
+    word-break: break-all;
+  }
+}
+
+.mono {
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+// ── Error box ─────────────────────────────────────────────────────────────────
+
+.errorBox {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-md);
+  background: var(--red-subtle);
+  color: var(--red-light);
+  font-size: var(--font-sm);
+  word-break: break-word;
+}
+
+.errorName {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.stack {
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.25);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.pending {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: var(--font-sm);
+}
+
+// ── Chunk list ────────────────────────────────────────────────────────────────
+
+.chunkList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chunkItem,
+.chunkItemExpanded {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.chunkItemExpanded {
+  border-color: var(--border);
+}
+
+.chunkHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 3px var(--sp-2);
+  background: var(--bg-tertiary);
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.chunkCaret {
+  flex-shrink: 0;
+  width: 10px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.chunkKind {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+
+  &[data-kind='json'] {
+    color: var(--blue-light);
+  }
+  &[data-kind='binary'] {
+    color: var(--orange);
+  }
+  &[data-kind='text'] {
+    color: var(--green-light);
+  }
+}
+
+.chunkIndex {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chunkPreview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+.chunkMeta {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chunkBody {
+  padding: var(--sp-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Live indicator on the section title while a stream is open. */
+.liveDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: var(--sp-2);
+  border-radius: var(--radius-full);
+  background: var(--green);
+  vertical-align: middle;
+  animation: livePulse 1.2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+// ── Stream tabs (aggregate ⇄ frames) ─────────────────────────────────────────
+
+.streamHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-2);
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+
+.tab,
+.tabActive {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-xs);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.tabActive {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+// ── Aggregate body ────────────────────────────────────────────────────────────
+
+.aggBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.fieldBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.fieldChip,
+.fieldChipActive {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+}
+
+.fieldChipActive {
+  border-color: var(--blue);
+  background: var(--blue-subtle);
+  color: var(--blue-light);
+
+  &:hover {
+    color: var(--blue-light);
+    background: var(--blue-subtle);
+  }
+}
+
+.fieldSize {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.aggNote {
+  font-size: var(--font-xs);
+  color: var(--yellow);
+}

@@ -14,7 +14,8 @@
  */
 
 import type { AppApiClient, AppStreamClient } from '@agent-type';
-import { IS_ELECTRON_IPC } from '../env';
+import { IS_DEBUG, IS_ELECTRON_IPC } from '../env';
+import { withNetRecording } from './netLogClient';
 
 // ── Error type ────────────────────────────────────────────────────────────────
 
@@ -104,10 +105,14 @@ export function createAppApiClient(
   const invoke = options?.invoke;
   const on = options?.on;
 
-  if (IS_ELECTRON_IPC || invoke) {
-    return createIpcAppApiClient(appId, invoke, on);
-  }
-  return createHttpAppApiClient(appId);
+  const client =
+    IS_ELECTRON_IPC || invoke
+      ? createIpcAppApiClient(appId, invoke, on)
+      : createHttpAppApiClient(appId);
+
+  // In debug builds, mirror all call()/connectStream() traffic into the
+  // network recorder so the debug panel can inspect it. Zero-cost otherwise.
+  return IS_DEBUG ? withNetRecording(client, appId) : client;
 }
 
 // ── HTTP implementation ───────────────────────────────────────────────────────

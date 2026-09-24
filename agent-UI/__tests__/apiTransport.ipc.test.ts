@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ���� Module-level mocks ����������������������������������������������������������������������������������������������������������������
 
-vi.mock('../env', () => ({ IS_ELECTRON_IPC: true }));
+vi.mock('../env', () => ({ IS_ELECTRON_IPC: true, IS_DEBUG: false }));
 vi.mock('../config', () => ({ BACKEND_URL: '' }));
 
 const mockInvoke = vi.hoisted(() => vi.fn());

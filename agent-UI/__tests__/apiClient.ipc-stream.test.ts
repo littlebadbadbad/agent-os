@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Enable IPC mode so createIpcAppApiClient is used
-vi.mock('../env', () => ({ IS_ELECTRON_IPC: true }));
+vi.mock('../env', () => ({ IS_ELECTRON_IPC: true, IS_DEBUG: false }));
 
 describe('IPC connectStream — lifecycle', () => {
   const mockInvoke = vi.fn<[string, Record<string, unknown>], Promise<unknown>>();

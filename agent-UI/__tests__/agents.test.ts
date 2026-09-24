@@ -52,6 +52,7 @@ vi.mock('../defaultRenderUI', () => ({
 
 vi.mock('../env', () => ({
   IS_ELECTRON_IPC: mockIsElectronIpc,
+  IS_DEBUG: false,
 }));
 
 describe('agents.ts module exports', () => {

@@ -1,0 +1,109 @@
+// ── JsonTree — Chrome-DevTools-style collapsible JSON tree ───────────────────
+// One row per visible node; indentation via repeated nbsp cells. All colours
+// reuse the global dark tokens from agent-UI/styles/global.scss.
+
+$mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+
+.tree {
+  font-family: $mono;
+  font-size: var(--font-xs);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.indent {
+  flex-shrink: 0;
+  white-space: pre;
+  user-select: none;
+}
+
+.gutter {
+  flex-shrink: 0;
+  width: 14px;
+  display: flex;
+  justify-content: center;
+  padding-top: 1px;
+}
+
+.foldBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px;
+  cursor: pointer;
+  border-radius: 3px;
+
+  &:hover {
+    color: var(--blue-light);
+    background: var(--bg-active);
+  }
+}
+
+.line {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  cursor: default;
+}
+
+/* ── Token colours ──────────────────────────────────────────────────────────── */
+
+.key {
+  color: var(--blue-light);
+}
+
+.index {
+  color: var(--purple);
+}
+
+.punct {
+  color: var(--text-secondary);
+}
+
+.tString {
+  color: var(--green-light);
+}
+
+.tNumber {
+  color: var(--orange);
+}
+
+.tPunct {
+  color: var(--text-secondary);
+}
+
+/* ── Fold summary badge ─────────────────────────────────────────────────────── */
+
+.foldBadge {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: $mono;
+  font-size: 10px;
+  line-height: 1.6;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-active);
+  }
+}

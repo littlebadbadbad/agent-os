@@ -1,0 +1,121 @@
+// ── TextViewer — foldable long-text viewer (concatenated stream output) ──────
+
+$mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+
+.wrap {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+}
+
+.toolBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.toolInfo {
+  flex: 1;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-family: $mono;
+}
+
+.body {
+  max-height: 340px;
+  overflow: auto;
+  padding: var(--sp-1) 0;
+}
+
+.block {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: 1px var(--sp-2);
+  cursor: default;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.blockNo {
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+  color: var(--text-muted);
+  font-family: $mono;
+  font-size: 10px;
+  line-height: 1.6;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: $mono;
+  font-size: var(--font-xs);
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview {
+  flex: 1;
+  min-width: 0;
+  font-family: $mono;
+  font-size: var(--font-xs);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  cursor: pointer;
+}
+
+.foldBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: nowrap;
+  user-select: none;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-active);
+  }
+}

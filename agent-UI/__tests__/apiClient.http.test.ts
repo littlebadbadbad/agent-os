@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 // Mock env to NOT be Electron IPC
-vi.mock('../env', () => ({ IS_ELECTRON_IPC: false }));
+vi.mock('../env', () => ({ IS_ELECTRON_IPC: false, IS_DEBUG: false }));
 
 // Mock global fetch
 const mockFetch = vi.fn();
