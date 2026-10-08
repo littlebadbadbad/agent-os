@@ -1,8 +1,0 @@
-在和agent-UI目录平级的目录下，单开一个目录，core-apps，同样使用paths进行引用目录管理，core-apps和internal-apps的区别在于，internal-apps完全是外部应用，每个app都有自己独立的打包脚本；core-apps内的app目录结构与internal-app基本上一致，但是直接import或require所有内部模块，内部模块也可以直接引用core-app中所有的必要模块，与agent-os一起内置打包，现在把散落在代码里的所有core-apps全部提取出来，提取到core-apps
-
-core-apps的结构大致如下：
-1. backend模块（如果有），一个active函数，执行后注册所有该core-app下的#sym:defineApi 以及#sym:defineStream 
-2. agent模块，同样是一个active函数，执行后，注册
-
-有以下core-apps：
-1. 模型 以及 api key 管理

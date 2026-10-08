@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Agent OS">
+  <title>Agent OS</title>
+  <defs>
+    <linearGradient id="ao-badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3AA0FF"/>
+      <stop offset="0.45" stop-color="#0078D4"/>
+      <stop offset="1" stop-color="#00305C"/>
+    </linearGradient>
+    <radialGradient id="ao-glow" cx="0.28" cy="0.18" r="0.9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.30"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ao-edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="ao-mark" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#CFE6FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Badge -->
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#ao-badge)"/>
+  <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#ao-glow)"/>
+  <rect x="5" y="5" width="118" height="118" rx="29" fill="none" stroke="url(#ao-edge)" stroke-width="1.6"/>
+
+  <!-- Orbit: the runtime ring that schedules everything around the agent core.
+       Open at the lower-right — the extension point. -->
+  <path d="M70.6 101.42 A38 38 0 1 1 99.71 76.99"
+        fill="none" stroke="#FFFFFF" stroke-opacity="0.92" stroke-width="4.6" stroke-linecap="round"/>
+
+  <!-- Plugged-in app node, seated exactly in the orbit's gap -->
+  <circle cx="88.43" cy="93.11" r="11" fill="#FFFFFF" fill-opacity="0.18"/>
+  <circle cx="88.43" cy="93.11" r="7" fill="#FFFFFF"/>
+
+  <!-- Agent core: four-point spark, optically centred -->
+  <path d="M64 42 C66.2 56.3 71.7 61.8 86 64 C71.7 66.2 66.2 71.7 64 86 C61.8 71.7 56.3 66.2 42 64 C56.3 61.8 61.8 56.3 64 42 Z"
+        fill="url(#ao-mark)"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Agent OS">
+  <title>Agent OS</title>
+  <defs>
+    <linearGradient id="aof-badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E97F5"/>
+      <stop offset="1" stop-color="#00457F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed with heavier strokes and a larger mark: tuned so the orbit still
+       reads as ~1.4px at 16×16 instead of washing out. -->
+  <rect width="128" height="128" rx="28" fill="url(#aof-badge)"/>
+
+  <path d="M71.29 105.36 A42 42 0 1 1 103.47 78.36"
+        fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="91" cy="96.17" r="12" fill="#FFFFFF"/>
+  <path d="M64 35 C66.9 53.45 74.55 61.1 93 64 C74.55 66.9 66.9 74.55 64 93 C61.1 74.55 53.45 66.9 35 64 C53.45 61.1 61.1 53.45 64 35 Z"
+        fill="#FFFFFF"/>
+</svg>

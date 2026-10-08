@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Agent OS">
+  <title>Agent OS</title>
+  <!-- Single-colour mark. Inherits `color` from the surrounding CSS, so it works
+       on any background: <img> falls back to black, inline SVG follows currentColor. -->
+  <path d="M70.6 101.42 A38 38 0 1 1 99.71 76.99"
+        fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="88.43" cy="93.11" r="7.6" fill="currentColor"/>
+  <path d="M64 42 C66.2 56.3 71.7 61.8 86 64 C71.7 66.2 66.2 71.7 64 86 C61.8 71.7 56.3 66.2 42 64 C56.3 61.8 61.8 56.3 64 42 Z"
+        fill="currentColor"/>
+</svg>

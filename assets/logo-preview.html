@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Agent OS — logo preview</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px;
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    background: #f4f5f7; color: #1b1b1b;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 28px; color: #666; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #888; margin: 32px 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+  .card {
+    background: #fff; border: 1px solid #e3e5e8; border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .card.dark { background: #1e1e1e; border-color: #333; }
+  .card.dark .cap { color: #999; }
+  .cap { font-size: 11px; color: #888; font-variant-numeric: tabular-nums; }
+  .lockup { display: flex; align-items: center; gap: 14px; }
+  .lockup .name { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+  .lockup .name b { font-weight: 600; }
+  .lockup .name span { font-weight: 300; }
+  .mono-blue { color: #0078d4; }
+  .mono-dark { color: #1e1e1e; }
+  .mono-light { color: #ffffff; }
+  .favicon-strip { display: flex; gap: 18px; align-items: center; background: #2b2b2b; padding: 16px 20px; border-radius: 12px; }
+  .favicon-strip .cap { color: #aaa; }
+</style>
+</head>
+<body>
+  <h1>Agent OS — logo exploration</h1>
+  <p class="sub">Primary mark, monochrome variant, and favicon at real render sizes.</p>
+
+  <h2>Primary — app icon sizes</h2>
+  <div class="row">
+    <div class="card"><img src="logo.svg" width="256" height="256" alt=""><div class="cap">256</div></div>
+    <div class="card"><img src="logo.svg" width="128" height="128" alt=""><div class="cap">128</div></div>
+    <div class="card"><img src="logo.svg" width="64" height="64" alt=""><div class="cap">64</div></div>
+    <div class="card"><img src="logo.svg" width="32" height="32" alt=""><div class="cap">32</div></div>
+    <div class="card"><img src="logo.svg" width="16" height="16" alt=""><div class="cap">16</div></div>
+  </div>
+
+  <h2>Favicon — full-bleed variant</h2>
+  <div class="favicon-strip">
+    <img src="favicon.svg" width="64" height="64" alt="">
+    <img src="favicon.svg" width="32" height="32" alt="">
+    <img src="favicon.svg" width="24" height="24" alt="">
+    <img src="favicon.svg" width="16" height="16" alt="">
+    <div class="cap">64 / 32 / 24 / 16 on a browser-chrome background</div>
+  </div>
+
+  <h2>Monochrome — inherits currentColor</h2>
+  <div class="row">
+    <div class="card"><span class="mono-dark"><img src="logo-mono.svg" width="96" height="96" alt=""></span><div class="cap">on light</div></div>
+    <div class="card dark"><span class="mono-light"><img src="logo-mono.svg" width="96" height="96" alt=""></span><div class="cap">on dark (img → black)</div></div>
+    <div class="card"><span class="mono-blue" style="display:block"><img src="logo-mono.svg" width="96" height="96" alt=""></span><div class="cap">brand blue</div></div>
+    <div class="card">
+      <span class="mono-blue" style="display:inline-flex">
+        <svg viewBox="0 0 128 128" width="96" height="96" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M69.9 97.48 A34 34 0 1 1 95.95 75.63" stroke-width="5"/></g>
+          <circle cx="85.85" cy="90.04" r="7" fill="currentColor"/>
+          <path d="M64 44 C66 57 71 62 84 64 C71 66 66 71 64 84 C62 71 57 66 44 64 C57 62 62 57 64 44 Z" fill="currentColor"/>
+        </svg>
+      </span>
+      <div class="cap">inline SVG → true currentColor</div>
+    </div>
+  </div>
+
+  <h2>Lockups</h2>
+  <div class="row">
+    <div class="card">
+      <div class="lockup">
+        <img src="logo.svg" width="56" height="56" alt="">
+        <div class="name"><b>Agent</b> <span>OS</span></div>
+      </div>
+      <div class="cap">horizontal, light</div>
+    </div>
+    <div class="card dark">
+      <div class="lockup">
+        <img src="logo.svg" width="56" height="56" alt="">
+        <div class="name" style="color:#fff"><b>Agent</b> <span style="color:#8fc5f5">OS</span></div>
+      </div>
+      <div class="cap">horizontal, dark</div>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+        <img src="logo.svg" width="72" height="72" alt="">
+        <div class="name" style="font-size:22px"><b>Agent</b> <span>OS</span></div>
+      </div>
+      <div class="cap">stacked</div>
+    </div>
+  </div>
+</body>
+</html>
